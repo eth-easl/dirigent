@@ -1,0 +1,15 @@
+syntax = "proto3";
+
+message RegistrationRequest {
+
+}
+
+message RegistrationResponse {
+
+}
+
+service ClusterManager {
+  rpc RegisterFunction(RegistrationRequest) returns (RegistrationResponse);
+
+  //rpc RegisterNode
+}
