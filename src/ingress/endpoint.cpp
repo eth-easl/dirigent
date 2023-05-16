@@ -4,16 +4,16 @@
 
 #include "endpoint.h"
 
-void master_node::ingress::serve() {
+void ingress::Ingress::startServing() {
     int ingress_fd = socket(AF_INET, SOCK_STREAM, 0);
     if (ingress_fd < 0)
         throw runtime_error("Could not create a socket.");
 
     int opt_value = 1;
     if (setsockopt(ingress_fd, SOL_SOCKET, SO_REUSEADDR | SO_REUSEPORT, &opt_value, sizeof(opt_value)) != 0)
-        throw new runtime_error("Could not set socket options.");
+        throw runtime_error("Could not set socket options.");
 
-    struct sockaddr_in socket_address;
+    struct sockaddr_in socket_address = {};
     socket_address.sin_family = AF_INET;
     socket_address.sin_addr.s_addr = INADDR_ANY;
     socket_address.sin_port = htons(SERVERLESS_RX_PORT);
@@ -50,6 +50,6 @@ void master_node::ingress::serve() {
     shutdown(ingress_fd, SHUT_RDWR);
 }
 
-void master_node::ingress::create_thread_pool() {
+void ingress::Ingress::create_thread_pool() {
     // TODO(lazar): thread pool of connection handlers
 }

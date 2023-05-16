@@ -3,4 +3,16 @@ project(cluster_manager)
 
 set(CMAKE_CXX_STANDARD 17)
 
-add_executable(cluster_manager src/master_node/main.cpp src/master_node/ingress/endpoint.cpp)
+# Include Google Tests
+include(FetchContent)
+FetchContent_Declare(
+        googletest
+        URL https://github.com/google/googletest/archive/refs/tags/v1.13.0.zip
+)
+FetchContent_MakeAvailable(googletest)
+add_library(GTest::GTest INTERFACE IMPORTED)
+
+include_directories(src)
+
+add_subdirectory(src)
+add_subdirectory(tests)

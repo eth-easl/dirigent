@@ -14,16 +14,27 @@
 #include <string>
 #include <vector>
 
+#include "request_buffer.h"
+
 using namespace std;
 
-namespace master_node::ingress {
+namespace ingress {
 
     constexpr uint SERVERLESS_RX_PORT = 9090;
 
+    class Ingress {
 
-    void serve();
+    public:
+        Ingress(const RequestBuffer<byte> &requestBuffer) : requestBuffer(requestBuffer) {}
 
-    void create_thread_pool();
+        void startServing();
+
+    private:
+        const RequestBuffer<byte> &requestBuffer;
+
+        void create_thread_pool();
+
+    };
 
 
 }
