@@ -1,7 +1,6 @@
 #include <iostream>
 
 #include "ingress/endpoint.h"
-#include "ingress/request_buffer.h"
 
 using namespace ingress;
 using namespace std;
@@ -9,10 +8,8 @@ using namespace std;
 //constexpr uint WORKER_METRICS_RX_PORT = 9091;
 
 int main() {
-    RequestBuffer<int> buffer;
-    //Ingress ingress(buffer);
+    spdlog::set_level(spdlog::level::debug);
 
-    //ingress.startServing();
-
-    return 0;
+    Ingress ingress_controller;
+    ingress_controller.start_serving();
 }

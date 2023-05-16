@@ -4,7 +4,7 @@
 
 #include "endpoint.h"
 
-void ingress::Ingress::startServing() {
+void ingress::Ingress::start_serving() {
     int ingress_fd = socket(AF_INET, SOCK_STREAM, 0);
     if (ingress_fd < 0)
         throw runtime_error("Could not create a socket.");
@@ -26,30 +26,17 @@ void ingress::Ingress::startServing() {
     if (listen(ingress_fd, max_connections_allowed) != 0)
         throw runtime_error("Error while listening on a socket.");
 
+    spdlog::info("Ingress running on {}", SERVERLESS_RX_PORT);
+
+    int conn_pool_lb = 0;
     while (true) {
-        int rx_fd = accept(ingress_fd, (struct sockaddr *) &socket_address, (socklen_t *) &socket_address_length);
+        int tx_fd = accept(ingress_fd, (struct sockaddr *) &socket_address, (socklen_t *) &socket_address_length);
 
-        vector<char *> datagram;
-        constexpr int BUFFER_SIZE = 4;
-        char *buf = new char[BUFFER_SIZE];
-        // TODO(lazar): remember to deallocate this memory somewhere
-
-        int bytes_read;
-        while ((bytes_read = read(rx_fd, buf, BUFFER_SIZE)) != 0) {
-            datagram.push_back(buf);
-            cout << string(buf) << endl;
-            buf = new char[BUFFER_SIZE];
-        }
-
-        // TODO(lazar): offload work to a worker thread
-
-        close(rx_fd);
-        break;
+        // conn_metadata object deleted once request processing finished
+        auto *conn_metadata = new client_conn_desc(tx_fd);
+        threadPool.send_message(conn_pool_lb, conn_metadata);
+        conn_pool_lb = (conn_pool_lb + 1) % threadPool.size();
     }
 
     shutdown(ingress_fd, SHUT_RDWR);
-}
-
-void ingress::Ingress::create_thread_pool() {
-    // TODO(lazar): thread pool of connection handlers
 }

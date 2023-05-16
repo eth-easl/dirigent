@@ -6,33 +6,35 @@
 #define CLUSTER_MANAGER_ENDPOINT_H
 
 #include <arpa/inet.h>
-#include <limits.h>
 #include <sys/socket.h>
-#include <unistd.h>
 
+#include <climits>
 #include <iostream>
 #include <string>
 #include <vector>
 
+#include <spdlog/spdlog.h>
+
 #include "request_buffer.h"
+#include "thread_pool.h"
 
 using namespace std;
 
 namespace ingress {
 
     constexpr uint SERVERLESS_RX_PORT = 9090;
+    constexpr int CONNECTION_THREAD_POOL_SIZE = 1;
 
     class Ingress {
 
     public:
-        Ingress(const RequestBuffer<byte> &requestBuffer) : requestBuffer(requestBuffer) {}
+        Ingress() : threadPool(connection_thread_pool(CONNECTION_THREAD_POOL_SIZE)) {}
 
-        void startServing();
+        [[noreturn]]
+        void start_serving();
 
     private:
-        const RequestBuffer<byte> &requestBuffer;
-
-        void create_thread_pool();
+        const connection_thread_pool threadPool;
 
     };
 
