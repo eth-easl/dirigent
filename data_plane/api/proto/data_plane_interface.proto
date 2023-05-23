@@ -1,0 +1,24 @@
+syntax = "proto3";
+package data_plane;
+
+option go_package = "github.com/eth-easl/cluster_manager/data_plane/api/proto";
+
+message DeploymentName {
+  string Name = 1;
+}
+
+message DeploymentEndpointPatch {
+  DeploymentName Deployment = 1;
+  repeated string Endpoints = 2;
+}
+
+message DeploymentUpdateSuccess {
+  bool Success = 1;
+  string Message = 2;
+}
+
+service DpiInterface {
+  rpc AddDeployment(DeploymentName) returns (DeploymentUpdateSuccess);
+  rpc UpdateEndpointList(DeploymentEndpointPatch) returns (DeploymentUpdateSuccess);
+  rpc DeleteDeployment(DeploymentName) returns (DeploymentUpdateSuccess);
+}
