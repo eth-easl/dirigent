@@ -20,7 +20,9 @@ const (
 
 func prepopulate(cache *common.Deployments) {
 	logrus.Debug("Cache prepopulation")
-	cache.AddDeployment("/faas.Executor/Execute")
+
+	name := "/faas.Executor/Execute"
+	cache.AddDeployment(name)
 }
 
 func main() {
@@ -36,7 +38,7 @@ func main() {
 	// function composition <=> [cold start handler -> proxy handler -> forwarded shim handler -> proxy]
 	var composedHandler http.Handler = proxy
 	composedHandler = proxy2.ForwardedShimHandler(composedHandler)
-	composedHandler = proxy2.LoadBalancingHandler(composedHandler)
+	composedHandler = proxy2.LoadBalancingHandler(composedHandler, deploymentCache)
 	composedHandler = proxy2.ColdStartHandler(composedHandler, deploymentCache)
 
 	proxyRxAddress := net.JoinHostPort(Host, ProxyPort)

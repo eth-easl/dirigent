@@ -33,7 +33,7 @@ func (api *apiServer) UpdateEndpointList(_ context.Context, patch *proto.Deploym
 	}
 
 	newURLs := patch.Endpoints
-	deployment.SetUpstreamURL(newURLs)
+	deployment.SetUpstreamURLs(newURLs)
 
 	return &proto.DeploymentUpdateSuccess{
 		Success: true,

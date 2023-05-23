@@ -4,6 +4,7 @@ import (
 	"cluster_manager/common"
 	"github.com/sirupsen/logrus"
 	"net/http"
+	"time"
 )
 
 func getServiceName(r *http.Request) string {
@@ -12,6 +13,8 @@ func getServiceName(r *http.Request) string {
 
 func ColdStartHandler(next http.Handler, cache *common.Deployments) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
+		start := time.Now()
+
 		serviceName := getServiceName(r)
 		logrus.Debug("Invocation for service ", serviceName, " has been received.")
 
@@ -32,5 +35,8 @@ func ColdStartHandler(next http.Handler, cache *common.Deployments) http.Handler
 		}
 
 		next.ServeHTTP(w, r)
+
+		end := time.Now()
+		logrus.Info("Request took ", end.Sub(start).Microseconds(), " μs")
 	}
 }
