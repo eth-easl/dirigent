@@ -16,9 +16,8 @@ type apiServer struct {
 	deployments *common.Deployments
 }
 
-func (api *apiServer) AddDeployment(_ context.Context, name *proto.DeploymentName) (*proto.DeploymentUpdateSuccess, error) {
-	deploymentName := name.GetName()
-	err := api.deployments.AddDeployment(deploymentName)
+func (api *apiServer) AddDeployment(_ context.Context, in *proto.DeploymentName) (*proto.DeploymentUpdateSuccess, error) {
+	err := api.deployments.AddDeployment(in.GetName())
 
 	return &proto.DeploymentUpdateSuccess{
 		Success: err == nil,
@@ -26,8 +25,7 @@ func (api *apiServer) AddDeployment(_ context.Context, name *proto.DeploymentNam
 }
 
 func (api *apiServer) UpdateEndpointList(_ context.Context, patch *proto.DeploymentEndpointPatch) (*proto.DeploymentUpdateSuccess, error) {
-	deploymentName := patch.GetDeployment().GetName()
-	deployment := api.deployments.GetDeployment(deploymentName)
+	deployment := api.deployments.GetDeployment(patch.GetDeployment().GetName())
 	if deployment == nil {
 		return &proto.DeploymentUpdateSuccess{
 			Success: false,

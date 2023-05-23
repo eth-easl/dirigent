@@ -5,7 +5,6 @@ import (
 	"cluster_manager/common"
 	proxy2 "cluster_manager/proxy"
 	net2 "cluster_manager/proxy/net"
-	"cluster_manager/request_buffer"
 	"github.com/sirupsen/logrus"
 	"golang.org/x/net/http2"
 	"golang.org/x/net/http2/h2c"
@@ -34,11 +33,11 @@ func main() {
 
 	prepopulate(deploymentCache)
 
-	// pipeline = cold start handler -> proxy handler -> forwarded shim handler -> proxy
+	// function composition <=> [cold start handler -> proxy handler -> forwarded shim handler -> proxy]
 	var composedHandler http.Handler = proxy
 	composedHandler = proxy2.ForwardedShimHandler(composedHandler)
 	composedHandler = proxy2.LoadBalancingHandler(composedHandler)
-	composedHandler = request_buffer.ColdStartHandler(composedHandler, deploymentCache)
+	composedHandler = proxy2.ColdStartHandler(composedHandler, deploymentCache)
 
 	proxyRxAddress := net.JoinHostPort(Host, ProxyPort)
 	logrus.Info("Creating a proxy server at ", proxyRxAddress)

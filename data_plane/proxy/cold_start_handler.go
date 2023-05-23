@@ -1,4 +1,4 @@
-package request_buffer
+package proxy
 
 import (
 	"cluster_manager/common"
@@ -22,6 +22,7 @@ func ColdStartHandler(next http.Handler, cache *common.Deployments) http.Handler
 			return
 		}
 
+		// TODO: what if the deployment gets deleted in the meanwhile?
 		coldStartChannel := metadata.TryWarmStart()
 		if coldStartChannel != nil {
 			logrus.Debug("Enqueued invocation for ", serviceName)
