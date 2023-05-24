@@ -24,10 +24,9 @@ func main() {
 	logrus.SetLevel(logrus.DebugLevel)
 
 	cache := common.NewDeploymentList()
-	stop := make(chan struct{})
 
 	prepopulate(cache)
-	go api.CreateDataPlaneAPIServer(Host, ApiPort, stop, cache)
+	go api.CreateDataPlaneAPIServer(Host, ApiPort, cache)
 
 	proxy.CreateProxyServer(Host, ProxyPort, cache)
 }

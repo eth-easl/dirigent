@@ -1,16 +1,14 @@
 package proxy
 
 import (
+	"cluster_manager/api"
 	"cluster_manager/common"
 	testserver "cluster_manager/tests"
-	"cluster_manager/tests/proto"
-	"context"
 	"fmt"
 	"github.com/sirupsen/logrus"
 	"golang.org/x/net/http2"
 	"golang.org/x/net/http2/h2c"
 	"io"
-	"net"
 	"net/http"
 	"testing"
 	"time"
@@ -66,8 +64,8 @@ func TestE2E_gRPC_H2C_NoColdStart(t *testing.T) {
 	logrus.SetLevel(logrus.DebugLevel)
 
 	host := "localhost"
-	dpPort := "9002"
-	endpointPort := 9003
+	proxyPort := "9002"
+	sandboxPort := "9003"
 
 	cache := common.NewDeploymentList()
 
@@ -76,28 +74,85 @@ func TestE2E_gRPC_H2C_NoColdStart(t *testing.T) {
 		t.Error("Failed to add deployment to cache.")
 	}
 	fx := cache.GetDeployment("/faas.Executor/Execute")
-	fx.SetUpstreamURLs([]string{"localhost:" + fmt.Sprintf("%d", endpointPort)})
+	fx.SetUpstreamURLs([]string{"localhost:" + fmt.Sprintf("%s", sandboxPort)})
 
-	go CreateProxyServer(host, dpPort, cache)
-	go testserver.StartGRPCServer(host, endpointPort)
+	// proxy
+	go CreateProxyServer(host, proxyPort, cache)
+	// endpoint
+	go testserver.StartGRPCServer(host, sandboxPort)
 
 	time.Sleep(5 * time.Second)
 
-	conn, err := testserver.EstablishConnection(net.JoinHostPort(host, dpPort))
-	defer testserver.GRPCConnectionClose(conn)
+	// invocation
+	err = testserver.FireInvocation(t, host, proxyPort)
 	if err != nil {
-		t.Errorf("gRPC connection timeout - %v\n", err)
+		t.Error(fmt.Sprintf("Invocation failed - %s", err))
+	}
+}
+
+// uses ports 9004, 9005, 9006
+func TestE2E_ColdStart_WithResolution(t *testing.T) {
+	logrus.SetLevel(logrus.DebugLevel)
+
+	host := "localhost"
+	proxyPort := "9004"
+	sandboxPort := "9005"
+	apiServerPort := "9006"
+
+	cache := common.NewDeploymentList()
+	err := cache.AddDeployment("/faas.Executor/Execute")
+	if err != nil {
+		t.Error("Failed to add deployment to cache.")
 	}
 
-	executionCxt, cancelExecution := context.WithTimeout(context.Background(), testserver.GRPCFunctionTimeout)
-	defer cancelExecution()
+	// api server
+	go api.CreateDataPlaneAPIServer(host, apiServerPort, cache)
+	// proxy
+	go CreateProxyServer(host, proxyPort, cache)
+	// endpoint
+	go testserver.StartGRPCServer(host, sandboxPort)
 
-	_, err = proto.NewExecutorClient(conn).Execute(executionCxt, &proto.FaasRequest{
-		Message:           "nothing",
-		RuntimeInMilliSec: uint32(1000),
-		MemoryInMebiBytes: uint32(2048),
-	})
-	if err != nil {
-		t.Error(fmt.Sprintf("Function timeout - %s", err))
+	time.Sleep(5 * time.Second)
+
+	// invocation to experience cold start
+	result := make(chan interface{})
+	go func() {
+		err := testserver.FireInvocation(t, host, proxyPort)
+		result <- err
+	}()
+
+	time.Sleep(3 * time.Second)
+
+	testserver.UpdateEndpointList(t, host, apiServerPort, []string{host + ":" + sandboxPort})
+
+	time.Sleep(2 * time.Second)
+
+	msg := <-result
+	if msg != nil {
+		t.Error("Failed to take the request of the cold start buffer.")
+	}
+}
+
+// uses ports 9007 and 9008
+func TestE2E_gRPC_H2C_NoDeployment(t *testing.T) {
+	logrus.SetLevel(logrus.DebugLevel)
+
+	host := "localhost"
+	proxyPort := "9007"
+	sandboxPort := "9008"
+
+	cache := common.NewDeploymentList()
+
+	// proxy
+	go CreateProxyServer(host, proxyPort, cache)
+	// endpoint
+	go testserver.StartGRPCServer(host, sandboxPort)
+
+	time.Sleep(5 * time.Second)
+
+	// invocation
+	err := testserver.FireInvocation(t, host, proxyPort)
+	if err == nil {
+		t.Error(fmt.Sprintf("Invocation failed - %s", err))
 	}
 }

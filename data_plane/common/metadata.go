@@ -56,13 +56,22 @@ func (m *FunctionMetadata) mergeEndpointList(newURLs []string) {
 	oldURLs := m.getAllUrls()
 
 	toAdd := difference(newURLs, oldURLs)
-	//toRemove := difference(oldURLs, newURLs) // TODO: implement
+	toRemove := difference(oldURLs, newURLs)
 
 	for i := 0; i < len(toAdd); i++ {
 		m.upstreamEndpoints = append(m.upstreamEndpoints, UpstreamEndpoint{
 			URL:      toAdd[i],
 			Capacity: semaphore.NewWeighted(int64(m.sandboxParallelism)),
 		})
+	}
+
+	for i := 0; i < len(toRemove); i++ {
+		for j := 0; j < len(m.upstreamEndpoints); j++ {
+			if toRemove[i] == m.upstreamEndpoints[j].URL {
+				m.upstreamEndpoints = append(m.upstreamEndpoints[:j], m.upstreamEndpoints[j+1:]...)
+				break
+			}
+		}
 	}
 }
 
