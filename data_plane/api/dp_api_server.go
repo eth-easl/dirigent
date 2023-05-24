@@ -50,7 +50,7 @@ func (api *apiServer) DeleteDeployment(_ context.Context, name *proto.Deployment
 	}, nil
 }
 
-func CreateDataPlaneAPIServer(servingUrl string, deploymentCache *common.Deployments) {
+func apiServerStartInternal(servingUrl string, deploymentCache *common.Deployments) {
 	lis, err := net.Listen("tcp", servingUrl)
 	if err != nil {
 		logrus.Fatalf("Failed to create data plane API server socket - %s\n", err)
@@ -67,4 +67,11 @@ func CreateDataPlaneAPIServer(servingUrl string, deploymentCache *common.Deploym
 	if err != nil {
 		logrus.Fatalf("Failed to bind the API Server gRPC handler - %s\n", err)
 	}
+}
+
+func CreateDataPlaneAPIServer(host string, port string, stop chan struct{}, cache *common.Deployments) {
+	dpAPIAddress := net.JoinHostPort(host, port)
+
+	apiServerStartInternal(dpAPIAddress, cache)
+	<-stop
 }
