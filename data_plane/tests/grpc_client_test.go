@@ -13,13 +13,13 @@ import (
 func TestInvocationProxying(t *testing.T) {
 	endpoint := net.JoinHostPort("localhost", "8080")
 
-	conn, err := establishConnection(endpoint)
-	defer gRPCConnectionClose(conn)
+	conn, err := EstablishConnection(endpoint)
+	defer GRPCConnectionClose(conn)
 	if err != nil {
 		t.Errorf("gRPC connection timeout - %v\n", err)
 	}
 
-	executionCxt, cancelExecution := context.WithTimeout(context.Background(), grpcFunctionTimeout)
+	executionCxt, cancelExecution := context.WithTimeout(context.Background(), GRPCFunctionTimeout)
 	defer cancelExecution()
 
 	start := time.Now()
