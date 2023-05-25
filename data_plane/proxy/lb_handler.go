@@ -2,53 +2,33 @@ package proxy
 
 import (
 	"cluster_manager/common"
-	"context"
 	"github.com/sirupsen/logrus"
 	"golang.org/x/sync/semaphore"
 	"math/rand"
 	"net/http"
 )
 
-func lbPolicy(destinations []common.UpstreamEndpoint) (string, *semaphore.Weighted) {
-	index := rand.Intn(len(destinations))
-	endpoint := destinations[index]
+func DoLoadBalancing(req *http.Request, metadata *common.FunctionMetadata) (bool, *semaphore.Weighted) {
+	metadata.RLock()
+	defer metadata.RUnlock()
 
-	err := endpoint.Capacity.Acquire(context.Background(), 1)
-	if err == nil {
-		return endpoint.URL, endpoint.Capacity
-	} else {
-		return "", nil
+	endpoints := metadata.GetUpstreamEndpoints()
+	if endpoints == nil || len(endpoints) == 0 {
+		return false, nil
 	}
-}
 
-func LoadBalancingHandler(next http.Handler, cache *common.Deployments) http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
-		serviceName := getServiceName(r)
-		deployment := cache.GetDeployment(serviceName)
-		if deployment == nil {
-			w.WriteHeader(http.StatusNotFound)
-			return
-		}
+	index := rand.Intn(len(endpoints))
+	endpoint := endpoints[index]
 
-		endpoints := deployment.GetUpstreamEndpoints()
-		if endpoints == nil || len(endpoints) == 0 {
-			w.WriteHeader(http.StatusGone)
-			logrus.Debug("Cold start passed by no sandbox available.")
-			// TODO: make sure to implement drain logic
-			return
-		}
+	err := endpoint.Capacity.Acquire(req.Context(), 1)
 
-		destination, finished := lbPolicy(endpoints)
-		if destination == "" {
-			w.WriteHeader(http.StatusGone)
-			return
-		}
-		defer finished.Release(1) // increase capacity on request completion
+	req.URL.Scheme = "http"
+	req.URL.Host = endpoint.URL
+	logrus.Debug("Invocation forwarded to ", endpoint.URL)
 
-		r.URL.Scheme = "http"
-		r.URL.Host = destination
-		logrus.Debug("Invocation forwarded to ", destination)
-
-		next.ServeHTTP(w, r)
+	if err == nil {
+		return true, endpoint.Capacity
+	} else {
+		return false, nil
 	}
 }

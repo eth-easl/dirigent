@@ -26,9 +26,9 @@ var DialWithBackOff = NewBackoffDialer(backOffTemplate)
 
 func dialBackOffHelper(ctx context.Context, network, address string, bo wait.Backoff, tlsConf *tls.Config) (net.Conn, error) {
 	dialer := &net.Dialer{
-		Timeout:   bo.Duration, // Initial duration.
-		KeepAlive: 5 * time.Second,
 		DualStack: true,
+		KeepAlive: 5 * time.Second,
+		Timeout:   bo.Duration, // Initial duration.
 	}
 	start := time.Now()
 	for {
@@ -66,18 +66,16 @@ func NewBackoffDialer(backoffConfig wait.Backoff) func(context.Context, string, 
 }
 
 func NewProxy() *httputil.ReverseProxy {
-	proxy := &httputil.ReverseProxy{
+	return &httputil.ReverseProxy{
 		Director: EmptyReverseProxyDirector,
-	}
-	proxy.Transport = &http2.Transport{
-		AllowHTTP: true,
-		DialTLSContext: func(ctx context.Context, network, addr string, cfg *tls.Config) (net.Conn, error) {
-			return DialWithBackOff(context.Background(), network, addr)
+		Transport: &http2.Transport{
+			AllowHTTP: true,
+			DialTLSContext: func(ctx context.Context, network, addr string, cfg *tls.Config) (net.Conn, error) {
+				return DialWithBackOff(context.Background(), network, addr)
+			},
+			DisableCompression: true,
 		},
-		DisableCompression: true,
+		BufferPool:    NewBufferPool(),
+		FlushInterval: 0,
 	}
-	proxy.BufferPool = NewBufferPool()
-	proxy.FlushInterval = 0
-
-	return proxy
 }

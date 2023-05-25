@@ -43,8 +43,7 @@ func TestE2E_HTTP_H2C_NoColdStart(t *testing.T) {
 	// http and proxy server setup may take some time
 	time.Sleep(5 * time.Second)
 
-	err := cache.AddDeployment("/test")
-	if err != nil {
+	if !cache.AddDeployment("/test") {
 		t.Error("Failed to add deployment to cache.")
 	}
 	fx := cache.GetDeployment("/test")
@@ -69,8 +68,7 @@ func TestE2E_gRPC_H2C_NoColdStart(t *testing.T) {
 
 	cache := common.NewDeploymentList()
 
-	err := cache.AddDeployment("/faas.Executor/Execute")
-	if err != nil {
+	if !cache.AddDeployment("/faas.Executor/Execute") {
 		t.Error("Failed to add deployment to cache.")
 	}
 	fx := cache.GetDeployment("/faas.Executor/Execute")
@@ -84,7 +82,7 @@ func TestE2E_gRPC_H2C_NoColdStart(t *testing.T) {
 	time.Sleep(5 * time.Second)
 
 	// invocation
-	err = testserver.FireInvocation(t, host, proxyPort)
+	err := testserver.FireInvocation(t, host, proxyPort)
 	if err != nil {
 		t.Error(fmt.Sprintf("Invocation failed - %s", err))
 	}
@@ -100,8 +98,7 @@ func TestE2E_ColdStart_WithResolution(t *testing.T) {
 	apiServerPort := "9006"
 
 	cache := common.NewDeploymentList()
-	err := cache.AddDeployment("/faas.Executor/Execute")
-	if err != nil {
+	if !cache.AddDeployment("/faas.Executor/Execute") {
 		t.Error("Failed to add deployment to cache.")
 	}
 

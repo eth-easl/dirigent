@@ -2,30 +2,31 @@ package common
 
 import (
 	"container/list"
-	"errors"
 	"github.com/sirupsen/logrus"
 	"golang.org/x/sync/semaphore"
 	"sync"
+	"sync/atomic"
 )
 
 type UpstreamEndpoint struct {
-	URL      string
 	Capacity *semaphore.Weighted
+	URL      string
 }
 
 type FunctionMetadata struct {
+	sync.RWMutex
+
 	identifier         string
 	sandboxParallelism int
-	upstreamEndpoints  []UpstreamEndpoint
 
-	queue *list.List
-	mutex sync.Mutex
+	upstreamEndpoints []UpstreamEndpoint
+	queue             *list.List
+
+	beingDrained     *chan struct{}
+	inflightRequests int32
 }
 
 func (m *FunctionMetadata) GetUpstreamEndpoints() []UpstreamEndpoint {
-	m.mutex.Lock()
-	defer m.mutex.Unlock()
-
 	return m.upstreamEndpoints
 }
 
@@ -76,8 +77,8 @@ func (m *FunctionMetadata) mergeEndpointList(newURLs []string) {
 }
 
 func (m *FunctionMetadata) SetUpstreamURLs(urls []string) {
-	m.mutex.Lock()
-	defer m.mutex.Unlock()
+	m.Lock()
+	defer m.Unlock()
 
 	logrus.Debug("Updated endpoint list for ", m.identifier)
 	m.mergeEndpointList(urls)
@@ -102,9 +103,24 @@ func (m *FunctionMetadata) SetUpstreamURLs(urls []string) {
 	}
 }
 
+func (m *FunctionMetadata) DecreaseInflight() {
+	newVal := atomic.AddInt32(&m.inflightRequests, -1)
+
+	if newVal == 0 {
+		m.Lock()
+		defer m.Unlock()
+
+		if m.beingDrained != nil {
+			*m.beingDrained <- struct{}{}
+		}
+	}
+}
+
 func (m *FunctionMetadata) TryWarmStart() chan bool {
-	m.mutex.Lock()
-	defer m.mutex.Unlock()
+	atomic.AddInt32(&m.inflightRequests, 1)
+
+	m.Lock()
+	defer m.Unlock()
 
 	if m.upstreamEndpoints == nil || len(m.upstreamEndpoints) == 0 {
 		waitChannel := make(chan bool, 1)
@@ -117,23 +133,28 @@ func (m *FunctionMetadata) TryWarmStart() chan bool {
 }
 
 type Deployments struct {
-	data  map[string]*FunctionMetadata
-	mutex sync.RWMutex
+	data map[string]*FunctionMetadata
+	sync.RWMutex
 }
 
 func NewDeploymentList() *Deployments {
 	return &Deployments{
-		data:  make(map[string]*FunctionMetadata),
-		mutex: sync.RWMutex{},
+		data: make(map[string]*FunctionMetadata),
 	}
 }
 
-func (d *Deployments) AddDeployment(name string) error {
-	d.mutex.Lock()
-	defer d.mutex.Unlock()
+func (d *Deployments) AddDeployment(name string) bool {
+	d.Lock()
+	defer d.Unlock()
 
-	if _, ok := d.data[name]; ok {
-		return errors.New("Failed registering a deployment. Name already taken.")
+	if m, ok := d.data[name]; ok {
+		if m.beingDrained != nil {
+			logrus.Warn("Failed registering a deployment. The deployment exists and is being drained.")
+		} else {
+			logrus.Warn("Failed registering a deployment. Name already taken.")
+		}
+
+		return false
 	}
 
 	d.data[name] = &FunctionMetadata{
@@ -142,15 +163,16 @@ func (d *Deployments) AddDeployment(name string) error {
 		queue:              list.New(),
 	}
 
-	return nil
+	return true
 }
 
 func (d *Deployments) GetDeployment(name string) *FunctionMetadata {
-	d.mutex.RLock()
-	defer d.mutex.RUnlock()
+	d.RLock()
+	defer d.RUnlock()
 
 	data, ok := d.data[name]
-	if !ok {
+
+	if !ok || (ok && data.beingDrained != nil) {
 		return nil
 	} else {
 		return data
@@ -158,15 +180,19 @@ func (d *Deployments) GetDeployment(name string) *FunctionMetadata {
 }
 
 func (d *Deployments) DeleteDeployment(name string) bool {
-	d.mutex.Lock()
-	defer d.mutex.Unlock()
+	d.Lock()
+	defer d.Unlock()
 
-	data, ok := d.data[name]
+	metadata, ok := d.data[name]
 	if ok {
-		data.mutex.Lock()
-		defer data.mutex.Unlock()
+		// deployment cannot be modified while there is at least one
+		// HTTP request associated with that deployment
+		metadata.Lock()
+		defer metadata.Unlock()
 
-		// TODO: unsure about race conditions here
+		if metadata.beingDrained != nil {
+			<-*metadata.beingDrained
+		}
 
 		delete(d.data, name)
 

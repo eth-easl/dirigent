@@ -13,11 +13,10 @@ import (
 func CreateProxyServer(host string, port string, cache *common.Deployments) {
 	proxy := net2.NewProxy()
 
-	// function composition <=> [cold start handler -> proxy handler -> forwarded shim handler -> proxy]
+	// function composition <=> [cold start handler -> forwarded shim handler -> proxy]
 	var composedHandler http.Handler = proxy
-	composedHandler = ForwardedShimHandler(composedHandler)
-	composedHandler = LoadBalancingHandler(composedHandler, cache)
-	composedHandler = ColdStartHandler(composedHandler, cache)
+	//composedHandler = ForwardedShimHandler(composedHandler)
+	composedHandler = InvocationHandler(composedHandler, cache)
 
 	proxyRxAddress := net.JoinHostPort(host, port)
 	logrus.Info("Creating a proxy server at ", proxyRxAddress)
@@ -25,6 +24,7 @@ func CreateProxyServer(host string, port string, cache *common.Deployments) {
 	server := &http.Server{
 		Addr:    proxyRxAddress,
 		Handler: h2c.NewHandler(composedHandler, &http2.Server{}),
+		// TODO: add timeout for each request on the gateway side
 	}
 
 	err := server.ListenAndServe()

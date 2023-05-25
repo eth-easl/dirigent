@@ -17,10 +17,8 @@ type apiServer struct {
 }
 
 func (api *apiServer) AddDeployment(_ context.Context, in *proto.DeploymentName) (*proto.DeploymentUpdateSuccess, error) {
-	err := api.deployments.AddDeployment(in.GetName())
-
 	return &proto.DeploymentUpdateSuccess{
-		Success: err == nil,
+		Success: api.deployments.AddDeployment(in.GetName()),
 	}, nil
 }
 
@@ -32,8 +30,7 @@ func (api *apiServer) UpdateEndpointList(_ context.Context, patch *proto.Deploym
 		}, nil
 	}
 
-	newURLs := patch.Endpoints
-	deployment.SetUpstreamURLs(newURLs)
+	deployment.SetUpstreamURLs(patch.Endpoints)
 
 	return &proto.DeploymentUpdateSuccess{
 		Success: true,
@@ -41,12 +38,8 @@ func (api *apiServer) UpdateEndpointList(_ context.Context, patch *proto.Deploym
 }
 
 func (api *apiServer) DeleteDeployment(_ context.Context, name *proto.DeploymentName) (*proto.DeploymentUpdateSuccess, error) {
-	deploymentName := name.GetName()
-
-	// TODO: add drain here
-
 	return &proto.DeploymentUpdateSuccess{
-		Success: api.deployments.DeleteDeployment(deploymentName),
+		Success: api.deployments.DeleteDeployment(name.GetName()),
 	}, nil
 }
 

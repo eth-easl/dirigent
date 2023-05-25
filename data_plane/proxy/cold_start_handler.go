@@ -11,13 +11,16 @@ func getServiceName(r *http.Request) string {
 	return r.RequestURI
 }
 
-func ColdStartHandler(next http.Handler, cache *common.Deployments) http.HandlerFunc {
+func InvocationHandler(next http.Handler, cache *common.Deployments) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		start := time.Now()
 
 		serviceName := getServiceName(r)
 		logrus.Debug("Invocation for service ", serviceName, " has been received.")
 
+		///////////////////////////////////////////////
+		// METADATA FETCHING
+		///////////////////////////////////////////////
 		metadata := cache.GetDeployment(serviceName)
 		if metadata == nil {
 			// Request function has not been deployed
@@ -25,7 +28,9 @@ func ColdStartHandler(next http.Handler, cache *common.Deployments) http.Handler
 			return
 		}
 
-		// TODO: what if the deployment gets deleted in the meanwhile?
+		///////////////////////////////////////////////
+		// COLD/WARM START
+		///////////////////////////////////////////////
 		coldStartChannel := metadata.TryWarmStart()
 		if coldStartChannel != nil {
 			logrus.Debug("Enqueued invocation for ", serviceName)
@@ -34,7 +39,28 @@ func ColdStartHandler(next http.Handler, cache *common.Deployments) http.Handler
 			<-coldStartChannel
 		}
 
+		///////////////////////////////////////////////
+		// LOAD BALANCING AND ROUTING
+		///////////////////////////////////////////////
+		lbSuccess, cc := DoLoadBalancing(r, metadata)
+		if !lbSuccess {
+			w.WriteHeader(http.StatusGone)
+			logrus.Debug("Cold start passed by no sandbox available.")
+			return
+		}
+		if cc != nil {
+			defer cc.Release(1) // release CC on request complete
+		}
+
+		///////////////////////////////////////////////
+		// SERVING
+		///////////////////////////////////////////////
 		next.ServeHTTP(w, r)
+
+		///////////////////////////////////////////////
+		// ON THE WAY BACK
+		///////////////////////////////////////////////
+		metadata.DecreaseInflight()
 
 		end := time.Now()
 		logrus.Info("Request took ", end.Sub(start).Microseconds(), " μs")
