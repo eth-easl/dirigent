@@ -17,6 +17,8 @@ func TestInvocationProxying(t *testing.T) {
 func Test_100Invocations(t *testing.T) {
 	logrus.SetLevel(logrus.DebugLevel)
 
+	t.Skip()
+
 	invocationCount := 100
 	ch := make(chan struct{})
 

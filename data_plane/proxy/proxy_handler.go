@@ -1,6 +1,7 @@
 package proxy
 
 import (
+	"cluster_manager/api/proto"
 	"cluster_manager/common"
 	"github.com/sirupsen/logrus"
 	"net/http"
@@ -11,12 +12,11 @@ func getServiceName(r *http.Request) string {
 	return r.RequestURI
 }
 
-func InvocationHandler(next http.Handler, cache *common.Deployments) http.HandlerFunc {
+func InvocationHandler(next http.Handler, cache *common.Deployments, cp *proto.CpiInterfaceClient) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		start := time.Now()
 
 		serviceName := getServiceName(r)
-		logrus.Debug("Invocation for service ", serviceName, " has been received.")
 
 		///////////////////////////////////////////////
 		// METADATA FETCHING
@@ -25,13 +25,16 @@ func InvocationHandler(next http.Handler, cache *common.Deployments) http.Handle
 		if metadata == nil {
 			// Request function has not been deployed
 			w.WriteHeader(http.StatusNotFound)
+			logrus.Trace("Invocation for non-existing service ", serviceName, " has been dumped.")
+
 			return
 		}
+		logrus.Trace("Invocation for service ", serviceName, " has been received.")
 
 		///////////////////////////////////////////////
 		// COLD/WARM START
 		///////////////////////////////////////////////
-		coldStartChannel := metadata.TryWarmStart()
+		coldStartChannel := metadata.TryWarmStart(cp)
 		if coldStartChannel != nil {
 			logrus.Debug("Enqueued invocation for ", serviceName)
 

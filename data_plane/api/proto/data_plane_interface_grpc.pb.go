@@ -169,5 +169,5 @@ var DpiInterface_ServiceDesc = grpc.ServiceDesc{
 		},
 	},
 	Streams:  []grpc.StreamDesc{},
-	Metadata: "api/proto/data_plane_interface.proto",
+	Metadata: "data_plane_interface.proto",
 }

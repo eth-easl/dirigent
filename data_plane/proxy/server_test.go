@@ -4,10 +4,12 @@ import (
 	"cluster_manager/api"
 	"cluster_manager/common"
 	testserver "cluster_manager/tests"
+	"cluster_manager/tests/proto"
 	"fmt"
 	"github.com/sirupsen/logrus"
 	"golang.org/x/net/http2"
 	"golang.org/x/net/http2/h2c"
+	"google.golang.org/grpc"
 	"io"
 	"net/http"
 	"testing"
@@ -77,7 +79,9 @@ func TestE2E_gRPC_H2C_NoColdStart(t *testing.T) {
 	// proxy
 	go CreateProxyServer(host, proxyPort, cache)
 	// endpoint
-	go testserver.StartGRPCServer(host, sandboxPort)
+	go common.CreateGRPCServer(host, sandboxPort, func(sr grpc.ServiceRegistrar) {
+		proto.RegisterExecutorServer(sr, &testserver.TestServer{})
+	})
 
 	time.Sleep(5 * time.Second)
 
@@ -107,7 +111,9 @@ func TestE2E_ColdStart_WithResolution(t *testing.T) {
 	// proxy
 	go CreateProxyServer(host, proxyPort, cache)
 	// endpoint
-	go testserver.StartGRPCServer(host, sandboxPort)
+	go common.CreateGRPCServer(host, sandboxPort, func(sr grpc.ServiceRegistrar) {
+		proto.RegisterExecutorServer(sr, &testserver.TestServer{})
+	})
 
 	time.Sleep(5 * time.Second)
 
@@ -143,7 +149,9 @@ func TestE2E_gRPC_H2C_NoDeployment(t *testing.T) {
 	// proxy
 	go CreateProxyServer(host, proxyPort, cache)
 	// endpoint
-	go testserver.StartGRPCServer(host, sandboxPort)
+	go common.CreateGRPCServer(host, sandboxPort, func(sr grpc.ServiceRegistrar) {
+		proto.RegisterExecutorServer(sr, &testserver.TestServer{})
+	})
 
 	time.Sleep(5 * time.Second)
 

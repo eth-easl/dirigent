@@ -1,0 +1,25 @@
+syntax = "proto3";
+package data_plane;
+
+option go_package = "github.com/eth-easl/cluster_manager/data_plane/api/proto";
+import "common.proto";
+import "google/protobuf/empty.proto";
+
+message DeploymentList {
+  repeated string Service = 1;
+}
+
+service CpiInterface {
+  rpc ScaleFromZero(DeploymentName) returns (ActionStatus);
+  rpc ListDeployments(google.protobuf.Empty) returns (DeploymentList);
+  rpc PushDataPlaneMetrics(DeploymentName) returns (ActionStatus);
+
+  //rpc RegisterWorkerNode() returns
+  //rpc PushWorkerNodeMetrics() returns
+  //rpc ReportSandboxStatus() returns
+}
+
+service WorkerNodeInterface {
+  rpc CreateSandbox(DeploymentName) returns (ActionStatus);
+  rpc DeleteSandbox(DeploymentName) returns (ActionStatus);
+}

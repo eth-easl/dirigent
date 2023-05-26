@@ -1,6 +1,7 @@
 package proxy
 
 import (
+	"cluster_manager/api/proto"
 	"cluster_manager/common"
 	net2 "cluster_manager/proxy/net"
 	"github.com/sirupsen/logrus"
@@ -10,13 +11,13 @@ import (
 	"net/http"
 )
 
-func CreateProxyServer(host string, port string, cache *common.Deployments) {
+func CreateProxyServer(host string, port string, cache *common.Deployments, cp *proto.CpiInterfaceClient) {
 	proxy := net2.NewProxy()
 
 	// function composition <=> [cold start handler -> forwarded shim handler -> proxy]
 	var composedHandler http.Handler = proxy
 	//composedHandler = ForwardedShimHandler(composedHandler)
-	composedHandler = InvocationHandler(composedHandler, cache)
+	composedHandler = InvocationHandler(composedHandler, cache, cp)
 
 	proxyRxAddress := net.JoinHostPort(host, port)
 	logrus.Info("Creating a proxy server at ", proxyRxAddress)

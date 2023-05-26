@@ -2,10 +2,7 @@ syntax = "proto3";
 package data_plane;
 
 option go_package = "github.com/eth-easl/cluster_manager/data_plane/api/proto";
-
-message DeploymentName {
-  string Name = 1;
-}
+import "common.proto";
 
 message DeploymentEndpointPatch {
   DeploymentName Deployment = 1;

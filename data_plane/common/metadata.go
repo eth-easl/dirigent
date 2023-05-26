@@ -1,11 +1,14 @@
 package common
 
 import (
+	"cluster_manager/api/proto"
 	"container/list"
+	"context"
 	"github.com/sirupsen/logrus"
 	"golang.org/x/sync/semaphore"
 	"sync"
 	"sync/atomic"
+	"time"
 )
 
 type UpstreamEndpoint struct {
@@ -24,6 +27,8 @@ type FunctionMetadata struct {
 
 	beingDrained     *chan struct{}
 	inflightRequests int32
+
+	scaleFromZeroSentAt time.Time
 }
 
 func (m *FunctionMetadata) GetUpstreamEndpoints() []UpstreamEndpoint {
@@ -116,7 +121,7 @@ func (m *FunctionMetadata) DecreaseInflight() {
 	}
 }
 
-func (m *FunctionMetadata) TryWarmStart() chan bool {
+func (m *FunctionMetadata) TryWarmStart(cp *proto.CpiInterfaceClient) chan bool {
 	atomic.AddInt32(&m.inflightRequests, 1)
 
 	m.Lock()
@@ -125,6 +130,17 @@ func (m *FunctionMetadata) TryWarmStart() chan bool {
 	if m.upstreamEndpoints == nil || len(m.upstreamEndpoints) == 0 {
 		waitChannel := make(chan bool, 1)
 		m.queue.PushBack(waitChannel)
+
+		if m.scaleFromZeroSentAt.IsZero() || time.Since(m.scaleFromZeroSentAt) > 5*time.Second {
+			m.scaleFromZeroSentAt = time.Now()
+
+			status, err := (*cp).ScaleFromZero(context.Background(), &proto.DeploymentName{Name: m.identifier})
+			if err != nil || !status.Success {
+				logrus.Warn("Scale from zero failed for function ", m.identifier)
+			} else {
+				logrus.Debug("Scale from zero request issued for ", m.identifier)
+			}
+		}
 
 		return waitChannel
 	} else {
@@ -162,6 +178,8 @@ func (d *Deployments) AddDeployment(name string) bool {
 		sandboxParallelism: 1,
 		queue:              list.New(),
 	}
+
+	logrus.Info("Service with name '", name, "' has been registered")
 
 	return true
 }
