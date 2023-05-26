@@ -19,9 +19,10 @@ const _ = grpc.SupportPackageIsVersion7
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 type CpiInterfaceClient interface {
-	ScaleFromZero(ctx context.Context, in *DeploymentName, opts ...grpc.CallOption) (*ActionStatus, error)
-	ListDeployments(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*DeploymentList, error)
-	PushDataPlaneMetrics(ctx context.Context, in *DeploymentName, opts ...grpc.CallOption) (*ActionStatus, error)
+	ScaleFromZero(ctx context.Context, in *ServiceInfo, opts ...grpc.CallOption) (*ActionStatus, error)
+	ListServices(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*ServiceList, error)
+	RegisterNode(ctx context.Context, in *NodeInfo, opts ...grpc.CallOption) (*ActionStatus, error)
+	NodeHeartbeat(ctx context.Context, in *NodeInfo, opts ...grpc.CallOption) (*ActionStatus, error)
 }
 
 type cpiInterfaceClient struct {
@@ -32,7 +33,7 @@ func NewCpiInterfaceClient(cc grpc.ClientConnInterface) CpiInterfaceClient {
 	return &cpiInterfaceClient{cc}
 }
 
-func (c *cpiInterfaceClient) ScaleFromZero(ctx context.Context, in *DeploymentName, opts ...grpc.CallOption) (*ActionStatus, error) {
+func (c *cpiInterfaceClient) ScaleFromZero(ctx context.Context, in *ServiceInfo, opts ...grpc.CallOption) (*ActionStatus, error) {
 	out := new(ActionStatus)
 	err := c.cc.Invoke(ctx, "/data_plane.CpiInterface/ScaleFromZero", in, out, opts...)
 	if err != nil {
@@ -41,18 +42,27 @@ func (c *cpiInterfaceClient) ScaleFromZero(ctx context.Context, in *DeploymentNa
 	return out, nil
 }
 
-func (c *cpiInterfaceClient) ListDeployments(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*DeploymentList, error) {
-	out := new(DeploymentList)
-	err := c.cc.Invoke(ctx, "/data_plane.CpiInterface/ListDeployments", in, out, opts...)
+func (c *cpiInterfaceClient) ListServices(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*ServiceList, error) {
+	out := new(ServiceList)
+	err := c.cc.Invoke(ctx, "/data_plane.CpiInterface/ListServices", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
 	return out, nil
 }
 
-func (c *cpiInterfaceClient) PushDataPlaneMetrics(ctx context.Context, in *DeploymentName, opts ...grpc.CallOption) (*ActionStatus, error) {
+func (c *cpiInterfaceClient) RegisterNode(ctx context.Context, in *NodeInfo, opts ...grpc.CallOption) (*ActionStatus, error) {
 	out := new(ActionStatus)
-	err := c.cc.Invoke(ctx, "/data_plane.CpiInterface/PushDataPlaneMetrics", in, out, opts...)
+	err := c.cc.Invoke(ctx, "/data_plane.CpiInterface/RegisterNode", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *cpiInterfaceClient) NodeHeartbeat(ctx context.Context, in *NodeInfo, opts ...grpc.CallOption) (*ActionStatus, error) {
+	out := new(ActionStatus)
+	err := c.cc.Invoke(ctx, "/data_plane.CpiInterface/NodeHeartbeat", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -63,9 +73,10 @@ func (c *cpiInterfaceClient) PushDataPlaneMetrics(ctx context.Context, in *Deplo
 // All implementations must embed UnimplementedCpiInterfaceServer
 // for forward compatibility
 type CpiInterfaceServer interface {
-	ScaleFromZero(context.Context, *DeploymentName) (*ActionStatus, error)
-	ListDeployments(context.Context, *emptypb.Empty) (*DeploymentList, error)
-	PushDataPlaneMetrics(context.Context, *DeploymentName) (*ActionStatus, error)
+	ScaleFromZero(context.Context, *ServiceInfo) (*ActionStatus, error)
+	ListServices(context.Context, *emptypb.Empty) (*ServiceList, error)
+	RegisterNode(context.Context, *NodeInfo) (*ActionStatus, error)
+	NodeHeartbeat(context.Context, *NodeInfo) (*ActionStatus, error)
 	mustEmbedUnimplementedCpiInterfaceServer()
 }
 
@@ -73,14 +84,17 @@ type CpiInterfaceServer interface {
 type UnimplementedCpiInterfaceServer struct {
 }
 
-func (UnimplementedCpiInterfaceServer) ScaleFromZero(context.Context, *DeploymentName) (*ActionStatus, error) {
+func (UnimplementedCpiInterfaceServer) ScaleFromZero(context.Context, *ServiceInfo) (*ActionStatus, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method ScaleFromZero not implemented")
 }
-func (UnimplementedCpiInterfaceServer) ListDeployments(context.Context, *emptypb.Empty) (*DeploymentList, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method ListDeployments not implemented")
+func (UnimplementedCpiInterfaceServer) ListServices(context.Context, *emptypb.Empty) (*ServiceList, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method ListServices not implemented")
 }
-func (UnimplementedCpiInterfaceServer) PushDataPlaneMetrics(context.Context, *DeploymentName) (*ActionStatus, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method PushDataPlaneMetrics not implemented")
+func (UnimplementedCpiInterfaceServer) RegisterNode(context.Context, *NodeInfo) (*ActionStatus, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method RegisterNode not implemented")
+}
+func (UnimplementedCpiInterfaceServer) NodeHeartbeat(context.Context, *NodeInfo) (*ActionStatus, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method NodeHeartbeat not implemented")
 }
 func (UnimplementedCpiInterfaceServer) mustEmbedUnimplementedCpiInterfaceServer() {}
 
@@ -96,7 +110,7 @@ func RegisterCpiInterfaceServer(s grpc.ServiceRegistrar, srv CpiInterfaceServer)
 }
 
 func _CpiInterface_ScaleFromZero_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(DeploymentName)
+	in := new(ServiceInfo)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
@@ -108,43 +122,61 @@ func _CpiInterface_ScaleFromZero_Handler(srv interface{}, ctx context.Context, d
 		FullMethod: "/data_plane.CpiInterface/ScaleFromZero",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(CpiInterfaceServer).ScaleFromZero(ctx, req.(*DeploymentName))
+		return srv.(CpiInterfaceServer).ScaleFromZero(ctx, req.(*ServiceInfo))
 	}
 	return interceptor(ctx, in, info, handler)
 }
 
-func _CpiInterface_ListDeployments_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+func _CpiInterface_ListServices_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(emptypb.Empty)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(CpiInterfaceServer).ListDeployments(ctx, in)
+		return srv.(CpiInterfaceServer).ListServices(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: "/data_plane.CpiInterface/ListDeployments",
+		FullMethod: "/data_plane.CpiInterface/ListServices",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(CpiInterfaceServer).ListDeployments(ctx, req.(*emptypb.Empty))
+		return srv.(CpiInterfaceServer).ListServices(ctx, req.(*emptypb.Empty))
 	}
 	return interceptor(ctx, in, info, handler)
 }
 
-func _CpiInterface_PushDataPlaneMetrics_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(DeploymentName)
+func _CpiInterface_RegisterNode_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(NodeInfo)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(CpiInterfaceServer).PushDataPlaneMetrics(ctx, in)
+		return srv.(CpiInterfaceServer).RegisterNode(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: "/data_plane.CpiInterface/PushDataPlaneMetrics",
+		FullMethod: "/data_plane.CpiInterface/RegisterNode",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(CpiInterfaceServer).PushDataPlaneMetrics(ctx, req.(*DeploymentName))
+		return srv.(CpiInterfaceServer).RegisterNode(ctx, req.(*NodeInfo))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _CpiInterface_NodeHeartbeat_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(NodeInfo)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(CpiInterfaceServer).NodeHeartbeat(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/data_plane.CpiInterface/NodeHeartbeat",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(CpiInterfaceServer).NodeHeartbeat(ctx, req.(*NodeInfo))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -161,12 +193,16 @@ var CpiInterface_ServiceDesc = grpc.ServiceDesc{
 			Handler:    _CpiInterface_ScaleFromZero_Handler,
 		},
 		{
-			MethodName: "ListDeployments",
-			Handler:    _CpiInterface_ListDeployments_Handler,
+			MethodName: "ListServices",
+			Handler:    _CpiInterface_ListServices_Handler,
 		},
 		{
-			MethodName: "PushDataPlaneMetrics",
-			Handler:    _CpiInterface_PushDataPlaneMetrics_Handler,
+			MethodName: "RegisterNode",
+			Handler:    _CpiInterface_RegisterNode_Handler,
+		},
+		{
+			MethodName: "NodeHeartbeat",
+			Handler:    _CpiInterface_NodeHeartbeat_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},
@@ -177,8 +213,8 @@ var CpiInterface_ServiceDesc = grpc.ServiceDesc{
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 type WorkerNodeInterfaceClient interface {
-	CreateSandbox(ctx context.Context, in *DeploymentName, opts ...grpc.CallOption) (*ActionStatus, error)
-	DeleteSandbox(ctx context.Context, in *DeploymentName, opts ...grpc.CallOption) (*ActionStatus, error)
+	CreateSandbox(ctx context.Context, in *SandboxInfo, opts ...grpc.CallOption) (*ActionStatus, error)
+	DeleteSandbox(ctx context.Context, in *SandboxInfo, opts ...grpc.CallOption) (*ActionStatus, error)
 }
 
 type workerNodeInterfaceClient struct {
@@ -189,7 +225,7 @@ func NewWorkerNodeInterfaceClient(cc grpc.ClientConnInterface) WorkerNodeInterfa
 	return &workerNodeInterfaceClient{cc}
 }
 
-func (c *workerNodeInterfaceClient) CreateSandbox(ctx context.Context, in *DeploymentName, opts ...grpc.CallOption) (*ActionStatus, error) {
+func (c *workerNodeInterfaceClient) CreateSandbox(ctx context.Context, in *SandboxInfo, opts ...grpc.CallOption) (*ActionStatus, error) {
 	out := new(ActionStatus)
 	err := c.cc.Invoke(ctx, "/data_plane.WorkerNodeInterface/CreateSandbox", in, out, opts...)
 	if err != nil {
@@ -198,7 +234,7 @@ func (c *workerNodeInterfaceClient) CreateSandbox(ctx context.Context, in *Deplo
 	return out, nil
 }
 
-func (c *workerNodeInterfaceClient) DeleteSandbox(ctx context.Context, in *DeploymentName, opts ...grpc.CallOption) (*ActionStatus, error) {
+func (c *workerNodeInterfaceClient) DeleteSandbox(ctx context.Context, in *SandboxInfo, opts ...grpc.CallOption) (*ActionStatus, error) {
 	out := new(ActionStatus)
 	err := c.cc.Invoke(ctx, "/data_plane.WorkerNodeInterface/DeleteSandbox", in, out, opts...)
 	if err != nil {
@@ -211,8 +247,8 @@ func (c *workerNodeInterfaceClient) DeleteSandbox(ctx context.Context, in *Deplo
 // All implementations must embed UnimplementedWorkerNodeInterfaceServer
 // for forward compatibility
 type WorkerNodeInterfaceServer interface {
-	CreateSandbox(context.Context, *DeploymentName) (*ActionStatus, error)
-	DeleteSandbox(context.Context, *DeploymentName) (*ActionStatus, error)
+	CreateSandbox(context.Context, *SandboxInfo) (*ActionStatus, error)
+	DeleteSandbox(context.Context, *SandboxInfo) (*ActionStatus, error)
 	mustEmbedUnimplementedWorkerNodeInterfaceServer()
 }
 
@@ -220,10 +256,10 @@ type WorkerNodeInterfaceServer interface {
 type UnimplementedWorkerNodeInterfaceServer struct {
 }
 
-func (UnimplementedWorkerNodeInterfaceServer) CreateSandbox(context.Context, *DeploymentName) (*ActionStatus, error) {
+func (UnimplementedWorkerNodeInterfaceServer) CreateSandbox(context.Context, *SandboxInfo) (*ActionStatus, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method CreateSandbox not implemented")
 }
-func (UnimplementedWorkerNodeInterfaceServer) DeleteSandbox(context.Context, *DeploymentName) (*ActionStatus, error) {
+func (UnimplementedWorkerNodeInterfaceServer) DeleteSandbox(context.Context, *SandboxInfo) (*ActionStatus, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method DeleteSandbox not implemented")
 }
 func (UnimplementedWorkerNodeInterfaceServer) mustEmbedUnimplementedWorkerNodeInterfaceServer() {}
@@ -240,7 +276,7 @@ func RegisterWorkerNodeInterfaceServer(s grpc.ServiceRegistrar, srv WorkerNodeIn
 }
 
 func _WorkerNodeInterface_CreateSandbox_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(DeploymentName)
+	in := new(SandboxInfo)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
@@ -252,13 +288,13 @@ func _WorkerNodeInterface_CreateSandbox_Handler(srv interface{}, ctx context.Con
 		FullMethod: "/data_plane.WorkerNodeInterface/CreateSandbox",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(WorkerNodeInterfaceServer).CreateSandbox(ctx, req.(*DeploymentName))
+		return srv.(WorkerNodeInterfaceServer).CreateSandbox(ctx, req.(*SandboxInfo))
 	}
 	return interceptor(ctx, in, info, handler)
 }
 
 func _WorkerNodeInterface_DeleteSandbox_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(DeploymentName)
+	in := new(SandboxInfo)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
@@ -270,7 +306,7 @@ func _WorkerNodeInterface_DeleteSandbox_Handler(srv interface{}, ctx context.Con
 		FullMethod: "/data_plane.WorkerNodeInterface/DeleteSandbox",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(WorkerNodeInterfaceServer).DeleteSandbox(ctx, req.(*DeploymentName))
+		return srv.(WorkerNodeInterfaceServer).DeleteSandbox(ctx, req.(*SandboxInfo))
 	}
 	return interceptor(ctx, in, info, handler)
 }

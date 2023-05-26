@@ -5,7 +5,7 @@ option go_package = "github.com/eth-easl/cluster_manager/data_plane/api/proto";
 import "common.proto";
 
 message DeploymentEndpointPatch {
-  DeploymentName Deployment = 1;
+  ServiceInfo Service = 1;
   repeated string Endpoints = 2;
 }
 
@@ -15,7 +15,7 @@ message DeploymentUpdateSuccess {
 }
 
 service DpiInterface {
-  rpc AddDeployment(DeploymentName) returns (DeploymentUpdateSuccess);
+  rpc AddDeployment(ServiceInfo) returns (DeploymentUpdateSuccess);
   rpc UpdateEndpointList(DeploymentEndpointPatch) returns (DeploymentUpdateSuccess);
-  rpc DeleteDeployment(DeploymentName) returns (DeploymentUpdateSuccess);
+  rpc DeleteDeployment(ServiceInfo) returns (DeploymentUpdateSuccess);
 }

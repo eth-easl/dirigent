@@ -3,8 +3,12 @@ package data_plane;
 
 option go_package = "github.com/eth-easl/cluster_manager/data_plane/api/proto";
 
-message DeploymentName {
+message ServiceInfo {
   string Name = 1;
+}
+
+message ServiceList {
+  repeated string Service = 1;
 }
 
 message ActionStatus {

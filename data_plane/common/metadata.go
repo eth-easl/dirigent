@@ -137,7 +137,7 @@ func (m *FunctionMetadata) TryWarmStart(cp *proto.CpiInterfaceClient) (chan bool
 			m.scaleFromZeroSentAt = time.Now()
 
 			requestScaling = func() {
-				status, err := (*cp).ScaleFromZero(context.Background(), &proto.DeploymentName{Name: m.identifier})
+				status, err := (*cp).ScaleFromZero(context.Background(), &proto.ServiceInfo{Name: m.identifier})
 				if err != nil || !status.Success {
 					logrus.Warn("Scale from zero failed for function ", m.identifier)
 				} else {

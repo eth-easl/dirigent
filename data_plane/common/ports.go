@@ -7,4 +7,6 @@ const (
 
 	ControlPlaneHost = "localhost"
 	ControlPlanePort = "9090"
+
+	WorkerNodePort = 10010
 )

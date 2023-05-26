@@ -54,7 +54,7 @@ func UpdateEndpointList(t *testing.T, host string, port string, endpoints []stri
 	defer cancelExecution()
 
 	resp, err := proto2.NewDpiInterfaceClient(conn).UpdateEndpointList(executionCxt, &proto2.DeploymentEndpointPatch{
-		Deployment: &proto2.DeploymentName{
+		Service: &proto2.ServiceInfo{
 			Name: "/faas.Executor/Execute",
 		},
 		Endpoints: endpoints,

@@ -18,9 +18,9 @@ const _ = grpc.SupportPackageIsVersion7
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 type DpiInterfaceClient interface {
-	AddDeployment(ctx context.Context, in *DeploymentName, opts ...grpc.CallOption) (*DeploymentUpdateSuccess, error)
+	AddDeployment(ctx context.Context, in *ServiceInfo, opts ...grpc.CallOption) (*DeploymentUpdateSuccess, error)
 	UpdateEndpointList(ctx context.Context, in *DeploymentEndpointPatch, opts ...grpc.CallOption) (*DeploymentUpdateSuccess, error)
-	DeleteDeployment(ctx context.Context, in *DeploymentName, opts ...grpc.CallOption) (*DeploymentUpdateSuccess, error)
+	DeleteDeployment(ctx context.Context, in *ServiceInfo, opts ...grpc.CallOption) (*DeploymentUpdateSuccess, error)
 }
 
 type dpiInterfaceClient struct {
@@ -31,7 +31,7 @@ func NewDpiInterfaceClient(cc grpc.ClientConnInterface) DpiInterfaceClient {
 	return &dpiInterfaceClient{cc}
 }
 
-func (c *dpiInterfaceClient) AddDeployment(ctx context.Context, in *DeploymentName, opts ...grpc.CallOption) (*DeploymentUpdateSuccess, error) {
+func (c *dpiInterfaceClient) AddDeployment(ctx context.Context, in *ServiceInfo, opts ...grpc.CallOption) (*DeploymentUpdateSuccess, error) {
 	out := new(DeploymentUpdateSuccess)
 	err := c.cc.Invoke(ctx, "/data_plane.DpiInterface/AddDeployment", in, out, opts...)
 	if err != nil {
@@ -49,7 +49,7 @@ func (c *dpiInterfaceClient) UpdateEndpointList(ctx context.Context, in *Deploym
 	return out, nil
 }
 
-func (c *dpiInterfaceClient) DeleteDeployment(ctx context.Context, in *DeploymentName, opts ...grpc.CallOption) (*DeploymentUpdateSuccess, error) {
+func (c *dpiInterfaceClient) DeleteDeployment(ctx context.Context, in *ServiceInfo, opts ...grpc.CallOption) (*DeploymentUpdateSuccess, error) {
 	out := new(DeploymentUpdateSuccess)
 	err := c.cc.Invoke(ctx, "/data_plane.DpiInterface/DeleteDeployment", in, out, opts...)
 	if err != nil {
@@ -62,9 +62,9 @@ func (c *dpiInterfaceClient) DeleteDeployment(ctx context.Context, in *Deploymen
 // All implementations must embed UnimplementedDpiInterfaceServer
 // for forward compatibility
 type DpiInterfaceServer interface {
-	AddDeployment(context.Context, *DeploymentName) (*DeploymentUpdateSuccess, error)
+	AddDeployment(context.Context, *ServiceInfo) (*DeploymentUpdateSuccess, error)
 	UpdateEndpointList(context.Context, *DeploymentEndpointPatch) (*DeploymentUpdateSuccess, error)
-	DeleteDeployment(context.Context, *DeploymentName) (*DeploymentUpdateSuccess, error)
+	DeleteDeployment(context.Context, *ServiceInfo) (*DeploymentUpdateSuccess, error)
 	mustEmbedUnimplementedDpiInterfaceServer()
 }
 
@@ -72,13 +72,13 @@ type DpiInterfaceServer interface {
 type UnimplementedDpiInterfaceServer struct {
 }
 
-func (UnimplementedDpiInterfaceServer) AddDeployment(context.Context, *DeploymentName) (*DeploymentUpdateSuccess, error) {
+func (UnimplementedDpiInterfaceServer) AddDeployment(context.Context, *ServiceInfo) (*DeploymentUpdateSuccess, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method AddDeployment not implemented")
 }
 func (UnimplementedDpiInterfaceServer) UpdateEndpointList(context.Context, *DeploymentEndpointPatch) (*DeploymentUpdateSuccess, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method UpdateEndpointList not implemented")
 }
-func (UnimplementedDpiInterfaceServer) DeleteDeployment(context.Context, *DeploymentName) (*DeploymentUpdateSuccess, error) {
+func (UnimplementedDpiInterfaceServer) DeleteDeployment(context.Context, *ServiceInfo) (*DeploymentUpdateSuccess, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method DeleteDeployment not implemented")
 }
 func (UnimplementedDpiInterfaceServer) mustEmbedUnimplementedDpiInterfaceServer() {}
@@ -95,7 +95,7 @@ func RegisterDpiInterfaceServer(s grpc.ServiceRegistrar, srv DpiInterfaceServer)
 }
 
 func _DpiInterface_AddDeployment_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(DeploymentName)
+	in := new(ServiceInfo)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
@@ -107,7 +107,7 @@ func _DpiInterface_AddDeployment_Handler(srv interface{}, ctx context.Context, d
 		FullMethod: "/data_plane.DpiInterface/AddDeployment",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(DpiInterfaceServer).AddDeployment(ctx, req.(*DeploymentName))
+		return srv.(DpiInterfaceServer).AddDeployment(ctx, req.(*ServiceInfo))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -131,7 +131,7 @@ func _DpiInterface_UpdateEndpointList_Handler(srv interface{}, ctx context.Conte
 }
 
 func _DpiInterface_DeleteDeployment_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(DeploymentName)
+	in := new(ServiceInfo)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
@@ -143,7 +143,7 @@ func _DpiInterface_DeleteDeployment_Handler(srv interface{}, ctx context.Context
 		FullMethod: "/data_plane.DpiInterface/DeleteDeployment",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(DpiInterfaceServer).DeleteDeployment(ctx, req.(*DeploymentName))
+		return srv.(DpiInterfaceServer).DeleteDeployment(ctx, req.(*ServiceInfo))
 	}
 	return interceptor(ctx, in, info, handler)
 }

@@ -5,21 +5,26 @@ option go_package = "github.com/eth-easl/cluster_manager/data_plane/api/proto";
 import "common.proto";
 import "google/protobuf/empty.proto";
 
-message DeploymentList {
-  repeated string Service = 1;
+message NodeInfo {
+  string NodeID = 1;
+  string IP = 2;
+  int32 Port = 3;
 }
 
 service CpiInterface {
-  rpc ScaleFromZero(DeploymentName) returns (ActionStatus);
-  rpc ListDeployments(google.protobuf.Empty) returns (DeploymentList);
-  rpc PushDataPlaneMetrics(DeploymentName) returns (ActionStatus);
+  rpc ScaleFromZero(ServiceInfo) returns (ActionStatus);
+  rpc ListServices(google.protobuf.Empty) returns (ServiceList);
 
-  //rpc RegisterWorkerNode() returns
-  //rpc PushWorkerNodeMetrics() returns
-  //rpc ReportSandboxStatus() returns
+  rpc RegisterNode(NodeInfo) returns (ActionStatus);
+  rpc NodeHeartbeat(NodeInfo) returns (ActionStatus);
+}
+
+message SandboxInfo {
+  string ID = 1;
+  string Image = 2;
 }
 
 service WorkerNodeInterface {
-  rpc CreateSandbox(DeploymentName) returns (ActionStatus);
-  rpc DeleteSandbox(DeploymentName) returns (ActionStatus);
+  rpc CreateSandbox(SandboxInfo) returns (ActionStatus);
+  rpc DeleteSandbox(SandboxInfo) returns (ActionStatus);
 }
