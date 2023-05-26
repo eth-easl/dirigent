@@ -121,7 +121,7 @@ func (m *FunctionMetadata) DecreaseInflight() {
 	}
 }
 
-func (m *FunctionMetadata) TryWarmStart(cp *proto.CpiInterfaceClient) chan bool {
+func (m *FunctionMetadata) TryWarmStart(cp *proto.CpiInterfaceClient) (chan bool, func()) {
 	atomic.AddInt32(&m.inflightRequests, 1)
 
 	m.Lock()
@@ -131,20 +131,24 @@ func (m *FunctionMetadata) TryWarmStart(cp *proto.CpiInterfaceClient) chan bool 
 		waitChannel := make(chan bool, 1)
 		m.queue.PushBack(waitChannel)
 
+		var requestScaling = func() {}
+
 		if m.scaleFromZeroSentAt.IsZero() || time.Since(m.scaleFromZeroSentAt) > 5*time.Second {
 			m.scaleFromZeroSentAt = time.Now()
 
-			status, err := (*cp).ScaleFromZero(context.Background(), &proto.DeploymentName{Name: m.identifier})
-			if err != nil || !status.Success {
-				logrus.Warn("Scale from zero failed for function ", m.identifier)
-			} else {
-				logrus.Debug("Scale from zero request issued for ", m.identifier)
+			requestScaling = func() {
+				status, err := (*cp).ScaleFromZero(context.Background(), &proto.DeploymentName{Name: m.identifier})
+				if err != nil || !status.Success {
+					logrus.Warn("Scale from zero failed for function ", m.identifier)
+				} else {
+					logrus.Debug("Scale from zero request issued for ", m.identifier)
+				}
 			}
 		}
 
-		return waitChannel
+		return waitChannel, requestScaling
 	} else {
-		return nil
+		return nil, func() {}
 	}
 }
 

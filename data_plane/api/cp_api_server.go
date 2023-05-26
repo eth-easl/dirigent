@@ -18,7 +18,7 @@ func (c *CpApiServer) ScaleFromZero(ctx context.Context, in *proto.DeploymentNam
 			Name: in.Name,
 		},
 		Endpoints: []string{
-			"localhost:80",
+			"localhost:10000",
 		},
 	})
 

@@ -5,5 +5,5 @@ import (
 )
 
 func TestInstanceAppeared(t *testing.T) {
-	UpdateEndpointList(t, "localhost", "8081", []string{"localhost:80"})
+	UpdateEndpointList(t, "localhost", "8081", []string{"localhost:10000"})
 }
