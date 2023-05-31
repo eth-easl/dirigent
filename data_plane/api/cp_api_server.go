@@ -6,39 +6,16 @@ import (
 	"context"
 	"fmt"
 	"github.com/sirupsen/logrus"
-	"google.golang.org/grpc"
 	"google.golang.org/protobuf/types/known/emptypb"
-	"k8s.io/apimachinery/pkg/util/wait"
-	"net"
 	"strconv"
 	"sync"
 	"time"
 )
 
 func InitializeControlPlaneConnection() proto.CpiInterfaceClient {
-	var conn *grpc.ClientConn
-
-	pollContext, cancel := context.WithTimeout(context.Background(), 30*time.Second)
-	defer cancel()
-
-	pollErr := wait.PollUntilContextCancel(pollContext, 5*time.Second, false,
-		func(ctx context.Context) (done bool, err error) {
-			c, err := common.EstablishConnection(
-				ctx,
-				net.JoinHostPort(common.ControlPlaneHost, common.ControlPlanePort),
-				common.GetLongLivingConnectionDialOptions()...,
-			)
-			if err != nil {
-				logrus.Warn("Retrying to connect to the control plane in 5 seconds")
-			}
-
-			conn = c
-			return c != nil, nil
-		},
-	)
-
-	if pollErr != nil {
-		logrus.Fatal("Failed to establish connection with the data plane")
+	conn := common.EstablishGRPCConnectionPoll(common.ControlPlaneHost, common.ControlPlanePort)
+	if conn == nil {
+		logrus.Fatal("Failed to establish connection with the control plane")
 	}
 
 	logrus.Info("Successfully established connection with the control plane")
@@ -47,28 +24,8 @@ func InitializeControlPlaneConnection() proto.CpiInterfaceClient {
 }
 
 func InitializeWorkerNodeConnection(host, port string) proto.WorkerNodeInterfaceClient {
-	var conn *grpc.ClientConn
-
-	pollContext, cancel := context.WithTimeout(context.Background(), 30*time.Second)
-	defer cancel()
-
-	pollErr := wait.PollUntilContextCancel(pollContext, 5*time.Second, false,
-		func(ctx context.Context) (done bool, err error) {
-			c, err := common.EstablishConnection(
-				ctx,
-				net.JoinHostPort(host, port),
-				common.GetLongLivingConnectionDialOptions()...,
-			)
-			if err != nil {
-				logrus.Warn("Retrying to connect to the worker node in 5 seconds")
-			}
-
-			conn = c
-			return c != nil, nil
-		},
-	)
-
-	if pollErr != nil {
+	conn := common.EstablishGRPCConnectionPoll(host, port)
+	if conn == nil {
 		logrus.Fatal("Failed to establish connection with the worker node")
 	}
 

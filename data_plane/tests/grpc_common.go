@@ -6,7 +6,7 @@ import (
 	"cluster_manager/tests/proto"
 	"context"
 	"fmt"
-	"net"
+	"github.com/sirupsen/logrus"
 	"testing"
 )
 
@@ -23,16 +23,15 @@ func (s *TestServer) Execute(_ context.Context, _ *proto.FaasRequest) (*proto.Fa
 }
 
 func FireInvocation(t *testing.T, host string, dpPort string) error {
-	conn, err := common.EstablishConnection(context.Background(), net.JoinHostPort(host, dpPort))
-	defer common.GRPCConnectionClose(conn)
-	if err != nil {
-		t.Errorf("gRPC connection timeout - %v\n", err)
+	conn := common.EstablishGRPCConnectionPoll(host, dpPort)
+	if conn == nil {
+		logrus.Fatal("Failed to establish gRPC connection with the data plane")
 	}
 
 	executionCxt, cancelExecution := context.WithTimeout(context.Background(), common.GRPCFunctionTimeout)
 	defer cancelExecution()
 
-	_, err = proto.NewExecutorClient(conn).Execute(executionCxt, &proto.FaasRequest{
+	_, err := proto.NewExecutorClient(conn).Execute(executionCxt, &proto.FaasRequest{
 		Message:           "nothing",
 		RuntimeInMilliSec: uint32(1000),
 		MemoryInMebiBytes: uint32(2048),
@@ -42,12 +41,9 @@ func FireInvocation(t *testing.T, host string, dpPort string) error {
 }
 
 func UpdateEndpointList(t *testing.T, host string, port string, endpoints []string) {
-	apiServerURL := net.JoinHostPort(host, port)
-
-	conn, err := common.EstablishConnection(context.Background(), apiServerURL)
-	defer common.GRPCConnectionClose(conn)
-	if err != nil {
-		t.Errorf("gRPC connection timeout - %v\n", err)
+	conn := common.EstablishGRPCConnectionPoll(host, port)
+	if conn == nil {
+		logrus.Fatal("Failed to establish gRPC connection with the data plane")
 	}
 
 	executionCxt, cancelExecution := context.WithTimeout(context.Background(), common.GRPCFunctionTimeout)

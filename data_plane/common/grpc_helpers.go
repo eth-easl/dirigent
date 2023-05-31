@@ -7,6 +7,7 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/grpc/reflection"
+	"k8s.io/apimachinery/pkg/util/wait"
 	"net"
 	"time"
 )
@@ -33,7 +34,7 @@ func CreateGRPCServer(host, port string, serverSpecific func(sr grpc.ServiceRegi
 	}
 }
 
-func EstablishConnection(ctx context.Context, endpoint string, additionalOptions ...grpc.DialOption) (*grpc.ClientConn, error) {
+func dialConnection(ctx context.Context, endpoint string, additionalOptions ...grpc.DialOption) (*grpc.ClientConn, error) {
 	dialContext, cancelDialing := context.WithTimeout(ctx, GRPCConnectionTimeout)
 	defer cancelDialing()
 
@@ -65,4 +66,29 @@ func GetLongLivingConnectionDialOptions() []grpc.DialOption {
 	options = append(options, grpc.WithBlock())
 
 	return options
+}
+
+func EstablishGRPCConnectionPoll(host, port string) *grpc.ClientConn {
+	var conn *grpc.ClientConn
+
+	_ = wait.PollUntilContextCancel(context.Background(), 5*time.Second, false,
+		func(ctx context.Context) (done bool, err error) {
+			establishContext, end := context.WithTimeout(ctx, 3*time.Second)
+			defer end()
+
+			c, err := dialConnection(
+				establishContext,
+				net.JoinHostPort(host, port),
+				GetLongLivingConnectionDialOptions()...,
+			)
+			if err != nil {
+				logrus.Warn("Retrying to establish gRPC connection in 5 seconds...")
+			}
+
+			conn = c
+			return c != nil, nil
+		},
+	)
+
+	return conn
 }
