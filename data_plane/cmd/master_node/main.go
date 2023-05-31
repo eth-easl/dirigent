@@ -30,14 +30,12 @@ func main() {
 	logrus.SetLevel(logrus.DebugLevel)
 	logrus.SetFormatter(&logrus.TextFormatter{FullTimestamp: true})
 
-	stopCh := make(chan struct{})
-
 	cpApiServer := &api.CpApiServer{
 		NIStorage: api.NodeInfoStorage{
 			NodeInfo: make(map[string]*api.WorkerNode),
 		},
 		SIStorage: api.ServiceInfoStorage{
-			ServiceInfo: prepopulate(), //make(map[string]*proto.ServiceInfo),
+			ServiceInfo: prepopulate(), // TODO: remove in production
 			Scaling: map[string]*api.Autoscaler{
 				"/faas.Executor/Execute": {},
 			},
@@ -48,6 +46,4 @@ func main() {
 	common.CreateGRPCServer(common.ControlPlaneHost, common.ControlPlanePort, func(sr grpc.ServiceRegistrar) {
 		proto.RegisterCpiInterfaceServer(sr, cpApiServer)
 	})
-
-	<-stopCh
 }

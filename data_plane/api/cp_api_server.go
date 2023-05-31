@@ -183,11 +183,13 @@ func (c *CpApiServer) RegisterNode(_ context.Context, in *proto.NodeInfo) (*prot
 		}, nil
 	}
 
-	c.NIStorage.NodeInfo[in.NodeID] = &WorkerNode{
+	wn := &WorkerNode{
 		Name: in.NodeID,
 		IP:   in.IP,
 		Port: strconv.Itoa(int(in.Port)),
 	}
+	c.NIStorage.NodeInfo[in.NodeID] = wn
+	go wn.GetAPI()
 
 	logrus.Info("Node '", in.NodeID, "' has been successfully register with the control plane")
 	return &proto.ActionStatus{Success: true}, nil

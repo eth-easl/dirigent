@@ -23,6 +23,7 @@ func syncDeploymentCache(cpApi *proto.CpiInterfaceClient, deployments *common.De
 
 func main() {
 	logrus.SetLevel(logrus.DebugLevel)
+	logrus.SetFormatter(&logrus.TextFormatter{FullTimestamp: true})
 
 	cache := common.NewDeploymentList()
 	dpCreated := make(chan struct{})

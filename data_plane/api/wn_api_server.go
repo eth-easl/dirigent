@@ -6,6 +6,7 @@ import (
 	"context"
 	"github.com/docker/docker/client"
 	"github.com/sirupsen/logrus"
+	"time"
 )
 
 type WnApiServer struct {
@@ -16,6 +17,8 @@ type WnApiServer struct {
 }
 
 func (w *WnApiServer) CreateSandbox(_ context.Context, in *proto.ServiceInfo) (*proto.ActionStatus, error) {
+	start := time.Now()
+
 	host, guest, err := sandbox.CreateSandboxConfig(in.Image, in.PortForwarding)
 	if err != nil {
 		logrus.Warn(err)
@@ -33,6 +36,8 @@ func (w *WnApiServer) CreateSandbox(_ context.Context, in *proto.ServiceInfo) (*
 
 	w.containerList = append(w.containerList, sandboxID)
 	tempPort := host.PortBindings["80/tcp"][0].HostPort
+
+	logrus.Debug("Sandbox creation took ", time.Since(start).Microseconds(), " μs")
 
 	return &proto.ActionStatus{
 		Success: true,

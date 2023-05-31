@@ -26,6 +26,9 @@ func main() {
 	flag.Parse()
 	rand.Seed(time.Now().UnixNano())
 
+	stopChannel := make(chan struct{})
+
+	logrus.SetFormatter(&logrus.TextFormatter{FullTimestamp: true})
 	switch *verbosity {
 	case "debug":
 		logrus.SetLevel(logrus.DebugLevel)
@@ -43,14 +46,14 @@ func main() {
 	registerNodeWithControlPlane(&cpApi)
 	go setupHeartbeatLoop(&cpApi)
 
-	wnApiServer := &api.WnApiServer{
-		DockerClient: cli,
-	}
-
 	logrus.Info("Starting API handlers")
-	common.CreateGRPCServer(*ipAddress, strconv.Itoa(common.WorkerNodePort), func(sr grpc.ServiceRegistrar) {
-		proto.RegisterWorkerNodeInterfaceServer(sr, wnApiServer)
+	go common.CreateGRPCServer(*ipAddress, strconv.Itoa(common.WorkerNodePort), func(sr grpc.ServiceRegistrar) {
+		proto.RegisterWorkerNodeInterfaceServer(sr, &api.WnApiServer{
+			DockerClient: cli,
+		})
 	})
+
+	<-stopChannel
 }
 
 func registerNodeWithControlPlane(cpApi *proto.CpiInterfaceClient) {
