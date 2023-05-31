@@ -213,8 +213,8 @@ var CpiInterface_ServiceDesc = grpc.ServiceDesc{
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 type WorkerNodeInterfaceClient interface {
-	CreateSandbox(ctx context.Context, in *SandboxInfo, opts ...grpc.CallOption) (*ActionStatus, error)
-	DeleteSandbox(ctx context.Context, in *SandboxInfo, opts ...grpc.CallOption) (*ActionStatus, error)
+	CreateSandbox(ctx context.Context, in *ServiceInfo, opts ...grpc.CallOption) (*ActionStatus, error)
+	DeleteSandbox(ctx context.Context, in *ServiceInfo, opts ...grpc.CallOption) (*ActionStatus, error)
 }
 
 type workerNodeInterfaceClient struct {
@@ -225,7 +225,7 @@ func NewWorkerNodeInterfaceClient(cc grpc.ClientConnInterface) WorkerNodeInterfa
 	return &workerNodeInterfaceClient{cc}
 }
 
-func (c *workerNodeInterfaceClient) CreateSandbox(ctx context.Context, in *SandboxInfo, opts ...grpc.CallOption) (*ActionStatus, error) {
+func (c *workerNodeInterfaceClient) CreateSandbox(ctx context.Context, in *ServiceInfo, opts ...grpc.CallOption) (*ActionStatus, error) {
 	out := new(ActionStatus)
 	err := c.cc.Invoke(ctx, "/data_plane.WorkerNodeInterface/CreateSandbox", in, out, opts...)
 	if err != nil {
@@ -234,7 +234,7 @@ func (c *workerNodeInterfaceClient) CreateSandbox(ctx context.Context, in *Sandb
 	return out, nil
 }
 
-func (c *workerNodeInterfaceClient) DeleteSandbox(ctx context.Context, in *SandboxInfo, opts ...grpc.CallOption) (*ActionStatus, error) {
+func (c *workerNodeInterfaceClient) DeleteSandbox(ctx context.Context, in *ServiceInfo, opts ...grpc.CallOption) (*ActionStatus, error) {
 	out := new(ActionStatus)
 	err := c.cc.Invoke(ctx, "/data_plane.WorkerNodeInterface/DeleteSandbox", in, out, opts...)
 	if err != nil {
@@ -247,8 +247,8 @@ func (c *workerNodeInterfaceClient) DeleteSandbox(ctx context.Context, in *Sandb
 // All implementations must embed UnimplementedWorkerNodeInterfaceServer
 // for forward compatibility
 type WorkerNodeInterfaceServer interface {
-	CreateSandbox(context.Context, *SandboxInfo) (*ActionStatus, error)
-	DeleteSandbox(context.Context, *SandboxInfo) (*ActionStatus, error)
+	CreateSandbox(context.Context, *ServiceInfo) (*ActionStatus, error)
+	DeleteSandbox(context.Context, *ServiceInfo) (*ActionStatus, error)
 	mustEmbedUnimplementedWorkerNodeInterfaceServer()
 }
 
@@ -256,10 +256,10 @@ type WorkerNodeInterfaceServer interface {
 type UnimplementedWorkerNodeInterfaceServer struct {
 }
 
-func (UnimplementedWorkerNodeInterfaceServer) CreateSandbox(context.Context, *SandboxInfo) (*ActionStatus, error) {
+func (UnimplementedWorkerNodeInterfaceServer) CreateSandbox(context.Context, *ServiceInfo) (*ActionStatus, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method CreateSandbox not implemented")
 }
-func (UnimplementedWorkerNodeInterfaceServer) DeleteSandbox(context.Context, *SandboxInfo) (*ActionStatus, error) {
+func (UnimplementedWorkerNodeInterfaceServer) DeleteSandbox(context.Context, *ServiceInfo) (*ActionStatus, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method DeleteSandbox not implemented")
 }
 func (UnimplementedWorkerNodeInterfaceServer) mustEmbedUnimplementedWorkerNodeInterfaceServer() {}
@@ -276,7 +276,7 @@ func RegisterWorkerNodeInterfaceServer(s grpc.ServiceRegistrar, srv WorkerNodeIn
 }
 
 func _WorkerNodeInterface_CreateSandbox_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(SandboxInfo)
+	in := new(ServiceInfo)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
@@ -288,13 +288,13 @@ func _WorkerNodeInterface_CreateSandbox_Handler(srv interface{}, ctx context.Con
 		FullMethod: "/data_plane.WorkerNodeInterface/CreateSandbox",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(WorkerNodeInterfaceServer).CreateSandbox(ctx, req.(*SandboxInfo))
+		return srv.(WorkerNodeInterfaceServer).CreateSandbox(ctx, req.(*ServiceInfo))
 	}
 	return interceptor(ctx, in, info, handler)
 }
 
 func _WorkerNodeInterface_DeleteSandbox_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(SandboxInfo)
+	in := new(ServiceInfo)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
@@ -306,7 +306,7 @@ func _WorkerNodeInterface_DeleteSandbox_Handler(srv interface{}, ctx context.Con
 		FullMethod: "/data_plane.WorkerNodeInterface/DeleteSandbox",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(WorkerNodeInterfaceServer).DeleteSandbox(ctx, req.(*SandboxInfo))
+		return srv.(WorkerNodeInterfaceServer).DeleteSandbox(ctx, req.(*ServiceInfo))
 	}
 	return interceptor(ctx, in, info, handler)
 }

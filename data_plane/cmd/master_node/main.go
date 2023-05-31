@@ -6,8 +6,25 @@ import (
 	"cluster_manager/common"
 	"github.com/sirupsen/logrus"
 	"google.golang.org/grpc"
-	"sync"
 )
+
+func prepopulate() map[string]*proto.ServiceInfo {
+	// TODO: remove in production
+	s := make(map[string]*proto.ServiceInfo)
+
+	s["/faas.Executor/Execute"] = &proto.ServiceInfo{
+		Name:  "/faas.Executor/Execute",
+		Image: "docker.io/cvetkovic/empty_function:latest",
+		PortForwarding: []*proto.PortMapping{
+			{
+				GuestPort: 80,
+				Protocol:  proto.L4Protocol_TCP,
+			},
+		},
+	}
+
+	return s
+}
 
 func main() {
 	logrus.SetLevel(logrus.DebugLevel)
@@ -17,8 +34,13 @@ func main() {
 
 	cpApiServer := &api.CpApiServer{
 		NIStorage: api.NodeInfoStorage{
-			Mutex:    sync.Mutex{},
 			NodeInfo: make(map[string]*api.WorkerNode),
+		},
+		SIStorage: api.ServiceInfoStorage{
+			ServiceInfo: prepopulate(), //make(map[string]*proto.ServiceInfo),
+			Scaling: map[string]*api.Autoscaler{
+				"/faas.Executor/Execute": {},
+			},
 		},
 	}
 	cpApiServer.DpiInterface = api.InitializeDataPlaneConnection()

@@ -20,11 +20,11 @@ import (
 func TestE2E_HTTP_H2C_NoColdStart(t *testing.T) {
 	logrus.SetLevel(logrus.DebugLevel)
 
-	host, dpPort := "localhost", "9000"
+	//host, dpPort := "localhost", "9000"
 	endpointPort := "9001"
 
 	cache := common.NewDeploymentList()
-	go CreateProxyServer(host, dpPort, cache)
+	//go CreateProxyServer(host, dpPort, cache)
 	go func() {
 		mux := http.NewServeMux()
 		mux.HandleFunc("/test", func(writer http.ResponseWriter, request *http.Request) {
@@ -77,7 +77,7 @@ func TestE2E_gRPC_H2C_NoColdStart(t *testing.T) {
 	fx.SetUpstreamURLs([]string{"localhost:" + fmt.Sprintf("%s", sandboxPort)})
 
 	// proxy
-	go CreateProxyServer(host, proxyPort, cache)
+	//go CreateProxyServer(host, proxyPort, cache)
 	// endpoint
 	go common.CreateGRPCServer(host, sandboxPort, func(sr grpc.ServiceRegistrar) {
 		proto.RegisterExecutorServer(sr, &testserver.TestServer{})
@@ -109,7 +109,7 @@ func TestE2E_ColdStart_WithResolution(t *testing.T) {
 	// api server
 	go api.CreateDataPlaneAPIServer(host, apiServerPort, cache)
 	// proxy
-	go CreateProxyServer(host, proxyPort, cache)
+	//go CreateProxyServer(host, proxyPort, cache)
 	// endpoint
 	go common.CreateGRPCServer(host, sandboxPort, func(sr grpc.ServiceRegistrar) {
 		proto.RegisterExecutorServer(sr, &testserver.TestServer{})
@@ -144,10 +144,10 @@ func TestE2E_gRPC_H2C_NoDeployment(t *testing.T) {
 	proxyPort := "9007"
 	sandboxPort := "9008"
 
-	cache := common.NewDeploymentList()
+	//cache := common.NewDeploymentList()
 
 	// proxy
-	go CreateProxyServer(host, proxyPort, cache)
+	//go CreateProxyServer(host, proxyPort, cache)
 	// endpoint
 	go common.CreateGRPCServer(host, sandboxPort, func(sr grpc.ServiceRegistrar) {
 		proto.RegisterExecutorServer(sr, &testserver.TestServer{})

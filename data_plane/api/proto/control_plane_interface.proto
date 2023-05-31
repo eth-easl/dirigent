@@ -19,12 +19,7 @@ service CpiInterface {
   rpc NodeHeartbeat(NodeInfo) returns (ActionStatus);
 }
 
-message SandboxInfo {
-  string ID = 1;
-  string Image = 2;
-}
-
 service WorkerNodeInterface {
-  rpc CreateSandbox(SandboxInfo) returns (ActionStatus);
-  rpc DeleteSandbox(SandboxInfo) returns (ActionStatus);
+  rpc CreateSandbox(ServiceInfo) returns (ActionStatus);
+  rpc DeleteSandbox(ServiceInfo) returns (ActionStatus);
 }

@@ -53,9 +53,17 @@ func UpdateEndpointList(t *testing.T, host string, port string, endpoints []stri
 	executionCxt, cancelExecution := context.WithTimeout(context.Background(), common.GRPCFunctionTimeout)
 	defer cancelExecution()
 
+	// TODO: make this not be static and random
 	resp, err := proto2.NewDpiInterfaceClient(conn).UpdateEndpointList(executionCxt, &proto2.DeploymentEndpointPatch{
 		Service: &proto2.ServiceInfo{
-			Name: "/faas.Executor/Execute",
+			Name:  "/faas.Executor/Execute",
+			Image: "docker.io/cvetkovic/empty_function:latest",
+			PortForwarding: []*proto2.PortMapping{
+				{
+					GuestPort: 80,
+					Protocol:  proto2.L4Protocol_TCP,
+				},
+			},
 		},
 		Endpoints: endpoints,
 	})

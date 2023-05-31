@@ -47,9 +47,7 @@ type dpApiServer struct {
 }
 
 func (api *dpApiServer) AddDeployment(_ context.Context, in *proto.ServiceInfo) (*proto.DeploymentUpdateSuccess, error) {
-	return &proto.DeploymentUpdateSuccess{
-		Success: api.deployments.AddDeployment(in.GetName()),
-	}, nil
+	return &proto.DeploymentUpdateSuccess{Success: api.deployments.AddDeployment(in.GetName())}, nil
 }
 
 func (api *dpApiServer) UpdateEndpointList(_ context.Context, patch *proto.DeploymentEndpointPatch) (*proto.DeploymentUpdateSuccess, error) {

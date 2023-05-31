@@ -3,8 +3,22 @@ package data_plane;
 
 option go_package = "github.com/eth-easl/cluster_manager/data_plane/api/proto";
 
+enum L4Protocol {
+  TCP = 0;
+  UDP = 1;
+}
+
+message PortMapping {
+  //string HostIP = 1;
+  //int32 HostPort = 2;
+  int32 GuestPort = 3;
+  L4Protocol Protocol = 4;
+}
+
 message ServiceInfo {
   string Name = 1;
+  string Image = 2;
+  repeated PortMapping PortForwarding = 3;
 }
 
 message ServiceList {

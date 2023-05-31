@@ -4,11 +4,13 @@ import (
 	"cluster_manager/api"
 	"cluster_manager/api/proto"
 	"cluster_manager/common"
+	"cluster_manager/sandbox"
 	"context"
 	"flag"
 	"github.com/sirupsen/logrus"
 	"google.golang.org/grpc"
 	"k8s.io/apimachinery/pkg/util/wait"
+	"math/rand"
 	"strconv"
 	"time"
 )
@@ -22,6 +24,7 @@ var (
 
 func main() {
 	flag.Parse()
+	rand.Seed(time.Now().UnixNano())
 
 	switch *verbosity {
 	case "debug":
@@ -32,13 +35,21 @@ func main() {
 		logrus.SetLevel(logrus.InfoLevel)
 	}
 
+	cli := sandbox.GetDockerClient()
+	defer cli.Close()
+
 	cpApi := api.InitializeControlPlaneConnection()
 
 	registerNodeWithControlPlane(&cpApi)
 	go setupHeartbeatLoop(&cpApi)
 
+	wnApiServer := &api.WnApiServer{
+		DockerClient: cli,
+	}
+
+	logrus.Info("Starting API handlers")
 	common.CreateGRPCServer(*ipAddress, strconv.Itoa(common.WorkerNodePort), func(sr grpc.ServiceRegistrar) {
-		proto.RegisterWorkerNodeInterfaceServer(sr, &api.WnApiServer{})
+		proto.RegisterWorkerNodeInterfaceServer(sr, wnApiServer)
 	})
 }
 
