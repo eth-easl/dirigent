@@ -28,6 +28,8 @@ func FireInvocation(t *testing.T, host string, dpPort string) error {
 		logrus.Fatal("Failed to establish gRPC connection with the data plane")
 	}
 
+	logrus.Info("Connection with the gRPC server has been established")
+
 	executionCxt, cancelExecution := context.WithTimeout(context.Background(), common.GRPCFunctionTimeout)
 	defer cancelExecution()
 
@@ -36,6 +38,8 @@ func FireInvocation(t *testing.T, host string, dpPort string) error {
 		RuntimeInMilliSec: uint32(1000),
 		MemoryInMebiBytes: uint32(2048),
 	})
+
+	logrus.Info("Request completed")
 
 	return err
 }

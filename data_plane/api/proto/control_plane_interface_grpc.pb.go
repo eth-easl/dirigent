@@ -21,6 +21,7 @@ const _ = grpc.SupportPackageIsVersion7
 type CpiInterfaceClient interface {
 	ScaleFromZero(ctx context.Context, in *ServiceInfo, opts ...grpc.CallOption) (*ActionStatus, error)
 	ListServices(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*ServiceList, error)
+	RegisterService(ctx context.Context, in *ServiceInfo, opts ...grpc.CallOption) (*ActionStatus, error)
 	RegisterNode(ctx context.Context, in *NodeInfo, opts ...grpc.CallOption) (*ActionStatus, error)
 	NodeHeartbeat(ctx context.Context, in *NodeInfo, opts ...grpc.CallOption) (*ActionStatus, error)
 }
@@ -51,6 +52,15 @@ func (c *cpiInterfaceClient) ListServices(ctx context.Context, in *emptypb.Empty
 	return out, nil
 }
 
+func (c *cpiInterfaceClient) RegisterService(ctx context.Context, in *ServiceInfo, opts ...grpc.CallOption) (*ActionStatus, error) {
+	out := new(ActionStatus)
+	err := c.cc.Invoke(ctx, "/data_plane.CpiInterface/RegisterService", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 func (c *cpiInterfaceClient) RegisterNode(ctx context.Context, in *NodeInfo, opts ...grpc.CallOption) (*ActionStatus, error) {
 	out := new(ActionStatus)
 	err := c.cc.Invoke(ctx, "/data_plane.CpiInterface/RegisterNode", in, out, opts...)
@@ -75,6 +85,7 @@ func (c *cpiInterfaceClient) NodeHeartbeat(ctx context.Context, in *NodeInfo, op
 type CpiInterfaceServer interface {
 	ScaleFromZero(context.Context, *ServiceInfo) (*ActionStatus, error)
 	ListServices(context.Context, *emptypb.Empty) (*ServiceList, error)
+	RegisterService(context.Context, *ServiceInfo) (*ActionStatus, error)
 	RegisterNode(context.Context, *NodeInfo) (*ActionStatus, error)
 	NodeHeartbeat(context.Context, *NodeInfo) (*ActionStatus, error)
 	mustEmbedUnimplementedCpiInterfaceServer()
@@ -89,6 +100,9 @@ func (UnimplementedCpiInterfaceServer) ScaleFromZero(context.Context, *ServiceIn
 }
 func (UnimplementedCpiInterfaceServer) ListServices(context.Context, *emptypb.Empty) (*ServiceList, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method ListServices not implemented")
+}
+func (UnimplementedCpiInterfaceServer) RegisterService(context.Context, *ServiceInfo) (*ActionStatus, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method RegisterService not implemented")
 }
 func (UnimplementedCpiInterfaceServer) RegisterNode(context.Context, *NodeInfo) (*ActionStatus, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method RegisterNode not implemented")
@@ -145,6 +159,24 @@ func _CpiInterface_ListServices_Handler(srv interface{}, ctx context.Context, de
 	return interceptor(ctx, in, info, handler)
 }
 
+func _CpiInterface_RegisterService_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ServiceInfo)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(CpiInterfaceServer).RegisterService(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/data_plane.CpiInterface/RegisterService",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(CpiInterfaceServer).RegisterService(ctx, req.(*ServiceInfo))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 func _CpiInterface_RegisterNode_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(NodeInfo)
 	if err := dec(in); err != nil {
@@ -195,6 +227,10 @@ var CpiInterface_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "ListServices",
 			Handler:    _CpiInterface_ListServices_Handler,
+		},
+		{
+			MethodName: "RegisterService",
+			Handler:    _CpiInterface_RegisterService_Handler,
 		},
 		{
 			MethodName: "RegisterNode",

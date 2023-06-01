@@ -110,6 +110,16 @@ type CpApiServer struct {
 	SIStorage    map[string]*ServiceInfoStorage
 }
 
+func CreateNewCpApiServer(dpiInterface proto.DpiInterfaceClient) *CpApiServer {
+	return &CpApiServer{
+		DpiInterface: dpiInterface,
+		NIStorage: NodeInfoStorage{
+			NodeInfo: make(map[string]*WorkerNode),
+		},
+		SIStorage: make(map[string]*ServiceInfoStorage),
+	}
+}
+
 func (c *CpApiServer) ScaleFromZero(_ context.Context, info *proto.ServiceInfo) (*proto.ActionStatus, error) {
 	service, ok := c.SIStorage[info.Name]
 	if !ok {
@@ -164,5 +174,24 @@ func (c *CpApiServer) NodeHeartbeat(_ context.Context, in *proto.NodeInfo) (*pro
 	n.LastHeartbeat = time.Now()
 
 	logrus.Debug("Heartbeat received for '", in.NodeID, "'")
+	return &proto.ActionStatus{Success: true}, nil
+}
+
+func (c *CpApiServer) RegisterService(_ context.Context, serviceInfo *proto.ServiceInfo) (*proto.ActionStatus, error) {
+	scalingChannel := make(chan int)
+
+	service := &ServiceInfoStorage{
+		ServiceInfo: serviceInfo,
+		Scaling: &Autoscaler{
+			NotifyChannel: &scalingChannel,
+			Period:        2 * time.Second,
+		},
+		Controller: &PFStateController{
+			DesiredStateChannel: &scalingChannel,
+		},
+	}
+	c.SIStorage[serviceInfo.Name] = service
+	go service.ScalingControllerLoop(&c.NIStorage, c.DpiInterface)
+
 	return &proto.ActionStatus{Success: true}, nil
 }

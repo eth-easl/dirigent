@@ -15,6 +15,7 @@ service CpiInterface {
   rpc ScaleFromZero(ServiceInfo) returns (ActionStatus);
   rpc ListServices(google.protobuf.Empty) returns (ServiceList);
 
+  rpc RegisterService(ServiceInfo) returns (ActionStatus);
   rpc RegisterNode(NodeInfo) returns (ActionStatus);
   rpc NodeHeartbeat(NodeInfo) returns (ActionStatus);
 }
