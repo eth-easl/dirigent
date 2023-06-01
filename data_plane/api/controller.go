@@ -24,3 +24,10 @@ func placementPolicy(storage *NodeInfoStorage) *WorkerNode {
 
 	return nodeRef
 }
+
+func evictionPolicy(endpoint *[]Endpoint) (*Endpoint, []Endpoint) {
+	index := rand.Intn(len(*endpoint))
+	newEndpointList := append((*endpoint)[:index], (*endpoint)[index+1:]...)
+
+	return &(*endpoint)[index], newEndpointList
+}

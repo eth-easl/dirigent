@@ -17,7 +17,7 @@ message PortMapping {
 message ServiceInfo {
   string Name = 1;
   string Image = 2;
-  repeated PortMapping PortForwarding = 3;
+  PortMapping PortForwarding = 3;
 }
 
 message ServiceList {

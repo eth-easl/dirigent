@@ -27,7 +27,7 @@ message SandboxID {
 message SandboxCreationStatus {
   bool Success = 1;
   string ID = 2;
-  repeated PortMapping PortMappings = 3;
+  PortMapping PortMappings = 3;
 }
 
 service WorkerNodeInterface {

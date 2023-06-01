@@ -21,7 +21,23 @@ type ServiceInfoStorage struct {
 	Scaling     *Autoscaler
 
 	Controller *PFStateController
-	endpoints  []string
+	endpoints  []Endpoint
+}
+
+type Endpoint struct {
+	SandboxID string
+	URL       string
+	Node      *WorkerNode
+}
+
+func (ss *ServiceInfoStorage) GetAllURLs() []string {
+	var res []string
+
+	for i := 0; i < len(ss.endpoints); i++ {
+		res = append(res, ss.endpoints[i].URL)
+	}
+
+	return res
 }
 
 func (ss *ServiceInfoStorage) ScalingControllerLoop(nodeList *NodeInfoStorage, dpiClient proto.DpiInterfaceClient) {
@@ -30,36 +46,59 @@ func (ss *ServiceInfoStorage) ScalingControllerLoop(nodeList *NodeInfoStorage, d
 		select {
 		case desiredCount := <-*ss.Controller.DesiredStateChannel:
 			if ss.Controller.ActualScale < desiredCount {
-				diff := desiredCount - ss.Controller.ActualScale
-
-				for i := 0; i < diff; i++ {
-					node := placementPolicy(nodeList)
-					resp, err := node.GetAPI().CreateSandbox(context.Background(), ss.ServiceInfo)
-					if err != nil || !resp.Success {
-						logrus.Warn("Failed to start a sandbox on worker node ", node.Name)
-					}
-
-					ss.Controller.ActualScale++
-					if len(resp.PortMappings) > 1 {
-						panic("Not yet implemented")
-					}
-					nodePort := resp.PortMappings[0].HostPort // TODO: add support for many ports
-					ss.endpoints = append(ss.endpoints, fmt.Sprintf("localhost:%d", nodePort))
-
-					if resp.Success {
-						resp, err := dpiClient.UpdateEndpointList(context.Background(), &proto.DeploymentEndpointPatch{
-							Service:   ss.ServiceInfo,
-							Endpoints: ss.endpoints,
-						})
-						if err != nil || !resp.Success {
-							logrus.Warn("Failed to update endpoint list in the data plane")
-						}
-					}
-				}
+				ss.doUpscaling(desiredCount, nodeList, dpiClient)
 			} else if ss.Controller.ActualScale > desiredCount {
-				// TODO: implement downscaling
+				ss.doDownscaling(desiredCount, dpiClient)
 			}
 		}
+	}
+}
+
+func (ss *ServiceInfoStorage) doUpscaling(desiredCount int, nodeList *NodeInfoStorage, dpiClient proto.DpiInterfaceClient) {
+	diff := desiredCount - ss.Controller.ActualScale
+
+	for i := 0; i < diff; i++ {
+		node := placementPolicy(nodeList)
+		resp, err := node.GetAPI().CreateSandbox(context.Background(), ss.ServiceInfo)
+		if err != nil || !resp.Success {
+			logrus.Warn("Failed to start a sandbox on worker node ", node.Name)
+			continue
+		}
+
+		ss.Controller.ActualScale++
+		ss.endpoints = append(ss.endpoints, Endpoint{
+			SandboxID: resp.ID,
+			URL:       fmt.Sprintf("localhost:%d", resp.PortMappings.HostPort),
+			Node:      node,
+		})
+		ss.updateEndpoints(dpiClient)
+	}
+}
+
+func (ss *ServiceInfoStorage) doDownscaling(desiredCount int, dpiClient proto.DpiInterfaceClient) {
+	diff := ss.Controller.ActualScale - desiredCount
+
+	for i := 0; i < diff; i++ {
+		toEvict, newEndpoint := evictionPolicy(&ss.endpoints)
+		resp, err := toEvict.Node.GetAPI().DeleteSandbox(context.Background(), &proto.SandboxID{ID: toEvict.SandboxID})
+		if err != nil || !resp.Success {
+			logrus.Warn("Failed to delete a sandbox with ID '", toEvict.SandboxID, "' on worker node '", toEvict.Node.Name, "'")
+			continue
+		}
+
+		ss.Controller.ActualScale--
+		ss.endpoints = newEndpoint
+		ss.updateEndpoints(dpiClient)
+	}
+}
+
+func (ss *ServiceInfoStorage) updateEndpoints(dpiClient proto.DpiInterfaceClient) {
+	resp, err := dpiClient.UpdateEndpointList(context.Background(), &proto.DeploymentEndpointPatch{
+		Service:   ss.ServiceInfo,
+		Endpoints: ss.GetAllURLs(),
+	})
+	if err != nil || !resp.Success {
+		logrus.Warn("Failed to update endpoint list in the data plane")
 	}
 }
 

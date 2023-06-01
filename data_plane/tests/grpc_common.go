@@ -7,6 +7,7 @@ import (
 	"context"
 	"fmt"
 	"github.com/sirupsen/logrus"
+	"google.golang.org/grpc"
 	"testing"
 )
 
@@ -22,14 +23,7 @@ func (s *TestServer) Execute(_ context.Context, _ *proto.FaasRequest) (*proto.Fa
 	}, nil
 }
 
-func FireInvocation(t *testing.T, host string, dpPort string) error {
-	conn := common.EstablishGRPCConnectionPoll(host, dpPort)
-	if conn == nil {
-		logrus.Fatal("Failed to establish gRPC connection with the data plane")
-	}
-
-	logrus.Info("Connection with the gRPC server has been established")
-
+func FireInvocation(conn *grpc.ClientConn) error {
 	executionCxt, cancelExecution := context.WithTimeout(context.Background(), common.GRPCFunctionTimeout)
 	defer cancelExecution()
 
@@ -58,11 +52,9 @@ func UpdateEndpointList(t *testing.T, host string, port string, endpoints []stri
 		Service: &proto2.ServiceInfo{
 			Name:  "/faas.Executor/Execute",
 			Image: "docker.io/cvetkovic/empty_function:latest",
-			PortForwarding: []*proto2.PortMapping{
-				{
-					GuestPort: 80,
-					Protocol:  proto2.L4Protocol_TCP,
-				},
+			PortForwarding: &proto2.PortMapping{
+				GuestPort: 80,
+				Protocol:  proto2.L4Protocol_TCP,
 			},
 		},
 		Endpoints: endpoints,
