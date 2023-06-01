@@ -133,7 +133,7 @@ func (c *CpApiServer) ScaleFromZero(_ context.Context, info *proto.ServiceInfo) 
 }
 
 func (c *CpApiServer) ListServices(_ context.Context, _ *emptypb.Empty) (*proto.ServiceList, error) {
-	return &proto.ServiceList{Service: []string{"/faas.Executor/Execute"}}, nil
+	return &proto.ServiceList{Service: common.Keys(c.SIStorage)}, nil
 }
 
 func (c *CpApiServer) RegisterNode(_ context.Context, in *proto.NodeInfo) (*proto.ActionStatus, error) {
@@ -177,7 +177,13 @@ func (c *CpApiServer) NodeHeartbeat(_ context.Context, in *proto.NodeInfo) (*pro
 	return &proto.ActionStatus{Success: true}, nil
 }
 
-func (c *CpApiServer) RegisterService(_ context.Context, serviceInfo *proto.ServiceInfo) (*proto.ActionStatus, error) {
+func (c *CpApiServer) RegisterService(ctx context.Context, serviceInfo *proto.ServiceInfo) (*proto.ActionStatus, error) {
+	resp, err := c.DpiInterface.AddDeployment(ctx, serviceInfo)
+	if err != nil || !resp.Success {
+		logrus.Warn("Failed to propagate service registration to the data plane")
+		return &proto.ActionStatus{Success: false}, nil
+	}
+
 	scalingChannel := make(chan int)
 
 	service := &ServiceInfoStorage{
