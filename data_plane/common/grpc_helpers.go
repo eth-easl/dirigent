@@ -1,6 +1,7 @@
 package common
 
 import (
+	"cluster_manager/api/proto"
 	"context"
 	"fmt"
 	"github.com/sirupsen/logrus"
@@ -91,4 +92,34 @@ func EstablishGRPCConnectionPoll(host, port string) *grpc.ClientConn {
 	)
 
 	return conn
+}
+
+func InitializeControlPlaneConnection() proto.CpiInterfaceClient {
+	conn := EstablishGRPCConnectionPoll(ControlPlaneHost, ControlPlanePort)
+	if conn == nil {
+		logrus.Fatal("Failed to establish connection with the control plane")
+	}
+
+	logrus.Info("Successfully established connection with the control plane")
+	return proto.NewCpiInterfaceClient(conn)
+}
+
+func InitializeWorkerNodeConnection(host, port string) proto.WorkerNodeInterfaceClient {
+	conn := EstablishGRPCConnectionPoll(host, port)
+	if conn == nil {
+		logrus.Fatal("Failed to establish connection with the worker node")
+	}
+
+	logrus.Info("Successfully established connection with the worker node")
+	return proto.NewWorkerNodeInterfaceClient(conn)
+}
+
+func InitializeDataPlaneConnection() proto.DpiInterfaceClient {
+	conn := EstablishGRPCConnectionPoll(DataPlaneHost, DataPlaneApiPort)
+	if conn == nil {
+		logrus.Fatal("Failed to establish connection with the data plane")
+	}
+
+	logrus.Info("Successfully established connection with the data plane")
+	return proto.NewDpiInterfaceClient(conn)
 }

@@ -20,7 +20,17 @@ service CpiInterface {
   rpc NodeHeartbeat(NodeInfo) returns (ActionStatus);
 }
 
+message SandboxID {
+  string ID = 1;
+}
+
+message SandboxCreationStatus {
+  bool Success = 1;
+  string ID = 2;
+  repeated PortMapping PortMappings = 3;
+}
+
 service WorkerNodeInterface {
-  rpc CreateSandbox(ServiceInfo) returns (ActionStatus);
-  rpc DeleteSandbox(ServiceInfo) returns (ActionStatus);
+  rpc CreateSandbox(ServiceInfo) returns (SandboxCreationStatus);
+  rpc DeleteSandbox(SandboxID) returns (ActionStatus);
 }

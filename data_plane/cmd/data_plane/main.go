@@ -7,6 +7,7 @@ import (
 	"cluster_manager/proxy"
 	"context"
 	"github.com/sirupsen/logrus"
+	"google.golang.org/grpc"
 	"google.golang.org/protobuf/types/known/emptypb"
 )
 
@@ -28,11 +29,15 @@ func main() {
 	cache := common.NewDeploymentList()
 	dpCreated := make(chan struct{})
 
-	go api.CreateDataPlaneAPIServer(common.DataPlaneHost, common.DataPlaneApiPort, cache)
+	go common.CreateGRPCServer(common.DataPlaneHost, common.DataPlaneApiPort, func(sr grpc.ServiceRegistrar) {
+		proto.RegisterDpiInterfaceServer(sr, &api.DpApiServer{
+			Deployments: cache,
+		})
+	})
 
 	var dpConnection proto.CpiInterfaceClient
 	go func() {
-		dpConnection = api.InitializeControlPlaneConnection()
+		dpConnection = common.InitializeControlPlaneConnection()
 		syncDeploymentCache(&dpConnection, cache)
 
 		dpCreated <- struct{}{}

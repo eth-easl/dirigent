@@ -1,7 +1,6 @@
 package proxy
 
 import (
-	"cluster_manager/api"
 	"cluster_manager/common"
 	testserver "cluster_manager/tests"
 	"cluster_manager/tests/proto"
@@ -107,7 +106,7 @@ func TestE2E_ColdStart_WithResolution(t *testing.T) {
 	}
 
 	// api server
-	go api.CreateDataPlaneAPIServer(host, apiServerPort, cache)
+	//go api.CreateDataPlaneAPIServer(host, apiServerPort, cache)
 	// proxy
 	//go CreateProxyServer(host, proxyPort, cache)
 	// endpoint

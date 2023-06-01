@@ -1,7 +1,6 @@
 package tests
 
 import (
-	"cluster_manager/api"
 	proto2 "cluster_manager/api/proto"
 	"cluster_manager/common"
 	"context"
@@ -12,7 +11,7 @@ import (
 func TestDeployService(t *testing.T) {
 	logrus.SetLevel(logrus.DebugLevel)
 
-	cpApi := api.InitializeControlPlaneConnection()
+	cpApi := common.InitializeControlPlaneConnection()
 
 	ctx, cancel := context.WithTimeout(context.Background(), common.GRPCFunctionTimeout)
 	defer cancel()

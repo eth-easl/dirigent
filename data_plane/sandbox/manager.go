@@ -2,14 +2,14 @@ package sandbox
 
 import (
 	"context"
-	"github.com/containerd/containerd"
 	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/client"
 	"github.com/sirupsen/logrus"
-	"log"
 	"time"
 )
+
+const requestTimeout = 5 * time.Second
 
 func GetDockerClient() *client.Client {
 	cli, err := client.NewClientWithOpts(client.FromEnv)
@@ -20,20 +20,10 @@ func GetDockerClient() *client.Client {
 	return cli
 }
 
-func GetContainerdClient() *containerd.Client {
-	cli, err := containerd.New("/run/containerd/containerd.sock")
-	if err != nil {
-		log.Fatal("Failed to create a containerd client")
-	}
-
-	return cli
-}
-
-func CreateSandbox(cli *client.Client, sandboxName string, hostConfig *container.HostConfig, containerConfig *container.Config) (string, error) {
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+func CreateSandbox(cli *client.Client, hostConfig *container.HostConfig, containerConfig *container.Config) (string, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), requestTimeout)
 	defer cancel()
 
-	//containerName := fmt.Sprintf("%s-%d", sandboxName, rand.Int())
 	resp, err := cli.ContainerCreate(ctx, containerConfig, hostConfig, nil, nil, "")
 	if err != nil {
 		return "", err
@@ -45,4 +35,12 @@ func CreateSandbox(cli *client.Client, sandboxName string, hostConfig *container
 	}
 
 	return resp.ID, nil
+}
+
+func DeleteSandbox(cli *client.Client, sandboxID string) error {
+	ctx, cancel := context.WithTimeout(context.Background(), 10*requestTimeout)
+	defer cancel()
+
+	// TODO: think about graceful shutdown
+	return cli.ContainerRemove(ctx, sandboxID, types.ContainerRemoveOptions{Force: true})
 }

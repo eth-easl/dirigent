@@ -12,7 +12,7 @@ func main() {
 	logrus.SetLevel(logrus.DebugLevel)
 	logrus.SetFormatter(&logrus.TextFormatter{FullTimestamp: true})
 
-	dpiInterface := api.InitializeDataPlaneConnection()
+	dpiInterface := common.InitializeDataPlaneConnection()
 	cpApiServer := api.CreateNewCpApiServer(dpiInterface)
 
 	common.CreateGRPCServer(common.ControlPlaneHost, common.ControlPlanePort, func(sr grpc.ServiceRegistrar) {

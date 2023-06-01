@@ -42,10 +42,13 @@ func createPortMappings(rawMappings []*proto.PortMapping) (nat.PortMap, nat.Port
 
 		common := nat.Port(fmt.Sprintf("%d/%s", r.GuestPort, l4ProtocolToString(r.Protocol)))
 
+		hostPort := assignRandomPort()
+
+		r.HostPort = int32(hostPort)
 		host[common] = []nat.PortBinding{
 			{
 				HostIP:   "0.0.0.0", // TODO: hardcoded while VXLAN not implemented
-				HostPort: strconv.Itoa(assignRandomPort()),
+				HostPort: strconv.Itoa(hostPort),
 			},
 		}
 		guest[common] = struct{}{}
@@ -60,14 +63,8 @@ func CreateSandboxConfig(image string, portMaps []*proto.PortMapping) (*containe
 		return nil, nil, err
 	}
 
-	hostConfig := &container.HostConfig{
-		PortBindings: hostMapping,
-	}
-
-	containerConfig := &container.Config{
-		Image:        image,
-		ExposedPorts: guestMapping,
-	}
+	hostConfig := &container.HostConfig{PortBindings: hostMapping}
+	containerConfig := &container.Config{Image: image, ExposedPorts: guestMapping}
 
 	return hostConfig, containerConfig, nil
 }
