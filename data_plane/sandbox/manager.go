@@ -38,7 +38,7 @@ func CreateSandbox(cli *client.Client, hostConfig *container.HostConfig, contain
 }
 
 func DeleteSandbox(cli *client.Client, sandboxID string) error {
-	ctx, cancel := context.WithTimeout(context.Background(), 10*requestTimeout)
+	ctx, cancel := context.WithTimeout(context.Background(), requestTimeout)
 	defer cancel()
 
 	// TODO: think about graceful shutdown
