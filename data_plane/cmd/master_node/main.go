@@ -6,13 +6,11 @@ import (
 	"cluster_manager/common"
 	"github.com/sirupsen/logrus"
 	"google.golang.org/grpc"
+	"time"
 )
 
-func prepopulate() map[string]*proto.ServiceInfo {
-	// TODO: remove in production
-	s := make(map[string]*proto.ServiceInfo)
-
-	s["/faas.Executor/Execute"] = &proto.ServiceInfo{
+func prepopulate() *proto.ServiceInfo {
+	return &proto.ServiceInfo{
 		Name:  "/faas.Executor/Execute",
 		Image: "docker.io/cvetkovic/empty_function:latest",
 		PortForwarding: []*proto.PortMapping{
@@ -22,8 +20,6 @@ func prepopulate() map[string]*proto.ServiceInfo {
 			},
 		},
 	}
-
-	return s
 }
 
 func main() {
@@ -34,14 +30,24 @@ func main() {
 		NIStorage: api.NodeInfoStorage{
 			NodeInfo: make(map[string]*api.WorkerNode),
 		},
-		SIStorage: api.ServiceInfoStorage{
-			ServiceInfo: prepopulate(), // TODO: remove in production
-			Scaling: map[string]*api.Autoscaler{
-				"/faas.Executor/Execute": {},
-			},
+		SIStorage: make(map[string]*api.ServiceInfoStorage),
+	}
+
+	scalingCountCh := make(chan int)
+	testService := &api.ServiceInfoStorage{
+		ServiceInfo: prepopulate(), // TODO: remove in production
+		Scaling: &api.Autoscaler{
+			Period:        2 * time.Second,
+			NotifyChannel: &scalingCountCh,
+		},
+		Controller: &api.PFStateController{
+			DesiredStateChannel: &scalingCountCh,
 		},
 	}
+	cpApiServer.SIStorage["/faas.Executor/Execute"] = testService
+
 	cpApiServer.DpiInterface = api.InitializeDataPlaneConnection()
+	go testService.ScalingControllerLoop(&cpApiServer.NIStorage, cpApiServer.DpiInterface)
 
 	common.CreateGRPCServer(common.ControlPlaneHost, common.ControlPlanePort, func(sr grpc.ServiceRegistrar) {
 		proto.RegisterCpiInterfaceServer(sr, cpApiServer)

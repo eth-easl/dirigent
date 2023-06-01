@@ -40,35 +40,48 @@ type NodeInfoStorage struct {
 	NodeInfo map[string]*WorkerNode
 }
 
-type Autoscaler struct {
-	sync.Mutex
-
-	Running       bool
-	StopChannel   chan struct{}
-	NotifyChannel chan struct{}
-}
-
-/*func (a *Autoscaler) Start() {
-	a.Lock()
-	defer a.Unlock()
-
-	if !a.Running {
-		go a.ScalingLoop()
-	}
-}*/
-
-func ScalingLoop(info *proto.ServiceInfo, api proto.WorkerNodeInterfaceClient) string {
-	resp, err := api.CreateSandbox(context.Background(), info)
-	if err != nil || !resp.Success {
-		logrus.Warn("Failed to upscale.")
-	}
-
-	return resp.Message
-}
-
 type ServiceInfoStorage struct {
-	ServiceInfo map[string]*proto.ServiceInfo
-	Scaling     map[string]*Autoscaler
+	ServiceInfo *proto.ServiceInfo
+	Scaling     *Autoscaler
+
+	Controller *PFStateController
+	endpoints  []string
+}
+
+func (ss *ServiceInfoStorage) ScalingControllerLoop(nodeList *NodeInfoStorage, dpiClient proto.DpiInterfaceClient) {
+	// TODO: add locking
+	for {
+		select {
+		case desiredCount := <-*ss.Controller.DesiredStateChannel:
+			if ss.Controller.ActualScale < desiredCount {
+				diff := desiredCount - ss.Controller.ActualScale
+
+				for i := 0; i < diff; i++ {
+					node := placementPolicy(nodeList)
+					resp, err := node.GetAPI().CreateSandbox(context.Background(), ss.ServiceInfo)
+					if err != nil || !resp.Success {
+						logrus.Warn("Failed to start a sandbox on worker node ", node.Name)
+					}
+
+					ss.Controller.ActualScale++
+					nodePort := resp.Message // TODO: temp only
+					ss.endpoints = append(ss.endpoints, fmt.Sprintf("localhost:%s", nodePort))
+
+					if resp.Success {
+						resp, err := dpiClient.UpdateEndpointList(context.Background(), &proto.DeploymentEndpointPatch{
+							Service:   ss.ServiceInfo,
+							Endpoints: ss.endpoints,
+						})
+						if err != nil || !resp.Success {
+							logrus.Warn("Failed to update endpoint list in the data plane")
+						}
+					}
+				}
+			} else if ss.Controller.ActualScale > desiredCount {
+				// TODO: implement downscaling
+			}
+		}
+	}
 }
 
 type WorkerNode struct {
@@ -82,7 +95,7 @@ type WorkerNode struct {
 
 func (w *WorkerNode) GetAPI() proto.WorkerNodeInterfaceClient {
 	if w.api == nil {
-		// TODO: unhardcode IP address
+		// TODO: remove hardcoded IP address
 		w.api = InitializeWorkerNodeConnection("localhost", w.Port)
 	}
 
@@ -94,34 +107,19 @@ type CpApiServer struct {
 
 	DpiInterface proto.DpiInterfaceClient
 	NIStorage    NodeInfoStorage
-	SIStorage    ServiceInfoStorage
+	SIStorage    map[string]*ServiceInfoStorage
 }
 
-func (c *CpApiServer) ScaleFromZero(ctx context.Context, in *proto.ServiceInfo) (*proto.ActionStatus, error) {
-	// TODO: needs locking
-	/*autoscaler, ok := c.SIStorage.Scaling[serviceName]
+func (c *CpApiServer) ScaleFromZero(_ context.Context, info *proto.ServiceInfo) (*proto.ActionStatus, error) {
+	service, ok := c.SIStorage[info.Name]
 	if !ok {
-		logrus.Warn("Could not find an autoscaler for the requested service type.")
+		logrus.Warn("Autoscaling controller does not exist for function ", info.Name)
 		return &proto.ActionStatus{Success: false}, nil
-	}*/
+	}
 
-	node := c.NIStorage.NodeInfo["node-0"]
-	serviceInfo := c.SIStorage.ServiceInfo[in.Name]
-	ip := ScalingLoop(serviceInfo, node.GetAPI())
+	service.Scaling.Start()
 
-	resp, err := c.DpiInterface.UpdateEndpointList(ctx, &proto.DeploymentEndpointPatch{
-		Service: &proto.ServiceInfo{
-			Name: in.Name,
-		},
-		Endpoints: []string{
-			fmt.Sprintf("%s:%s", node.IP, ip),
-		},
-	})
-
-	return &proto.ActionStatus{
-		Success: resp.Success,
-		Message: resp.Message,
-	}, err
+	return &proto.ActionStatus{Success: true}, nil
 }
 
 func (c *CpApiServer) ListServices(_ context.Context, _ *emptypb.Empty) (*proto.ServiceList, error) {
