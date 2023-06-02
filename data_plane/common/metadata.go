@@ -25,10 +25,19 @@ type FunctionMetadata struct {
 	upstreamEndpoints []UpstreamEndpoint
 	queue             *list.List
 
-	beingDrained     *chan struct{}
-	inflightRequests int32
+	beingDrained *chan struct{}
+	metrics      ScalingMetric
 
-	scaleFromZeroSentAt time.Time
+	sendMetricsTriggered bool
+}
+
+type ScalingMetric struct {
+	timestamp         time.Time
+	timeWindowSize    time.Duration
+	lastTimeWindowCnt int32
+
+	totalRequests    int32
+	inflightRequests int32
 }
 
 func (m *FunctionMetadata) GetUpstreamEndpoints() []UpstreamEndpoint {
@@ -109,7 +118,7 @@ func (m *FunctionMetadata) SetUpstreamURLs(urls []string) {
 }
 
 func (m *FunctionMetadata) DecreaseInflight() {
-	newVal := atomic.AddInt32(&m.inflightRequests, -1)
+	newVal := atomic.AddInt32(&m.metrics.inflightRequests, -1)
 
 	if newVal == 0 {
 		m.Lock()
@@ -121,34 +130,68 @@ func (m *FunctionMetadata) DecreaseInflight() {
 	}
 }
 
-func (m *FunctionMetadata) TryWarmStart(cp *proto.CpiInterfaceClient) (chan bool, func()) {
-	atomic.AddInt32(&m.inflightRequests, 1)
+func (m *FunctionMetadata) TryWarmStart(cp *proto.CpiInterfaceClient) chan bool {
+	atomic.AddInt32(&m.metrics.inflightRequests, 1)
+	atomic.AddInt32(&m.metrics.totalRequests, 1)
 
 	m.Lock()
 	defer m.Unlock()
+
+	////////////////////////////////////////////////
+	m.metrics.lastTimeWindowCnt++
+	////////////////////////////////////////////////
 
 	if m.upstreamEndpoints == nil || len(m.upstreamEndpoints) == 0 {
 		waitChannel := make(chan bool, 1)
 		m.queue.PushBack(waitChannel)
 
-		var requestScaling = func() {}
-
-		if m.scaleFromZeroSentAt.IsZero() || time.Since(m.scaleFromZeroSentAt) > 5*time.Second {
-			m.scaleFromZeroSentAt = time.Now()
-
-			requestScaling = func() {
-				status, err := (*cp).ScaleFromZero(context.Background(), &proto.ServiceInfo{Name: m.identifier})
-				if err != nil || !status.Success {
-					logrus.Warn("Scale from zero failed for function ", m.identifier)
-				} else {
-					logrus.Debug("Scale from zero request issued for ", m.identifier)
-				}
-			}
+		// trigger autoscaling
+		if !m.sendMetricsTriggered {
+			m.sendMetricsTriggered = true
+			go m.sendMetricsLoop(cp)
 		}
 
-		return waitChannel, requestScaling
+		return waitChannel
 	} else {
-		return nil, func() {}
+		return nil
+	}
+}
+
+func (m *FunctionMetadata) sendMetricsLoop(cp *proto.CpiInterfaceClient) {
+	// TODO: what about locks and termination
+	timer := time.NewTimer(m.metrics.timeWindowSize)
+
+	for ; true; <-timer.C {
+		m.Lock()
+
+		metricValue := float32(m.metrics.lastTimeWindowCnt)
+		go func() {
+			status, err := (*cp).OnMetricsReceive(context.Background(), &proto.AutoscalingMetric{
+				ServiceName: m.identifier,
+				Metric:      metricValue,
+			})
+			if err != nil || !status.Success {
+				logrus.Warn("Failed to forward metrics to the control plane for service '", m.identifier, "'")
+			}
+
+			logrus.Debug("Scaling metric has been sent for ", m.identifier)
+		}()
+
+		toBreak := metricValue == 0
+		if toBreak {
+			m.sendMetricsTriggered = false
+		}
+
+		if m.metrics.timestamp.IsZero() || time.Since(m.metrics.timestamp) >= m.metrics.timeWindowSize {
+			m.metrics.timestamp = time.Now()
+			m.metrics.lastTimeWindowCnt = 0
+		}
+
+		m.Unlock()
+
+		if toBreak {
+			break
+		}
 	}
 }
 
@@ -181,6 +224,9 @@ func (d *Deployments) AddDeployment(name string) bool {
 		identifier:         name,
 		sandboxParallelism: 1,
 		queue:              list.New(),
+		metrics: ScalingMetric{
+			timeWindowSize: 5 * time.Second,
+		},
 	}
 
 	logrus.Info("Service with name '", name, "' has been registered")

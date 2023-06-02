@@ -11,8 +11,13 @@ message NodeInfo {
   int32 Port = 3;
 }
 
+message AutoscalingMetric {
+  string ServiceName = 1;
+  float Metric = 2;
+}
+
 service CpiInterface {
-  rpc ScaleFromZero(ServiceInfo) returns (ActionStatus);
+  rpc OnMetricsReceive(AutoscalingMetric) returns (ActionStatus);
   rpc ListServices(google.protobuf.Empty) returns (ServiceList);
 
   rpc RegisterService(ServiceInfo) returns (ActionStatus);

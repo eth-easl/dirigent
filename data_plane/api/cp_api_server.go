@@ -28,14 +28,22 @@ func CreateNewCpApiServer(dpiInterface proto.DpiInterfaceClient) *CpApiServer {
 	}
 }
 
-func (c *CpApiServer) ScaleFromZero(_ context.Context, info *proto.ServiceInfo) (*proto.ActionStatus, error) {
-	service, ok := c.SIStorage[info.Name]
+func (c *CpApiServer) OnMetricsReceive(_ context.Context, metric *proto.AutoscalingMetric) (*proto.ActionStatus, error) {
+	service, ok := c.SIStorage[metric.ServiceName]
 	if !ok {
-		logrus.Warn("Autoscaling controller does not exist for function ", info.Name)
+		logrus.Warn("Autoscaling controller does not exist for function ", metric.ServiceName)
 		return &proto.ActionStatus{Success: false}, nil
 	}
 
-	service.Scaling.Start()
+	service.Controller.Start()
+	storage, ok := c.SIStorage[metric.ServiceName]
+	if !ok {
+		logrus.Warn("SIStorage does not exist for '", metric.ServiceName, "'")
+		return &proto.ActionStatus{Success: false}, nil
+	}
+
+	storage.Controller.scalingMetric["testMetric"] = float64(metric.Metric)
+	logrus.Debug("Scaling metric for '", service, "' is ", metric.Metric)
 
 	return &proto.ActionStatus{Success: true}, nil
 }
@@ -96,12 +104,11 @@ func (c *CpApiServer) RegisterService(ctx context.Context, serviceInfo *proto.Se
 
 	service := &ServiceInfoStorage{
 		ServiceInfo: serviceInfo,
-		Scaling: &Autoscaler{
-			NotifyChannel: &scalingChannel,
-			Period:        2 * time.Second, // TODO: hardcoded for now
-		},
 		Controller: &PFStateController{
 			DesiredStateChannel: &scalingChannel,
+			NotifyChannel:       &scalingChannel,
+			Period:              2 * time.Second, // TODO: hardcoded autoscaling period for now
+			scalingMetric:       make(map[ScalingMetric]float64),
 		},
 	}
 	c.SIStorage[serviceInfo.Name] = service

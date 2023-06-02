@@ -34,12 +34,11 @@ func InvocationHandler(next http.Handler, cache *common.Deployments, cp *proto.C
 		///////////////////////////////////////////////
 		// COLD/WARM START
 		///////////////////////////////////////////////
-		coldStartChannel, requestScaling := metadata.TryWarmStart(cp)
+		coldStartChannel := metadata.TryWarmStart(cp)
 		if coldStartChannel != nil {
 			logrus.Debug("Enqueued invocation for ", serviceName)
 
 			// wait until a cold start is resolved
-			requestScaling()
 			<-coldStartChannel
 		}
 

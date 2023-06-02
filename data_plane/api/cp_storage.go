@@ -18,7 +18,6 @@ type NodeInfoStorage struct {
 
 type ServiceInfoStorage struct {
 	ServiceInfo *proto.ServiceInfo
-	Scaling     *Autoscaler
 
 	Controller *PFStateController
 	endpoints  []Endpoint

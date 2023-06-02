@@ -19,7 +19,7 @@ const _ = grpc.SupportPackageIsVersion7
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 type CpiInterfaceClient interface {
-	ScaleFromZero(ctx context.Context, in *ServiceInfo, opts ...grpc.CallOption) (*ActionStatus, error)
+	OnMetricsReceive(ctx context.Context, in *AutoscalingMetric, opts ...grpc.CallOption) (*ActionStatus, error)
 	ListServices(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*ServiceList, error)
 	RegisterService(ctx context.Context, in *ServiceInfo, opts ...grpc.CallOption) (*ActionStatus, error)
 	RegisterNode(ctx context.Context, in *NodeInfo, opts ...grpc.CallOption) (*ActionStatus, error)
@@ -34,9 +34,9 @@ func NewCpiInterfaceClient(cc grpc.ClientConnInterface) CpiInterfaceClient {
 	return &cpiInterfaceClient{cc}
 }
 
-func (c *cpiInterfaceClient) ScaleFromZero(ctx context.Context, in *ServiceInfo, opts ...grpc.CallOption) (*ActionStatus, error) {
+func (c *cpiInterfaceClient) OnMetricsReceive(ctx context.Context, in *AutoscalingMetric, opts ...grpc.CallOption) (*ActionStatus, error) {
 	out := new(ActionStatus)
-	err := c.cc.Invoke(ctx, "/data_plane.CpiInterface/ScaleFromZero", in, out, opts...)
+	err := c.cc.Invoke(ctx, "/data_plane.CpiInterface/OnMetricsReceive", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -83,7 +83,7 @@ func (c *cpiInterfaceClient) NodeHeartbeat(ctx context.Context, in *NodeInfo, op
 // All implementations must embed UnimplementedCpiInterfaceServer
 // for forward compatibility
 type CpiInterfaceServer interface {
-	ScaleFromZero(context.Context, *ServiceInfo) (*ActionStatus, error)
+	OnMetricsReceive(context.Context, *AutoscalingMetric) (*ActionStatus, error)
 	ListServices(context.Context, *emptypb.Empty) (*ServiceList, error)
 	RegisterService(context.Context, *ServiceInfo) (*ActionStatus, error)
 	RegisterNode(context.Context, *NodeInfo) (*ActionStatus, error)
@@ -95,8 +95,8 @@ type CpiInterfaceServer interface {
 type UnimplementedCpiInterfaceServer struct {
 }
 
-func (UnimplementedCpiInterfaceServer) ScaleFromZero(context.Context, *ServiceInfo) (*ActionStatus, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method ScaleFromZero not implemented")
+func (UnimplementedCpiInterfaceServer) OnMetricsReceive(context.Context, *AutoscalingMetric) (*ActionStatus, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method OnMetricsReceive not implemented")
 }
 func (UnimplementedCpiInterfaceServer) ListServices(context.Context, *emptypb.Empty) (*ServiceList, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method ListServices not implemented")
@@ -123,20 +123,20 @@ func RegisterCpiInterfaceServer(s grpc.ServiceRegistrar, srv CpiInterfaceServer)
 	s.RegisterService(&CpiInterface_ServiceDesc, srv)
 }
 
-func _CpiInterface_ScaleFromZero_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(ServiceInfo)
+func _CpiInterface_OnMetricsReceive_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(AutoscalingMetric)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(CpiInterfaceServer).ScaleFromZero(ctx, in)
+		return srv.(CpiInterfaceServer).OnMetricsReceive(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: "/data_plane.CpiInterface/ScaleFromZero",
+		FullMethod: "/data_plane.CpiInterface/OnMetricsReceive",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(CpiInterfaceServer).ScaleFromZero(ctx, req.(*ServiceInfo))
+		return srv.(CpiInterfaceServer).OnMetricsReceive(ctx, req.(*AutoscalingMetric))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -221,8 +221,8 @@ var CpiInterface_ServiceDesc = grpc.ServiceDesc{
 	HandlerType: (*CpiInterfaceServer)(nil),
 	Methods: []grpc.MethodDesc{
 		{
-			MethodName: "ScaleFromZero",
-			Handler:    _CpiInterface_ScaleFromZero_Handler,
+			MethodName: "OnMetricsReceive",
+			Handler:    _CpiInterface_OnMetricsReceive_Handler,
 		},
 		{
 			MethodName: "ListServices",
