@@ -34,14 +34,11 @@ type PFStateController struct {
 //////////////////////////////////////////////////////
 
 func (as *PFStateController) determineScale() int {
-	if as.ActualScale == 0 {
-		return 1
-	}
-
 	metric, ok := as.scalingMetric["testMetric"]
 	if !ok {
 		log.Fatal("Invalid autoscaling metric requested from the cache")
 	}
+
 	return int(math.Ceil(metric / 10))
 }
 
@@ -55,11 +52,11 @@ func (as *PFStateController) Start() {
 }
 
 func (as *PFStateController) ScalingLoop() {
-	timer := time.NewTimer(as.Period)
+	ticker := time.NewTicker(as.Period)
 
 	for {
 		select {
-		case <-timer.C:
+		case <-ticker.C:
 			*as.NotifyChannel <- as.determineScale()
 		case <-as.StopChannel:
 			as.Lock()

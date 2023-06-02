@@ -6,11 +6,12 @@ import (
 	"cluster_manager/common"
 	"github.com/sirupsen/logrus"
 	"google.golang.org/grpc"
+	"time"
 )
 
 func main() {
 	logrus.SetLevel(logrus.DebugLevel)
-	logrus.SetFormatter(&logrus.TextFormatter{FullTimestamp: true})
+	logrus.SetFormatter(&logrus.TextFormatter{TimestampFormat: time.StampMilli, FullTimestamp: true})
 
 	dpiInterface := common.InitializeDataPlaneConnection()
 	cpApiServer := api.CreateNewCpApiServer(dpiInterface)

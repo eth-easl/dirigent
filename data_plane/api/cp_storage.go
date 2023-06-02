@@ -70,8 +70,10 @@ func (ss *ServiceInfoStorage) doUpscaling(desiredCount int, nodeList *NodeInfoSt
 			URL:       fmt.Sprintf("localhost:%d", resp.PortMappings.HostPort),
 			Node:      node,
 		})
-		ss.updateEndpoints(dpiClient)
 	}
+
+	// batch update of endpoints
+	ss.updateEndpoints(dpiClient)
 }
 
 func (ss *ServiceInfoStorage) doDownscaling(desiredCount int, dpiClient proto.DpiInterfaceClient) {
@@ -79,16 +81,19 @@ func (ss *ServiceInfoStorage) doDownscaling(desiredCount int, dpiClient proto.Dp
 
 	for i := 0; i < diff; i++ {
 		toEvict, newEndpoint := evictionPolicy(&ss.endpoints)
-		resp, err := toEvict.Node.GetAPI().DeleteSandbox(context.Background(), &proto.SandboxID{ID: toEvict.SandboxID})
-		if err != nil || !resp.Success {
-			logrus.Warn("Failed to delete a sandbox with ID '", toEvict.SandboxID, "' on worker node '", toEvict.Node.Name, "'")
-			continue
-		}
+		go func() {
+			resp, err := toEvict.Node.GetAPI().DeleteSandbox(context.Background(), &proto.SandboxID{ID: toEvict.SandboxID})
+			if err != nil || !resp.Success {
+				logrus.Warn("Failed to delete a sandbox with ID '", toEvict.SandboxID, "' on worker node '", toEvict.Node.Name, "'")
+			}
+		}()
 
 		ss.Controller.ActualScale--
 		ss.endpoints = newEndpoint
-		ss.updateEndpoints(dpiClient)
 	}
+
+	// batch update of endpoints
+	ss.updateEndpoints(dpiClient)
 }
 
 func (ss *ServiceInfoStorage) updateEndpoints(dpiClient proto.DpiInterfaceClient) {

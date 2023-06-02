@@ -43,7 +43,7 @@ func (c *CpApiServer) OnMetricsReceive(_ context.Context, metric *proto.Autoscal
 	}
 
 	storage.Controller.scalingMetric["testMetric"] = float64(metric.Metric)
-	logrus.Debug("Scaling metric for '", service, "' is ", metric.Metric)
+	logrus.Debug("Scaling metric for '", service.ServiceInfo.Name, "' is ", metric.Metric)
 
 	return &proto.ActionStatus{Success: true}, nil
 }
@@ -89,7 +89,7 @@ func (c *CpApiServer) NodeHeartbeat(_ context.Context, in *proto.NodeInfo) (*pro
 
 	n.LastHeartbeat = time.Now()
 
-	logrus.Debug("Heartbeat received for '", in.NodeID, "'")
+	//logrus.Debug("Heartbeat received for '", in.NodeID, "'")
 	return &proto.ActionStatus{Success: true}, nil
 }
 

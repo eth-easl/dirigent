@@ -9,6 +9,7 @@ import (
 	"github.com/sirupsen/logrus"
 	"google.golang.org/grpc"
 	"google.golang.org/protobuf/types/known/emptypb"
+	"time"
 )
 
 func syncDeploymentCache(cpApi *proto.CpiInterfaceClient, deployments *common.Deployments) {
@@ -24,7 +25,7 @@ func syncDeploymentCache(cpApi *proto.CpiInterfaceClient, deployments *common.De
 
 func main() {
 	logrus.SetLevel(logrus.DebugLevel)
-	logrus.SetFormatter(&logrus.TextFormatter{FullTimestamp: true})
+	logrus.SetFormatter(&logrus.TextFormatter{TimestampFormat: time.StampMilli, FullTimestamp: true})
 
 	cache := common.NewDeploymentList()
 	dpCreated := make(chan struct{})

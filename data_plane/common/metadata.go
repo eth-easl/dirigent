@@ -130,6 +130,10 @@ func (m *FunctionMetadata) DecreaseInflight() {
 	}
 }
 
+func (m *FunctionMetadata) HasEndpoints() bool {
+	return !(m.upstreamEndpoints == nil || len(m.upstreamEndpoints) == 0)
+}
+
 func (m *FunctionMetadata) TryWarmStart(cp *proto.CpiInterfaceClient) chan bool {
 	atomic.AddInt32(&m.metrics.inflightRequests, 1)
 	atomic.AddInt32(&m.metrics.totalRequests, 1)
@@ -137,17 +141,17 @@ func (m *FunctionMetadata) TryWarmStart(cp *proto.CpiInterfaceClient) chan bool 
 	m.Lock()
 	defer m.Unlock()
 
-	////////////////////////////////////////////////
 	m.metrics.lastTimeWindowCnt++
-	////////////////////////////////////////////////
 
-	if m.upstreamEndpoints == nil || len(m.upstreamEndpoints) == 0 {
+	if !m.HasEndpoints() {
 		waitChannel := make(chan bool, 1)
 		m.queue.PushBack(waitChannel)
 
 		// trigger autoscaling
 		if !m.sendMetricsTriggered {
 			m.sendMetricsTriggered = true
+			m.metrics.timestamp = time.Now()
+
 			go m.sendMetricsLoop(cp)
 		}
 
@@ -158,13 +162,16 @@ func (m *FunctionMetadata) TryWarmStart(cp *proto.CpiInterfaceClient) chan bool 
 }
 
 func (m *FunctionMetadata) sendMetricsLoop(cp *proto.CpiInterfaceClient) {
-	// TODO: what about locks and termination
-	timer := time.NewTimer(m.metrics.timeWindowSize)
+	timer := time.NewTicker(m.metrics.timeWindowSize)
+	logrus.Debug("Started metrics loop")
 
-	for ; true; <-timer.C {
+	for {
+		<-timer.C
+
 		m.Lock()
 
 		metricValue := float32(m.metrics.lastTimeWindowCnt)
+
 		go func() {
 			status, err := (*cp).OnMetricsReceive(context.Background(), &proto.AutoscalingMetric{
 				ServiceName: m.identifier,
@@ -174,7 +181,7 @@ func (m *FunctionMetadata) sendMetricsLoop(cp *proto.CpiInterfaceClient) {
 				logrus.Warn("Failed to forward metrics to the control plane for service '", m.identifier, "'")
 			}
 
-			logrus.Debug("Scaling metric has been sent for ", m.identifier)
+			logrus.Debug("Metric value of ", metricValue, " was reported for ", m.identifier)
 		}()
 
 		toBreak := metricValue == 0
@@ -182,7 +189,7 @@ func (m *FunctionMetadata) sendMetricsLoop(cp *proto.CpiInterfaceClient) {
 			m.sendMetricsTriggered = false
 		}
 
-		if m.metrics.timestamp.IsZero() || time.Since(m.metrics.timestamp) >= m.metrics.timeWindowSize {
+		if time.Since(m.metrics.timestamp) >= m.metrics.timeWindowSize {
 			m.metrics.timestamp = time.Now()
 			m.metrics.lastTimeWindowCnt = 0
 		}
@@ -190,6 +197,7 @@ func (m *FunctionMetadata) sendMetricsLoop(cp *proto.CpiInterfaceClient) {
 		m.Unlock()
 
 		if toBreak {
+			logrus.Debug("Metrics loop exited")
 			break
 		}
 	}
@@ -225,7 +233,7 @@ func (d *Deployments) AddDeployment(name string) bool {
 		sandboxParallelism: 1,
 		queue:              list.New(),
 		metrics: ScalingMetric{
-			timeWindowSize: 5 * time.Second,
+			timeWindowSize: 2 * time.Second,
 		},
 	}
 

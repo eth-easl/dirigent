@@ -28,7 +28,7 @@ func main() {
 
 	stopChannel := make(chan struct{})
 
-	logrus.SetFormatter(&logrus.TextFormatter{FullTimestamp: true})
+	logrus.SetFormatter(&logrus.TextFormatter{TimestampFormat: time.StampMilli, FullTimestamp: true})
 	switch *verbosity {
 	case "debug":
 		logrus.SetLevel(logrus.DebugLevel)
@@ -97,7 +97,7 @@ func setupHeartbeatLoop(cpApi *proto.CpiInterfaceClient) {
 		if err != nil || resp == nil || !resp.Success {
 			logrus.Warn("Failed to send a heartbeat to the control plane")
 		} else {
-			logrus.Debug("Successfully sent a heartbeat")
+			//logrus.Debug("Successfully sent a heartbeat")
 		}
 
 		time.Sleep(HeartbeatInterval)
