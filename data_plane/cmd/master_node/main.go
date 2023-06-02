@@ -16,6 +16,7 @@ func main() {
 	dpiInterface := common.InitializeDataPlaneConnection()
 	cpApiServer := api.CreateNewCpApiServer(dpiInterface)
 
+	go api.StartServiceRegistrationServer(cpApiServer)
 	common.CreateGRPCServer(common.ControlPlaneHost, common.ControlPlanePort, func(sr grpc.ServiceRegistrar) {
 		proto.RegisterCpiInterfaceServer(sr, cpApiServer)
 	})
