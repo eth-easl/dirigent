@@ -2,6 +2,7 @@ package api
 
 import (
 	"cluster_manager/api/proto"
+	"github.com/sirupsen/logrus"
 	"math"
 	"time"
 )
@@ -24,7 +25,8 @@ type AutoscalingMetadata struct {
 	MaxPanicPods             int
 	PanicThresholdPercentage float64
 
-	MaxScaleUpRate float64
+	MaxScaleUpRate   float64
+	MaxScaleDownRate float64
 
 	ContainerConcurrency                 int
 	ContainerConcurrencyTargetPercentage int
@@ -43,8 +45,9 @@ func NewDefaultAutoscalingMetadata() *proto.AutoscalingConfiguration {
 	return &proto.AutoscalingConfiguration{
 		ScalingUpperBound:                    math.MaxInt32,
 		ScalingLowerBound:                    0,
-		PanicThresholdPercentage:             200,
+		PanicThresholdPercentage:             10,
 		MaxScaleUpRate:                       1000.0,
+		MaxScaleDownRate:                     2.0,
 		ContainerConcurrency:                 1,
 		ContainerConcurrencyTargetPercentage: 70,
 		StableWindowWidthSeconds:             20,
@@ -59,6 +62,7 @@ func ConvertProtoToAutoscalingStruct(p *proto.AutoscalingConfiguration) Autoscal
 		ScalingLowerBound:                    int(p.ScalingLowerBound),
 		PanicThresholdPercentage:             float64(p.PanicThresholdPercentage),
 		MaxScaleUpRate:                       float64(p.MaxScaleUpRate),
+		MaxScaleDownRate:                     float64(p.MaxScaleDownRate),
 		ContainerConcurrency:                 int(p.ContainerConcurrency),
 		ContainerConcurrencyTargetPercentage: int(p.ContainerConcurrencyTargetPercentage),
 		StableWindowWidth:                    time.Duration(p.StableWindowWidthSeconds) * time.Second,
@@ -103,7 +107,7 @@ func (s *AutoscalingMetadata) internalScaleAlgorithm(scalingMetric float64) (int
 	// 3 pods. See the unit test for this scenario in action.
 	maxScaleUp := math.Ceil(s.MaxScaleUpRate * readyPodsCount)
 	// Same logic, opposite math applies here.
-	maxScaleDown := 0.
+	maxScaleDown := math.Floor(readyPodsCount / s.MaxScaleDownRate)
 
 	desired := float64(0)
 
@@ -128,14 +132,17 @@ func (s *AutoscalingMetadata) internalScaleAlgorithm(scalingMetric float64) (int
 	if !s.InPanicMode && isOverPanicThreshold {
 		s.InPanicMode = true
 		s.StartPanickingTimestamp = time.Now()
+		logrus.Debug("Entered panic mode")
 	} else if isOverPanicThreshold {
 		// If we're still over panic threshold right now — extend the panic window.
 		s.StartPanickingTimestamp = time.Now()
-	} else if s.InPanicMode && !isOverPanicThreshold && time.Since(s.StartPanickingTimestamp) > s.StableWindowWidth {
+		logrus.Debug("Extended panic mode")
+	} else if s.InPanicMode && !isOverPanicThreshold && s.StartPanickingTimestamp.Add(s.StableWindowWidth).Before(time.Now()) {
 		// Stop panicking after the surge has made its way into the stable metric.
 		s.InPanicMode = false
 		s.StartPanickingTimestamp = time.Time{}
 		s.MaxPanicPods = 0
+		logrus.Debug("Exited panic mode")
 	}
 
 	desiredPodCount := desiredStablePodCount

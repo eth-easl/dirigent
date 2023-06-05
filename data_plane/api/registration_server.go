@@ -62,7 +62,7 @@ func StartServiceRegistrationServer(cpApi *CpApiServer) {
 	})
 
 	logrus.Info("Starting service registration service")
-	err := http.ListenAndServe(fmt.Sprintf(":%s", common.ControlPlaneServiceRegistration), nil)
+	err := http.ListenAndServe(fmt.Sprintf(":%s", common.ControlPlanePortServiceRegistration), nil)
 	if err != http.ErrServerClosed {
 		logrus.Fatal("Failed to start service registration server")
 	}

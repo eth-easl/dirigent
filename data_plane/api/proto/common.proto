@@ -19,11 +19,12 @@ message AutoscalingConfiguration {
   int32 ScalingLowerBound = 2;
   float PanicThresholdPercentage = 3;
   float MaxScaleUpRate = 4;
-  int32 ContainerConcurrency = 5;
-  int32 ContainerConcurrencyTargetPercentage = 6;
-  int32 StableWindowWidthSeconds = 7;
-  int32 PanicWindowWidthSeconds = 8;
-  int32 ScalingPeriodSeconds = 9;
+  float MaxScaleDownRate = 5;
+  int32 ContainerConcurrency = 6;
+  int32 ContainerConcurrencyTargetPercentage = 7;
+  int32 StableWindowWidthSeconds = 8;
+  int32 PanicWindowWidthSeconds = 9;
+  int32 ScalingPeriodSeconds = 10;
 }
 
 message ServiceInfo {

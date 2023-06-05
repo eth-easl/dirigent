@@ -44,9 +44,9 @@ func (as *PFStateController) ScalingLoop() {
 
 	logrus.Debug("Starting scaling loop")
 	for ; true; <-ticker.C {
-		logrus.Debug("Scaling look - tick")
-
 		desiredScale := as.ScalingMetadata.KnativeScaling(isScaleFromZero)
+		logrus.Debug("Desired scale: ", desiredScale)
+
 		*as.NotifyChannel <- desiredScale
 
 		if isScaleFromZero {
