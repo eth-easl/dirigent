@@ -10,6 +10,10 @@ import (
 	"time"
 )
 
+const (
+	WorkerNodeTrafficTimeout = 10 * time.Second
+)
+
 type NodeInfoStorage struct {
 	sync.Mutex
 
@@ -44,55 +48,115 @@ func (ss *ServiceInfoStorage) ScalingControllerLoop(nodeList *NodeInfoStorage, d
 	for {
 		select {
 		case desiredCount := <-*ss.Controller.DesiredStateChannel:
-			if ss.Controller.ScalingMetadata.ActualScale < desiredCount {
-				ss.doUpscaling(desiredCount, nodeList, dpiClient)
-			} else if ss.Controller.ScalingMetadata.ActualScale > desiredCount {
-				ss.doDownscaling(desiredCount, dpiClient)
+			ss.Controller.Lock()
+			actualScale := ss.Controller.ScalingMetadata.ActualScale
+			ss.Controller.Unlock()
+
+			if actualScale < desiredCount {
+				ss.doUpscaling(actualScale, desiredCount, nodeList, dpiClient)
+			} else if actualScale > desiredCount {
+				ss.doDownscaling(actualScale, desiredCount, dpiClient)
 			}
 		}
 	}
 }
 
-func (ss *ServiceInfoStorage) doUpscaling(desiredCount int, nodeList *NodeInfoStorage, dpiClient proto.DpiInterfaceClient) {
-	diff := desiredCount - ss.Controller.ScalingMetadata.ActualScale
+func (ss *ServiceInfoStorage) doUpscaling(actualScale int, desiredCount int, nodeList *NodeInfoStorage, dpiClient proto.DpiInterfaceClient) {
+	diff := desiredCount - actualScale
+	barrier := sync.WaitGroup{}
 
+	var finalEndpoint []Endpoint
+	endpointMutex := sync.Mutex{}
+
+	barrier.Add(diff)
 	for i := 0; i < diff; i++ {
-		node := placementPolicy(nodeList)
-		resp, err := node.GetAPI().CreateSandbox(context.Background(), ss.ServiceInfo)
-		if err != nil || !resp.Success {
-			logrus.Warn("Failed to start a sandbox on worker node ", node.Name)
-			continue
-		}
+		go func() {
+			defer barrier.Done()
 
-		ss.Controller.ScalingMetadata.ActualScale++
-		ss.endpoints = append(ss.endpoints, Endpoint{
-			SandboxID: resp.ID,
-			URL:       fmt.Sprintf("localhost:%d", resp.PortMappings.HostPort),
-			Node:      node,
-		})
+			node := placementPolicy(nodeList)
+
+			ctx, cancel := context.WithTimeout(context.Background(), WorkerNodeTrafficTimeout)
+			defer cancel()
+
+			resp, err := node.GetAPI().CreateSandbox(ctx, ss.ServiceInfo)
+			if err != nil || !resp.Success {
+				logrus.Warn("Failed to start a sandbox on worker node ", node.Name)
+				return
+			}
+
+			///////////////////////////////////////////
+			endpointMutex.Lock()
+			finalEndpoint = append(finalEndpoint, Endpoint{
+				SandboxID: resp.ID,
+				URL:       fmt.Sprintf("localhost:%d", resp.PortMappings.HostPort),
+				Node:      node,
+			})
+			endpointMutex.Unlock()
+			///////////////////////////////////////////
+		}()
 	}
 
 	// batch update of endpoints
+	barrier.Wait()
+
+	ss.Controller.Lock()
+	ss.endpoints = finalEndpoint // no need for mutex as the barrier has already been passed
+	ss.Controller.ScalingMetadata.ActualScale += diff
+	ss.Controller.Unlock()
+
 	ss.updateEndpoints(dpiClient)
 }
 
-func (ss *ServiceInfoStorage) doDownscaling(desiredCount int, dpiClient proto.DpiInterfaceClient) {
-	diff := ss.Controller.ScalingMetadata.ActualScale - desiredCount
+func (ss *ServiceInfoStorage) doDownscaling(actualScale int, desiredCount int, dpiClient proto.DpiInterfaceClient) {
+	diff := actualScale - desiredCount
+	barrier := sync.WaitGroup{}
 
+	ss.Controller.Lock()
+	currentState := ss.endpoints
+	var toEvict []*Endpoint
 	for i := 0; i < diff; i++ {
-		toEvict, newEndpoint := evictionPolicy(&ss.endpoints)
+		endpoint, newState := evictionPolicy(&currentState)
+		if endpoint == nil {
+			break
+		}
+
+		toEvict = append(toEvict, endpoint)
+		currentState = newState
+	}
+	ss.Controller.Unlock()
+
+	barrier.Add(diff)
+	for i := 0; i < diff; i++ {
+		index := i
+
 		go func() {
-			resp, err := toEvict.Node.GetAPI().DeleteSandbox(context.Background(), &proto.SandboxID{ID: toEvict.SandboxID})
+			defer barrier.Done()
+
+			if len(toEvict) == 0 || toEvict[index] == nil || index > len(toEvict) {
+				return
+			}
+
+			victim := toEvict[index]
+
+			ctx, cancel := context.WithTimeout(context.Background(), WorkerNodeTrafficTimeout)
+			defer cancel()
+
+			resp, err := victim.Node.GetAPI().DeleteSandbox(ctx, &proto.SandboxID{ID: victim.SandboxID})
 			if err != nil || !resp.Success {
-				logrus.Warn("Failed to delete a sandbox with ID '", toEvict.SandboxID, "' on worker node '", toEvict.Node.Name, "'")
+				logrus.Warn("Failed to delete a sandbox with ID '", victim.SandboxID, "' on worker node '", victim.Node.Name, "'")
+				return
 			}
 		}()
-
-		ss.Controller.ScalingMetadata.ActualScale--
-		ss.endpoints = newEndpoint
 	}
 
 	// batch update of endpoints
+	barrier.Wait()
+
+	ss.Controller.Lock()
+	ss.endpoints = currentState
+	ss.Controller.ScalingMetadata.ActualScale -= diff
+	ss.Controller.Unlock()
+
 	ss.updateEndpoints(dpiClient)
 }
 
