@@ -3,8 +3,6 @@ package api
 import (
 	"cluster_manager/common"
 	"github.com/sirupsen/logrus"
-	"log"
-	"math"
 	"math/rand"
 	"sync"
 	"time"
@@ -15,16 +13,12 @@ type ScalingMetric string
 type PFStateController struct {
 	sync.Mutex
 
-	ActualScale  int
-	DesiredScale int
-
 	DesiredStateChannel *chan int
 
 	AutoscalingRunning bool
-	StopChannel        chan struct{}
 	NotifyChannel      *chan int
 
-	scalingMetric map[ScalingMetric]float64
+	ScalingMetadata AutoscalingMetadata
 
 	Period time.Duration
 }
@@ -33,20 +27,12 @@ type PFStateController struct {
 //////////////////////////////////////////////////////
 //////////////////////////////////////////////////////
 
-func (as *PFStateController) determineScale() int {
-	metric, ok := as.scalingMetric["testMetric"]
-	if !ok {
-		log.Fatal("Invalid autoscaling metric requested from the cache")
-	}
-
-	return int(math.Ceil(metric / 10))
-}
-
 func (as *PFStateController) Start() {
 	as.Lock()
 	defer as.Unlock()
 
 	if !as.AutoscalingRunning {
+		as.AutoscalingRunning = true
 		go as.ScalingLoop()
 	}
 }
@@ -54,16 +40,25 @@ func (as *PFStateController) Start() {
 func (as *PFStateController) ScalingLoop() {
 	ticker := time.NewTicker(as.Period)
 
-	for {
-		select {
-		case <-ticker.C:
-			*as.NotifyChannel <- as.determineScale()
-		case <-as.StopChannel:
+	isScaleFromZero := true
+
+	logrus.Debug("Starting scaling loop")
+	for ; true; <-ticker.C {
+		logrus.Debug("Scaling look - tick")
+
+		desiredScale := as.ScalingMetadata.KnativeScaling(isScaleFromZero)
+		*as.NotifyChannel <- desiredScale
+
+		if isScaleFromZero {
+			isScaleFromZero = false
+		}
+		if desiredScale == 0 {
 			as.Lock()
 			as.AutoscalingRunning = false
 			as.Unlock()
 
-			logrus.Debug("Autoscaling stopped")
+			logrus.Debug("Existed scaling loop")
+
 			break
 		}
 	}

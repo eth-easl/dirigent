@@ -1,6 +1,7 @@
 package api
 
-/*import (
+import (
+	"cluster_manager/api/proto"
 	"math"
 	"time"
 )
@@ -32,22 +33,50 @@ type AutoscalingMetadata struct {
 
 	StableWindowWidth time.Duration
 	PanicWindowWidth  time.Duration
+
+	cachedScalingMetric float64
+	scalingMetrics      []float64
+	windowHead          int64
 }
 
-func NewAutoscalingMetadata() AutoscalingMetadata {
-	return AutoscalingMetadata{
+func NewDefaultAutoscalingMetadata() *proto.AutoscalingConfiguration {
+	return &proto.AutoscalingConfiguration{
 		ScalingUpperBound:                    math.MaxInt32,
 		ScalingLowerBound:                    0,
+		PanicThresholdPercentage:             200,
 		MaxScaleUpRate:                       1000.0,
 		ContainerConcurrency:                 1,
 		ContainerConcurrencyTargetPercentage: 70,
-		StableWindowWidth:                    6 * time.Second,
-		PanicWindowWidth:                     2 * time.Second,
+		StableWindowWidthSeconds:             20,
+		PanicWindowWidthSeconds:              2,
+		ScalingPeriodSeconds:                 2,
 	}
 }
 
-func (s *AutoscalingMetadata) knativeScaling(functionHash string, scalingMetric float64) (int, int, float64) {
-	desiredScale, avgScalingMetric := s.kNativeScaleAlgorithm(functionHash, scalingMetric)
+func ConvertProtoToAutoscalingStruct(p *proto.AutoscalingConfiguration) AutoscalingMetadata {
+	return AutoscalingMetadata{
+		ScalingUpperBound:                    int(p.ScalingUpperBound),
+		ScalingLowerBound:                    int(p.ScalingLowerBound),
+		PanicThresholdPercentage:             float64(p.PanicThresholdPercentage),
+		MaxScaleUpRate:                       float64(p.MaxScaleUpRate),
+		ContainerConcurrency:                 int(p.ContainerConcurrency),
+		ContainerConcurrencyTargetPercentage: int(p.ContainerConcurrencyTargetPercentage),
+		StableWindowWidth:                    time.Duration(p.StableWindowWidthSeconds) * time.Second,
+		PanicWindowWidth:                     time.Duration(p.PanicWindowWidthSeconds) * time.Second,
+		ScalingPeriod:                        time.Duration(p.ScalingPeriodSeconds) * time.Second,
+	}
+}
+
+func (s *AutoscalingMetadata) setCachedScalingMetric(value float64) {
+	s.cachedScalingMetric = value
+}
+
+func (s *AutoscalingMetadata) KnativeScaling(isScaleFromZero bool) int {
+	if isScaleFromZero {
+		return 1
+	}
+
+	desiredScale, _ := s.internalScaleAlgorithm(s.cachedScalingMetric)
 
 	if desiredScale > s.ScalingUpperBound {
 		desiredScale = s.ScalingUpperBound
@@ -55,10 +84,10 @@ func (s *AutoscalingMetadata) knativeScaling(functionHash string, scalingMetric 
 		desiredScale = s.ScalingLowerBound
 	}
 
-	return s.ActualScale, desiredScale, avgScalingMetric
+	return desiredScale
 }
 
-func (s *AutoscalingMetadata) kNativeScaleAlgorithm(functionHash string, scalingMetric float64) (int, float64) {
+func (s *AutoscalingMetadata) internalScaleAlgorithm(scalingMetric float64) (int, float64) {
 	originalReadyPodsCount := s.ActualScale
 
 	// Use 1 if there are zero current pods.
@@ -85,7 +114,7 @@ func (s *AutoscalingMetadata) kNativeScaleAlgorithm(functionHash string, scaling
 	}
 
 	var avgStable, avgPanic float64
-	avgStable, avgPanic = s.windowAverage(functionHash, observedStableValue)
+	avgStable, avgPanic = s.windowAverage(observedStableValue)
 
 	dspc := math.Ceil(avgStable / desired)
 	dppc := math.Ceil(avgPanic / desired)
@@ -132,12 +161,12 @@ func (s *AutoscalingMetadata) kNativeScaleAlgorithm(functionHash string, scaling
 			// only allow scaling down to 0 if queue is empty
 		}
 	}*/
-/*return desiredPodCount, avgStable
+	return desiredPodCount, avgStable
 }
 
-func (s *AutoscalingMetadata) windowAverage(functionHash string, observedStableValue float64) (float64, float64) {
-	panicBucketCount := s.PanicWindowWidth / s.ScalingPeriod
-	stableBucketCount := s.StableWindowWidth / s.ScalingPeriod
+func (s *AutoscalingMetadata) windowAverage(observedStableValue float64) (float64, float64) {
+	panicBucketCount := int64(s.PanicWindowWidth / s.ScalingPeriod)
+	stableBucketCount := int64(s.StableWindowWidth / s.ScalingPeriod)
 
 	var smoothingCoefficientStable, smoothingCoefficientPanic, multiplierStable, multiplierPanic float64
 
@@ -147,23 +176,23 @@ func (s *AutoscalingMetadata) windowAverage(functionHash string, observedStableV
 	}
 
 	// because we get metrics every 2s, so 30 buckets are 60s
-	if len(s.scalingMetrics[functionHash]) < int(stableBucketCount) {
+	if len(s.scalingMetrics) < int(stableBucketCount) {
 		// append value as new bucket if we have not reached max number of buckets
-		s.scalingMetrics[functionHash] = append(s.scalingMetrics[functionHash], observedStableValue)
+		s.scalingMetrics = append(s.scalingMetrics, observedStableValue)
 	} else {
 		// otherwise replace the least recent measurement
-		s.scalingMetrics[functionHash][s.windowHead[functionHash]] = observedStableValue
+		s.scalingMetrics[s.windowHead] = observedStableValue
 	}
 
-	currentWindowIndex := s.windowHead[functionHash]
+	currentWindowIndex := s.windowHead
 	avgStable := 0.0
 
-	windowLength := int(math.Min(float64(stableBucketCount), float64(len(s.scalingMetrics[functionHash]))))
+	windowLength := int(math.Min(float64(stableBucketCount), float64(len(s.scalingMetrics))))
 	for i := 0; i < windowLength; i++ {
 		// sum values of buckets, starting at most recent measurement
 		// most recent one has highest weight
-		value := s.scalingMetrics[functionHash][currentWindowIndex]
-		if s.aggregationMethod[functionHash] == abstractions.AGGREGATION_EXPONENTIAL {
+		value := s.scalingMetrics[currentWindowIndex]
+		if s.ScalingMethod == Exponential {
 			value = value * multiplierStable
 			multiplierStable = (1 - smoothingCoefficientStable) * multiplierStable
 		}
@@ -174,19 +203,19 @@ func (s *AutoscalingMetadata) windowAverage(functionHash string, observedStableV
 		}
 	}
 
-	if s.aggregationMethod[functionHash] == abstractions.AGGREGATION_ARITHMETIC {
+	if s.ScalingMethod == Arithmetic {
 		avgStable = avgStable / float64(windowLength)
 		// divide by the number of buckets we summed over to get the average
 	}
 
-	currentWindowIndex = s.windowHead[functionHash]
+	currentWindowIndex = s.windowHead
 	avgPanic := 0.0
 
-	windowLength = int(math.Min(float64(panicBucketCount), float64(len(s.scalingMetrics[functionHash]))))
+	windowLength = int(math.Min(float64(panicBucketCount), float64(len(s.scalingMetrics))))
 	for i := 0; i < windowLength; i++ {
 		// sum values of buckets, starting at most recent measurement
-		value := s.scalingMetrics[functionHash][currentWindowIndex]
-		if s.aggregationMethod[functionHash] == abstractions.AGGREGATION_EXPONENTIAL {
+		value := s.scalingMetrics[currentWindowIndex]
+		if s.ScalingMethod == Exponential {
 			value = value * multiplierPanic
 			multiplierPanic = (1 - smoothingCoefficientPanic) * multiplierPanic
 		}
@@ -197,15 +226,15 @@ func (s *AutoscalingMetadata) windowAverage(functionHash string, observedStableV
 		}
 	}
 
-	s.windowHead[functionHash]++
-	if s.windowHead[functionHash] >= stableBucketCount {
-		s.windowHead[functionHash] = 0 // move windowHead back to 0 if it exceeds the maximum number of buckets
+	s.windowHead++
+	if s.windowHead >= stableBucketCount {
+		s.windowHead = 0 // move windowHead back to 0 if it exceeds the maximum number of buckets
 	}
 
-	if s.aggregationMethod[functionHash] == abstractions.AGGREGATION_ARITHMETIC {
+	if s.ScalingMethod == Arithmetic {
 		avgPanic = avgPanic / float64(windowLength)
 		// divide by the number of buckets we summed over to get the average
 	}
 
 	return avgStable, avgPanic
-}*/
+}

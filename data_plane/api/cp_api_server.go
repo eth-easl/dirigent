@@ -35,15 +35,16 @@ func (c *CpApiServer) OnMetricsReceive(_ context.Context, metric *proto.Autoscal
 		return &proto.ActionStatus{Success: false}, nil
 	}
 
-	service.Controller.Start()
 	storage, ok := c.SIStorage[metric.ServiceName]
 	if !ok {
 		logrus.Warn("SIStorage does not exist for '", metric.ServiceName, "'")
 		return &proto.ActionStatus{Success: false}, nil
 	}
 
-	storage.Controller.scalingMetric["testMetric"] = float64(metric.Metric)
+	storage.Controller.ScalingMetadata.setCachedScalingMetric(float64(metric.Metric))
 	logrus.Debug("Scaling metric for '", service.ServiceInfo.Name, "' is ", metric.Metric)
+
+	service.Controller.Start()
 
 	return &proto.ActionStatus{Success: true}, nil
 }
@@ -108,7 +109,7 @@ func (c *CpApiServer) RegisterService(ctx context.Context, serviceInfo *proto.Se
 			DesiredStateChannel: &scalingChannel,
 			NotifyChannel:       &scalingChannel,
 			Period:              2 * time.Second, // TODO: hardcoded autoscaling period for now
-			scalingMetric:       make(map[ScalingMetric]float64),
+			ScalingMetadata:     ConvertProtoToAutoscalingStruct(serviceInfo.AutoscalingConfig),
 		},
 	}
 	c.SIStorage[serviceInfo.Name] = service

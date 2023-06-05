@@ -35,6 +35,7 @@ func InvocationHandler(next http.Handler, cache *common.Deployments, cp *proto.C
 		// COLD/WARM START
 		///////////////////////////////////////////////
 		coldStartChannel := metadata.TryWarmStart(cp)
+		defer metadata.DecreaseInflight()
 		if coldStartChannel != nil {
 			logrus.Debug("Enqueued invocation for ", serviceName)
 
@@ -63,8 +64,6 @@ func InvocationHandler(next http.Handler, cache *common.Deployments, cp *proto.C
 		///////////////////////////////////////////////
 		// ON THE WAY BACK
 		///////////////////////////////////////////////
-		metadata.DecreaseInflight()
-
 		end := time.Now()
 		logrus.Info("Request took ", end.Sub(start).Microseconds(), " μs")
 	}

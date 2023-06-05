@@ -44,9 +44,9 @@ func (ss *ServiceInfoStorage) ScalingControllerLoop(nodeList *NodeInfoStorage, d
 	for {
 		select {
 		case desiredCount := <-*ss.Controller.DesiredStateChannel:
-			if ss.Controller.ActualScale < desiredCount {
+			if ss.Controller.ScalingMetadata.ActualScale < desiredCount {
 				ss.doUpscaling(desiredCount, nodeList, dpiClient)
-			} else if ss.Controller.ActualScale > desiredCount {
+			} else if ss.Controller.ScalingMetadata.ActualScale > desiredCount {
 				ss.doDownscaling(desiredCount, dpiClient)
 			}
 		}
@@ -54,7 +54,7 @@ func (ss *ServiceInfoStorage) ScalingControllerLoop(nodeList *NodeInfoStorage, d
 }
 
 func (ss *ServiceInfoStorage) doUpscaling(desiredCount int, nodeList *NodeInfoStorage, dpiClient proto.DpiInterfaceClient) {
-	diff := desiredCount - ss.Controller.ActualScale
+	diff := desiredCount - ss.Controller.ScalingMetadata.ActualScale
 
 	for i := 0; i < diff; i++ {
 		node := placementPolicy(nodeList)
@@ -64,7 +64,7 @@ func (ss *ServiceInfoStorage) doUpscaling(desiredCount int, nodeList *NodeInfoSt
 			continue
 		}
 
-		ss.Controller.ActualScale++
+		ss.Controller.ScalingMetadata.ActualScale++
 		ss.endpoints = append(ss.endpoints, Endpoint{
 			SandboxID: resp.ID,
 			URL:       fmt.Sprintf("localhost:%d", resp.PortMappings.HostPort),
@@ -77,7 +77,7 @@ func (ss *ServiceInfoStorage) doUpscaling(desiredCount int, nodeList *NodeInfoSt
 }
 
 func (ss *ServiceInfoStorage) doDownscaling(desiredCount int, dpiClient proto.DpiInterfaceClient) {
-	diff := ss.Controller.ActualScale - desiredCount
+	diff := ss.Controller.ScalingMetadata.ActualScale - desiredCount
 
 	for i := 0; i < diff; i++ {
 		toEvict, newEndpoint := evictionPolicy(&ss.endpoints)
@@ -88,7 +88,7 @@ func (ss *ServiceInfoStorage) doDownscaling(desiredCount int, dpiClient proto.Dp
 			}
 		}()
 
-		ss.Controller.ActualScale--
+		ss.Controller.ScalingMetadata.ActualScale--
 		ss.endpoints = newEndpoint
 	}
 

@@ -25,7 +25,7 @@ type FunctionMetadata struct {
 	upstreamEndpoints []UpstreamEndpoint
 	queue             *list.List
 
-	beingDrained *chan struct{}
+	beingDrained *chan struct{} // TODO: implement this feature
 	metrics      ScalingMetric
 
 	sendMetricsTriggered bool
@@ -118,16 +118,7 @@ func (m *FunctionMetadata) SetUpstreamURLs(urls []string) {
 }
 
 func (m *FunctionMetadata) DecreaseInflight() {
-	newVal := atomic.AddInt32(&m.metrics.inflightRequests, -1)
-
-	if newVal == 0 {
-		m.Lock()
-		defer m.Unlock()
-
-		if m.beingDrained != nil {
-			*m.beingDrained <- struct{}{}
-		}
-	}
+	atomic.AddInt32(&m.metrics.inflightRequests, -1)
 }
 
 func (m *FunctionMetadata) HasEndpoints() bool {
@@ -165,17 +156,17 @@ func (m *FunctionMetadata) sendMetricsLoop(cp *proto.CpiInterfaceClient) {
 	timer := time.NewTicker(m.metrics.timeWindowSize)
 	logrus.Debug("Started metrics loop")
 
-	for {
-		<-timer.C
+	for ; true; <-timer.C {
+		logrus.Debug("Timer ticked.")
 
 		m.Lock()
 
-		metricValue := float32(m.metrics.lastTimeWindowCnt)
+		metricValue := atomic.LoadInt32(&m.metrics.inflightRequests)
 
 		go func() {
 			status, err := (*cp).OnMetricsReceive(context.Background(), &proto.AutoscalingMetric{
 				ServiceName: m.identifier,
-				Metric:      metricValue,
+				Metric:      float32(metricValue),
 			})
 			if err != nil || !status.Success {
 				logrus.Warn("Failed to forward metrics to the control plane for service '", m.identifier, "'")

@@ -1,6 +1,7 @@
 package tests
 
 import (
+	"cluster_manager/api"
 	proto2 "cluster_manager/api/proto"
 	"cluster_manager/common"
 	"context"
@@ -23,6 +24,7 @@ func TestDeployService(t *testing.T) {
 			GuestPort: 80,
 			Protocol:  proto2.L4Protocol_TCP,
 		},
+		AutoscalingConfig: api.NewDefaultAutoscalingMetadata(),
 	})
 
 	if err != nil || !resp.Success {
