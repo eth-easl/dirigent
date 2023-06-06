@@ -1,13 +1,11 @@
 package common
 
 const (
-	DataPlaneHost      = "localhost"
-	DataPlaneProxyPort = "8080"
-	DataPlaneApiPort   = "8081"
+	DefaultDataPlaneProxyPort = "8080"
+	DefaultDataPlaneApiPort   = "8081"
 
-	ControlPlaneHost                    = "localhost"
-	ControlPlanePort                    = "9090"
-	ControlPlanePortServiceRegistration = "9091"
+	DefaultControlPlanePort                    = "9090"
+	DefaultControlPlanePortServiceRegistration = "9091"
 
-	WorkerNodePort = 10010
+	DefaultWorkerNodePort = 10010
 )

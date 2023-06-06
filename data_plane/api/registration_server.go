@@ -9,7 +9,7 @@ import (
 	"strconv"
 )
 
-func StartServiceRegistrationServer(cpApi *CpApiServer) {
+func StartServiceRegistrationServer(cpApi *CpApiServer, dataplaneHost string, dataplanePort string) {
 	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodPost {
 			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
@@ -58,11 +58,11 @@ func StartServiceRegistrationServer(cpApi *CpApiServer) {
 			w.WriteHeader(http.StatusConflict)
 		}
 
-		w.Write([]byte(fmt.Sprintf("%s:%s", common.DataPlaneHost, common.DataPlaneProxyPort)))
+		w.Write([]byte(fmt.Sprintf("%s:%s", dataplaneHost, dataplanePort)))
 	})
 
 	logrus.Info("Starting service registration service")
-	err := http.ListenAndServe(fmt.Sprintf(":%s", common.ControlPlanePortServiceRegistration), nil)
+	err := http.ListenAndServe(fmt.Sprintf(":%s", common.DefaultControlPlanePortServiceRegistration), nil)
 	if err != http.ErrServerClosed {
 		logrus.Fatal("Failed to start service registration server")
 	}

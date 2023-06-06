@@ -94,8 +94,8 @@ func EstablishGRPCConnectionPoll(host, port string) *grpc.ClientConn {
 	return conn
 }
 
-func InitializeControlPlaneConnection() proto.CpiInterfaceClient {
-	conn := EstablishGRPCConnectionPoll(ControlPlaneHost, ControlPlanePort)
+func InitializeControlPlaneConnection(host string, port string) proto.CpiInterfaceClient {
+	conn := EstablishGRPCConnectionPoll(host, port)
 	if conn == nil {
 		logrus.Fatal("Failed to establish connection with the control plane")
 	}
@@ -114,8 +114,8 @@ func InitializeWorkerNodeConnection(host, port string) proto.WorkerNodeInterface
 	return proto.NewWorkerNodeInterfaceClient(conn)
 }
 
-func InitializeDataPlaneConnection() proto.DpiInterfaceClient {
-	conn := EstablishGRPCConnectionPoll(DataPlaneHost, DataPlaneApiPort)
+func InitializeDataPlaneConnection(host string, port string) proto.DpiInterfaceClient {
+	conn := EstablishGRPCConnectionPoll(host, port)
 	if conn == nil {
 		logrus.Fatal("Failed to establish connection with the data plane")
 	}

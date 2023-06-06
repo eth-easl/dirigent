@@ -5,7 +5,9 @@ import (
 	"cluster_manager/common"
 	"context"
 	"github.com/sirupsen/logrus"
+	"google.golang.org/grpc/peer"
 	"google.golang.org/protobuf/types/known/emptypb"
+	"net"
 	"strconv"
 	"time"
 )
@@ -53,7 +55,7 @@ func (c *CpApiServer) ListServices(_ context.Context, _ *emptypb.Empty) (*proto.
 	return &proto.ServiceList{Service: common.Keys(c.SIStorage)}, nil
 }
 
-func (c *CpApiServer) RegisterNode(_ context.Context, in *proto.NodeInfo) (*proto.ActionStatus, error) {
+func (c *CpApiServer) RegisterNode(ctx context.Context, in *proto.NodeInfo) (*proto.ActionStatus, error) {
 	c.NIStorage.Lock()
 	defer c.NIStorage.Unlock()
 
@@ -65,11 +67,26 @@ func (c *CpApiServer) RegisterNode(_ context.Context, in *proto.NodeInfo) (*prot
 		}, nil
 	}
 
+	peerCtx, ok := peer.FromContext(ctx)
+	if !ok {
+		return &proto.ActionStatus{
+			Success: false,
+			Message: "Node registration failed. Error getting IP address from context.",
+		}, nil
+	}
+
 	wn := &WorkerNode{
 		Name: in.NodeID,
-		IP:   in.IP,
 		Port: strconv.Itoa(int(in.Port)),
 	}
+
+	switch addr := peerCtx.Addr.(type) {
+	case *net.UDPAddr:
+		wn.IP = addr.IP.String()
+	case *net.TCPAddr:
+		wn.IP = addr.IP.String()
+	}
+
 	c.NIStorage.NodeInfo[in.NodeID] = wn
 	go wn.GetAPI()
 

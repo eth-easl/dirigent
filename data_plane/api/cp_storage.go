@@ -89,7 +89,7 @@ func (ss *ServiceInfoStorage) doUpscaling(actualScale int, desiredCount int, nod
 			endpointMutex.Lock()
 			finalEndpoint = append(finalEndpoint, Endpoint{
 				SandboxID: resp.ID,
-				URL:       fmt.Sprintf("localhost:%d", resp.PortMappings.HostPort),
+				URL:       fmt.Sprintf("%s:%d", node.IP, resp.PortMappings.HostPort),
 				Node:      node,
 				HostPort:  resp.PortMappings.HostPort,
 			})
@@ -186,8 +186,7 @@ type WorkerNode struct {
 
 func (w *WorkerNode) GetAPI() proto.WorkerNodeInterfaceClient {
 	if w.api == nil {
-		// TODO: remove hardcoded IP address
-		w.api = common.InitializeWorkerNodeConnection("localhost", w.Port)
+		w.api = common.InitializeWorkerNodeConnection(w.IP, w.Port)
 	}
 
 	return w.api

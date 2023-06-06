@@ -12,7 +12,7 @@ import (
 func TestDeployService(t *testing.T) {
 	logrus.SetLevel(logrus.DebugLevel)
 
-	cpApi := common.InitializeControlPlaneConnection()
+	cpApi := common.InitializeControlPlaneConnection("localhost", common.DefaultControlPlanePort)
 
 	ctx, cancel := context.WithTimeout(context.Background(), common.GRPCFunctionTimeout)
 	defer cancel()

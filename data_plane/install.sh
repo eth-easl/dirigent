@@ -17,6 +17,7 @@ for $NODE in "$@"
 do
     AddSshKeys $NODE
     RemoteExec $NODE 'git clone https://github.com/eth-easl/cluster_manager.git'
+    # install Golang on each worker node
 done
 
 # Extracting control plane and data plane nodes and worker nodes
@@ -35,6 +36,7 @@ function SetupDataPlane() {
 }
 
 function SetupWorkerNodes() {
+    # TODO: install docker on each worker node
     for $NODE in "$WORKER_NODES"
     do
         RemoteExec $NODE 'cd ~/cluster_manager/data_plane; go run cmd/worker_node/main.go'

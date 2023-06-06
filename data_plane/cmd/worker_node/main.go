@@ -10,44 +10,34 @@ import (
 	"github.com/sirupsen/logrus"
 	"google.golang.org/grpc"
 	"k8s.io/apimachinery/pkg/util/wait"
-	"math/rand"
+	"os"
 	"strconv"
 	"time"
 )
 
 var (
-	nodeName  = flag.String("nodeName", "node-0", "Node name to register with the control plane")
-	ipAddress = flag.String("ipAddress", "0.0.0.0", "IP address to create worker node gRPC server on")
-	port      = flag.Int("port", common.WorkerNodePort, "Port worker node gRPC server listens on")
-	verbosity = flag.String("verbosity", "info", "Logging verbosity - choose from [info, debug, trace]")
+	controlPlaneIP   = flag.String("controlPlaneIP", "localhost", "Control plane IP address")
+	controlPlanePort = flag.String("controlPlanePort", common.DefaultControlPlanePort, "Control plane port")
+	port             = flag.Int("port", common.DefaultWorkerNodePort, "Worker daemon incoming traffic port")
+	verbosity        = flag.String("verbosity", "info", "Logging verbosity - choose from [info, debug, trace]")
 )
 
 func main() {
 	flag.Parse()
-	rand.Seed(time.Now().UnixNano())
+	common.InitLibraries(*verbosity)
 
 	stopChannel := make(chan struct{})
-
-	logrus.SetFormatter(&logrus.TextFormatter{TimestampFormat: time.StampMilli, FullTimestamp: true})
-	switch *verbosity {
-	case "debug":
-		logrus.SetLevel(logrus.DebugLevel)
-	case "trace":
-		logrus.SetLevel(logrus.TraceLevel)
-	default:
-		logrus.SetLevel(logrus.InfoLevel)
-	}
 
 	cli := sandbox.GetDockerClient()
 	defer cli.Close()
 
-	cpApi := common.InitializeControlPlaneConnection()
+	cpApi := common.InitializeControlPlaneConnection(*controlPlaneIP, *controlPlanePort)
 
 	registerNodeWithControlPlane(&cpApi)
 	go setupHeartbeatLoop(&cpApi)
 
 	logrus.Info("Starting API handlers")
-	go common.CreateGRPCServer(*ipAddress, strconv.Itoa(common.WorkerNodePort), func(sr grpc.ServiceRegistrar) {
+	go common.CreateGRPCServer("0.0.0.0", strconv.Itoa(common.DefaultWorkerNodePort), func(sr grpc.ServiceRegistrar) {
 		proto.RegisterWorkerNodeInterfaceServer(sr, &api.WnApiServer{
 			DockerClient: cli,
 		})
@@ -57,15 +47,20 @@ func main() {
 }
 
 func registerNodeWithControlPlane(cpApi *proto.CpiInterfaceClient) {
+	hostName, err := os.Hostname()
+	if err != nil {
+		logrus.Warn("Error fetching host name.")
+	}
+
 	pollContext, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 
 	pollErr := wait.PollUntilContextCancel(pollContext, 5*time.Second, false,
 		func(ctx context.Context) (done bool, err error) {
 			resp, err := (*cpApi).RegisterNode(context.Background(), &proto.NodeInfo{
-				NodeID: *nodeName,
-				IP:     *ipAddress,
-				Port:   int32(*port),
+				NodeID: hostName,
+				// IP fetched from server-side context
+				Port: int32(*port),
 			})
 
 			if err != nil || resp == nil {
@@ -84,12 +79,15 @@ func registerNodeWithControlPlane(cpApi *proto.CpiInterfaceClient) {
 }
 
 func setupHeartbeatLoop(cpApi *proto.CpiInterfaceClient) {
-	HeartbeatInterval := 10 * time.Second
+	const HeartbeatInterval = 10 * time.Second
+
+	hostname, err := os.Hostname()
+	if err != nil {
+		logrus.Warn("Error fetching host name.")
+	}
 
 	nodeInfo := &proto.NodeInfo{
-		NodeID: *nodeName,
-		IP:     *ipAddress,
-		Port:   int32(*port),
+		NodeID: hostname,
 	}
 
 	for {
