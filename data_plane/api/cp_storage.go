@@ -31,6 +31,7 @@ type Endpoint struct {
 	SandboxID string
 	URL       string
 	Node      *WorkerNode
+	HostPort  int32
 }
 
 func (ss *ServiceInfoStorage) GetAllURLs() []string {
@@ -90,6 +91,7 @@ func (ss *ServiceInfoStorage) doUpscaling(actualScale int, desiredCount int, nod
 				SandboxID: resp.ID,
 				URL:       fmt.Sprintf("localhost:%d", resp.PortMappings.HostPort),
 				Node:      node,
+				HostPort:  resp.PortMappings.HostPort,
 			})
 			endpointMutex.Unlock()
 			///////////////////////////////////////////
@@ -141,7 +143,10 @@ func (ss *ServiceInfoStorage) doDownscaling(actualScale int, desiredCount int, d
 			ctx, cancel := context.WithTimeout(context.Background(), WorkerNodeTrafficTimeout)
 			defer cancel()
 
-			resp, err := victim.Node.GetAPI().DeleteSandbox(ctx, &proto.SandboxID{ID: victim.SandboxID})
+			resp, err := victim.Node.GetAPI().DeleteSandbox(ctx, &proto.SandboxID{
+				ID:       victim.SandboxID,
+				HostPort: victim.HostPort,
+			})
 			if err != nil || !resp.Success {
 				logrus.Warn("Failed to delete a sandbox with ID '", victim.SandboxID, "' on worker node '", victim.Node.Name, "'")
 				return

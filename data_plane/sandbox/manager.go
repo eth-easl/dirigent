@@ -9,7 +9,7 @@ import (
 	"time"
 )
 
-const requestTimeout = 5 * time.Second
+const requestTimeout = 30 * time.Second
 
 func GetDockerClient() *client.Client {
 	cli, err := client.NewClientWithOpts(client.FromEnv)

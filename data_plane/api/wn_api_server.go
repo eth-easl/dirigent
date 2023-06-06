@@ -40,6 +40,7 @@ func (w *WnApiServer) DeleteSandbox(_ context.Context, in *proto.SandboxID) (*pr
 
 	start := time.Now()
 
+	sandbox.UnassignPort(int(in.HostPort))
 	err := sandbox.DeleteSandbox(w.DockerClient, in.ID)
 	if err != nil {
 		logrus.Warn("Failed to delete sandbox with ID = '", in.ID, "'")

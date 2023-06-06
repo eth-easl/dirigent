@@ -8,7 +8,11 @@ import (
 	"github.com/docker/go-connections/nat"
 	"math/rand"
 	"strconv"
+	"sync"
 )
+
+var portsInUse = make(map[int]struct{})
+var portsInUseMutex = sync.Mutex{}
 
 func l4ProtocolToString(protocol proto.L4Protocol) string {
 	switch protocol.Number() {
@@ -28,7 +32,30 @@ func validatePort(port int32) bool {
 }
 
 func assignRandomPort() int {
-	return 1024 + rand.Intn(4096)
+	portsInUseMutex.Lock()
+	defer portsInUseMutex.Unlock()
+
+	var port int
+
+	for {
+		port = 1024 + rand.Intn(64000)
+
+		_, ok := portsInUse[port]
+		if !ok {
+			portsInUse[port] = struct{}{}
+
+			break
+		}
+	}
+
+	return port
+}
+
+func UnassignPort(port int) {
+	portsInUseMutex.Lock()
+	defer portsInUseMutex.Unlock()
+
+	delete(portsInUse, port)
 }
 
 func createPortMappings(r *proto.PortMapping) (nat.PortMap, nat.PortSet, error) {

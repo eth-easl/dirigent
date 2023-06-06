@@ -27,6 +27,7 @@ service CpiInterface {
 
 message SandboxID {
   string ID = 1;
+  int32 HostPort = 2;
 }
 
 message SandboxCreationStatus {
