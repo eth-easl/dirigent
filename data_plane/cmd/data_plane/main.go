@@ -10,6 +10,7 @@ import (
 	"github.com/sirupsen/logrus"
 	"google.golang.org/grpc"
 	"google.golang.org/protobuf/types/known/emptypb"
+	"strconv"
 )
 
 var (
@@ -35,7 +36,8 @@ func main() {
 
 	var dpConnection proto.CpiInterfaceClient
 	go func() {
-		dpConnection = common.InitializeControlPlaneConnection(*controlPlaneIP, *controlPlanePort)
+		grpcPort, _ := strconv.Atoi(*portGRPC)
+		dpConnection = common.InitializeControlPlaneConnection(*controlPlaneIP, *controlPlanePort, int32(grpcPort))
 		syncDeploymentCache(&dpConnection, cache)
 
 		dpCreated <- struct{}{}

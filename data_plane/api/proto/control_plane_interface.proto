@@ -16,10 +16,15 @@ message AutoscalingMetric {
   float Metric = 2;
 }
 
+message DataplaneInfo {
+  int32 Port = 1;
+}
+
 service CpiInterface {
   rpc OnMetricsReceive(AutoscalingMetric) returns (ActionStatus);
   rpc ListServices(google.protobuf.Empty) returns (ServiceList);
 
+  rpc RegisterDataplane(DataplaneInfo) returns (ActionStatus);
   rpc RegisterService(ServiceInfo) returns (ActionStatus);
   rpc RegisterNode(NodeInfo) returns (ActionStatus);
   rpc NodeHeartbeat(NodeInfo) returns (ActionStatus);

@@ -21,6 +21,7 @@ const _ = grpc.SupportPackageIsVersion7
 type CpiInterfaceClient interface {
 	OnMetricsReceive(ctx context.Context, in *AutoscalingMetric, opts ...grpc.CallOption) (*ActionStatus, error)
 	ListServices(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*ServiceList, error)
+	RegisterDataplane(ctx context.Context, in *DataplaneInfo, opts ...grpc.CallOption) (*ActionStatus, error)
 	RegisterService(ctx context.Context, in *ServiceInfo, opts ...grpc.CallOption) (*ActionStatus, error)
 	RegisterNode(ctx context.Context, in *NodeInfo, opts ...grpc.CallOption) (*ActionStatus, error)
 	NodeHeartbeat(ctx context.Context, in *NodeInfo, opts ...grpc.CallOption) (*ActionStatus, error)
@@ -46,6 +47,15 @@ func (c *cpiInterfaceClient) OnMetricsReceive(ctx context.Context, in *Autoscali
 func (c *cpiInterfaceClient) ListServices(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*ServiceList, error) {
 	out := new(ServiceList)
 	err := c.cc.Invoke(ctx, "/data_plane.CpiInterface/ListServices", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *cpiInterfaceClient) RegisterDataplane(ctx context.Context, in *DataplaneInfo, opts ...grpc.CallOption) (*ActionStatus, error) {
+	out := new(ActionStatus)
+	err := c.cc.Invoke(ctx, "/data_plane.CpiInterface/RegisterDataplane", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -85,6 +95,7 @@ func (c *cpiInterfaceClient) NodeHeartbeat(ctx context.Context, in *NodeInfo, op
 type CpiInterfaceServer interface {
 	OnMetricsReceive(context.Context, *AutoscalingMetric) (*ActionStatus, error)
 	ListServices(context.Context, *emptypb.Empty) (*ServiceList, error)
+	RegisterDataplane(context.Context, *DataplaneInfo) (*ActionStatus, error)
 	RegisterService(context.Context, *ServiceInfo) (*ActionStatus, error)
 	RegisterNode(context.Context, *NodeInfo) (*ActionStatus, error)
 	NodeHeartbeat(context.Context, *NodeInfo) (*ActionStatus, error)
@@ -100,6 +111,9 @@ func (UnimplementedCpiInterfaceServer) OnMetricsReceive(context.Context, *Autosc
 }
 func (UnimplementedCpiInterfaceServer) ListServices(context.Context, *emptypb.Empty) (*ServiceList, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method ListServices not implemented")
+}
+func (UnimplementedCpiInterfaceServer) RegisterDataplane(context.Context, *DataplaneInfo) (*ActionStatus, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method RegisterDataplane not implemented")
 }
 func (UnimplementedCpiInterfaceServer) RegisterService(context.Context, *ServiceInfo) (*ActionStatus, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method RegisterService not implemented")
@@ -155,6 +169,24 @@ func _CpiInterface_ListServices_Handler(srv interface{}, ctx context.Context, de
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(CpiInterfaceServer).ListServices(ctx, req.(*emptypb.Empty))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _CpiInterface_RegisterDataplane_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(DataplaneInfo)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(CpiInterfaceServer).RegisterDataplane(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/data_plane.CpiInterface/RegisterDataplane",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(CpiInterfaceServer).RegisterDataplane(ctx, req.(*DataplaneInfo))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -227,6 +259,10 @@ var CpiInterface_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "ListServices",
 			Handler:    _CpiInterface_ListServices_Handler,
+		},
+		{
+			MethodName: "RegisterDataplane",
+			Handler:    _CpiInterface_RegisterDataplane_Handler,
 		},
 		{
 			MethodName: "RegisterService",

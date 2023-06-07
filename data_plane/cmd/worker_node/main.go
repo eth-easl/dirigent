@@ -31,7 +31,7 @@ func main() {
 	cli := sandbox.GetDockerClient()
 	defer cli.Close()
 
-	cpApi := common.InitializeControlPlaneConnection(*controlPlaneIP, *controlPlanePort)
+	cpApi := common.InitializeControlPlaneConnection(*controlPlaneIP, *controlPlanePort, -1)
 
 	registerNodeWithControlPlane(&cpApi)
 	go setupHeartbeatLoop(&cpApi)

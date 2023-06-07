@@ -7,6 +7,7 @@ import (
 	"github.com/sirupsen/logrus"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
+	"google.golang.org/grpc/peer"
 	"google.golang.org/grpc/reflection"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"net"
@@ -94,14 +95,23 @@ func EstablishGRPCConnectionPoll(host, port string) *grpc.ClientConn {
 	return conn
 }
 
-func InitializeControlPlaneConnection(host string, port string) proto.CpiInterfaceClient {
+func InitializeControlPlaneConnection(host string, port string, dataplanePort int32) proto.CpiInterfaceClient {
 	conn := EstablishGRPCConnectionPoll(host, port)
 	if conn == nil {
 		logrus.Fatal("Failed to establish connection with the control plane")
 	}
 
 	logrus.Info("Successfully established connection with the control plane")
-	return proto.NewCpiInterfaceClient(conn)
+	dpiClient := proto.NewCpiInterfaceClient(conn)
+
+	if dataplanePort != -1 {
+		resp, err := dpiClient.RegisterDataplane(context.Background(), &proto.DataplaneInfo{Port: dataplanePort})
+		if err != nil || !resp.Success {
+			logrus.Fatal("Failed to register data plane with the control plane")
+		}
+	}
+
+	return dpiClient
 }
 
 func InitializeWorkerNodeConnection(host, port string) proto.WorkerNodeInterfaceClient {
@@ -122,4 +132,20 @@ func InitializeDataPlaneConnection(host string, port string) proto.DpiInterfaceC
 
 	logrus.Info("Successfully established connection with the data plane")
 	return proto.NewDpiInterfaceClient(conn)
+}
+
+func GetIPAddressFromGRPCCall(ctx context.Context) (string, bool) {
+	peerCtx, ok := peer.FromContext(ctx)
+	if !ok {
+		return "", false
+	}
+
+	switch addr := peerCtx.Addr.(type) {
+	case *net.UDPAddr:
+		return addr.IP.String(), true
+	case *net.TCPAddr:
+		return addr.IP.String(), true
+	default:
+		return "", false
+	}
 }

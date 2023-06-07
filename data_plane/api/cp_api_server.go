@@ -5,9 +5,7 @@ import (
 	"cluster_manager/common"
 	"context"
 	"github.com/sirupsen/logrus"
-	"google.golang.org/grpc/peer"
 	"google.golang.org/protobuf/types/known/emptypb"
-	"net"
 	"strconv"
 	"time"
 )
@@ -20,9 +18,8 @@ type CpApiServer struct {
 	SIStorage    map[string]*ServiceInfoStorage
 }
 
-func CreateNewCpApiServer(dpiInterface proto.DpiInterfaceClient) *CpApiServer {
+func CreateNewCpApiServer() *CpApiServer {
 	return &CpApiServer{
-		DpiInterface: dpiInterface,
 		NIStorage: NodeInfoStorage{
 			NodeInfo: make(map[string]*WorkerNode),
 		},
@@ -67,7 +64,7 @@ func (c *CpApiServer) RegisterNode(ctx context.Context, in *proto.NodeInfo) (*pr
 		}, nil
 	}
 
-	peerCtx, ok := peer.FromContext(ctx)
+	ipAddress, ok := common.GetIPAddressFromGRPCCall(ctx)
 	if !ok {
 		return &proto.ActionStatus{
 			Success: false,
@@ -77,14 +74,8 @@ func (c *CpApiServer) RegisterNode(ctx context.Context, in *proto.NodeInfo) (*pr
 
 	wn := &WorkerNode{
 		Name: in.NodeID,
+		IP:   ipAddress,
 		Port: strconv.Itoa(int(in.Port)),
-	}
-
-	switch addr := peerCtx.Addr.(type) {
-	case *net.UDPAddr:
-		wn.IP = addr.IP.String()
-	case *net.TCPAddr:
-		wn.IP = addr.IP.String()
 	}
 
 	c.NIStorage.NodeInfo[in.NodeID] = wn
@@ -132,5 +123,16 @@ func (c *CpApiServer) RegisterService(ctx context.Context, serviceInfo *proto.Se
 	c.SIStorage[serviceInfo.Name] = service
 	go service.ScalingControllerLoop(&c.NIStorage, c.DpiInterface)
 
+	return &proto.ActionStatus{Success: true}, nil
+}
+
+func (c *CpApiServer) RegisterDataplane(ctx context.Context, in *proto.DataplaneInfo) (*proto.ActionStatus, error) {
+	ipAddress, ok := common.GetIPAddressFromGRPCCall(ctx)
+	if !ok {
+		logrus.Debug("Failed to extract IP address from data plane registration request")
+		return &proto.ActionStatus{Success: false}, nil
+	}
+
+	c.DpiInterface = common.InitializeDataPlaneConnection(ipAddress, strconv.Itoa(int(in.Port)))
 	return &proto.ActionStatus{Success: true}, nil
 }
