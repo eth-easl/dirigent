@@ -24,6 +24,8 @@ func CreateSandbox(cli *client.Client, hostConfig *container.HostConfig, contain
 	ctx, cancel := context.WithTimeout(context.Background(), requestTimeout)
 	defer cancel()
 
+	// TODO: need to add image pulling here
+
 	resp, err := cli.ContainerCreate(ctx, containerConfig, hostConfig, nil, nil, "")
 	if err != nil {
 		return "", err
