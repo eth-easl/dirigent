@@ -1,7 +1,5 @@
 #!/bin/bash
 
-set -e
-
 function RemoteExec() {
   ssh -oStrictHostKeyChecking=no -p 22 "$1" "$2";
 }
@@ -18,7 +16,7 @@ function AddSshKeys() {
 for NODE in "$@"
 do
     #AddSshKeys $NODE
-    RemoteExec $NODE 'git clone --branch=cluster_setup git@github.com:eth-easl/cluster_manager.git'
+    RemoteExec $NODE 'if [ ! -d ~/cluster_manager ];then git clone --branch=cluster_setup git@github.com:eth-easl/cluster_manager.git; fi'
     RemoteExec $NODE 'bash ~/cluster_manager/data_plane/scripts/setup_node.sh'
 done
 
