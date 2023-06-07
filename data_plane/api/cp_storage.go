@@ -24,7 +24,7 @@ type ServiceInfoStorage struct {
 	ServiceInfo *proto.ServiceInfo
 
 	Controller *PFStateController
-	endpoints  []Endpoint
+	endpoints  []*Endpoint
 }
 
 type Endpoint struct {
@@ -50,27 +50,40 @@ func (ss *ServiceInfoStorage) ScalingControllerLoop(nodeList *NodeInfoStorage, d
 		select {
 		case desiredCount := <-*ss.Controller.DesiredStateChannel:
 			ss.Controller.Lock()
+
 			actualScale := ss.Controller.ScalingMetadata.ActualScale
-			ss.Controller.Unlock()
+			ss.Controller.ScalingMetadata.ActualScale = desiredCount
 
 			if actualScale < desiredCount {
-				ss.doUpscaling(actualScale, desiredCount, nodeList, dpiClient)
+				go ss.doUpscaling(desiredCount-actualScale, nodeList, dpiClient)
 			} else if actualScale > desiredCount {
-				ss.doDownscaling(actualScale, desiredCount, dpiClient)
+				currentState := ss.endpoints
+				toEvict := make(map[*Endpoint]struct{})
+				for i := 0; i < actualScale-desiredCount; i++ {
+					endpoint, newState := evictionPolicy(currentState)
+
+					toEvict[endpoint] = struct{}{}
+					currentState = newState
+				}
+
+				ss.endpoints = excludeEndpoints(ss.endpoints, toEvict)
+
+				go ss.doDownscaling(toEvict, dpiClient)
 			}
+
+			ss.Controller.Unlock() // for all cases (>, ==, <)
 		}
 	}
 }
 
-func (ss *ServiceInfoStorage) doUpscaling(actualScale int, desiredCount int, nodeList *NodeInfoStorage, dpiClient proto.DpiInterfaceClient) {
-	diff := desiredCount - actualScale
+func (ss *ServiceInfoStorage) doUpscaling(toCreateCount int, nodeList *NodeInfoStorage, dpiClient proto.DpiInterfaceClient) {
 	barrier := sync.WaitGroup{}
 
-	var finalEndpoint []Endpoint
+	var finalEndpoint []*Endpoint
 	endpointMutex := sync.Mutex{}
 
-	barrier.Add(diff)
-	for i := 0; i < diff; i++ {
+	barrier.Add(toCreateCount)
+	for i := 0; i < toCreateCount; i++ {
 		go func() {
 			defer barrier.Done()
 
@@ -82,12 +95,18 @@ func (ss *ServiceInfoStorage) doUpscaling(actualScale int, desiredCount int, nod
 			resp, err := node.GetAPI().CreateSandbox(ctx, ss.ServiceInfo)
 			if err != nil || !resp.Success {
 				logrus.Warn("Failed to start a sandbox on worker node ", node.Name)
+
+				ss.Controller.Lock()
+				ss.Controller.ScalingMetadata.ActualScale--
+				ss.Controller.Unlock()
+
 				return
 			}
 
 			///////////////////////////////////////////
 			endpointMutex.Lock()
-			finalEndpoint = append(finalEndpoint, Endpoint{
+			logrus.Debug("Endpoint appended: ", resp.ID)
+			finalEndpoint = append(finalEndpoint, &Endpoint{
 				SandboxID: resp.ID,
 				URL:       fmt.Sprintf("%s:%d", node.IP, resp.PortMappings.HostPort),
 				Node:      node,
@@ -102,43 +121,40 @@ func (ss *ServiceInfoStorage) doUpscaling(actualScale int, desiredCount int, nod
 	barrier.Wait()
 
 	ss.Controller.Lock()
-	ss.endpoints = finalEndpoint // no need for mutex as the barrier has already been passed
-	ss.Controller.ScalingMetadata.ActualScale += diff
+	// no need for 'endpointMutex' as the barrier has already been passed
+	ss.endpoints = append(ss.endpoints, finalEndpoint...)
 	ss.Controller.Unlock()
 
 	ss.updateEndpoints(dpiClient)
 }
 
-func (ss *ServiceInfoStorage) doDownscaling(actualScale int, desiredCount int, dpiClient proto.DpiInterfaceClient) {
-	diff := actualScale - desiredCount
+func excludeEndpoints(total []*Endpoint, toExclude map[*Endpoint]struct{}) []*Endpoint {
+	var result []*Endpoint
+	for _, endpoint := range total {
+		_, ok := toExclude[endpoint]
+
+		if !ok {
+			result = append(result, endpoint)
+		}
+	}
+
+	return result
+}
+
+func (ss *ServiceInfoStorage) doDownscaling(toEvict map[*Endpoint]struct{}, dpiClient proto.DpiInterfaceClient) {
 	barrier := sync.WaitGroup{}
 
-	ss.Controller.Lock()
-	currentState := ss.endpoints
-	var toEvict []*Endpoint
-	for i := 0; i < diff; i++ {
-		endpoint, newState := evictionPolicy(&currentState)
-		if endpoint == nil {
-			break
+	barrier.Add(len(toEvict))
+	for key, _ := range toEvict {
+		victim := key
+
+		if victim == nil {
+			logrus.Debug("Victim null - should not have happened")
+			continue // why this happens?
 		}
-
-		toEvict = append(toEvict, endpoint)
-		currentState = newState
-	}
-	ss.Controller.Unlock()
-
-	barrier.Add(diff)
-	for i := 0; i < diff; i++ {
-		index := i
 
 		go func() {
 			defer barrier.Done()
-
-			if len(toEvict) == 0 || toEvict[index] == nil || index > len(toEvict) {
-				return
-			}
-
-			victim := toEvict[index]
 
 			ctx, cancel := context.WithTimeout(context.Background(), WorkerNodeTrafficTimeout)
 			defer cancel()
@@ -156,12 +172,6 @@ func (ss *ServiceInfoStorage) doDownscaling(actualScale int, desiredCount int, d
 
 	// batch update of endpoints
 	barrier.Wait()
-
-	ss.Controller.Lock()
-	ss.endpoints = currentState
-	ss.Controller.ScalingMetadata.ActualScale -= diff
-	ss.Controller.Unlock()
-
 	ss.updateEndpoints(dpiClient)
 }
 

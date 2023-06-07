@@ -13,7 +13,7 @@ import (
 type CpApiServer struct {
 	proto.UnimplementedCpiInterfaceServer
 
-	DpiInterface proto.DpiInterfaceClient
+	dpiInterface proto.DpiInterfaceClient
 	NIStorage    NodeInfoStorage
 	SIStorage    map[string]*ServiceInfoStorage
 }
@@ -25,6 +25,18 @@ func CreateNewCpApiServer() *CpApiServer {
 		},
 		SIStorage: make(map[string]*ServiceInfoStorage),
 	}
+}
+
+func (c *CpApiServer) DpiInterface() proto.DpiInterfaceClient {
+	if c.dpiInterface == nil {
+		logrus.Fatal("Connection with the data plane has not been established.")
+	}
+
+	return c.dpiInterface
+}
+
+func (c *CpApiServer) setDpiInterface(iface proto.DpiInterfaceClient) {
+	c.dpiInterface = iface
 }
 
 func (c *CpApiServer) OnMetricsReceive(_ context.Context, metric *proto.AutoscalingMetric) (*proto.ActionStatus, error) {
@@ -103,7 +115,7 @@ func (c *CpApiServer) NodeHeartbeat(_ context.Context, in *proto.NodeInfo) (*pro
 }
 
 func (c *CpApiServer) RegisterService(ctx context.Context, serviceInfo *proto.ServiceInfo) (*proto.ActionStatus, error) {
-	resp, err := c.DpiInterface.AddDeployment(ctx, serviceInfo)
+	resp, err := c.DpiInterface().AddDeployment(ctx, serviceInfo)
 	if err != nil || !resp.Success {
 		logrus.Warn("Failed to propagate service registration to the data plane")
 		return &proto.ActionStatus{Success: false}, nil
@@ -121,7 +133,7 @@ func (c *CpApiServer) RegisterService(ctx context.Context, serviceInfo *proto.Se
 		},
 	}
 	c.SIStorage[serviceInfo.Name] = service
-	go service.ScalingControllerLoop(&c.NIStorage, c.DpiInterface)
+	go service.ScalingControllerLoop(&c.NIStorage, c.DpiInterface())
 
 	return &proto.ActionStatus{Success: true}, nil
 }
@@ -133,6 +145,7 @@ func (c *CpApiServer) RegisterDataplane(ctx context.Context, in *proto.Dataplane
 		return &proto.ActionStatus{Success: false}, nil
 	}
 
-	c.DpiInterface = common.InitializeDataPlaneConnection(ipAddress, strconv.Itoa(int(in.Port)))
+	c.setDpiInterface(common.InitializeDataPlaneConnection(ipAddress, strconv.Itoa(int(in.Port))))
+
 	return &proto.ActionStatus{Success: true}, nil
 }

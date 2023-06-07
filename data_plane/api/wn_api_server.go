@@ -31,7 +31,7 @@ func (w *WnApiServer) CreateSandbox(_ context.Context, in *proto.ServiceInfo) (*
 		return &proto.SandboxCreationStatus{Success: false}, err
 	}
 
-	logrus.Debug("Sandbox creation took ", time.Since(start).Microseconds(), " μs")
+	logrus.Debug("Sandbox creation took ", time.Since(start).Microseconds(), " μs (", sandboxID, ")")
 	return &proto.SandboxCreationStatus{Success: true, ID: sandboxID, PortMappings: in.PortForwarding}, nil
 }
 
@@ -43,7 +43,7 @@ func (w *WnApiServer) DeleteSandbox(_ context.Context, in *proto.SandboxID) (*pr
 	sandbox.UnassignPort(int(in.HostPort))
 	err := sandbox.DeleteSandbox(w.DockerClient, in.ID)
 	if err != nil {
-		logrus.Warn("Failed to delete sandbox with ID = '", in.ID, "'")
+		logrus.Warn("Failed to delete sandbox with ID = '", in.ID, "' - ", err)
 		return &proto.ActionStatus{Success: false}, nil
 	}
 

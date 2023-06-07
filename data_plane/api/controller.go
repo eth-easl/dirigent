@@ -81,13 +81,13 @@ func placementPolicy(storage *NodeInfoStorage) *WorkerNode {
 	return nodeRef
 }
 
-func evictionPolicy(endpoint *[]Endpoint) (*Endpoint, []Endpoint) {
-	if len(*endpoint) == 0 {
-		return nil, []Endpoint{}
+func evictionPolicy(endpoint []*Endpoint) (*Endpoint, []*Endpoint) {
+	if len(endpoint) == 0 {
+		return nil, []*Endpoint{}
 	}
 
-	index := rand.Intn(len(*endpoint))
-	newEndpointList := append((*endpoint)[:index], (*endpoint)[index+1:]...)
+	index := rand.Intn(len(endpoint))
+	newEndpointList := append(endpoint[:index], endpoint[index+1:]...)
 
-	return &(*endpoint)[index], newEndpointList
+	return endpoint[index], newEndpointList
 }
