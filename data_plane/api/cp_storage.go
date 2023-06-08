@@ -55,8 +55,7 @@ func (ss *ServiceInfoStorage) ScalingControllerLoop(nodeList *NodeInfoStorage, d
 			if actualScale < desiredCount {
 				go ss.doUpscaling(desiredCount-actualScale, nodeList, dpiClient)
 			} else if actualScale > desiredCount {
-				currentState := make([]*Endpoint, len(ss.Controller.Endpoints))
-				copy(currentState, ss.Controller.Endpoints)
+				currentState := ss.Controller.Endpoints
 				toEvict := make(map[*Endpoint]struct{})
 
 				for i := 0; i < actualScale-desiredCount; i++ {
@@ -66,8 +65,7 @@ func (ss *ServiceInfoStorage) ScalingControllerLoop(nodeList *NodeInfoStorage, d
 						logrus.Warn("Endpoint repetition - this is a bug.")
 					}
 					toEvict[endpoint] = struct{}{}
-					currentState = make([]*Endpoint, len(newState))
-					copy(currentState, newState)
+					currentState = newState
 				}
 
 				if actualScale-desiredCount != len(toEvict) {
