@@ -24,7 +24,6 @@ type ServiceInfoStorage struct {
 	ServiceInfo *proto.ServiceInfo
 
 	Controller *PFStateController
-	endpoints  []*Endpoint
 }
 
 type Endpoint struct {
@@ -37,15 +36,14 @@ type Endpoint struct {
 func (ss *ServiceInfoStorage) GetAllURLs() []string {
 	var res []string
 
-	for i := 0; i < len(ss.endpoints); i++ {
-		res = append(res, ss.endpoints[i].URL)
+	for i := 0; i < len(ss.Controller.Endpoints); i++ {
+		res = append(res, ss.Controller.Endpoints[i].URL)
 	}
 
 	return res
 }
 
 func (ss *ServiceInfoStorage) ScalingControllerLoop(nodeList *NodeInfoStorage, dpiClient proto.DpiInterfaceClient) {
-	// TODO: add locking
 	for {
 		select {
 		case desiredCount := <-*ss.Controller.DesiredStateChannel:
@@ -57,18 +55,28 @@ func (ss *ServiceInfoStorage) ScalingControllerLoop(nodeList *NodeInfoStorage, d
 			if actualScale < desiredCount {
 				go ss.doUpscaling(desiredCount-actualScale, nodeList, dpiClient)
 			} else if actualScale > desiredCount {
-				currentState := ss.endpoints
+				currentState := make([]*Endpoint, len(ss.Controller.Endpoints))
+				copy(currentState, ss.Controller.Endpoints)
 				toEvict := make(map[*Endpoint]struct{})
+
 				for i := 0; i < actualScale-desiredCount; i++ {
 					endpoint, newState := evictionPolicy(currentState)
 
+					if _, ok := toEvict[endpoint]; ok {
+						logrus.Warn("Endpoint repetition - this is a bug.")
+					}
 					toEvict[endpoint] = struct{}{}
-					currentState = newState
+					currentState = make([]*Endpoint, len(newState))
+					copy(currentState, newState)
 				}
 
-				ss.endpoints = excludeEndpoints(ss.endpoints, toEvict)
+				if actualScale-desiredCount != len(toEvict) {
+					logrus.Warn("downscaling reference error")
+				}
 
-				go ss.doDownscaling(toEvict, dpiClient)
+				ss.Controller.Endpoints = excludeEndpoints(ss.Controller.Endpoints, toEvict)
+
+				go ss.doDownscaling(toEvict, ss.GetAllURLs(), dpiClient)
 			}
 
 			ss.Controller.Unlock() // for all cases (>, ==, <)
@@ -122,10 +130,12 @@ func (ss *ServiceInfoStorage) doUpscaling(toCreateCount int, nodeList *NodeInfoS
 
 	ss.Controller.Lock()
 	// no need for 'endpointMutex' as the barrier has already been passed
-	ss.endpoints = append(ss.endpoints, finalEndpoint...)
+	ss.Controller.Endpoints = append(ss.Controller.Endpoints, finalEndpoint...)
+	urls := ss.GetAllURLs()
+
 	ss.Controller.Unlock()
 
-	ss.updateEndpoints(dpiClient)
+	ss.updateEndpoints(dpiClient, urls)
 }
 
 func excludeEndpoints(total []*Endpoint, toExclude map[*Endpoint]struct{}) []*Endpoint {
@@ -141,7 +151,7 @@ func excludeEndpoints(total []*Endpoint, toExclude map[*Endpoint]struct{}) []*En
 	return result
 }
 
-func (ss *ServiceInfoStorage) doDownscaling(toEvict map[*Endpoint]struct{}, dpiClient proto.DpiInterfaceClient) {
+func (ss *ServiceInfoStorage) doDownscaling(toEvict map[*Endpoint]struct{}, urls []string, dpiClient proto.DpiInterfaceClient) {
 	barrier := sync.WaitGroup{}
 
 	barrier.Add(len(toEvict))
@@ -172,13 +182,13 @@ func (ss *ServiceInfoStorage) doDownscaling(toEvict map[*Endpoint]struct{}, dpiC
 
 	// batch update of endpoints
 	barrier.Wait()
-	ss.updateEndpoints(dpiClient)
+	ss.updateEndpoints(dpiClient, urls)
 }
 
-func (ss *ServiceInfoStorage) updateEndpoints(dpiClient proto.DpiInterfaceClient) {
+func (ss *ServiceInfoStorage) updateEndpoints(dpiClient proto.DpiInterfaceClient, endpoints []string) {
 	resp, err := dpiClient.UpdateEndpointList(context.Background(), &proto.DeploymentEndpointPatch{
 		Service:   ss.ServiceInfo,
-		Endpoints: ss.GetAllURLs(),
+		Endpoints: endpoints,
 	})
 	if err != nil || !resp.Success {
 		logrus.Warn("Failed to update endpoint list in the data plane")

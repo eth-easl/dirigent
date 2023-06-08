@@ -19,6 +19,7 @@ type PFStateController struct {
 	NotifyChannel      *chan int
 
 	ScalingMetadata AutoscalingMetadata
+	Endpoints       []*Endpoint
 
 	Period time.Duration
 }
@@ -87,7 +88,12 @@ func evictionPolicy(endpoint []*Endpoint) (*Endpoint, []*Endpoint) {
 	}
 
 	index := rand.Intn(len(endpoint))
-	newEndpointList := append(endpoint[:index], endpoint[index+1:]...)
+	var newEndpointList []*Endpoint
+	for i := 0; i < len(endpoint); i++ {
+		if i != index {
+			newEndpointList = append(newEndpointList, endpoint[i])
+		}
+	}
 
 	return endpoint[index], newEndpointList
 }

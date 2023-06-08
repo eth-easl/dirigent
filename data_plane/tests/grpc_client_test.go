@@ -17,6 +17,9 @@ func TestDeployService(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), common.GRPCFunctionTimeout)
 	defer cancel()
 
+	autoscalingConfig := api.NewDefaultAutoscalingMetadata()
+	//autoscalingConfig.ScalingUpperBound = 20
+
 	resp, err := cpApi.RegisterService(ctx, &proto2.ServiceInfo{
 		Name:  "/faas.Executor/Execute",
 		Image: "docker.io/cvetkovic/empty_function:latest",
@@ -24,7 +27,7 @@ func TestDeployService(t *testing.T) {
 			GuestPort: 80,
 			Protocol:  proto2.L4Protocol_TCP,
 		},
-		AutoscalingConfig: api.NewDefaultAutoscalingMetadata(),
+		AutoscalingConfig: autoscalingConfig,
 	})
 
 	if err != nil || !resp.Success {
