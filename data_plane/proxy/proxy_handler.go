@@ -56,7 +56,7 @@ func InvocationHandler(next http.Handler, cache *common.Deployments, cp *proto.C
 			return
 		}
 		if cc != nil {
-			defer cc.Release(1) // release CC on request complete
+			cc <- struct{}{} // release CC on request complete
 		}
 		passedLB := time.Now()
 

@@ -3,12 +3,11 @@ package proxy
 import (
 	"cluster_manager/common"
 	"github.com/sirupsen/logrus"
-	"golang.org/x/sync/semaphore"
 	"math/rand"
 	"net/http"
 )
 
-func DoLoadBalancing(req *http.Request, metadata *common.FunctionMetadata) (bool, *semaphore.Weighted) {
+func DoLoadBalancing(req *http.Request, metadata *common.FunctionMetadata) (bool, common.RequestThrottler) {
 	metadata.RLock()
 	defer metadata.RUnlock()
 
@@ -20,15 +19,11 @@ func DoLoadBalancing(req *http.Request, metadata *common.FunctionMetadata) (bool
 	index := rand.Intn(len(endpoints))
 	endpoint := endpoints[index]
 
-	err := endpoint.Capacity.Acquire(req.Context(), 1)
+	<-endpoint.Capacity // CC throttler
 
 	req.URL.Scheme = "http"
 	req.URL.Host = endpoint.URL
 	logrus.Debug("Invocation forwarded to ", endpoint.URL)
 
-	if err == nil {
-		return true, endpoint.Capacity
-	} else {
-		return false, nil
-	}
+	return true, endpoint.Capacity
 }

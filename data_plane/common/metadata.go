@@ -5,14 +5,15 @@ import (
 	"container/list"
 	"context"
 	"github.com/sirupsen/logrus"
-	"golang.org/x/sync/semaphore"
 	"sync"
 	"sync/atomic"
 	"time"
 )
 
+type RequestThrottler chan struct{}
+
 type UpstreamEndpoint struct {
-	Capacity *semaphore.Weighted
+	Capacity RequestThrottler
 	URL      string
 }
 
@@ -67,6 +68,15 @@ func (m *FunctionMetadata) getAllUrls() []string {
 	return res
 }
 
+func createThrottlerChannel(capacity int) RequestThrottler {
+	ccChannel := make(chan struct{}, capacity)
+	for cc := 0; cc < capacity; cc++ {
+		ccChannel <- struct{}{}
+	}
+
+	return ccChannel
+}
+
 func (m *FunctionMetadata) mergeEndpointList(newURLs []string) {
 	oldURLs := m.getAllUrls()
 
@@ -76,7 +86,7 @@ func (m *FunctionMetadata) mergeEndpointList(newURLs []string) {
 	for i := 0; i < len(toAdd); i++ {
 		m.upstreamEndpoints = append(m.upstreamEndpoints, UpstreamEndpoint{
 			URL:      toAdd[i],
-			Capacity: semaphore.NewWeighted(int64(m.sandboxParallelism)),
+			Capacity: createThrottlerChannel(m.sandboxParallelism),
 		})
 	}
 
