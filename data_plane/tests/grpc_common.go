@@ -7,8 +7,8 @@ import (
 	"context"
 	"fmt"
 	"github.com/sirupsen/logrus"
-	"google.golang.org/grpc"
 	"testing"
+	"time"
 )
 
 type TestServer struct {
@@ -23,17 +23,18 @@ func (s *TestServer) Execute(_ context.Context, _ *proto.FaasRequest) (*proto.Fa
 	}, nil
 }
 
-func FireInvocation(conn *grpc.ClientConn) error {
+func FireInvocation(client proto.ExecutorClient) error {
 	executionCxt, cancelExecution := context.WithTimeout(context.Background(), common.GRPCFunctionTimeout)
 	defer cancelExecution()
 
-	_, err := proto.NewExecutorClient(conn).Execute(executionCxt, &proto.FaasRequest{
+	start := time.Now()
+	_, err := client.Execute(executionCxt, &proto.FaasRequest{
 		Message:           "nothing",
 		RuntimeInMilliSec: uint32(1000),
 		MemoryInMebiBytes: uint32(2048),
 	})
 
-	logrus.Info("Request completed")
+	logrus.Info("Request completed - took ", time.Since(start).Microseconds(), " μs")
 
 	return err
 }

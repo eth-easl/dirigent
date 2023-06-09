@@ -4,6 +4,7 @@ import (
 	"cluster_manager/api"
 	proto2 "cluster_manager/api/proto"
 	"cluster_manager/common"
+	"cluster_manager/tests/proto"
 	"context"
 	"github.com/sirupsen/logrus"
 	"testing"
@@ -45,9 +46,10 @@ func TestInvocationProxying(t *testing.T) {
 
 	logrus.Info("Connection with the gRPC server has been established")
 
-	err := FireInvocation(conn)
+	executorClient := proto.NewExecutorClient(conn)
+	err := FireInvocation(executorClient)
 	if err != nil {
-		t.Error("Invocation failed.")
+		t.Error("Invocation failed - ", err)
 	}
 }
 
@@ -64,11 +66,13 @@ func Test_100Invocations(t *testing.T) {
 	invocationCount := 100
 	ch := make(chan struct{})
 
+	executorClient := proto.NewExecutorClient(conn)
+
 	for i := 0; i < invocationCount; i++ {
 		go func() {
-			err := FireInvocation(conn)
+			err := FireInvocation(executorClient)
 			if err != nil {
-				t.Error("Invocation failed.")
+				t.Error("Invocation failed - ", err)
 			}
 
 			ch <- struct{}{}

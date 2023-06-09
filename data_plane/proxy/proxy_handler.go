@@ -3,6 +3,7 @@ package proxy
 import (
 	"cluster_manager/api/proto"
 	"cluster_manager/common"
+	"fmt"
 	"github.com/sirupsen/logrus"
 	"net/http"
 	"time"
@@ -30,6 +31,7 @@ func InvocationHandler(next http.Handler, cache *common.Deployments, cp *proto.C
 			return
 		}
 		logrus.Trace("Invocation for service ", serviceName, " has been received.")
+		gotDeployment := time.Now()
 
 		///////////////////////////////////////////////
 		// COLD/WARM START
@@ -42,6 +44,7 @@ func InvocationHandler(next http.Handler, cache *common.Deployments, cp *proto.C
 			// wait until a cold start is resolved
 			<-coldStartChannel
 		}
+		passedColdstart := time.Now()
 
 		///////////////////////////////////////////////
 		// LOAD BALANCING AND ROUTING
@@ -55,6 +58,7 @@ func InvocationHandler(next http.Handler, cache *common.Deployments, cp *proto.C
 		if cc != nil {
 			defer cc.Release(1) // release CC on request complete
 		}
+		passedLB := time.Now()
 
 		///////////////////////////////////////////////
 		// SERVING
@@ -65,6 +69,14 @@ func InvocationHandler(next http.Handler, cache *common.Deployments, cp *proto.C
 		// ON THE WAY BACK
 		///////////////////////////////////////////////
 		end := time.Now()
-		logrus.Info("Request took ", end.Sub(start).Microseconds(), " μs")
+
+		breakdown := fmt.Sprintf("Request took %d μs (deployment fetch: %d μs, cold start %d μs, load balancing %d μs, routing %d μs)",
+			end.Sub(start).Microseconds(),
+			gotDeployment.Sub(start).Microseconds(),
+			passedColdstart.Sub(gotDeployment).Microseconds(),
+			passedLB.Sub(passedColdstart).Microseconds(),
+			end.Sub(passedLB).Microseconds(),
+		)
+		logrus.Info(breakdown)
 	}
 }
