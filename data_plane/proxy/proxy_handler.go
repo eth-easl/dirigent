@@ -70,7 +70,7 @@ func InvocationHandler(next http.Handler, cache *common.Deployments, cp *proto.C
 		///////////////////////////////////////////////
 		end := time.Now()
 
-		breakdown := fmt.Sprintf("Request took %d μs (deployment fetch: %d μs, cold start %d μs, load balancing %d μs, routing %d μs)",
+		breakdown := fmt.Sprintf("Request took %d μs (deployment fetch: %d μs, cold start %d μs, load balancing %d μs, function execution %d μs)",
 			end.Sub(start).Microseconds(),
 			gotDeployment.Sub(start).Microseconds(),
 			passedColdstart.Sub(gotDeployment).Microseconds(),

@@ -20,6 +20,7 @@ func TestDeployService(t *testing.T) {
 
 	autoscalingConfig := api.NewDefaultAutoscalingMetadata()
 	//autoscalingConfig.ScalingUpperBound = 20
+	autoscalingConfig.ScalingLowerBound = 10
 
 	resp, err := cpApi.RegisterService(ctx, &proto2.ServiceInfo{
 		Name:  "/faas.Executor/Execute",

@@ -22,8 +22,9 @@ type FunctionMetadata struct {
 	identifier         string
 	sandboxParallelism int
 
-	upstreamEndpoints []UpstreamEndpoint
-	queue             *list.List
+	upstreamEndpoints      []UpstreamEndpoint
+	upstreamEndpointsCount int32
+	queue                  *list.List
 
 	beingDrained *chan struct{} // TODO: implement this feature
 	metrics      ScalingMetric
@@ -32,9 +33,8 @@ type FunctionMetadata struct {
 }
 
 type ScalingMetric struct {
-	timestamp         time.Time
-	timeWindowSize    time.Duration
-	lastTimeWindowCnt int32
+	timestamp      time.Time
+	timeWindowSize time.Duration
 
 	totalRequests    int32
 	inflightRequests int32
@@ -96,6 +96,7 @@ func (m *FunctionMetadata) SetUpstreamURLs(urls []string) {
 
 	logrus.Debug("Updated endpoint list for ", m.identifier)
 	m.mergeEndpointList(urls)
+	atomic.StoreInt32(&m.upstreamEndpointsCount, int32(len(m.upstreamEndpoints)))
 
 	if len(m.upstreamEndpoints) > 0 {
 		dequeueCnt := 0
@@ -121,21 +122,19 @@ func (m *FunctionMetadata) DecreaseInflight() {
 	atomic.AddInt32(&m.metrics.inflightRequests, -1)
 }
 
-func (m *FunctionMetadata) HasEndpoints() bool {
-	return !(m.upstreamEndpoints == nil || len(m.upstreamEndpoints) == 0)
-}
-
 func (m *FunctionMetadata) TryWarmStart(cp *proto.CpiInterfaceClient) chan bool {
+	// autoscaling metric
 	atomic.AddInt32(&m.metrics.inflightRequests, 1)
+	// runtime statistics
 	atomic.AddInt32(&m.metrics.totalRequests, 1)
 
-	m.Lock()
-	defer m.Unlock()
-
-	m.metrics.lastTimeWindowCnt++
-
-	if !m.HasEndpoints() {
+	endpointCount := atomic.LoadInt32(&m.upstreamEndpointsCount)
+	if endpointCount == 0 {
 		waitChannel := make(chan bool, 1)
+
+		m.Lock()
+		defer m.Unlock()
+
 		m.queue.PushBack(waitChannel)
 
 		// trigger autoscaling
@@ -180,11 +179,6 @@ func (m *FunctionMetadata) sendMetricsLoop(cp *proto.CpiInterfaceClient) {
 			m.sendMetricsTriggered = false
 		}
 
-		if time.Since(m.metrics.timestamp) >= m.metrics.timeWindowSize {
-			m.metrics.timestamp = time.Now()
-			m.metrics.lastTimeWindowCnt = 0
-		}
-
 		m.Unlock()
 
 		if toBreak {
@@ -221,7 +215,7 @@ func (d *Deployments) AddDeployment(name string) bool {
 
 	d.data[name] = &FunctionMetadata{
 		identifier:         name,
-		sandboxParallelism: 1,
+		sandboxParallelism: 1, // TODO: make dynamic
 		queue:              list.New(),
 		metrics: ScalingMetric{
 			timeWindowSize: 2 * time.Second,
@@ -234,6 +228,7 @@ func (d *Deployments) AddDeployment(name string) bool {
 }
 
 func (d *Deployments) GetDeployment(name string) *FunctionMetadata {
+	// TODO: the lock will be a bottleneck at scale
 	d.RLock()
 	defer d.RUnlock()
 
