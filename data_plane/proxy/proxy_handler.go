@@ -43,6 +43,7 @@ func InvocationHandler(next http.Handler, cache *common.Deployments, cp *proto.C
 
 			// wait until a cold start is resolved
 			<-coldStartChannel
+			time.Sleep(metadata.GetColdStartDelay())
 		}
 		passedColdstart := time.Now()
 
@@ -70,9 +71,10 @@ func InvocationHandler(next http.Handler, cache *common.Deployments, cp *proto.C
 		///////////////////////////////////////////////
 		end := time.Now()
 
-		breakdown := fmt.Sprintf("Request took %d μs (deployment fetch: %d μs, cold start %d μs, load balancing %d μs, function execution %d μs)",
+		breakdown := fmt.Sprintf("Request took %d μs (deployment fetch: %d μs, cold start (paused %d ms) %d μs, load balancing %d μs, function execution %d μs)",
 			end.Sub(start).Microseconds(),
 			gotDeployment.Sub(start).Microseconds(),
+			metadata.GetColdStartDelay().Milliseconds(),
 			passedColdstart.Sub(gotDeployment).Microseconds(),
 			passedLB.Sub(passedColdstart).Microseconds(),
 			end.Sub(passedLB).Microseconds(),

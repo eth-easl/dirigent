@@ -27,8 +27,9 @@ type FunctionMetadata struct {
 	upstreamEndpointsCount int32
 	queue                  *list.List
 
-	beingDrained *chan struct{} // TODO: implement this feature
-	metrics      ScalingMetric
+	beingDrained   *chan struct{} // TODO: implement this feature
+	metrics        ScalingMetric
+	coldStartDelay time.Duration
 
 	sendMetricsTriggered bool
 }
@@ -39,6 +40,10 @@ type ScalingMetric struct {
 
 	totalRequests    int32
 	inflightRequests int32
+}
+
+func (m *FunctionMetadata) GetColdStartDelay() time.Duration {
+	return m.coldStartDelay
 }
 
 func (m *FunctionMetadata) GetUpstreamEndpoints() []UpstreamEndpoint {
@@ -115,8 +120,8 @@ func (m *FunctionMetadata) SetUpstreamURLs(urls []string) {
 			dequeue := m.queue.Front()
 			m.queue.Remove(dequeue)
 
-			signal := dequeue.Value.(chan bool)
-			signal <- true
+			signal := dequeue.Value.(chan struct{})
+			signal <- struct{}{}
 			close(signal)
 
 			dequeueCnt++
@@ -132,7 +137,7 @@ func (m *FunctionMetadata) DecreaseInflight() {
 	atomic.AddInt32(&m.metrics.inflightRequests, -1)
 }
 
-func (m *FunctionMetadata) TryWarmStart(cp *proto.CpiInterfaceClient) chan bool {
+func (m *FunctionMetadata) TryWarmStart(cp *proto.CpiInterfaceClient) chan struct{} {
 	// autoscaling metric
 	atomic.AddInt32(&m.metrics.inflightRequests, 1)
 	// runtime statistics
@@ -140,7 +145,7 @@ func (m *FunctionMetadata) TryWarmStart(cp *proto.CpiInterfaceClient) chan bool 
 
 	endpointCount := atomic.LoadInt32(&m.upstreamEndpointsCount)
 	if endpointCount == 0 {
-		waitChannel := make(chan bool, 1)
+		waitChannel := make(chan struct{}, 1)
 
 		m.Lock()
 		defer m.Unlock()
@@ -230,6 +235,7 @@ func (d *Deployments) AddDeployment(name string) bool {
 		metrics: ScalingMetric{
 			timeWindowSize: 2 * time.Second,
 		},
+		coldStartDelay: 5 * time.Millisecond, // TODO: implement readiness probing
 	}
 
 	logrus.Info("Service with name '", name, "' has been registered")

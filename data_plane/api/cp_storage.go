@@ -47,6 +47,7 @@ func (ss *ServiceInfoStorage) ScalingControllerLoop(nodeList *NodeInfoStorage, d
 	for {
 		select {
 		case desiredCount := <-*ss.Controller.DesiredStateChannel:
+
 			ss.Controller.Lock()
 
 			actualScale := ss.Controller.ScalingMetadata.ActualScale
@@ -88,6 +89,8 @@ func (ss *ServiceInfoStorage) doUpscaling(toCreateCount int, nodeList *NodeInfoS
 	var finalEndpoint []*Endpoint
 	endpointMutex := sync.Mutex{}
 
+	logrus.Debug("Need to create: ", toCreateCount, " sandboxes")
+
 	barrier.Add(toCreateCount)
 	for i := 0; i < toCreateCount; i++ {
 		go func() {
@@ -109,6 +112,8 @@ func (ss *ServiceInfoStorage) doUpscaling(toCreateCount int, nodeList *NodeInfoS
 				return
 			}
 
+			logrus.Debug("Sandbox creation took: ", resp.TimeTookMs, " ms")
+
 			///////////////////////////////////////////
 			endpointMutex.Lock()
 			logrus.Debug("Endpoint appended: ", resp.ID)
@@ -126,6 +131,8 @@ func (ss *ServiceInfoStorage) doUpscaling(toCreateCount int, nodeList *NodeInfoS
 	// batch update of endpoints
 	barrier.Wait()
 
+	logrus.Debug("All sandboxes have been created. Updating endpoints.")
+
 	ss.Controller.Lock()
 	// no need for 'endpointMutex' as the barrier has already been passed
 	ss.Controller.Endpoints = append(ss.Controller.Endpoints, finalEndpoint...)
@@ -133,7 +140,9 @@ func (ss *ServiceInfoStorage) doUpscaling(toCreateCount int, nodeList *NodeInfoS
 
 	ss.Controller.Unlock()
 
+	logrus.Debug("Propagating endpoints.")
 	ss.updateEndpoints(dpiClient, urls)
+	logrus.Debug("Endpoints updated.")
 }
 
 func excludeEndpoints(total []*Endpoint, toExclude map[*Endpoint]struct{}) []*Endpoint {

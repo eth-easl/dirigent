@@ -31,8 +31,14 @@ func (w *WnApiServer) CreateSandbox(_ context.Context, in *proto.ServiceInfo) (*
 		return &proto.SandboxCreationStatus{Success: false}, err
 	}
 
-	logrus.Debug("Sandbox creation took ", time.Since(start).Microseconds(), " μs (", sandboxID, ")")
-	return &proto.SandboxCreationStatus{Success: true, ID: sandboxID, PortMappings: in.PortForwarding}, nil
+	timeTook := time.Since(start).Microseconds()
+	logrus.Debug("Sandbox creation took ", timeTook, " μs (", sandboxID, ")")
+	return &proto.SandboxCreationStatus{
+		Success:      true,
+		ID:           sandboxID,
+		PortMappings: in.PortForwarding,
+		TimeTookMs:   timeTook / 1000,
+	}, nil
 }
 
 func (w *WnApiServer) DeleteSandbox(_ context.Context, in *proto.SandboxID) (*proto.ActionStatus, error) {

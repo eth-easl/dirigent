@@ -39,6 +39,7 @@ message SandboxCreationStatus {
   bool Success = 1;
   string ID = 2;
   PortMapping PortMappings = 3;
+  int64 TimeTookMs = 4;
 }
 
 service WorkerNodeInterface {
