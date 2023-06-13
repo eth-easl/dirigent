@@ -47,6 +47,6 @@ func (w *WnApiServer) DeleteSandbox(_ context.Context, in *proto.SandboxID) (*pr
 		return &proto.ActionStatus{Success: false}, nil
 	}
 
-	logrus.Debug("Sandbox creation took ", time.Since(start).Microseconds(), " μs")
+	logrus.Debug("Sandbox deletion took ", time.Since(start).Microseconds(), " μs")
 	return &proto.ActionStatus{Success: true}, nil
 }

@@ -6,6 +6,9 @@ import (
 	"github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/client"
 	"github.com/sirupsen/logrus"
+	"io"
+	"os"
+	"strings"
 	"time"
 )
 
@@ -20,23 +23,54 @@ func GetDockerClient() *client.Client {
 	return cli
 }
 
+func resolveImage(cli *client.Client, image string) error {
+	ctx, cancel := context.WithTimeout(context.Background(), requestTimeout)
+	defer cancel()
+
+	start := time.Now()
+
+	reader, err := cli.ImagePull(ctx, image, types.ImagePullOptions{})
+	if err != nil {
+		return err
+	}
+	defer reader.Close()
+
+	io.Copy(os.Stdout, reader)
+
+	logrus.Debug("Image pull took: ", time.Since(start).Microseconds(), " μs")
+	return nil
+}
+
 func CreateSandbox(cli *client.Client, hostConfig *container.HostConfig, containerConfig *container.Config) (string, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), requestTimeout)
 	defer cancel()
 
-	// TODO: need to add image pulling here
+	var r container.CreateResponse
+	for {
+		resp, err := cli.ContainerCreate(ctx, containerConfig, hostConfig, nil, nil, "")
+		r = resp
 
-	resp, err := cli.ContainerCreate(ctx, containerConfig, hostConfig, nil, nil, "")
+		if err != nil {
+			if strings.Contains(err.Error(), "No such image") {
+				err := resolveImage(cli, containerConfig.Image)
+
+				if err != nil {
+					return "", err
+				}
+			} else {
+				return "", err
+			}
+		} else {
+			break
+		}
+	}
+
+	err := cli.ContainerStart(ctx, r.ID, types.ContainerStartOptions{})
 	if err != nil {
 		return "", err
 	}
 
-	err = cli.ContainerStart(ctx, resp.ID, types.ContainerStartOptions{})
-	if err != nil {
-		return "", err
-	}
-
-	return resp.ID, nil
+	return r.ID, nil
 }
 
 func DeleteSandbox(cli *client.Client, sandboxID string) error {
