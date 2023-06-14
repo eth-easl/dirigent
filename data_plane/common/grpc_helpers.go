@@ -95,7 +95,7 @@ func EstablishGRPCConnectionPoll(host, port string) *grpc.ClientConn {
 	return conn
 }
 
-func InitializeControlPlaneConnection(host string, port string, dataplanePort int32) proto.CpiInterfaceClient {
+func InitializeControlPlaneConnection(host string, port string, dataplanePort, proxyPort int32) proto.CpiInterfaceClient {
 	conn := EstablishGRPCConnectionPoll(host, port)
 	if conn == nil {
 		logrus.Fatal("Failed to establish connection with the control plane")
@@ -105,7 +105,12 @@ func InitializeControlPlaneConnection(host string, port string, dataplanePort in
 	dpiClient := proto.NewCpiInterfaceClient(conn)
 
 	if dataplanePort != -1 {
-		resp, err := dpiClient.RegisterDataplane(context.Background(), &proto.DataplaneInfo{Port: dataplanePort})
+		dpInfo := &proto.DataplaneInfo{
+			APIPort:   dataplanePort,
+			ProxyPort: proxyPort,
+		}
+
+		resp, err := dpiClient.RegisterDataplane(context.Background(), dpInfo)
 		if err != nil || !resp.Success {
 			logrus.Fatal("Failed to register data plane with the control plane")
 		}

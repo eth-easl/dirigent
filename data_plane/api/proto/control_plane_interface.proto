@@ -17,7 +17,8 @@ message AutoscalingMetric {
 }
 
 message DataplaneInfo {
-  int32 Port = 1;
+  int32 APIPort = 1;
+  int32 ProxyPort = 2;
 }
 
 service CpiInterface {

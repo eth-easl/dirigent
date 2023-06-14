@@ -14,8 +14,12 @@ type CpApiServer struct {
 	proto.UnimplementedCpiInterfaceServer
 
 	dpiInterface proto.DpiInterfaceClient
-	NIStorage    NodeInfoStorage
-	SIStorage    map[string]*ServiceInfoStorage
+	dpiIP        string
+	dpiAPIPort   string
+	dpiProxyPort string
+
+	NIStorage NodeInfoStorage
+	SIStorage map[string]*ServiceInfoStorage
 }
 
 func CreateNewCpApiServer() *CpApiServer {
@@ -35,8 +39,12 @@ func (c *CpApiServer) DpiInterface() proto.DpiInterfaceClient {
 	return c.dpiInterface
 }
 
-func (c *CpApiServer) setDpiInterface(iface proto.DpiInterfaceClient) {
+func (c *CpApiServer) setDpiInterface(iface proto.DpiInterfaceClient, ip, apiPort, proxyPort string) {
 	c.dpiInterface = iface
+
+	c.dpiIP = ip
+	c.dpiAPIPort = apiPort
+	c.dpiProxyPort = proxyPort
 }
 
 func (c *CpApiServer) OnMetricsReceive(_ context.Context, metric *proto.AutoscalingMetric) (*proto.ActionStatus, error) {
@@ -140,12 +148,15 @@ func (c *CpApiServer) RegisterService(ctx context.Context, serviceInfo *proto.Se
 
 func (c *CpApiServer) RegisterDataplane(ctx context.Context, in *proto.DataplaneInfo) (*proto.ActionStatus, error) {
 	ipAddress, ok := common.GetIPAddressFromGRPCCall(ctx)
+	apiPort := strconv.Itoa(int(in.APIPort))
+	proxyPort := strconv.Itoa(int(in.ProxyPort))
+
 	if !ok {
 		logrus.Debug("Failed to extract IP address from data plane registration request")
 		return &proto.ActionStatus{Success: false}, nil
 	}
 
-	c.setDpiInterface(common.InitializeDataPlaneConnection(ipAddress, strconv.Itoa(int(in.Port))))
+	c.setDpiInterface(common.InitializeDataPlaneConnection(ipAddress, apiPort), ipAddress, apiPort, proxyPort)
 
 	return &proto.ActionStatus{Success: true}, nil
 }

@@ -37,7 +37,9 @@ func main() {
 	var dpConnection proto.CpiInterfaceClient
 	go func() {
 		grpcPort, _ := strconv.Atoi(*portGRPC)
-		dpConnection = common.InitializeControlPlaneConnection(*controlPlaneIP, *controlPlanePort, int32(grpcPort))
+		proxyPort, _ := strconv.Atoi(*portProxy)
+
+		dpConnection = common.InitializeControlPlaneConnection(*controlPlaneIP, *controlPlanePort, int32(grpcPort), int32(proxyPort))
 		syncDeploymentCache(&dpConnection, cache)
 
 		dpCreated <- struct{}{}

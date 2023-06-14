@@ -2,17 +2,19 @@ package api
 
 import (
 	"cluster_manager/api/proto"
-	"cluster_manager/common"
 	"fmt"
 	"github.com/sirupsen/logrus"
 	"net/http"
 	"strconv"
 )
 
-func StartServiceRegistrationServer(cpApi *CpApiServer, dataplaneHost string, dataplanePort string) {
+func StartServiceRegistrationServer(cpApi *CpApiServer, registrationPort string) {
 	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodPost {
 			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+			return
+		} else if cpApi.dpiInterface == nil {
+			http.Error(w, "No data plane found", http.StatusPreconditionFailed)
 			return
 		}
 
@@ -44,9 +46,10 @@ func StartServiceRegistrationServer(cpApi *CpApiServer, dataplaneHost string, da
 		}
 
 		service, err := cpApi.RegisterService(r.Context(), &proto.ServiceInfo{
-			Name:           name,
-			Image:          image,
-			PortForwarding: portMapping,
+			Name:              name,
+			Image:             image,
+			PortForwarding:    portMapping,
+			AutoscalingConfig: NewDefaultAutoscalingMetadata(),
 		})
 		if err != nil {
 			return
@@ -58,11 +61,11 @@ func StartServiceRegistrationServer(cpApi *CpApiServer, dataplaneHost string, da
 			w.WriteHeader(http.StatusConflict)
 		}
 
-		w.Write([]byte(fmt.Sprintf("%s:%s", dataplaneHost, dataplanePort)))
+		w.Write([]byte(fmt.Sprintf("%s:%s", cpApi.dpiIP, cpApi.dpiProxyPort)))
 	})
 
 	logrus.Info("Starting service registration service")
-	err := http.ListenAndServe(fmt.Sprintf(":%s", common.DefaultControlPlanePortServiceRegistration), nil)
+	err := http.ListenAndServe(fmt.Sprintf(":%s", registrationPort), nil)
 	if err != http.ErrServerClosed {
 		logrus.Fatal("Failed to start service registration server")
 	}

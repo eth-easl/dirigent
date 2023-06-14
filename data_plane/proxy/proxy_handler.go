@@ -10,7 +10,8 @@ import (
 )
 
 func getServiceName(r *http.Request) string {
-	return r.RequestURI
+	// provided by the gRPC client through WithAuthority(...) call
+	return r.Host
 }
 
 func InvocationHandler(next http.Handler, cache *common.Deployments, cp *proto.CpiInterfaceClient) http.HandlerFunc {

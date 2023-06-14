@@ -20,7 +20,7 @@ func main() {
 
 	cpApiServer := api.CreateNewCpApiServer()
 
-	go api.StartServiceRegistrationServer(cpApiServer, "0.0.0.0", *portRegistration)
+	go api.StartServiceRegistrationServer(cpApiServer, *portRegistration)
 	common.CreateGRPCServer("0.0.0.0", *port, func(sr grpc.ServiceRegistrar) {
 		proto.RegisterCpiInterfaceServer(sr, cpApiServer)
 	})
