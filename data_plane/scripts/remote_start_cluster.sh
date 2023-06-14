@@ -8,7 +8,6 @@ readonly CONTROL_PLANE=$1
 shift
 readonly DATA_PLANE=$1
 shift
-readonly WORKER_NODES=$@
 
 readonly VERBOSITY="--verbosity debug"
 readonly CP_IP_ADDRESS=$(RemoteExec $CONTROL_PLANE "netstat -ie | grep -B1 '10.0.1' | sed -n 2p | tr -s ' ' | cut -d ' ' -f 3")
@@ -38,17 +37,24 @@ function SetupWorkerNodes() {
     ARGS="--controlPlaneIP ${CP_IP_ADDRESS} ${VERBOSITY}"
     CMD="cd ~/cluster_manager/data_plane; go run cmd/worker_node/main.go ${ARGS}"
 
-    for NODE in "$WORKER_NODES"
-    do
-        RemoteExec $NODE "cd ~/cluster_manager/data_plane; git pull"
-        RemoteExec $NODE "tmux kill-session -t worker_daemon"
-        RemoteExec $NODE "tmux new -s worker_daemon -d"
+    function internal_setup() {
+        RemoteExec $1 "cd ~/cluster_manager/data_plane; git pull"
+        RemoteExec $1 "tmux kill-session -t worker_daemon"
+        RemoteExec $1 "docker kill `docker ps -q`"
+        RemoteExec $1 "tmux new -s worker_daemon -d"
 
-        RemoteExec $NODE "tmux send -t worker_daemon \"$CMD\" ENTER"
+        RemoteExec $1 "tmux send -t worker_daemon \"$CMD\" ENTER"
+    }
+
+    for NODE in "$@"
+    do
+        internal_setup $NODE &
     done
+
+    wait
 }
 
 # Starting processes
 SetupControlPlane
 SetupDataPlane
-SetupWorkerNodes
+SetupWorkerNodes $@

@@ -235,7 +235,7 @@ func (d *Deployments) AddDeployment(name string) bool {
 		metrics: ScalingMetric{
 			timeWindowSize: 2 * time.Second,
 		},
-		coldStartDelay: 5 * time.Millisecond, // TODO: implement readiness probing
+		coldStartDelay: 10 * time.Millisecond, // TODO: implement readiness probing
 	}
 
 	logrus.Info("Service with name '", name, "' has been registered")
