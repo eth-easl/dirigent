@@ -70,8 +70,12 @@ func GetLongLivingConnectionDialOptions() []grpc.DialOption {
 	return options
 }
 
-func EstablishGRPCConnectionPoll(host, port string) *grpc.ClientConn {
+func EstablishGRPCConnectionPoll(host, port string, dialOptions ...grpc.DialOption) *grpc.ClientConn {
 	var conn *grpc.ClientConn
+
+	var options []grpc.DialOption
+	options = append(options, GetLongLivingConnectionDialOptions()...)
+	options = append(dialOptions)
 
 	_ = wait.PollUntilContextCancel(context.Background(), 5*time.Second, false,
 		func(ctx context.Context) (done bool, err error) {
@@ -81,7 +85,7 @@ func EstablishGRPCConnectionPoll(host, port string) *grpc.ClientConn {
 			c, err := dialConnection(
 				establishContext,
 				net.JoinHostPort(host, port),
-				GetLongLivingConnectionDialOptions()...,
+				options...,
 			)
 			if err != nil {
 				logrus.Warn("Retrying to establish gRPC connection in 5 seconds...")

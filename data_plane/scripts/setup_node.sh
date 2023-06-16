@@ -10,28 +10,11 @@ else
     sudo sh -c  "echo 'export PATH=\$PATH:/usr/local/go/bin' >> /etc/profile"
 fi
 
-# Install Docker
-if [ -x "$(command -v docker)" ]; then
-    echo "Docker has already been installed"
-else
-    sudo apt-get update
-    sudo apt-get install -y ca-certificates curl gnupg
+# Install CNI
+K8S_VERSION=1.23.5-00
+curl --silent --show-error https://packages.cloud.google.com/apt/doc/apt-key.gpg | sudo apt-key add -
+sudo sh -c "echo 'deb http://apt.kubernetes.io/ kubernetes-xenial main' > /etc/apt/sources.list.d/kubernetes.list"
+sudo apt-get update >> /dev/null
+sudo apt-get -y install containerd kubernetes-cni >> /dev/null
 
-    sudo install -m 0755 -d /etc/apt/keyrings
-    curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo gpg --dearmor -o /etc/apt/keyrings/docker.gpg
-    sudo chmod a+r /etc/apt/keyrings/docker.gpg
-
-    echo \
-      "deb [arch="$(dpkg --print-architecture)" signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/ubuntu \
-      "$(. /etc/os-release && echo "$VERSION_CODENAME")" stable" | \
-      sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
-
-    sudo apt-get update
-    sudo apt-get install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
-    sudo docker run hello-world
-
-    sudo groupadd docker
-    sudo usermod -aG docker $USER
-    newgrp docker
-    docker run hello-world
-fi
+# TODO: put bridge config

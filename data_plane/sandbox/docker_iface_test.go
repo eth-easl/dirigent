@@ -78,6 +78,7 @@ func TestCreateSandboxWithTeardown(t *testing.T) {
 
 func TestParallelSandboxCreation(t *testing.T) {
 	logrus.SetLevel(logrus.DebugLevel)
+	logrus.SetFormatter(&logrus.TextFormatter{TimestampFormat: time.StampMilli, FullTimestamp: true})
 
 	wg := sync.WaitGroup{}
 

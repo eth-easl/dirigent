@@ -7,7 +7,12 @@ import (
 	"cluster_manager/tests/proto"
 	"context"
 	"github.com/sirupsen/logrus"
+	"google.golang.org/grpc"
 	"testing"
+)
+
+const (
+	deployedFunctionName = "/faas.Executor/Execute"
 )
 
 func TestDeployService(t *testing.T) {
@@ -23,7 +28,7 @@ func TestDeployService(t *testing.T) {
 	//autoscalingConfig.ScalingLowerBound = 10
 
 	resp, err := cpApi.RegisterService(ctx, &proto2.ServiceInfo{
-		Name:  "/faas.Executor/Execute",
+		Name:  deployedFunctionName,
 		Image: "docker.io/cvetkovic/empty_function:latest",
 		PortForwarding: &proto2.PortMapping{
 			GuestPort: 80,
@@ -57,7 +62,7 @@ func TestInvocationProxying(t *testing.T) {
 func Test_100Invocations(t *testing.T) {
 	logrus.SetLevel(logrus.DebugLevel)
 
-	conn := common.EstablishGRPCConnectionPoll("localhost", "8080")
+	conn := common.EstablishGRPCConnectionPoll("localhost", "8080", grpc.WithAuthority(deployedFunctionName))
 	if conn == nil {
 		logrus.Fatal("Failed to establish gRPC connection with the data plane")
 	}

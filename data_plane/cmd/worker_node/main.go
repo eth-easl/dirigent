@@ -20,6 +20,9 @@ var (
 	controlPlanePort = flag.String("controlPlanePort", common.DefaultControlPlanePort, "Control plane port")
 	port             = flag.Int("port", common.DefaultWorkerNodePort, "Worker daemon incoming traffic port")
 	verbosity        = flag.String("verbosity", "info", "Logging verbosity - choose from [info, debug, trace]")
+
+	criPath       = flag.String("criPath", "/run/containerd/containerd.sock", "Path to containerd socket")
+	cniConfigPath = flag.String("cniConfigPath", "/home/lcvetkovic/projects/vhive/configs/cni/10-bridge.conf", "Path to CNI config")
 )
 
 func main() {
@@ -28,8 +31,10 @@ func main() {
 
 	stopChannel := make(chan struct{})
 
-	cli := sandbox.GetDockerClient()
-	defer cli.Close()
+	containerdClient := sandbox.GetContainerdClient(*criPath)
+	defer containerdClient.Close()
+
+	cniClient := sandbox.GetCNIClient(*cniConfigPath)
 
 	cpApi := common.InitializeControlPlaneConnection(*controlPlaneIP, *controlPlanePort, -1, -1)
 
@@ -39,7 +44,9 @@ func main() {
 	logrus.Info("Starting API handlers")
 	go common.CreateGRPCServer("0.0.0.0", strconv.Itoa(common.DefaultWorkerNodePort), func(sr grpc.ServiceRegistrar) {
 		proto.RegisterWorkerNodeInterfaceServer(sr, &api.WnApiServer{
-			DockerClient: cli,
+			ContainerdClient: containerdClient,
+			CNIClient:        cniClient,
+			ImageManager:     sandbox.NewImageManager(),
 		})
 	})
 
