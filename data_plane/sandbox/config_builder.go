@@ -31,7 +31,7 @@ func validatePort(port int32) bool {
 	return true
 }
 
-func assignRandomPort() int {
+func AssignRandomPort() int {
 	portsInUseMutex.Lock()
 	defer portsInUseMutex.Unlock()
 
@@ -68,7 +68,7 @@ func createPortMappings(r *proto.PortMapping) (nat.PortMap, nat.PortSet, error) 
 
 	common := nat.Port(fmt.Sprintf("%d/%s", r.GuestPort, l4ProtocolToString(r.Protocol)))
 
-	hostPort := assignRandomPort()
+	hostPort := AssignRandomPort()
 
 	r.HostPort = int32(hostPort)
 	host[common] = []nat.PortBinding{

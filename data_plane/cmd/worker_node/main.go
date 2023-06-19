@@ -35,6 +35,10 @@ func main() {
 	defer containerdClient.Close()
 
 	cniClient := sandbox.GetCNIClient(*cniConfigPath)
+	ipt, err := sandbox.NewIptablesUtil()
+	if err != nil {
+		logrus.Fatal("Error while accessing iptables - ", err)
+	}
 
 	cpApi := common.InitializeControlPlaneConnection(*controlPlaneIP, *controlPlanePort, -1, -1)
 
@@ -46,7 +50,10 @@ func main() {
 		proto.RegisterWorkerNodeInterfaceServer(sr, &api.WnApiServer{
 			ContainerdClient: containerdClient,
 			CNIClient:        cniClient,
-			ImageManager:     sandbox.NewImageManager(),
+			IPT:              ipt,
+
+			ImageManager:   sandbox.NewImageManager(),
+			SandboxManager: sandbox.NewSandboxManager(),
 		})
 	})
 

@@ -45,7 +45,7 @@ func TestDeployService(t *testing.T) {
 func TestInvocationProxying(t *testing.T) {
 	logrus.SetLevel(logrus.DebugLevel)
 
-	conn := common.EstablishGRPCConnectionPoll("localhost", "8080")
+	conn := common.EstablishGRPCConnectionPoll("localhost", "8080", grpc.WithAuthority(deployedFunctionName))
 	if conn == nil {
 		logrus.Fatal("Failed to establish gRPC connection with the data plane")
 	}

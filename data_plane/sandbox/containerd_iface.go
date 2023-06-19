@@ -40,8 +40,8 @@ func FetchImage(ctx context.Context, client *containerd.Client, imageURL string)
 	return image, nil
 }
 
-func CreateContainer(ctx context.Context, client *containerd.Client, name string, image containerd.Image) (containerd.Container, error) {
-	containerName := fmt.Sprintf("%s-%d", name, rand.Int())
+func CreateContainer(ctx context.Context, client *containerd.Client, image containerd.Image) (containerd.Container, error) {
+	containerName := fmt.Sprintf("workload-%d", rand.Int())
 
 	container, err := client.NewContainer(ctx, containerName,
 		containerd.WithImage(image),

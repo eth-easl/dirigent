@@ -5,6 +5,7 @@ go 1.19
 require (
 	github.com/containerd/containerd v1.7.1
 	github.com/containerd/go-cni v1.1.9
+	github.com/coreos/go-iptables v0.6.0
 	github.com/docker/docker v23.0.3+incompatible
 	github.com/docker/go-connections v0.4.0
 	github.com/sirupsen/logrus v1.9.2

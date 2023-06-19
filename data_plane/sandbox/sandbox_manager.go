@@ -14,8 +14,16 @@ type Metadata struct {
 	Task        containerd.Task
 	Container   containerd.Container
 	ExitChannel <-chan containerd.ExitStatus
+	HostPort    int
 	IP          string
+	GuestPort   int
 	NetNs       string
+}
+
+func NewSandboxManager() *Manager {
+	return &Manager{
+		metadata: make(map[string]*Metadata),
+	}
 }
 
 func (m *Manager) AddSandbox(key string, metadata *Metadata) {
