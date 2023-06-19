@@ -25,7 +25,7 @@ func AddRules(ipt *iptables.IPTables, sourcePort int, destIP string, destPort in
 		"--to-destination", fmt.Sprintf("%s:%d", destIP, destPort),
 	)
 
-	ipt.Append(
+	ipt.AppendUnique(
 		"nat",
 		"POSTROUTING",
 		"-j", "MASQUERADE",
