@@ -25,7 +25,13 @@ func (m *ImageManager) GetImage(ctx context.Context, containerdClient *container
 		m.Lock()
 		defer m.Unlock()
 
-		return FetchImage(ctx, containerdClient, url)
+		image, err := FetchImage(ctx, containerdClient, url)
+		if err == nil {
+			// cache image to avoid subsequent pulls
+			m.imageCache[url] = image
+		}
+
+		return image, err
 	}
 
 	image := m.imageCache[url]

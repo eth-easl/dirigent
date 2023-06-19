@@ -65,6 +65,8 @@ func (w *WnApiServer) CreateSandbox(grpcCtx context.Context, in *proto.ServiceIn
 	sandbox.AddRules(w.IPT, metadata.HostPort, metadata.IP, metadata.GuestPort)
 	logrus.Debug("IP tables configuration (add rule(s)) took ", time.Since(start).Microseconds(), " μs")
 
+	in.PortForwarding.HostPort = int32(metadata.HostPort)
+
 	return &proto.SandboxCreationStatus{
 		Success:      true,
 		ID:           container.ID(),

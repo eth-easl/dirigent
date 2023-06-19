@@ -9,6 +9,7 @@ import (
 	"github.com/sirupsen/logrus"
 	"google.golang.org/grpc"
 	"testing"
+	"time"
 )
 
 const (
@@ -17,6 +18,7 @@ const (
 
 func TestDeployService(t *testing.T) {
 	logrus.SetLevel(logrus.DebugLevel)
+	logrus.SetFormatter(&logrus.TextFormatter{TimestampFormat: time.StampMilli, FullTimestamp: true})
 
 	cpApi := common.InitializeControlPlaneConnection("localhost", common.DefaultControlPlanePort, -1, -1)
 
@@ -24,8 +26,8 @@ func TestDeployService(t *testing.T) {
 	defer cancel()
 
 	autoscalingConfig := api.NewDefaultAutoscalingMetadata()
-	autoscalingConfig.ScalingUpperBound = 1
-	//autoscalingConfig.ScalingLowerBound = 10
+	autoscalingConfig.ScalingUpperBound = 10
+	//autoscalingConfig.ScalingLowerBound = 1
 
 	resp, err := cpApi.RegisterService(ctx, &proto2.ServiceInfo{
 		Name:  deployedFunctionName,
@@ -44,6 +46,7 @@ func TestDeployService(t *testing.T) {
 
 func TestInvocationProxying(t *testing.T) {
 	logrus.SetLevel(logrus.DebugLevel)
+	logrus.SetFormatter(&logrus.TextFormatter{TimestampFormat: time.StampMilli, FullTimestamp: true})
 
 	conn := common.EstablishGRPCConnectionPoll("localhost", "8080", grpc.WithAuthority(deployedFunctionName))
 	if conn == nil {
@@ -61,6 +64,7 @@ func TestInvocationProxying(t *testing.T) {
 
 func Test_100Invocations(t *testing.T) {
 	logrus.SetLevel(logrus.DebugLevel)
+	logrus.SetFormatter(&logrus.TextFormatter{TimestampFormat: time.StampMilli, FullTimestamp: true})
 
 	conn := common.EstablishGRPCConnectionPoll("localhost", "8080", grpc.WithAuthority(deployedFunctionName))
 	if conn == nil {
