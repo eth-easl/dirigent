@@ -34,15 +34,16 @@ function SetupDataPlane() {
 }
 
 function SetupWorkerNodes() {
-    ARGS="--controlPlaneIP ${CP_IP_ADDRESS} ${VERBOSITY}"
-    CMD="cd ~/cluster_manager/data_plane; go run cmd/worker_node/main.go ${ARGS}"
+    CNI_CONFIG_PATH="/etc/cni/config"
+    ARGS="--controlPlaneIP ${CP_IP_ADDRESS} ${VERBOSITY} --cniConfigPath ${CNI_CONFIG_PATH}"
+    CMD="cd ~/cluster_manager/data_plane; sudo /usr/local/go/bin/go run cmd/worker_node/main.go ${ARGS}"
 
     function internal_setup() {
         RemoteExec $1 "cd ~/cluster_manager/data_plane; git pull"
         RemoteExec $1 "tmux kill-session -t worker_daemon"
-        RemoteExec $1 "docker kill `docker ps -q`"
         RemoteExec $1 "tmux new -s worker_daemon -d"
 
+        RemoteExec $1 "sudo cp ~/cluster_manager/data_plane/configs/cni.conf ${CNI_CONFIG_PATH}"
         RemoteExec $1 "tmux send -t worker_daemon \"$CMD\" ENTER"
     }
 
