@@ -16,5 +16,3 @@ curl --silent --show-error https://packages.cloud.google.com/apt/doc/apt-key.gpg
 sudo sh -c "echo 'deb http://apt.kubernetes.io/ kubernetes-xenial main' > /etc/apt/sources.list.d/kubernetes.list"
 sudo apt-get update >> /dev/null
 sudo apt-get -y install containerd kubernetes-cni >> /dev/null
-
-# TODO: put bridge config

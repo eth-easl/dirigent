@@ -13,6 +13,8 @@ import (
 	"time"
 )
 
+const cniConfigPath = "/home/lcvetkovic/projects/cluster_manager/data_plane/configs/cni.conf"
+
 func TestCreateAContainer(t *testing.T) {
 	// fails to expose networking to the container
 	rand.Seed(time.Now().UnixNano())
@@ -22,7 +24,7 @@ func TestCreateAContainer(t *testing.T) {
 		log.Fatal("Failed to create a containerd client")
 	}
 
-	network, err := cni.New(cni.WithConfFile("/home/lcvetkovic/projects/vhive/configs/cni/10-bridge.conf"))
+	network, err := cni.New(cni.WithConfFile(cniConfigPath))
 	if err != nil {
 		logrus.Fatal(err)
 	}
@@ -34,7 +36,7 @@ func TestCreateAContainer(t *testing.T) {
 	logrus.Info("Image fetching - ", time.Since(start).Microseconds(), "μs")
 
 	start = time.Now()
-	container, err := CreateContainer(ctx, client, "test-cnt", image)
+	container, err := CreateContainer(ctx, client, image)
 	logrus.Info("Create container - ", time.Since(start).Microseconds(), "μs")
 
 	start = time.Now()
@@ -63,7 +65,7 @@ func TestParallelCreation(t *testing.T) {
 		log.Fatal("Failed to create a containerd client")
 	}
 
-	network, err := cni.New(cni.WithConfFile("/home/lcvetkovic/projects/vhive/configs/cni/10-bridge.conf"))
+	network, err := cni.New(cni.WithConfFile(cniConfigPath))
 	if err != nil {
 		logrus.Fatal(err)
 	}
@@ -78,7 +80,7 @@ func TestParallelCreation(t *testing.T) {
 			start := time.Now()
 
 			start = time.Now()
-			container, _ := CreateContainer(ctx, client, "test-cnt", image)
+			container, _ := CreateContainer(ctx, client, image)
 
 			start = time.Now()
 			task, exitCh, ip, netns, _ := StartContainer(ctx, container, network)

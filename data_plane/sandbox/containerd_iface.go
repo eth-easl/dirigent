@@ -57,7 +57,7 @@ func CreateContainer(ctx context.Context, client *containerd.Client, image conta
 }
 
 func StartContainer(ctx context.Context, container containerd.Container, network cni.CNI) (containerd.Task, <-chan containerd.ExitStatus, string, string, error) {
-	task, err := container.NewTask(ctx, cio.NewCreator(cio.WithStdio))
+	task, err := container.NewTask(ctx, cio.NewCreator())
 	if err != nil {
 		return nil, nil, "", "", err
 	}
@@ -90,12 +90,13 @@ func DeleteContainer(ctx context.Context, network cni.CNI, metadata *Metadata) e
 	}
 
 	// non-graceful shutdown
-	if err := metadata.Task.Kill(ctx, syscall.SIGKILL); err != nil {
+	if err := metadata.Task.Kill(ctx, syscall.SIGKILL, containerd.WithKillAll); err != nil {
 		return err
 	}
 	status := <-metadata.ExitChannel
+	logrus.Debug("Container ", metadata.Container.ID(), " exited with status ", status.ExitCode())
 
-	if _, err := metadata.Task.Delete(ctx); err != nil {
+	if _, err := metadata.Task.Delete(ctx, containerd.WithProcessKill); err != nil {
 		return err
 	}
 
@@ -103,6 +104,5 @@ func DeleteContainer(ctx context.Context, network cni.CNI, metadata *Metadata) e
 		return err
 	}
 
-	logrus.Debug("Container ", metadata.Container.ID(), " exited with status ", status)
 	return nil
 }
