@@ -11,6 +11,7 @@ import (
 	"log"
 	"math/rand"
 	"syscall"
+	"time"
 )
 
 func GetContainerdClient(containerdSocket string) *containerd.Client {
@@ -40,7 +41,9 @@ func FetchImage(ctx context.Context, client *containerd.Client, imageURL string)
 	return image, nil
 }
 
-func CreateContainer(ctx context.Context, client *containerd.Client, image containerd.Image) (containerd.Container, error) {
+func CreateContainer(ctx context.Context, client *containerd.Client, image containerd.Image) (containerd.Container, error, time.Duration) {
+	start := time.Now()
+
 	containerName := fmt.Sprintf("workload-%d", rand.Int())
 
 	container, err := client.NewContainer(ctx, containerName,
@@ -50,38 +53,48 @@ func CreateContainer(ctx context.Context, client *containerd.Client, image conta
 	)
 
 	if err != nil {
-		return nil, err
+		return nil, err, time.Since(start)
 	}
 
-	return container, nil
+	return container, nil, time.Since(start)
 }
 
-func StartContainer(ctx context.Context, container containerd.Container, network cni.CNI) (containerd.Task, <-chan containerd.ExitStatus, string, string, error) {
+func StartContainer(ctx context.Context, container containerd.Container, network cni.CNI) (containerd.Task, <-chan containerd.ExitStatus, string, string, error, time.Duration, time.Duration) {
+	start := time.Now()
+
 	task, err := container.NewTask(ctx, cio.NewCreator())
 	if err != nil {
-		return nil, nil, "", "", err
+		return nil, nil, "", "", err, 0, 0
 	}
 
 	statusChannel, err := task.Wait(ctx)
 	if err != nil {
-		return nil, nil, "", "", err
+		return nil, nil, "", "", err, 0, 0
 	}
 
+	//////////////////////////////////////////
+	// CNI
+	//////////////////////////////////////////
+	cniStart := time.Now()
 	netns := fmt.Sprintf("/proc/%v/ns/net", task.Pid())
 	result, err := network.Setup(ctx, container.ID(), netns)
 	if err != nil {
-		return nil, nil, "", "", err
+		return nil, nil, "", "", err, 0, 0
 	}
 
 	ip := result.Interfaces["eth0"].IPConfigs[0].IP.String()
 	logrus.Debug("Container ", container.ID(), " has been allocated IP = ", ip)
+	durationCNI := time.Since(cniStart)
+	//////////////////////////////////////////
+	//////////////////////////////////////////
+	//////////////////////////////////////////
 
 	err = task.Start(ctx)
 	if err != nil {
-		return nil, nil, "", "", err
+		return nil, nil, "", "", err, 0, 0
 	}
 
-	return task, statusChannel, ip, netns, nil
+	return task, statusChannel, ip, netns, nil, time.Since(start) - durationCNI, durationCNI
 }
 
 func DeleteContainer(ctx context.Context, network cni.CNI, metadata *Metadata) error {

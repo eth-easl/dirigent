@@ -4,6 +4,7 @@ import (
 	"context"
 	"github.com/containerd/containerd"
 	"sync"
+	"time"
 )
 
 type ImageManager struct {
@@ -17,7 +18,9 @@ func NewImageManager() *ImageManager {
 	}
 }
 
-func (m *ImageManager) GetImage(ctx context.Context, containerdClient *containerd.Client, url string) (containerd.Image, error) {
+func (m *ImageManager) GetImage(ctx context.Context, containerdClient *containerd.Client, url string) (containerd.Image, error, time.Duration) {
+	start := time.Now()
+
 	m.RLock()
 	if _, ok := m.imageCache[url]; !ok {
 		m.RUnlock()
@@ -31,11 +34,11 @@ func (m *ImageManager) GetImage(ctx context.Context, containerdClient *container
 			m.imageCache[url] = image
 		}
 
-		return image, err
+		return image, err, time.Since(start)
 	}
 
 	image := m.imageCache[url]
 	m.RUnlock()
 
-	return image, nil
+	return image, nil, time.Since(start)
 }

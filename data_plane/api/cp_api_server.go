@@ -20,14 +20,17 @@ type CpApiServer struct {
 
 	NIStorage NodeInfoStorage
 	SIStorage map[string]*ServiceInfoStorage
+
+	ColdStartTracing *common.TracingService[common.ColdStartLogEntry]
 }
 
-func CreateNewCpApiServer() *CpApiServer {
+func CreateNewCpApiServer(outputFile string) *CpApiServer {
 	return &CpApiServer{
 		NIStorage: NodeInfoStorage{
 			NodeInfo: make(map[string]*WorkerNode),
 		},
-		SIStorage: make(map[string]*ServiceInfoStorage),
+		SIStorage:        make(map[string]*ServiceInfoStorage),
+		ColdStartTracing: common.NewColdStartTracingService(outputFile),
 	}
 }
 
@@ -139,6 +142,7 @@ func (c *CpApiServer) RegisterService(ctx context.Context, serviceInfo *proto.Se
 			Period:              2 * time.Second, // TODO: hardcoded autoscaling period for now
 			ScalingMetadata:     ConvertProtoToAutoscalingStruct(serviceInfo.AutoscalingConfig),
 		},
+		ColdStartTracingChannel: &c.ColdStartTracing.InputChannel,
 	}
 	c.SIStorage[serviceInfo.Name] = service
 	go service.ScalingControllerLoop(&c.NIStorage, c.DpiInterface())

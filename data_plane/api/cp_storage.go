@@ -23,7 +23,8 @@ type NodeInfoStorage struct {
 type ServiceInfoStorage struct {
 	ServiceInfo *proto.ServiceInfo
 
-	Controller *PFStateController
+	Controller              *PFStateController
+	ColdStartTracingChannel *chan common.ColdStartLogEntry
 }
 
 type Endpoint struct {
@@ -102,6 +103,12 @@ func (ss *ServiceInfoStorage) doUpscaling(toCreateCount int, nodeList *NodeInfoS
 			defer cancel()
 
 			resp, err := node.GetAPI().CreateSandbox(ctx, ss.ServiceInfo)
+			*ss.ColdStartTracingChannel <- common.ColdStartLogEntry{
+				ContainerID:      resp.ID,
+				Success:          resp.Success,
+				LatencyBreakdown: resp.LatencyBreakdown,
+			}
+
 			if err != nil || !resp.Success {
 				logrus.Warn("Failed to start a sandbox on worker node ", node.Name)
 
@@ -112,7 +119,7 @@ func (ss *ServiceInfoStorage) doUpscaling(toCreateCount int, nodeList *NodeInfoS
 				return
 			}
 
-			logrus.Debug("Sandbox creation took: ", resp.TimeTookMs, " ms")
+			logrus.Debug("Sandbox creation took: ", resp.LatencyBreakdown.Total, " ms")
 
 			///////////////////////////////////////////
 			endpointMutex.Lock()
@@ -162,7 +169,7 @@ func (ss *ServiceInfoStorage) doDownscaling(toEvict map[*Endpoint]struct{}, urls
 	barrier := sync.WaitGroup{}
 
 	barrier.Add(len(toEvict))
-	for key, _ := range toEvict {
+	for key := range toEvict {
 		victim := key
 
 		if victim == nil {

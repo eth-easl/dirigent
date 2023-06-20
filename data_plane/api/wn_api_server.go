@@ -9,6 +9,7 @@ import (
 	"github.com/containerd/go-cni"
 	"github.com/coreos/go-iptables/iptables"
 	"github.com/sirupsen/logrus"
+	"google.golang.org/protobuf/types/known/durationpb"
 	"time"
 )
 
@@ -29,19 +30,19 @@ func (w *WnApiServer) CreateSandbox(grpcCtx context.Context, in *proto.ServiceIn
 	start := time.Now()
 
 	ctx := namespaces.WithNamespace(grpcCtx, "cm")
-	image, err := w.ImageManager.GetImage(ctx, w.ContainerdClient, in.Image)
+	image, err, durationFetch := w.ImageManager.GetImage(ctx, w.ContainerdClient, in.Image)
 	if err != nil {
 		logrus.Warn("Failed fetching image - ", err)
 		return &proto.SandboxCreationStatus{Success: false}, err
 	}
 
-	container, err := sandbox.CreateContainer(ctx, w.ContainerdClient, image)
+	container, err, durationContainerCreation := sandbox.CreateContainer(ctx, w.ContainerdClient, image)
 	if err != nil {
 		logrus.Warn("Failed creating a container - ", err)
 		return &proto.SandboxCreationStatus{Success: false}, err
 	}
 
-	task, exitChannel, ip, netNs, err := sandbox.StartContainer(ctx, container, w.CNIClient)
+	task, exitChannel, ip, netNs, err, durationContainerStart, durationCNI := sandbox.StartContainer(ctx, container, w.CNIClient)
 	if err != nil {
 		logrus.Warn("Failed starting a container - ", err)
 		return &proto.SandboxCreationStatus{Success: false}, err
@@ -58,12 +59,13 @@ func (w *WnApiServer) CreateSandbox(grpcCtx context.Context, in *proto.ServiceIn
 	}
 	w.SandboxManager.AddSandbox(container.ID(), metadata)
 
-	timeTook := time.Since(start).Microseconds()
-	logrus.Debug("Sandbox creation took ", timeTook, " μs (", container.ID(), ")")
+	logrus.Debug("Sandbox creation took ", time.Since(start).Microseconds(), " μs (", container.ID(), ")")
 
-	start = time.Now()
+	startIptables := time.Now()
 	sandbox.AddRules(w.IPT, metadata.HostPort, metadata.IP, metadata.GuestPort)
-	logrus.Debug("IP tables configuration (add rule(s)) took ", time.Since(start).Microseconds(), " μs")
+	durationIptables := time.Since(startIptables)
+
+	logrus.Debug("IP tables configuration (add rule(s)) took ", durationIptables.Microseconds(), " μs")
 
 	in.PortForwarding.HostPort = int32(metadata.HostPort)
 
@@ -71,7 +73,14 @@ func (w *WnApiServer) CreateSandbox(grpcCtx context.Context, in *proto.ServiceIn
 		Success:      true,
 		ID:           container.ID(),
 		PortMappings: in.PortForwarding,
-		TimeTookMs:   timeTook / 1000,
+		LatencyBreakdown: &proto.SandboxCreationBreakdown{
+			Total:           durationpb.New(time.Since(start)),
+			ImageFetch:      durationpb.New(durationFetch),
+			ContainerCreate: durationpb.New(durationContainerCreation),
+			CNI:             durationpb.New(durationCNI),
+			ContainerStart:  durationpb.New(durationContainerStart),
+			Iptables:        durationpb.New(durationIptables),
+		},
 	}, nil
 }
 

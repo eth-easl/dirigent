@@ -2,8 +2,10 @@ syntax = "proto3";
 package data_plane;
 
 option go_package = "github.com/eth-easl/cluster_manager/data_plane/api/proto";
+
 import "common.proto";
 import "google/protobuf/empty.proto";
+import "google/protobuf/duration.proto";
 
 message NodeInfo {
   string NodeID = 1;
@@ -40,7 +42,16 @@ message SandboxCreationStatus {
   bool Success = 1;
   string ID = 2;
   PortMapping PortMappings = 3;
-  int64 TimeTookMs = 4;
+  SandboxCreationBreakdown LatencyBreakdown = 5;
+}
+
+message SandboxCreationBreakdown {
+  google.protobuf.Duration Total = 1;
+  google.protobuf.Duration ImageFetch = 2;
+  google.protobuf.Duration ContainerCreate = 3;
+  google.protobuf.Duration CNI = 4;
+  google.protobuf.Duration ContainerStart = 5;
+  google.protobuf.Duration Iptables = 6;
 }
 
 service WorkerNodeInterface {

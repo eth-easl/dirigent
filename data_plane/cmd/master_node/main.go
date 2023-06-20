@@ -6,19 +6,23 @@ import (
 	"cluster_manager/common"
 	"flag"
 	"google.golang.org/grpc"
+	"path"
 )
 
 var (
-	port             = flag.String("cpPort", common.DefaultControlPlanePort, "Control plane traffic incoming port")
-	portRegistration = flag.String("portRegistration", common.DefaultControlPlanePortServiceRegistration, "HTTP service registration incoming traffic port")
-	verbosity        = flag.String("verbosity", "info", "Logging verbosity - choose from [info, debug, trace]")
+	port              = flag.String("cpPort", common.DefaultControlPlanePort, "Control plane traffic incoming port")
+	portRegistration  = flag.String("portRegistration", common.DefaultControlPlanePortServiceRegistration, "HTTP service registration incoming traffic port")
+	verbosity         = flag.String("verbosity", "info", "Logging verbosity - choose from [info, debug, trace]")
+	traceOutputFolder = flag.String("traceOutputFolder", "data", "Folder where to write all logs")
 )
 
 func main() {
 	flag.Parse()
 	common.InitLibraries(*verbosity)
 
-	cpApiServer := api.CreateNewCpApiServer()
+	cpApiServer := api.CreateNewCpApiServer(path.Join(*traceOutputFolder, "cold_start_trace.csv"))
+	go cpApiServer.ColdStartTracing.StartTracingService()
+	defer close(cpApiServer.ColdStartTracing.InputChannel)
 
 	go api.StartServiceRegistrationServer(cpApiServer, *portRegistration)
 	common.CreateGRPCServer("0.0.0.0", *port, func(sr grpc.ServiceRegistrar) {
