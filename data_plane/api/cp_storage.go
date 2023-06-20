@@ -76,7 +76,7 @@ func (ss *ServiceInfoStorage) ScalingControllerLoop(nodeList *NodeInfoStorage, d
 
 				ss.Controller.Endpoints = excludeEndpoints(ss.Controller.Endpoints, toEvict)
 
-				go ss.doDownscaling(toEvict, ss.GetAllURLs(), dpiClient)
+				go ss.doDownscaling(toEvict, ss.prepareUrlList(), dpiClient)
 			}
 
 			ss.Controller.Unlock() // for all cases (>, ==, <)
@@ -143,13 +143,26 @@ func (ss *ServiceInfoStorage) doUpscaling(toCreateCount int, nodeList *NodeInfoS
 	ss.Controller.Lock()
 	// no need for 'endpointMutex' as the barrier has already been passed
 	ss.Controller.Endpoints = append(ss.Controller.Endpoints, finalEndpoint...)
-	urls := ss.GetAllURLs()
+	urls := ss.prepareUrlList()
 
 	ss.Controller.Unlock()
 
 	logrus.Debug("Propagating endpoints.")
 	ss.updateEndpoints(dpiClient, urls)
 	logrus.Debug("Endpoints updated.")
+}
+
+func (ss *ServiceInfoStorage) prepareUrlList() []*proto.EndpointInfo {
+	var res []*proto.EndpointInfo
+
+	for i := 0; i < len(ss.Controller.Endpoints); i++ {
+		res = append(res, &proto.EndpointInfo{
+			ID:  ss.Controller.Endpoints[i].SandboxID,
+			URL: ss.Controller.Endpoints[i].URL,
+		})
+	}
+
+	return res
 }
 
 func excludeEndpoints(total []*Endpoint, toExclude map[*Endpoint]struct{}) []*Endpoint {
@@ -165,7 +178,7 @@ func excludeEndpoints(total []*Endpoint, toExclude map[*Endpoint]struct{}) []*En
 	return result
 }
 
-func (ss *ServiceInfoStorage) doDownscaling(toEvict map[*Endpoint]struct{}, urls []string, dpiClient proto.DpiInterfaceClient) {
+func (ss *ServiceInfoStorage) doDownscaling(toEvict map[*Endpoint]struct{}, urls []*proto.EndpointInfo, dpiClient proto.DpiInterfaceClient) {
 	barrier := sync.WaitGroup{}
 
 	barrier.Add(len(toEvict))
@@ -199,7 +212,7 @@ func (ss *ServiceInfoStorage) doDownscaling(toEvict map[*Endpoint]struct{}, urls
 	ss.updateEndpoints(dpiClient, urls)
 }
 
-func (ss *ServiceInfoStorage) updateEndpoints(dpiClient proto.DpiInterfaceClient, endpoints []string) {
+func (ss *ServiceInfoStorage) updateEndpoints(dpiClient proto.DpiInterfaceClient, endpoints []*proto.EndpointInfo) {
 	resp, err := dpiClient.UpdateEndpointList(context.Background(), &proto.DeploymentEndpointPatch{
 		Service:   ss.ServiceInfo,
 		Endpoints: endpoints,

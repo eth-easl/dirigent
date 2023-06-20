@@ -17,7 +17,7 @@ func (api *DpApiServer) AddDeployment(_ context.Context, in *proto.ServiceInfo) 
 }
 
 func (api *DpApiServer) UpdateEndpointList(_ context.Context, patch *proto.DeploymentEndpointPatch) (*proto.DeploymentUpdateSuccess, error) {
-	deployment := api.Deployments.GetDeployment(patch.GetService().GetName())
+	deployment, _ := api.Deployments.GetDeployment(patch.GetService().GetName())
 	if deployment == nil {
 		return &proto.DeploymentUpdateSuccess{Success: false}, nil
 	}

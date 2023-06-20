@@ -13,6 +13,7 @@ import (
 type RequestThrottler chan struct{}
 
 type UpstreamEndpoint struct {
+	ID       string
 	Capacity RequestThrottler
 	URL      string
 }
@@ -23,7 +24,7 @@ type FunctionMetadata struct {
 	identifier         string
 	sandboxParallelism int
 
-	upstreamEndpoints      []UpstreamEndpoint
+	upstreamEndpoints      []*UpstreamEndpoint
 	upstreamEndpointsCount int32
 	queue                  *list.List
 
@@ -46,7 +47,7 @@ func (m *FunctionMetadata) GetColdStartDelay() time.Duration {
 	return m.coldStartDelay
 }
 
-func (m *FunctionMetadata) GetUpstreamEndpoints() []UpstreamEndpoint {
+func (m *FunctionMetadata) GetUpstreamEndpoints() []*UpstreamEndpoint {
 	return m.upstreamEndpoints
 }
 
@@ -64,13 +65,18 @@ func difference(a, b []string) []string {
 	return diff
 }
 
-func (m *FunctionMetadata) getAllUrls() []string {
+func extractField[T any](m []T, extractor func(T) string) ([]string, map[string]T) {
 	var res []string
-	for i := 0; i < len(m.upstreamEndpoints); i++ {
-		res = append(res, m.upstreamEndpoints[i].URL)
+	mm := make(map[string]T)
+
+	for i := 0; i < len(m); i++ {
+		val := extractor(m[i])
+
+		res = append(res, val)
+		mm[val] = m[i]
 	}
 
-	return res
+	return res, mm
 }
 
 func createThrottlerChannel(capacity int) RequestThrottler {
@@ -82,22 +88,24 @@ func createThrottlerChannel(capacity int) RequestThrottler {
 	return ccChannel
 }
 
-func (m *FunctionMetadata) mergeEndpointList(newURLs []string) {
-	oldURLs := m.getAllUrls()
+func (m *FunctionMetadata) mergeEndpointList(data []*proto.EndpointInfo) {
+	oldURLs, mmOld := extractField[*UpstreamEndpoint](m.upstreamEndpoints, func(info *UpstreamEndpoint) string { return info.URL })
+	newURLs, mmNew := extractField[*proto.EndpointInfo](data, func(info *proto.EndpointInfo) string { return info.URL })
 
 	toAdd := difference(newURLs, oldURLs)
 	toRemove := difference(oldURLs, newURLs)
 
 	for i := 0; i < len(toAdd); i++ {
-		m.upstreamEndpoints = append(m.upstreamEndpoints, UpstreamEndpoint{
-			URL:      toAdd[i],
+		m.upstreamEndpoints = append(m.upstreamEndpoints, &UpstreamEndpoint{
+			ID:       mmNew[toAdd[i]].ID,
+			URL:      mmNew[toAdd[i]].URL,
 			Capacity: createThrottlerChannel(m.sandboxParallelism),
 		})
 	}
 
 	for i := 0; i < len(toRemove); i++ {
 		for j := 0; j < len(m.upstreamEndpoints); j++ {
-			if toRemove[i] == m.upstreamEndpoints[j].URL {
+			if mmOld[toRemove[i]].URL == m.upstreamEndpoints[j].URL {
 				m.upstreamEndpoints = append(m.upstreamEndpoints[:j], m.upstreamEndpoints[j+1:]...)
 				break
 			}
@@ -105,12 +113,12 @@ func (m *FunctionMetadata) mergeEndpointList(newURLs []string) {
 	}
 }
 
-func (m *FunctionMetadata) SetUpstreamURLs(urls []string) {
+func (m *FunctionMetadata) SetUpstreamURLs(endpoints []*proto.EndpointInfo) {
 	m.Lock()
 	defer m.Unlock()
 
 	logrus.Debug("Updated endpoint list for ", m.identifier)
-	m.mergeEndpointList(urls)
+	m.mergeEndpointList(endpoints)
 	atomic.StoreInt32(&m.upstreamEndpointsCount, int32(len(m.upstreamEndpoints)))
 
 	if len(m.upstreamEndpoints) > 0 {
@@ -137,7 +145,9 @@ func (m *FunctionMetadata) DecreaseInflight() {
 	atomic.AddInt32(&m.metrics.inflightRequests, -1)
 }
 
-func (m *FunctionMetadata) TryWarmStart(cp *proto.CpiInterfaceClient) chan struct{} {
+func (m *FunctionMetadata) TryWarmStart(cp *proto.CpiInterfaceClient) (chan struct{}, time.Duration) {
+	start := time.Now()
+
 	// autoscaling metric
 	atomic.AddInt32(&m.metrics.inflightRequests, 1)
 	// runtime statistics
@@ -160,9 +170,9 @@ func (m *FunctionMetadata) TryWarmStart(cp *proto.CpiInterfaceClient) chan struc
 			go m.sendMetricsLoop(cp)
 		}
 
-		return waitChannel
+		return waitChannel, time.Since(start)
 	} else {
-		return nil
+		return nil, 0 // assume 0 for warm starts
 	}
 }
 
@@ -243,17 +253,18 @@ func (d *Deployments) AddDeployment(name string) bool {
 	return true
 }
 
-func (d *Deployments) GetDeployment(name string) *FunctionMetadata {
-	// TODO: the lock will be a bottleneck at scale
+func (d *Deployments) GetDeployment(name string) (*FunctionMetadata, time.Duration) {
+	start := time.Now()
+
 	d.RLock()
 	defer d.RUnlock()
 
 	data, ok := d.data[name]
 
 	if !ok || (ok && data.beingDrained != nil) {
-		return nil
+		return nil, time.Since(start)
 	} else {
-		return data
+		return data, time.Since(start)
 	}
 }
 

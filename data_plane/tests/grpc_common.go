@@ -39,7 +39,7 @@ func FireInvocation(client proto.ExecutorClient) error {
 	return err
 }
 
-func UpdateEndpointList(t *testing.T, host string, port string, endpoints []string) {
+func UpdateEndpointList(t *testing.T, host string, port string, endpoints []*proto2.EndpointInfo) {
 	conn := common.EstablishGRPCConnectionPoll(host, port)
 	if conn == nil {
 		logrus.Fatal("Failed to establish gRPC connection with the data plane")

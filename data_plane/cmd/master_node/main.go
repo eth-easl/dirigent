@@ -13,7 +13,7 @@ var (
 	port              = flag.String("cpPort", common.DefaultControlPlanePort, "Control plane traffic incoming port")
 	portRegistration  = flag.String("portRegistration", common.DefaultControlPlanePortServiceRegistration, "HTTP service registration incoming traffic port")
 	verbosity         = flag.String("verbosity", "info", "Logging verbosity - choose from [info, debug, trace]")
-	traceOutputFolder = flag.String("traceOutputFolder", "data", "Folder where to write all logs")
+	traceOutputFolder = flag.String("traceOutputFolder", common.DefaultTraceOutputFolder, "Folder where to write all logs")
 )
 
 func main() {

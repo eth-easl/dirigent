@@ -9,3 +9,7 @@ const (
 
 	DefaultWorkerNodePort = 10010
 )
+
+const (
+	DefaultTraceOutputFolder = "data"
+)

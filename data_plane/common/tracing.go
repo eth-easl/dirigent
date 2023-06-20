@@ -7,17 +7,31 @@ import (
 	"log"
 	"os"
 	"path/filepath"
+	"time"
 )
 
 const (
 	coldStartLogHeader = "container_id,success,image_fetch,container_create,container_start,cni,iptables,other\n"
-	dataPlaneLogHeader = ""
+	proxyLogHeader     = "container_id,get_metadata,cold_start,cold_start_pause,load_balancing,cc_throttling,proxying,other\n"
 )
 
 type ColdStartLogEntry struct {
-	ContainerID      string
-	Success          bool
+	ContainerID string
+	Success     bool
+
 	LatencyBreakdown *proto.SandboxCreationBreakdown
+}
+
+type ProxyLogEntry struct {
+	ContainerID string
+
+	Total          time.Duration
+	GetMetadata    time.Duration
+	ColdStart      time.Duration
+	ColdStartPause time.Duration
+	LoadBalancing  time.Duration
+	CCThrottling   time.Duration
+	Proxying       time.Duration
 }
 
 type TracingService[T any] struct {
@@ -47,9 +61,18 @@ func (ts *TracingService[K]) StartTracingService() {
 func NewColdStartTracingService(outputFile string) *TracingService[ColdStartLogEntry] {
 	return &TracingService[ColdStartLogEntry]{
 		OutputFile:    outputFile,
-		InputChannel:  make(chan ColdStartLogEntry),
+		InputChannel:  make(chan ColdStartLogEntry, 100),
 		Header:        coldStartLogHeader,
 		WriteFunction: coldStartWriteFunction,
+	}
+}
+
+func NewProxyTracingService(outputFile string) *TracingService[ProxyLogEntry] {
+	return &TracingService[ProxyLogEntry]{
+		OutputFile:    outputFile,
+		InputChannel:  make(chan ProxyLogEntry, 100),
+		Header:        proxyLogHeader,
+		WriteFunction: proxyWriteFunction,
 	}
 }
 
@@ -71,11 +94,9 @@ func CreateFileIfNotExist(path string) *os.File {
 }
 
 func coldStartWriteFunction(f *os.File, msg ColdStartLogEntry) {
-	other := msg.LatencyBreakdown.ImageFetch.AsDuration() +
-		msg.LatencyBreakdown.ContainerCreate.AsDuration() +
-		msg.LatencyBreakdown.ContainerStart.AsDuration() +
-		msg.LatencyBreakdown.CNI.AsDuration() +
-		msg.LatencyBreakdown.Iptables.AsDuration()
+	other := msg.LatencyBreakdown.Total.AsDuration() - (msg.LatencyBreakdown.ImageFetch.AsDuration() +
+		msg.LatencyBreakdown.ContainerCreate.AsDuration() + msg.LatencyBreakdown.ContainerStart.AsDuration() +
+		msg.LatencyBreakdown.CNI.AsDuration() + msg.LatencyBreakdown.Iptables.AsDuration())
 
 	_, _ = f.WriteString(fmt.Sprintf("%s,%t,%d,%d,%d,%d,%d,%d\n",
 		msg.ContainerID,
@@ -85,6 +106,21 @@ func coldStartWriteFunction(f *os.File, msg ColdStartLogEntry) {
 		msg.LatencyBreakdown.ContainerStart.AsDuration().Microseconds(),
 		msg.LatencyBreakdown.CNI.AsDuration().Microseconds(),
 		msg.LatencyBreakdown.Iptables.AsDuration().Microseconds(),
-		msg.LatencyBreakdown.Total.AsDuration().Microseconds()-other.Microseconds(),
+		other.Microseconds(),
+	))
+}
+
+func proxyWriteFunction(f *os.File, msg ProxyLogEntry) {
+	other := msg.Total - (msg.GetMetadata + msg.ColdStart + msg.ColdStartPause + msg.LoadBalancing + msg.CCThrottling + msg.Proxying)
+
+	_, _ = f.WriteString(fmt.Sprintf("%s,%d,%d,%d,%d,%d,%d,%d\n",
+		msg.ContainerID,
+		msg.GetMetadata.Microseconds(),
+		msg.ColdStart.Microseconds(),
+		msg.ColdStartPause.Microseconds(),
+		msg.LoadBalancing.Microseconds(),
+		msg.CCThrottling.Microseconds(),
+		msg.Proxying.Microseconds(),
+		other.Microseconds(),
 	))
 }

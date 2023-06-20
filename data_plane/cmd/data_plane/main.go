@@ -10,15 +10,17 @@ import (
 	"github.com/sirupsen/logrus"
 	"google.golang.org/grpc"
 	"google.golang.org/protobuf/types/known/emptypb"
+	"path"
 	"strconv"
 )
 
 var (
-	controlPlaneIP   = flag.String("controlPlaneIP", "localhost", "Control plane IP address")
-	controlPlanePort = flag.String("controlPlanePort", common.DefaultControlPlanePort, "Control plane port")
-	portProxy        = flag.String("portProxy", common.DefaultDataPlaneProxyPort, "Data plane incoming traffic port")
-	portGRPC         = flag.String("portGRPC", common.DefaultDataPlaneApiPort, "Data plane incoming traffic port")
-	verbosity        = flag.String("verbosity", "info", "Logging verbosity - choose from [info, debug, trace]")
+	controlPlaneIP    = flag.String("controlPlaneIP", "localhost", "Control plane IP address")
+	controlPlanePort  = flag.String("controlPlanePort", common.DefaultControlPlanePort, "Control plane port")
+	portProxy         = flag.String("portProxy", common.DefaultDataPlaneProxyPort, "Data plane incoming traffic port")
+	portGRPC          = flag.String("portGRPC", common.DefaultDataPlaneApiPort, "Data plane incoming traffic port")
+	verbosity         = flag.String("verbosity", "info", "Logging verbosity - choose from [info, debug, trace]")
+	traceOutputFolder = flag.String("traceOutputFolder", common.DefaultTraceOutputFolder, "Folder where to write all logs")
 )
 
 func main() {
@@ -46,7 +48,12 @@ func main() {
 	}()
 
 	<-dpCreated
-	proxy.CreateProxyServer("0.0.0.0", *portProxy, cache, &dpConnection)
+
+	proxyServer := proxy.NewProxyingService("0.0.0.0", *portProxy, cache, &dpConnection, path.Join(*traceOutputFolder, "proxy_trace.csv"))
+	go proxyServer.Tracing.StartTracingService()
+	defer close(proxyServer.Tracing.InputChannel)
+
+	proxyServer.StartProxyServer()
 }
 
 func syncDeploymentCache(cpApi *proto.CpiInterfaceClient, deployments *common.Deployments) {
