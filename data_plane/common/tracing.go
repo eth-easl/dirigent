@@ -102,8 +102,8 @@ func coldStartWriteFunction(f *os.File, msg ColdStartLogEntry) {
 
 	_, _ = f.WriteString(fmt.Sprintf("%d,%s,%s,%t,%d,%d,%d,%d,%d,%d\n",
 		time.Now().Nanosecond(),
-		msg.ContainerID,
 		msg.ServiceName,
+		msg.ContainerID,
 		msg.Success,
 		msg.LatencyBreakdown.ImageFetch.AsDuration().Microseconds(),
 		msg.LatencyBreakdown.ContainerCreate.AsDuration().Microseconds(),
