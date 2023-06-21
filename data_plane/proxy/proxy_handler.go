@@ -119,6 +119,7 @@ func (ps *ProxyingService) createInvocationHandler(next http.Handler, cache *com
 		///////////////////////////////////////////////
 
 		ps.Tracing.InputChannel <- common.ProxyLogEntry{
+			ServiceName:    serviceName,
 			ContainerID:    endpoint.ID,
 			Total:          time.Since(start),
 			GetMetadata:    durationGetDeployment,

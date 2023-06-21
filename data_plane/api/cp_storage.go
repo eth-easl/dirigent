@@ -104,6 +104,7 @@ func (ss *ServiceInfoStorage) doUpscaling(toCreateCount int, nodeList *NodeInfoS
 
 			resp, err := node.GetAPI().CreateSandbox(ctx, ss.ServiceInfo)
 			*ss.ColdStartTracingChannel <- common.ColdStartLogEntry{
+				ServiceName:      ss.ServiceInfo.Name,
 				ContainerID:      resp.ID,
 				Success:          resp.Success,
 				LatencyBreakdown: resp.LatencyBreakdown,
