@@ -1,14 +1,63 @@
 import pandas as pd
 
-cpTracePath = '/home/lcvetkovic/Desktop/cluster_manager/cold_starts/cold_start_trace_1.csv'
-proxyTracePath = '/home/lcvetkovic/Desktop/cluster_manager/cold_starts/proxy_trace_1.csv'
+from clustered_plot import *
 
-cpTrace = pd.read_csv(cpTracePath)
-cpTrace['container_id'] = cpTrace['container_id'].astype(str)
+rootPath = '/home/lcvetkovic/Desktop/cluster_manager/cold_starts/'
+load = [1, 25, 50, 100]
 
-proxyTrace = pd.read_csv(proxyTracePath)
-proxyTrace['container_id'] = proxyTrace['container_id'].astype(str)
 
-data = pd.merge(proxyTrace, cpTrace, on='container_id', how='inner')
+def processQuantile(d, percentile):
+    p = d.reset_index()
+    p = p.T
+    p.columns = p.iloc[0]
+    p = p.iloc[1:, :]
+    p = p.rename(index={percentile: f"p{int(percentile * 100)}"})
 
-print(data)
+    return p
+
+
+result = []
+for l in load:
+    cpTrace = pd.read_csv(f'{rootPath}/cold_start_trace_{l}.csv')
+    proxyTrace = pd.read_csv(f'{rootPath}/proxy_trace_{l}.csv')
+
+    data = pd.merge(proxyTrace, cpTrace, on=['container_id', 'service_name'], how='inner')
+    data = data[data['success'] == True]  # keep only successful invocations
+    data = data[data['cold_start'] > 0]  # keep only cold starts
+
+    data = data.drop(columns=['time_x', 'time_y', 'success', 'service_name', 'container_id'])
+    data = data.rename(columns={"other_x": "other_cp", "other_y": "other_worker_node"})
+
+    data['control_plane'] = data['cold_start'] - \
+                            (data['image_fetch'] + data['container_create'] + data['container_start'] +
+                             data['cni'] + data['iptables'] + data['other_worker_node'])
+    data = data.drop(columns=['cold_start'])
+
+    p50 = data.quantile(0.5)
+    p95 = data.quantile(0.95)
+
+    dataToPlot = processQuantile(p50, 0.5)
+    dataToPlot = pd.concat([dataToPlot, processQuantile(p95, 0.95)])
+    dataToPlot = dataToPlot / 1000  # μs -> ms
+
+    result.append(dataToPlot)
+
+plotClusteredStackedBarchart(result,
+                             title='',
+                             clusterLabels=[
+                                 '1 cold start',
+                                 '25 cold start',
+                                 '50 cold start',
+                                 '100 cold start',
+                             ],
+                             clusterLabelPosition=(-0.335, 1),
+                             categoryLabelPosition=(-0.25, 0.75))
+
+plt.title(f'Cold start latency breakdown')
+plt.xlabel('Percentile')
+plt.xticks(rotation=0)
+plt.ylabel('Latency [ms]')
+plt.grid()
+plt.tight_layout()
+
+plt.savefig(f"{rootPath}/breakdown.png")
