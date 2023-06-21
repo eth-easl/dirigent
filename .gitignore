@@ -1,2 +1,8 @@
+.github
 .idea
-cmake-build-debug
+cpp_legacy/.idea
+cpp_legacy/cmake-build-debug
+
+data
+data/*
+scripts/__pycache__/

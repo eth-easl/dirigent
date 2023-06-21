@@ -22,7 +22,7 @@ var (
 	verbosity        = flag.String("verbosity", "info", "Logging verbosity - choose from [info, debug, trace]")
 
 	criPath       = flag.String("criPath", "/run/containerd/containerd.sock", "Path to containerd socket")
-	cniConfigPath = flag.String("cniConfigPath", "/home/lcvetkovic/projects/cluster_manager/data_plane/configs/cni.conf", "Path to CNI config")
+	cniConfigPath = flag.String("cniConfigPath", "/home/lcvetkovic/projects/cluster_manager/configs/cni.conf", "Path to CNI config")
 )
 
 func main() {

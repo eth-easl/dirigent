@@ -1,7 +1,7 @@
 syntax = "proto3";
 package data_plane;
 
-option go_package = "github.com/eth-easl/cluster_manager/data_plane/api/proto";
+option go_package = "github.com/eth-easl/cluster_manager/api/proto";
 
 enum L4Protocol {
   TCP = 0;

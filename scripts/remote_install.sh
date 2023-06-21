@@ -18,7 +18,7 @@ function AddSshKeys() {
 function SetupNode() {
     AddSshKeys $1
     RemoteExec $1 'if [ ! -d ~/cluster_manager ];then git clone git@github.com:eth-easl/cluster_manager.git; fi'
-    RemoteExec $1 'bash ~/cluster_manager/data_plane/scripts/setup_node.sh'
+    RemoteExec $1 'bash ~/cluster_manager/scripts/setup_node.sh'
 }
 
 for NODE in "$@"

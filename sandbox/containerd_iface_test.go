@@ -13,7 +13,7 @@ import (
 	"time"
 )
 
-const cniConfigPath = "/home/lcvetkovic/projects/cluster_manager/data_plane/configs/cni.conf"
+const cniConfigPath = "/home/lcvetkovic/projects/cluster_manager/configs/cni.conf"
 
 func TestCreateAContainer(t *testing.T) {
 	// fails to expose networking to the container
