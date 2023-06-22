@@ -101,7 +101,7 @@ func coldStartWriteFunction(f *os.File, msg ColdStartLogEntry) {
 		msg.LatencyBreakdown.CNI.AsDuration() + msg.LatencyBreakdown.Iptables.AsDuration())
 
 	_, _ = f.WriteString(fmt.Sprintf("%d,%s,%s,%t,%d,%d,%d,%d,%d,%d\n",
-		time.Now().Nanosecond(),
+		time.Now().UnixNano(),
 		msg.ServiceName,
 		msg.ContainerID,
 		msg.Success,
@@ -118,7 +118,7 @@ func proxyWriteFunction(f *os.File, msg ProxyLogEntry) {
 	other := msg.Total - (msg.GetMetadata + msg.ColdStart + msg.ColdStartPause + msg.LoadBalancing + msg.CCThrottling + msg.Proxying)
 
 	_, _ = f.WriteString(fmt.Sprintf("%d,%s,%s,%d,%d,%d,%d,%d,%d,%d\n",
-		time.Now().Nanosecond(),
+		time.Now().UnixNano(),
 		msg.ServiceName,
 		msg.ContainerID,
 		msg.GetMetadata.Microseconds(),
