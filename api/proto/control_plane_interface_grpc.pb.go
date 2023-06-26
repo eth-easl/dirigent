@@ -24,7 +24,7 @@ type CpiInterfaceClient interface {
 	RegisterDataplane(ctx context.Context, in *DataplaneInfo, opts ...grpc.CallOption) (*ActionStatus, error)
 	RegisterService(ctx context.Context, in *ServiceInfo, opts ...grpc.CallOption) (*ActionStatus, error)
 	RegisterNode(ctx context.Context, in *NodeInfo, opts ...grpc.CallOption) (*ActionStatus, error)
-	NodeHeartbeat(ctx context.Context, in *NodeInfo, opts ...grpc.CallOption) (*ActionStatus, error)
+	NodeHeartbeat(ctx context.Context, in *NodeHeartbeatMessage, opts ...grpc.CallOption) (*ActionStatus, error)
 }
 
 type cpiInterfaceClient struct {
@@ -80,7 +80,7 @@ func (c *cpiInterfaceClient) RegisterNode(ctx context.Context, in *NodeInfo, opt
 	return out, nil
 }
 
-func (c *cpiInterfaceClient) NodeHeartbeat(ctx context.Context, in *NodeInfo, opts ...grpc.CallOption) (*ActionStatus, error) {
+func (c *cpiInterfaceClient) NodeHeartbeat(ctx context.Context, in *NodeHeartbeatMessage, opts ...grpc.CallOption) (*ActionStatus, error) {
 	out := new(ActionStatus)
 	err := c.cc.Invoke(ctx, "/data_plane.CpiInterface/NodeHeartbeat", in, out, opts...)
 	if err != nil {
@@ -98,7 +98,7 @@ type CpiInterfaceServer interface {
 	RegisterDataplane(context.Context, *DataplaneInfo) (*ActionStatus, error)
 	RegisterService(context.Context, *ServiceInfo) (*ActionStatus, error)
 	RegisterNode(context.Context, *NodeInfo) (*ActionStatus, error)
-	NodeHeartbeat(context.Context, *NodeInfo) (*ActionStatus, error)
+	NodeHeartbeat(context.Context, *NodeHeartbeatMessage) (*ActionStatus, error)
 	mustEmbedUnimplementedCpiInterfaceServer()
 }
 
@@ -121,7 +121,7 @@ func (UnimplementedCpiInterfaceServer) RegisterService(context.Context, *Service
 func (UnimplementedCpiInterfaceServer) RegisterNode(context.Context, *NodeInfo) (*ActionStatus, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method RegisterNode not implemented")
 }
-func (UnimplementedCpiInterfaceServer) NodeHeartbeat(context.Context, *NodeInfo) (*ActionStatus, error) {
+func (UnimplementedCpiInterfaceServer) NodeHeartbeat(context.Context, *NodeHeartbeatMessage) (*ActionStatus, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method NodeHeartbeat not implemented")
 }
 func (UnimplementedCpiInterfaceServer) mustEmbedUnimplementedCpiInterfaceServer() {}
@@ -228,7 +228,7 @@ func _CpiInterface_RegisterNode_Handler(srv interface{}, ctx context.Context, de
 }
 
 func _CpiInterface_NodeHeartbeat_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(NodeInfo)
+	in := new(NodeHeartbeatMessage)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
@@ -240,7 +240,7 @@ func _CpiInterface_NodeHeartbeat_Handler(srv interface{}, ctx context.Context, d
 		FullMethod: "/data_plane.CpiInterface/NodeHeartbeat",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(CpiInterfaceServer).NodeHeartbeat(ctx, req.(*NodeInfo))
+		return srv.(CpiInterfaceServer).NodeHeartbeat(ctx, req.(*NodeHeartbeatMessage))
 	}
 	return interceptor(ctx, in, info, handler)
 }

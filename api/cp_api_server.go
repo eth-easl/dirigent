@@ -4,6 +4,7 @@ import (
 	"cluster_manager/api/proto"
 	"cluster_manager/common"
 	"context"
+	"fmt"
 	"github.com/sirupsen/logrus"
 	"google.golang.org/protobuf/types/known/emptypb"
 	"strconv"
@@ -108,7 +109,7 @@ func (c *CpApiServer) RegisterNode(ctx context.Context, in *proto.NodeInfo) (*pr
 	return &proto.ActionStatus{Success: true}, nil
 }
 
-func (c *CpApiServer) NodeHeartbeat(_ context.Context, in *proto.NodeInfo) (*proto.ActionStatus, error) {
+func (c *CpApiServer) NodeHeartbeat(_ context.Context, in *proto.NodeHeartbeatMessage) (*proto.ActionStatus, error) {
 	c.NIStorage.Lock()
 	defer c.NIStorage.Unlock()
 
@@ -119,10 +120,16 @@ func (c *CpApiServer) NodeHeartbeat(_ context.Context, in *proto.NodeInfo) (*pro
 		return &proto.ActionStatus{Success: false}, nil
 	}
 
-	n.LastHeartbeat = time.Now()
+	updateWorkerNode(n, in)
 
-	//logrus.Debug("Heartbeat received for '", in.NodeID, "'")
+	logrus.Debug(fmt.Sprintf("Heartbeat received from %s percent with %d cpu usage and %d percent memory usage", in.NodeID, in.CpuUsage, in.MemoryUsage))
 	return &proto.ActionStatus{Success: true}, nil
+}
+
+func updateWorkerNode(workerNode *WorkerNode, in *proto.NodeHeartbeatMessage) {
+	workerNode.LastHeartbeat = time.Now()
+	workerNode.CpuUsage = in.CpuUsage
+	workerNode.MemoryUsage = in.MemoryUsage
 }
 
 func (c *CpApiServer) RegisterService(ctx context.Context, serviceInfo *proto.ServiceInfo) (*proto.ActionStatus, error) {

@@ -19,7 +19,7 @@ var (
 	controlPlanePort  = flag.String("controlPlanePort", common.DefaultControlPlanePort, "Control plane port")
 	portProxy         = flag.String("portProxy", common.DefaultDataPlaneProxyPort, "Data plane incoming traffic port")
 	portGRPC          = flag.String("portGRPC", common.DefaultDataPlaneApiPort, "Data plane incoming traffic port")
-	verbosity         = flag.String("verbosity", "info", "Logging verbosity - choose from [info, debug, trace]")
+	verbosity         = flag.String("verbosity", "trace", "Logging verbosity - choose from [info, debug, trace]")
 	traceOutputFolder = flag.String("traceOutputFolder", common.DefaultTraceOutputFolder, "Folder where to write all logs")
 )
 

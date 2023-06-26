@@ -228,6 +228,9 @@ type WorkerNode struct {
 	IP   string
 	Port string
 
+	CpuUsage    int32
+	MemoryUsage int32
+
 	LastHeartbeat time.Time
 	api           proto.WorkerNodeInterfaceClient
 }

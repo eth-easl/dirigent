@@ -7,6 +7,7 @@ import (
 	"cluster_manager/sandbox"
 	"context"
 	"flag"
+	"fmt"
 	"github.com/sirupsen/logrus"
 	"google.golang.org/grpc"
 	"k8s.io/apimachinery/pkg/util/wait"
@@ -19,10 +20,10 @@ var (
 	controlPlaneIP   = flag.String("controlPlaneIP", "localhost", "Control plane IP address")
 	controlPlanePort = flag.String("controlPlanePort", common.DefaultControlPlanePort, "Control plane port")
 	port             = flag.Int("port", common.DefaultWorkerNodePort, "Worker daemon incoming traffic port")
-	verbosity        = flag.String("verbosity", "info", "Logging verbosity - choose from [info, debug, trace]")
+	verbosity        = flag.String("verbosity", "trace", "Logging verbosity - choose from [info, debug, trace]")
 
 	criPath       = flag.String("criPath", "/run/containerd/containerd.sock", "Path to containerd socket")
-	cniConfigPath = flag.String("cniConfigPath", "/home/lcvetkovic/projects/cluster_manager/configs/cni.conf", "Path to CNI config")
+	cniConfigPath = flag.String("cniConfigPath", "/home/francois/Documents/cluster_manager/configs/cni.conf", "Path to CNI config")
 )
 
 func main() {
@@ -95,23 +96,55 @@ func registerNodeWithControlPlane(cpApi *proto.CpiInterfaceClient) {
 func setupHeartbeatLoop(cpApi *proto.CpiInterfaceClient) {
 	const HeartbeatInterval = 10 * time.Second
 
-	hostname, err := os.Hostname()
-	if err != nil {
-		logrus.Warn("Error fetching host name.")
-	}
-
-	nodeInfo := &proto.NodeInfo{
-		NodeID: hostname,
-	}
-
 	for {
-		resp, err := (*cpApi).NodeHeartbeat(context.Background(), nodeInfo)
-		if err != nil || resp == nil || !resp.Success {
-			logrus.Warn("Failed to send a heartbeat to the control plane")
-		} else {
-			//logrus.Debug("Successfully sent a heartbeat")
-		}
-
+		// Send
+		sendHeartbeatLoop(cpApi)
+		// Wait
 		time.Sleep(HeartbeatInterval)
 	}
+}
+
+func getWorkerStatistics() (*proto.NodeHeartbeatMessage, error) {
+	harwareUsage := common.GetHardwareUsage()
+
+	hostname, err := os.Hostname()
+	if err != nil {
+		return nil, err
+	}
+
+	return &proto.NodeHeartbeatMessage{
+		NodeID:      hostname,
+		CpuUsage:    harwareUsage.CpuUsage,
+		MemoryUsage: harwareUsage.MemoryUsage,
+	}, nil
+}
+
+func sendHeartbeatLoop(cpApi *proto.CpiInterfaceClient) {
+
+	pollContext, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	pollErr := wait.PollUntilContextCancel(pollContext, 5*time.Second, false,
+		func(ctx context.Context) (done bool, err error) {
+			workerStatistics, err := getWorkerStatistics()
+			if err != nil {
+				return false, err
+			}
+
+			resp, err := (*cpApi).NodeHeartbeat(ctx, workerStatistics)
+
+			// In case we don't manage to connect, we give up
+			if err != nil || resp == nil || !resp.Success {
+				return false, nil
+			}
+
+			return true, nil
+		},
+	)
+	if pollErr != nil {
+		logrus.Warn(fmt.Sprintf("Failed to send a heartbeat to the control plane : %s", pollErr))
+	} else {
+		logrus.Debug("Sent heartbeat to the control plane")
+	}
+
 }
