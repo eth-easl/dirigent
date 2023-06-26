@@ -37,6 +37,8 @@ type FunctionMetadata struct {
 	upstreamEndpointsCount int32
 	queue                  *list.List
 
+	requestCountPerInstance *map[*UpstreamEndpoint]int64
+
 	beingDrained   *chan struct{} // TODO: implement this feature
 	metrics        ScalingMetric
 	coldStartDelay time.Duration
@@ -52,12 +54,31 @@ type ScalingMetric struct {
 	inflightRequests int32
 }
 
+func NewFunctionMetadata(name string) *FunctionMetadata {
+	requestPerInstance := make(map[*UpstreamEndpoint]int64)
+
+	return &FunctionMetadata{
+		identifier:         name,
+		sandboxParallelism: 1, // TODO: make dynamic
+		queue:              list.New(),
+		metrics: ScalingMetric{
+			timeWindowSize: 2 * time.Second,
+		},
+		coldStartDelay:          50 * time.Millisecond, // TODO: implement readiness probing
+		requestCountPerInstance: &requestPerInstance,
+	}
+}
+
 func (m *FunctionMetadata) GetColdStartDelay() time.Duration {
 	return m.coldStartDelay
 }
 
 func (m *FunctionMetadata) GetUpstreamEndpoints() []*UpstreamEndpoint {
 	return m.upstreamEndpoints
+}
+
+func (m *FunctionMetadata) GetRequestCountPerInstance() *map[*UpstreamEndpoint]int64 {
+	return m.requestCountPerInstance
 }
 
 func difference(a, b []string) []string {
@@ -258,15 +279,7 @@ func (d *Deployments) AddDeployment(name string) bool {
 		return false
 	}
 
-	d.data[name] = &FunctionMetadata{
-		identifier:         name,
-		sandboxParallelism: 1, // TODO: make dynamic
-		queue:              list.New(),
-		metrics: ScalingMetric{
-			timeWindowSize: 2 * time.Second,
-		},
-		coldStartDelay: 50 * time.Millisecond, // TODO: implement readiness probing
-	}
+	d.data[name] = NewFunctionMetadata(name)
 
 	logrus.Info("Service with name '", name, "' has been registered")
 

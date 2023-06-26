@@ -37,7 +37,7 @@ func DoLoadBalancing(req *http.Request, metadata *common.FunctionMetadata, loadB
 	case LOAD_BALANCING_ROUND_ROBIN:
 		endpoint = roundRobinLoadBalancing(endpoints)
 	case LOAD_BALANCING_LEAST_PROCESSED:
-		panic("Implement this") // TODO: François Costa, check how to implement it & implement it
+		endpoint = leastProcessedLoadBalancing(metadata, endpoints) // TODO: François Costa, check how to implement it & implement it
 	case LOAD_BALANCING_KNATIVE:
 		panic("Implement this") // TODO: François Costa, check how to implement it & implement it
 	default:
@@ -54,6 +54,8 @@ func DoLoadBalancing(req *http.Request, metadata *common.FunctionMetadata, loadB
 	req.URL.Host = endpoint.URL
 	logrus.Debug("Invocation forwarded to ", endpoint.URL)
 
+	(*metadata.GetRequestCountPerInstance())[endpoint]++
+
 	return true, endpoint, time.Since(start), ccDuration
 }
 
@@ -68,4 +70,22 @@ func roundRobinLoadBalancing(endpoints []*common.UpstreamEndpoint) *common.Upstr
 	roundRobinCounterIndex = (roundRobinCounterIndex + 1) % len(endpoints)
 
 	return outputEndpoint
+}
+
+func leastProcessedLoadBalancing(metadata *common.FunctionMetadata, endpoints []*common.UpstreamEndpoint) *common.UpstreamEndpoint {
+	requestCountPerInstance := metadata.GetRequestCountPerInstance()
+
+	minEndpoint := endpoints[0]
+	minValue := (*requestCountPerInstance)[minEndpoint]
+
+	for _, endpoint := range endpoints {
+		countPerInstance := (*requestCountPerInstance)[endpoint]
+
+		if countPerInstance < minValue {
+			minEndpoint = endpoint
+			minValue = countPerInstance
+		}
+	}
+
+	return minEndpoint
 }
