@@ -6,9 +6,10 @@ import (
 	"cluster_manager/types/placement"
 	"context"
 	"fmt"
-	"github.com/sirupsen/logrus"
 	"sync"
 	"time"
+
+	"github.com/sirupsen/logrus"
 )
 
 const (
@@ -51,7 +52,6 @@ func (ss *ServiceInfoStorage) ScalingControllerLoop(nodeList *NodeInfoStorage, d
 	for {
 		select {
 		case desiredCount := <-*ss.Controller.DesiredStateChannel:
-
 			ss.Controller.Lock()
 
 			actualScale := ss.Controller.ScalingMetadata.ActualScale
@@ -91,11 +91,13 @@ func (ss *ServiceInfoStorage) doUpscaling(toCreateCount int, nodeList *NodeInfoS
 	barrier := sync.WaitGroup{}
 
 	var finalEndpoint []*Endpoint
+
 	endpointMutex := sync.Mutex{}
 
 	logrus.Debug("Need to create: ", toCreateCount, " sandboxes")
 
 	barrier.Add(toCreateCount)
+
 	for i := 0; i < toCreateCount; i++ {
 		go func() {
 			defer barrier.Done()
@@ -127,7 +129,7 @@ func (ss *ServiceInfoStorage) doUpscaling(toCreateCount int, nodeList *NodeInfoS
 
 			logrus.Debug("Sandbox creation took: ", resp.LatencyBreakdown.Total, " ms")
 
-			///////////////////////////////////////////
+			// Critical section
 			endpointMutex.Lock()
 			logrus.Debug("Endpoint appended: ", resp.ID)
 			finalEndpoint = append(finalEndpoint, &Endpoint{
@@ -137,7 +139,6 @@ func (ss *ServiceInfoStorage) doUpscaling(toCreateCount int, nodeList *NodeInfoS
 				HostPort:  resp.PortMappings.HostPort,
 			})
 			endpointMutex.Unlock()
-			///////////////////////////////////////////
 		}()
 	}
 
@@ -173,6 +174,7 @@ func (ss *ServiceInfoStorage) prepareUrlList() []*proto.EndpointInfo {
 
 func excludeEndpoints(total []*Endpoint, toExclude map[*Endpoint]struct{}) []*Endpoint {
 	var result []*Endpoint
+
 	for _, endpoint := range total {
 		_, ok := toExclude[endpoint]
 
@@ -188,6 +190,7 @@ func (ss *ServiceInfoStorage) doDownscaling(toEvict map[*Endpoint]struct{}, urls
 	barrier := sync.WaitGroup{}
 
 	barrier.Add(len(toEvict))
+
 	for key := range toEvict {
 		victim := key
 

@@ -5,8 +5,9 @@ import (
 	"cluster_manager/api/proto"
 	"cluster_manager/common"
 	"flag"
-	"google.golang.org/grpc"
 	"path"
+
+	"google.golang.org/grpc"
 )
 
 var (
@@ -21,6 +22,7 @@ func main() {
 	common.InitLibraries(*verbosity)
 
 	cpApiServer := api.CreateNewCpApiServer(path.Join(*traceOutputFolder, "cold_start_trace.csv"))
+
 	go cpApiServer.ColdStartTracing.StartTracingService()
 	defer close(cpApiServer.ColdStartTracing.InputChannel)
 

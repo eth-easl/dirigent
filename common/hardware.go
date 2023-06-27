@@ -3,11 +3,9 @@ package common
 import (
 	"github.com/pbnjay/memory"
 	"github.com/shirou/gopsutil/cpu"
-	"github.com/shirou/gopsutil/mem"
 	"log"
 	"math"
 	"runtime"
-	"time"
 )
 
 type HarwareUsage struct {
@@ -24,19 +22,20 @@ func GetMemory() int32 {
 }
 
 func getCpuUsage() int32 {
-	percent, err := cpu.Percent(time.Second, false)
+	percent, err := cpu.Percent(0, false)
 	if err != nil {
 		log.Fatal(err)
 	}
 	return int32(math.Ceil(percent[0]))
 }
 
+func getCpuUsageInterval() int32 {
+	return 0 // TODO: Fill this function
+}
+
 func getMemoryUsage() int32 {
-	memory, err := mem.VirtualMemory()
-	if err != nil {
-		log.Fatal(err)
-	}
-	return int32(math.Ceil(memory.UsedPercent))
+	memory := float64(memory.TotalMemory()-memory.FreeMemory()) / float64(memory.TotalMemory())
+	return int32(memory * 100)
 }
 
 func GetHardwareUsage() HarwareUsage {

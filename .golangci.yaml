@@ -1,0 +1,42 @@
+linters-settings:
+  nlreturn:
+    block-size: 2
+  godot:
+    scope: toplevel
+    exclude:
+      - "^fixme:"
+      - "^todo:"
+      - "^ -"
+  wsl:
+    enforce-err-cuddling: true
+  tagliatelle:
+    case:
+      rules:
+        json: snake
+
+linters:
+  enable-all: true
+  disable:
+    - ifshort # deprecated
+    - nosnakecase # deprecated
+    - interfacer # deprecated
+    - deadcode # deprecated
+    - exhaustivestruct # deprecated
+    - varcheck # deprecated
+    - structcheck # deprecated
+    - maligned # deprecated
+    - scopelint # deprecated
+    - golint # deprecated
+    - rowserrcheck # https://github.com/golangci/golangci-lint/issues/2649
+    - sqlclosecheck # https://github.com/golangci/golangci-lint/issues/2649
+    - wastedassign # https://github.com/golangci/golangci-lint/issues/2649
+    - gomnd # we use status code numbers and for our use case it's not practical
+    - godox # we have TODOs at this stage of the project, enable in future
+    - forbidigo # we use things like fmt.Printf for debugging, enable in future
+    - gci # conflicts with goimports
+    - gofumpt # conflicts with goimports
+    - depguard
+    - testpackage
+    - funlen
+    - lll
+  fast: true

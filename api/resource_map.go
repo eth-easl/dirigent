@@ -26,7 +26,7 @@ func (r *ResourceMap) SetMemory(v int) {
 }
 
 func (r *ResourceMap) ResourceKeys() []string {
-	var keys []string = nil
+	keys := make([]string, 0)
 
 	for k := range r.resources {
 		keys = append(keys, k)
@@ -45,6 +45,7 @@ func (r *ResourceMap) GetByKey(key string) int {
 
 func (r *ResourceMap) SumAllResourceTypes() int {
 	sum := 0
+
 	for _, key := range r.ResourceKeys() {
 		req := r.GetByKey(key)
 		sum += req
@@ -53,7 +54,7 @@ func (r *ResourceMap) SumAllResourceTypes() int {
 	return sum
 }
 
-// CreateResourceMap CPU in milliCPUs
+// CreateResourceMap CPU in milliCPUs.
 func CreateResourceMap(cpu, memory int) *ResourceMap {
 	r := &ResourceMap{
 		resources: make(map[string]int),

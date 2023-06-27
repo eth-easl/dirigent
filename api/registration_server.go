@@ -3,9 +3,10 @@ package api
 import (
 	"cluster_manager/api/proto"
 	"fmt"
-	"github.com/sirupsen/logrus"
 	"net/http"
 	"strconv"
+
+	"github.com/sirupsen/logrus"
 )
 
 func StartServiceRegistrationServer(cpApi *CpApiServer, registrationPort string) {
@@ -65,7 +66,9 @@ func StartServiceRegistrationServer(cpApi *CpApiServer, registrationPort string)
 	})
 
 	logrus.Info("Starting service registration service")
+
 	err := http.ListenAndServe(fmt.Sprintf(":%s", registrationPort), nil)
+
 	if err != http.ErrServerClosed {
 		logrus.Fatal("Failed to start service registration server")
 	}

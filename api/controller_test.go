@@ -1,11 +1,12 @@
-package api
+package api // nolint // we need to access private fields
 
 import (
 	"cluster_manager/common"
 	"cluster_manager/types/placement"
-	"github.com/stretchr/testify/assert"
 	"sort"
 	"testing"
+
+	"github.com/stretchr/testify/assert"
 )
 
 func TestRandomPolicy(t *testing.T) {
@@ -57,6 +58,5 @@ func TestRoundRobin(t *testing.T) {
 			assert.NotNil(t, currentStorage)
 			assert.True(t, currentStorage == storage.NodeInfo[nodes[2]])
 		}
-
 	}
 }

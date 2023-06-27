@@ -2,9 +2,10 @@ package api
 
 import (
 	"cluster_manager/api/proto"
-	"github.com/sirupsen/logrus"
 	"math"
 	"time"
+
+	"github.com/sirupsen/logrus"
 )
 
 type AveragingMethod int64
@@ -132,16 +133,19 @@ func (s *AutoscalingMetadata) internalScaleAlgorithm(scalingMetric float64) (int
 	if !s.InPanicMode && isOverPanicThreshold {
 		s.InPanicMode = true
 		s.StartPanickingTimestamp = time.Now()
+
 		logrus.Debug("Entered panic mode")
 	} else if isOverPanicThreshold {
 		// If we're still over panic threshold right now — extend the panic window.
 		s.StartPanickingTimestamp = time.Now()
+
 		logrus.Debug("Extended panic mode")
 	} else if s.InPanicMode && !isOverPanicThreshold && s.StartPanickingTimestamp.Add(s.StableWindowWidth).Before(time.Now()) {
 		// Stop panicking after the surge has made its way into the stable metric.
 		s.InPanicMode = false
 		s.StartPanickingTimestamp = time.Time{}
 		s.MaxPanicPods = 0
+
 		logrus.Debug("Exited panic mode")
 	}
 
@@ -203,16 +207,18 @@ func (s *AutoscalingMetadata) windowAverage(observedStableValue float64) (float6
 			value = value * multiplierStable
 			multiplierStable = (1 - smoothingCoefficientStable) * multiplierStable
 		}
+
 		avgStable += value
 		currentWindowIndex--
+
 		if currentWindowIndex < 0 {
 			currentWindowIndex = int64(windowLength) - 1
 		}
 	}
 
 	if s.ScalingMethod == Arithmetic {
-		avgStable = avgStable / float64(windowLength)
 		// divide by the number of buckets we summed over to get the average
+		avgStable = avgStable / float64(windowLength)
 	}
 
 	currentWindowIndex = s.windowHead
@@ -226,8 +232,10 @@ func (s *AutoscalingMetadata) windowAverage(observedStableValue float64) (float6
 			value = value * multiplierPanic
 			multiplierPanic = (1 - smoothingCoefficientPanic) * multiplierPanic
 		}
+
 		avgPanic += value
 		currentWindowIndex--
+
 		if currentWindowIndex < 0 {
 			currentWindowIndex = int64(windowLength) - 1
 		}
@@ -239,8 +247,8 @@ func (s *AutoscalingMetadata) windowAverage(observedStableValue float64) (float6
 	}
 
 	if s.ScalingMethod == Arithmetic {
-		avgPanic = avgPanic / float64(windowLength)
 		// divide by the number of buckets we summed over to get the average
+		avgPanic = avgPanic / float64(windowLength)
 	}
 
 	return avgStable, avgPanic

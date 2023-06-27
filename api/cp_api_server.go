@@ -5,11 +5,11 @@ import (
 	"cluster_manager/common"
 	"cluster_manager/types/placement"
 	"context"
-	"fmt"
-	"github.com/sirupsen/logrus"
-	"google.golang.org/protobuf/types/known/emptypb"
 	"strconv"
 	"time"
+
+	"github.com/sirupsen/logrus"
+	"google.golang.org/protobuf/types/known/emptypb"
 )
 
 type CpApiServer struct {
@@ -109,6 +109,7 @@ func (c *CpApiServer) RegisterNode(ctx context.Context, in *proto.NodeInfo) (*pr
 	go wn.GetAPI()
 
 	logrus.Info("Node '", in.NodeID, "' has been successfully register with the control plane")
+
 	return &proto.ActionStatus{Success: true}, nil
 }
 
@@ -125,7 +126,8 @@ func (c *CpApiServer) NodeHeartbeat(_ context.Context, in *proto.NodeHeartbeatMe
 
 	updateWorkerNode(n, in)
 
-	logrus.Debug(fmt.Sprintf("Heartbeat received from %s percent with %d cpu usage and %d percent memory usage", in.NodeID, in.CpuUsage, in.MemoryUsage))
+	logrus.Debugf("Heartbeat received from %s with %d percent cpu usage and %d percent memory usage", in.NodeID, in.CpuUsage, in.MemoryUsage)
+
 	return &proto.ActionStatus{Success: true}, nil
 }
 
@@ -153,9 +155,10 @@ func (c *CpApiServer) RegisterService(ctx context.Context, serviceInfo *proto.Se
 			ScalingMetadata:     ConvertProtoToAutoscalingStruct(serviceInfo.AutoscalingConfig),
 		},
 		ColdStartTracingChannel: &c.ColdStartTracing.InputChannel,
-		PlacementPolicy:         placement.RANDOM,
+		PlacementPolicy:         placement.KUBERNETES,
 	}
 	c.SIStorage[serviceInfo.Name] = service
+
 	go service.ScalingControllerLoop(&c.NIStorage, c.DpiInterface())
 
 	return &proto.ActionStatus{Success: true}, nil

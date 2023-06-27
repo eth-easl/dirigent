@@ -3,11 +3,12 @@ package api
 import (
 	"cluster_manager/common"
 	"cluster_manager/types/placement"
-	"github.com/sirupsen/logrus"
 	"math/rand"
 	"sort"
 	"sync"
 	"time"
+
+	"github.com/sirupsen/logrus"
 )
 
 type ScalingMetric string
@@ -28,7 +29,7 @@ type PFStateController struct {
 
 //////////////////////////////////////////////////////
 //////////////////////////////////////////////////////
-//////////////////////////////////////////////////////
+////////////////////////////////////////////////////.//.
 
 func (as *PFStateController) Start() {
 	as.Lock()
@@ -46,6 +47,7 @@ func (as *PFStateController) ScalingLoop() {
 	isScaleFromZero := true
 
 	logrus.Debug("Starting scaling loop")
+
 	for ; true; <-ticker.C {
 		desiredScale := as.ScalingMetadata.KnativeScaling(isScaleFromZero)
 		logrus.Debug("Desired scale: ", desiredScale)
@@ -55,6 +57,7 @@ func (as *PFStateController) ScalingLoop() {
 		if isScaleFromZero {
 			isScaleFromZero = false
 		}
+
 		if desiredScale == 0 {
 			as.Lock()
 			as.AutoscalingRunning = false
@@ -69,21 +72,22 @@ func (as *PFStateController) ScalingLoop() {
 
 //////////////////////////////////////////////////////
 // POLICIES
-//////////////////////////////////////////////////////
+////////////////////////////////////////////////////.//.
 
 func placementPolicy(placementPolicy placement.PlacementPolicy, storage *NodeInfoStorage, requested *ResourceMap) *WorkerNode {
 	storage.Lock()
 	defer storage.Unlock()
 
-	if placementPolicy == placement.RANDOM {
+	switch placementPolicy {
+	case placement.RANDOM:
 		return randomPolicy(storage, requested)
-	} else if placementPolicy == placement.ROUND_ROBIN {
+	case placement.ROUND_ROBIN:
 		return roundRobinPolicy(storage, requested)
-	} else if placementPolicy == placement.KUBERNETES {
+	case placement.KUBERNETES:
+		return kubernetesPolicy(storage, requested)
+	default:
 		return kubernetesPolicy(storage, requested)
 	}
-
-	return nil
 }
 
 func filterMachines(storage *NodeInfoStorage) *NodeInfoStorage {
@@ -100,7 +104,6 @@ func getRequestedResources(machine *WorkerNode, request *ResourceMap) *ResourceM
 }
 
 func prioritizeNodes(storage *NodeInfoStorage, request *ResourceMap) map[string]int {
-
 	var scores map[string]int = nil
 
 	filterAlgorithms := CreateScoringPipeline()
@@ -122,13 +125,14 @@ func prioritizeNodes(storage *NodeInfoStorage, request *ResourceMap) map[string]
 
 func selectOneMachine(storage *NodeInfoStorage, scores map[string]int) *WorkerNode {
 	if len(storage.NodeInfo) == 0 {
-		panic("There is no candidate machine to select from.")
+		logrus.Fatal("There is no candidate machine to select from.")
 	}
 
-	var selected *WorkerNode = nil
-	maxScore := -1
-
-	cntOfMaxScore := 1
+	var (
+		selected      *WorkerNode = nil
+		maxScore      int         = -1
+		cntOfMaxScore int         = 1
+	)
 
 	for key, element := range storage.NodeInfo {
 		if scores[key] > maxScore {
@@ -163,7 +167,7 @@ func randomPolicy(storage *NodeInfoStorage, requested *ResourceMap) *WorkerNode 
 	return nodeFromIndex(storage, index)
 }
 
-// TODO: Refactor this with side effect handling
+// TODO: Refactor this with side effect handling.
 var schedulingCounterRoundRobin int = 0
 
 func roundRobinPolicy(storage *NodeInfoStorage, requested *ResourceMap) *WorkerNode {
@@ -183,6 +187,7 @@ func nodeFromIndex(storage *NodeInfoStorage, index int) *WorkerNode {
 	nodes := sort.StringSlice(common.Keys(storage.NodeInfo))
 	nodes.Sort()
 	nodeName := nodes[index]
+
 	return storage.NodeInfo[nodeName]
 }
 
@@ -192,7 +197,9 @@ func evictionPolicy(endpoint []*Endpoint) (*Endpoint, []*Endpoint) {
 	}
 
 	index := rand.Intn(len(endpoint))
+
 	var newEndpointList []*Endpoint
+
 	for i := 0; i < len(endpoint); i++ {
 		if i != index {
 			newEndpointList = append(newEndpointList, endpoint[i])

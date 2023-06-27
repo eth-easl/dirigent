@@ -28,6 +28,7 @@ func leastRequestedScore(requested, capacity int) int {
 	if capacity == 0 {
 		return 0
 	}
+
 	if requested > capacity {
 		return 0
 	}
@@ -55,12 +56,16 @@ func ScoreFitLeastAllocated(installed ResourceMap, requested ResourceMap) int {
 	if weightSum == 0 {
 		return 0
 	}
+
 	return nodeScore / weightSum
 }
 
 func ScoreBalancedAllocation(installed ResourceMap, requested ResourceMap) int {
-	var resourceToFractions []float64
-	var totalFraction float64
+	var (
+		totalFraction float64
+	)
+
+	resourceToFractions := make([]float64, 0)
 
 	for _, key := range installed.ResourceKeys() {
 		req, av := requested.GetByKey(key), installed.GetByKey(key)
@@ -69,6 +74,7 @@ func ScoreBalancedAllocation(installed ResourceMap, requested ResourceMap) int {
 		if fraction > 1 {
 			fraction = 1
 		}
+
 		totalFraction += fraction
 		resourceToFractions = append(resourceToFractions, fraction)
 	}
@@ -80,7 +86,6 @@ func ScoreBalancedAllocation(installed ResourceMap, requested ResourceMap) int {
 	// Otherwise, set the std to zero is enough.
 	if len(resourceToFractions) == 2 {
 		std = math.Abs((resourceToFractions[0] - resourceToFractions[1]) / 2)
-
 	} else if len(resourceToFractions) > 2 {
 		mean := totalFraction / float64(len(resourceToFractions))
 		var sum float64

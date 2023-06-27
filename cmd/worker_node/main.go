@@ -20,10 +20,10 @@ var (
 	controlPlaneIP   = flag.String("controlPlaneIP", "localhost", "Control plane IP address")
 	controlPlanePort = flag.String("controlPlanePort", common.DefaultControlPlanePort, "Control plane port")
 	port             = flag.Int("port", common.DefaultWorkerNodePort, "Worker daemon incoming traffic port")
-	verbosity        = flag.String("verbosity", "trace", "Logging verbosity - choose from [info, debug, trace]")
+	verbosity        = flag.String("verbosity", "info", "Logging verbosity - choose from [info, debug, trace]")
 
 	criPath       = flag.String("criPath", "/run/containerd/containerd.sock", "Path to containerd socket")
-	cniConfigPath = flag.String("cniConfigPath", "/home/francois/Documents/cluster_manager/configs/cni.conf", "Path to CNI config")
+	cniConfigPath = flag.String("cniConfigPath", "../../configs/cni.conf", "Path to CNI config")
 )
 
 func main() {
@@ -136,11 +136,11 @@ func sendHeartbeatLoop(cpApi *proto.CpiInterfaceClient) {
 			resp, err := (*cpApi).NodeHeartbeat(ctx, workerStatistics)
 
 			// In case we don't manage to connect, we give up
-			if err != nil || resp == nil || !resp.Success {
-				return false, nil
+			if err != nil || resp == nil {
+				return false, err
 			}
 
-			return true, nil
+			return resp.Success, nil
 		},
 	)
 	if pollErr != nil {
