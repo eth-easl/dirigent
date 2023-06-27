@@ -2,8 +2,10 @@ package api
 
 import (
 	"cluster_manager/common"
+	"cluster_manager/types/placement"
 	"github.com/sirupsen/logrus"
 	"math/rand"
+	"sort"
 	"sync"
 	"time"
 )
@@ -69,17 +71,119 @@ func (as *PFStateController) ScalingLoop() {
 // POLICIES
 //////////////////////////////////////////////////////
 
-func placementPolicy(storage *NodeInfoStorage) *WorkerNode {
+func placementPolicy(placementPolicy placement.PlacementPolicy, storage *NodeInfoStorage, requested *ResourceMap) *WorkerNode {
 	storage.Lock()
 	defer storage.Unlock()
 
-	nodes := common.Keys(storage.NodeInfo)
-	index := rand.Intn(len(nodes))
+	if placementPolicy == placement.RANDOM {
+		return randomPolicy(storage, requested)
+	} else if placementPolicy == placement.ROUND_ROBIN {
+		return roundRobinPolicy(storage, requested)
+	} else if placementPolicy == placement.KUBERNETES {
+		return kubernetesPolicy(storage, requested)
+	}
 
+	return nil
+}
+
+func filterMachines(storage *NodeInfoStorage) *NodeInfoStorage {
+	return storage // TODO: Implement this function
+}
+
+func getInstalledResources(machine *WorkerNode) *ResourceMap {
+	return CreateResourceMap(machine.CpuCores, machine.Memory)
+}
+
+func getRequestedResources(machine *WorkerNode, request *ResourceMap) *ResourceMap {
+	currentUsage := CreateResourceMap(machine.CpuUsage*machine.CpuCores, machine.MemoryUsage*machine.Memory)
+	return SumResources(currentUsage, request)
+}
+
+func prioritizeNodes(storage *NodeInfoStorage, request *ResourceMap) map[string]int {
+
+	var scores map[string]int = nil
+
+	filterAlgorithms := CreateScoringPipeline()
+
+	for _, alg := range filterAlgorithms {
+		for key, machine := range storage.NodeInfo {
+			installedResources := getInstalledResources(machine)
+			requestedResources := getRequestedResources(machine, request)
+
+			sc := alg.Score(*installedResources, *requestedResources)
+			scores[key] += sc
+
+			logrus.Debugf("%s on node #%s has scored %d.\n", alg.Name, machine.Name, sc)
+		}
+	}
+
+	return scores
+}
+
+func selectOneMachine(storage *NodeInfoStorage, scores map[string]int) *WorkerNode {
+	if len(storage.NodeInfo) == 0 {
+		panic("There is no candidate machine to select from.")
+	}
+
+	var selected *WorkerNode = nil
+	maxScore := -1
+
+	cntOfMaxScore := 1
+
+	for key, element := range storage.NodeInfo {
+		if scores[key] > maxScore {
+			maxScore = scores[key]
+			selected = element
+			cntOfMaxScore = 1
+		} else if scores[key] == maxScore {
+			cntOfMaxScore++
+			if rand.Intn(cntOfMaxScore) == 0 {
+				// Replace the candidate with probability of 1/cntOfMaxScore
+				selected = element
+			}
+		}
+	}
+
+	return selected
+}
+
+func kubernetesPolicy(storage *NodeInfoStorage, requested *ResourceMap) *WorkerNode {
+	filteredStorage := filterMachines(storage)
+
+	scores := prioritizeNodes(filteredStorage, requested)
+
+	return selectOneMachine(filteredStorage, scores)
+}
+
+func randomPolicy(storage *NodeInfoStorage, requested *ResourceMap) *WorkerNode {
+	nbNodes := getNumberNodes(storage)
+
+	index := rand.Intn(nbNodes)
+
+	return nodeFromIndex(storage, index)
+}
+
+// TODO: Refactor this with side effect handling
+var schedulingCounterRoundRobin int = 0
+
+func roundRobinPolicy(storage *NodeInfoStorage, requested *ResourceMap) *WorkerNode {
+	nbNodes := getNumberNodes(storage)
+
+	index := schedulingCounterRoundRobin % nbNodes
+	schedulingCounterRoundRobin = (schedulingCounterRoundRobin + 1) % nbNodes
+
+	return nodeFromIndex(storage, index)
+}
+
+func getNumberNodes(storage *NodeInfoStorage) int {
+	return len(common.Keys(storage.NodeInfo))
+}
+
+func nodeFromIndex(storage *NodeInfoStorage, index int) *WorkerNode {
+	nodes := sort.StringSlice(common.Keys(storage.NodeInfo))
+	nodes.Sort()
 	nodeName := nodes[index]
-	nodeRef := storage.NodeInfo[nodeName]
-
-	return nodeRef
+	return storage.NodeInfo[nodeName]
 }
 
 func evictionPolicy(endpoint []*Endpoint) (*Endpoint, []*Endpoint) {

@@ -75,7 +75,9 @@ func registerNodeWithControlPlane(cpApi *proto.CpiInterfaceClient) {
 			resp, err := (*cpApi).RegisterNode(context.Background(), &proto.NodeInfo{
 				NodeID: hostName,
 				// IP fetched from server-side context
-				Port: int32(*port),
+				Port:       int32(*port),
+				CpuCores:   common.GetNumberCpus(),
+				MemorySize: common.GetMemory(),
 			})
 
 			if err != nil || resp == nil {

@@ -3,6 +3,7 @@ package api
 import (
 	"cluster_manager/api/proto"
 	"cluster_manager/common"
+	"cluster_manager/types/placement"
 	"context"
 	"fmt"
 	"github.com/sirupsen/logrus"
@@ -97,9 +98,11 @@ func (c *CpApiServer) RegisterNode(ctx context.Context, in *proto.NodeInfo) (*pr
 	}
 
 	wn := &WorkerNode{
-		Name: in.NodeID,
-		IP:   ipAddress,
-		Port: strconv.Itoa(int(in.Port)),
+		Name:     in.NodeID,
+		IP:       ipAddress,
+		Port:     strconv.Itoa(int(in.Port)),
+		CpuCores: int(in.CpuCores),
+		Memory:   int(in.MemorySize),
 	}
 
 	c.NIStorage.NodeInfo[in.NodeID] = wn
@@ -128,8 +131,8 @@ func (c *CpApiServer) NodeHeartbeat(_ context.Context, in *proto.NodeHeartbeatMe
 
 func updateWorkerNode(workerNode *WorkerNode, in *proto.NodeHeartbeatMessage) {
 	workerNode.LastHeartbeat = time.Now()
-	workerNode.CpuUsage = in.CpuUsage
-	workerNode.MemoryUsage = in.MemoryUsage
+	workerNode.CpuUsage = int(in.CpuUsage)
+	workerNode.MemoryUsage = int(in.MemoryUsage)
 }
 
 func (c *CpApiServer) RegisterService(ctx context.Context, serviceInfo *proto.ServiceInfo) (*proto.ActionStatus, error) {
@@ -150,6 +153,7 @@ func (c *CpApiServer) RegisterService(ctx context.Context, serviceInfo *proto.Se
 			ScalingMetadata:     ConvertProtoToAutoscalingStruct(serviceInfo.AutoscalingConfig),
 		},
 		ColdStartTracingChannel: &c.ColdStartTracing.InputChannel,
+		PlacementPolicy:         placement.RANDOM,
 	}
 	c.SIStorage[serviceInfo.Name] = service
 	go service.ScalingControllerLoop(&c.NIStorage, c.DpiInterface())

@@ -1,16 +1,26 @@
 package common
 
 import (
+	"github.com/pbnjay/memory"
 	"github.com/shirou/gopsutil/cpu"
 	"github.com/shirou/gopsutil/mem"
 	"log"
 	"math"
+	"runtime"
 	"time"
 )
 
 type HarwareUsage struct {
 	CpuUsage    int32
 	MemoryUsage int32
+}
+
+func GetNumberCpus() int32 {
+	return int32(runtime.NumCPU())
+}
+
+func GetMemory() int32 {
+	return int32(memory.TotalMemory())
 }
 
 func getCpuUsage() int32 {

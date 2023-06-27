@@ -3,6 +3,7 @@ package api
 import (
 	"cluster_manager/api/proto"
 	"cluster_manager/common"
+	"cluster_manager/types/placement"
 	"context"
 	"fmt"
 	"github.com/sirupsen/logrus"
@@ -25,6 +26,8 @@ type ServiceInfoStorage struct {
 
 	Controller              *PFStateController
 	ColdStartTracingChannel *chan common.ColdStartLogEntry
+
+	PlacementPolicy placement.PlacementPolicy
 }
 
 type Endpoint struct {
@@ -97,7 +100,9 @@ func (ss *ServiceInfoStorage) doUpscaling(toCreateCount int, nodeList *NodeInfoS
 		go func() {
 			defer barrier.Done()
 
-			node := placementPolicy(nodeList)
+			// TODO : @Lazar, We need to ask some resources
+			requested := CreateResourceMap(1, 1)
+			node := placementPolicy(ss.PlacementPolicy, nodeList, requested)
 
 			ctx, cancel := context.WithTimeout(context.Background(), WorkerNodeTrafficTimeout)
 			defer cancel()
@@ -228,8 +233,11 @@ type WorkerNode struct {
 	IP   string
 	Port string
 
-	CpuUsage    int32
-	MemoryUsage int32
+	CpuUsage    int
+	MemoryUsage int
+
+	CpuCores int
+	Memory   int
 
 	LastHeartbeat time.Time
 	api           proto.WorkerNodeInterfaceClient
