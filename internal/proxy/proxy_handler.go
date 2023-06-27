@@ -2,8 +2,8 @@ package proxy
 
 import (
 	"cluster_manager/api/proto"
-	"cluster_manager/common"
-	net2 "cluster_manager/proxy/net"
+	common "cluster_manager/internal/common"
+	net2 "cluster_manager/internal/proxy/net"
 	"github.com/sirupsen/logrus"
 	"golang.org/x/net/http2"
 	"golang.org/x/net/http2/h2c"

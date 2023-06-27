@@ -3,8 +3,8 @@ package main
 import (
 	"cluster_manager/api"
 	"cluster_manager/api/proto"
-	"cluster_manager/common"
-	"cluster_manager/sandbox"
+	common "cluster_manager/internal/common"
+	sandbox "cluster_manager/internal/sandbox"
 	"context"
 	"flag"
 	"fmt"

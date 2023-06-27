@@ -1,4 +1,4 @@
-package api
+package placement
 
 const (
 	RM_CPU_KEY    = "cpu"

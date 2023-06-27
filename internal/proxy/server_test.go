@@ -1,7 +1,7 @@
 package proxy
 
 import (
-	"cluster_manager/common"
+	common "cluster_manager/internal/common"
 	testserver "cluster_manager/tests"
 	"cluster_manager/tests/proto"
 	"fmt"

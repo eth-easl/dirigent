@@ -1,7 +1,7 @@
 package proxy
 
 import (
-	"cluster_manager/common"
+	"cluster_manager/internal/common"
 	"github.com/sirupsen/logrus"
 	"math/rand"
 	"net/http"

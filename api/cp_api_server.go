@@ -2,8 +2,9 @@ package api
 
 import (
 	"cluster_manager/api/proto"
-	"cluster_manager/common"
-	"cluster_manager/types/placement"
+	"cluster_manager/internal/algorithms/placement"
+	common "cluster_manager/internal/common"
+	"cluster_manager/internal/control_plane"
 	"context"
 	"strconv"
 	"time"
@@ -20,18 +21,18 @@ type CpApiServer struct {
 	dpiAPIPort   string
 	dpiProxyPort string
 
-	NIStorage NodeInfoStorage
-	SIStorage map[string]*ServiceInfoStorage
+	NIStorage control_plane.NodeInfoStorage
+	SIStorage map[string]*control_plane.ServiceInfoStorage
 
 	ColdStartTracing *common.TracingService[common.ColdStartLogEntry]
 }
 
 func CreateNewCpApiServer(outputFile string) *CpApiServer {
 	return &CpApiServer{
-		NIStorage: NodeInfoStorage{
-			NodeInfo: make(map[string]*WorkerNode),
+		NIStorage: control_plane.NodeInfoStorage{
+			NodeInfo: make(map[string]*control_plane.WorkerNode),
 		},
-		SIStorage:        make(map[string]*ServiceInfoStorage),
+		SIStorage:        make(map[string]*control_plane.ServiceInfoStorage),
 		ColdStartTracing: common.NewColdStartTracingService(outputFile),
 	}
 }
@@ -65,7 +66,7 @@ func (c *CpApiServer) OnMetricsReceive(_ context.Context, metric *proto.Autoscal
 		return &proto.ActionStatus{Success: false}, nil
 	}
 
-	storage.Controller.ScalingMetadata.setCachedScalingMetric(float64(metric.Metric))
+	storage.Controller.ScalingMetadata.SetCachedScalingMetric(float64(metric.Metric))
 	logrus.Debug("Scaling metric for '", service.ServiceInfo.Name, "' is ", metric.Metric)
 
 	service.Controller.Start()
@@ -97,7 +98,7 @@ func (c *CpApiServer) RegisterNode(ctx context.Context, in *proto.NodeInfo) (*pr
 		}, nil
 	}
 
-	wn := &WorkerNode{
+	wn := &control_plane.WorkerNode{
 		Name:     in.NodeID,
 		IP:       ipAddress,
 		Port:     strconv.Itoa(int(in.Port)),
@@ -131,7 +132,7 @@ func (c *CpApiServer) NodeHeartbeat(_ context.Context, in *proto.NodeHeartbeatMe
 	return &proto.ActionStatus{Success: true}, nil
 }
 
-func updateWorkerNode(workerNode *WorkerNode, in *proto.NodeHeartbeatMessage) {
+func updateWorkerNode(workerNode *control_plane.WorkerNode, in *proto.NodeHeartbeatMessage) {
 	workerNode.LastHeartbeat = time.Now()
 	workerNode.CpuUsage = int(in.CpuUsage)
 	workerNode.MemoryUsage = int(in.MemoryUsage)
@@ -146,13 +147,13 @@ func (c *CpApiServer) RegisterService(ctx context.Context, serviceInfo *proto.Se
 
 	scalingChannel := make(chan int)
 
-	service := &ServiceInfoStorage{
+	service := &control_plane.ServiceInfoStorage{
 		ServiceInfo: serviceInfo,
-		Controller: &PFStateController{
+		Controller: &control_plane.PFStateController{
 			DesiredStateChannel: &scalingChannel,
 			NotifyChannel:       &scalingChannel,
 			Period:              2 * time.Second, // TODO: hardcoded autoscaling period for now
-			ScalingMetadata:     ConvertProtoToAutoscalingStruct(serviceInfo.AutoscalingConfig),
+			ScalingMetadata:     control_plane.ConvertProtoToAutoscalingStruct(serviceInfo.AutoscalingConfig),
 		},
 		ColdStartTracingChannel: &c.ColdStartTracing.InputChannel,
 		PlacementPolicy:         placement.KUBERNETES,

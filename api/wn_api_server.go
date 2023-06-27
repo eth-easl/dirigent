@@ -2,7 +2,7 @@ package api
 
 import (
 	"cluster_manager/api/proto"
-	"cluster_manager/sandbox"
+	sandbox2 "cluster_manager/internal/sandbox"
 	"context"
 	"time"
 
@@ -21,8 +21,8 @@ type WnApiServer struct {
 	CNIClient        cni.CNI
 	IPT              *iptables.IPTables
 
-	ImageManager   *sandbox.ImageManager
-	SandboxManager *sandbox.Manager
+	ImageManager   *sandbox2.ImageManager
+	SandboxManager *sandbox2.Manager
 }
 
 func (w *WnApiServer) CreateSandbox(grpcCtx context.Context, in *proto.ServiceInfo) (*proto.SandboxCreationStatus, error) {
@@ -38,23 +38,23 @@ func (w *WnApiServer) CreateSandbox(grpcCtx context.Context, in *proto.ServiceIn
 		return &proto.SandboxCreationStatus{Success: false}, err
 	}
 
-	container, err, durationContainerCreation := sandbox.CreateContainer(ctx, w.ContainerdClient, image)
+	container, err, durationContainerCreation := sandbox2.CreateContainer(ctx, w.ContainerdClient, image)
 	if err != nil {
 		logrus.Warn("Failed creating a container - ", err)
 		return &proto.SandboxCreationStatus{Success: false}, err
 	}
 
-	task, exitChannel, ip, netNs, err, durationContainerStart, durationCNI := sandbox.StartContainer(ctx, container, w.CNIClient)
+	task, exitChannel, ip, netNs, err, durationContainerStart, durationCNI := sandbox2.StartContainer(ctx, container, w.CNIClient)
 	if err != nil {
 		logrus.Warn("Failed starting a container - ", err)
 		return &proto.SandboxCreationStatus{Success: false}, err
 	}
 
-	metadata := &sandbox.Metadata{
+	metadata := &sandbox2.Metadata{
 		Task:        task,
 		Container:   container,
 		ExitChannel: exitChannel,
-		HostPort:    sandbox.AssignRandomPort(),
+		HostPort:    sandbox2.AssignRandomPort(),
 		IP:          ip,
 		GuestPort:   int(in.PortForwarding.GuestPort),
 		NetNs:       netNs,
@@ -65,7 +65,7 @@ func (w *WnApiServer) CreateSandbox(grpcCtx context.Context, in *proto.ServiceIn
 
 	startIptables := time.Now()
 
-	sandbox.AddRules(w.IPT, metadata.HostPort, metadata.IP, metadata.GuestPort)
+	sandbox2.AddRules(w.IPT, metadata.HostPort, metadata.IP, metadata.GuestPort)
 
 	durationIptables := time.Since(startIptables)
 
@@ -101,12 +101,12 @@ func (w *WnApiServer) DeleteSandbox(grpcCtx context.Context, in *proto.SandboxID
 
 	start := time.Now()
 
-	sandbox.DeleteRules(w.IPT, metadata.HostPort, metadata.IP, metadata.GuestPort)
-	sandbox.UnassignPort(metadata.HostPort)
+	sandbox2.DeleteRules(w.IPT, metadata.HostPort, metadata.IP, metadata.GuestPort)
+	sandbox2.UnassignPort(metadata.HostPort)
 	logrus.Debug("IP tables configuration (remove rule(s)) took ", time.Since(start).Microseconds(), " μs")
 
 	start = time.Now()
-	err := sandbox.DeleteContainer(
+	err := sandbox2.DeleteContainer(
 		ctx,
 		w.CNIClient,
 		metadata,

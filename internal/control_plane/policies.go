@@ -1,4 +1,4 @@
-package api
+package control_plane
 
 import (
 	"cluster_manager/api/proto"
@@ -72,7 +72,7 @@ func ConvertProtoToAutoscalingStruct(p *proto.AutoscalingConfiguration) Autoscal
 	}
 }
 
-func (s *AutoscalingMetadata) setCachedScalingMetric(value float64) {
+func (s *AutoscalingMetadata) SetCachedScalingMetric(value float64) {
 	s.cachedScalingMetric = value
 }
 

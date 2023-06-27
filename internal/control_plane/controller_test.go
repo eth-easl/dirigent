@@ -1,8 +1,8 @@
-package api // nolint // we need to access private fields
+package control_plane
 
 import (
-	"cluster_manager/common"
-	"cluster_manager/types/placement"
+	"cluster_manager/internal/algorithms/placement"
+	"cluster_manager/internal/common"
 	"sort"
 	"testing"
 
@@ -18,7 +18,7 @@ func TestRandomPolicy(t *testing.T) {
 	storage.NodeInfo["w1"] = &WorkerNode{}
 	storage.NodeInfo["w2"] = &WorkerNode{}
 
-	requested := &ResourceMap{}
+	requested := &placement.ResourceMap{}
 
 	for i := 0; i < 100; i++ {
 		currentStorage := placementPolicy(policy, storage, requested)
@@ -33,7 +33,7 @@ func TestRoundRobin(t *testing.T) {
 		NodeInfo: make(map[string]*WorkerNode),
 	}
 
-	requested := &ResourceMap{}
+	requested := &placement.ResourceMap{}
 
 	storage.NodeInfo["w1"] = &WorkerNode{}
 	storage.NodeInfo["w2"] = &WorkerNode{}

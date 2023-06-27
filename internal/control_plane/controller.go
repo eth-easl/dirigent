@@ -1,8 +1,8 @@
-package api
+package control_plane
 
 import (
-	"cluster_manager/common"
-	"cluster_manager/types/placement"
+	"cluster_manager/internal/algorithms/placement"
+	"cluster_manager/internal/common"
 	"math/rand"
 	"sort"
 	"sync"
@@ -74,7 +74,7 @@ func (as *PFStateController) ScalingLoop() {
 // POLICIES
 ////////////////////////////////////////////////////.//.
 
-func placementPolicy(placementPolicy placement.PlacementPolicy, storage *NodeInfoStorage, requested *ResourceMap) *WorkerNode {
+func placementPolicy(placementPolicy placement.PlacementPolicy, storage *NodeInfoStorage, requested *placement.ResourceMap) *WorkerNode {
 	storage.Lock()
 	defer storage.Unlock()
 
@@ -94,19 +94,19 @@ func filterMachines(storage *NodeInfoStorage) *NodeInfoStorage {
 	return storage // TODO: Implement this function
 }
 
-func getInstalledResources(machine *WorkerNode) *ResourceMap {
-	return CreateResourceMap(machine.CpuCores, machine.Memory)
+func getInstalledResources(machine *WorkerNode) *placement.ResourceMap {
+	return placement.CreateResourceMap(machine.CpuCores, machine.Memory)
 }
 
-func getRequestedResources(machine *WorkerNode, request *ResourceMap) *ResourceMap {
-	currentUsage := CreateResourceMap(machine.CpuUsage*machine.CpuCores, machine.MemoryUsage*machine.Memory)
-	return SumResources(currentUsage, request)
+func getRequestedResources(machine *WorkerNode, request *placement.ResourceMap) *placement.ResourceMap {
+	currentUsage := placement.CreateResourceMap(machine.CpuUsage*machine.CpuCores, machine.MemoryUsage*machine.Memory)
+	return placement.SumResources(currentUsage, request)
 }
 
-func prioritizeNodes(storage *NodeInfoStorage, request *ResourceMap) map[string]int {
+func prioritizeNodes(storage *NodeInfoStorage, request *placement.ResourceMap) map[string]int {
 	var scores map[string]int = nil
 
-	filterAlgorithms := CreateScoringPipeline()
+	filterAlgorithms := placement.CreateScoringPipeline()
 
 	for _, alg := range filterAlgorithms {
 		for key, machine := range storage.NodeInfo {
@@ -151,7 +151,7 @@ func selectOneMachine(storage *NodeInfoStorage, scores map[string]int) *WorkerNo
 	return selected
 }
 
-func kubernetesPolicy(storage *NodeInfoStorage, requested *ResourceMap) *WorkerNode {
+func kubernetesPolicy(storage *NodeInfoStorage, requested *placement.ResourceMap) *WorkerNode {
 	filteredStorage := filterMachines(storage)
 
 	scores := prioritizeNodes(filteredStorage, requested)
@@ -159,7 +159,7 @@ func kubernetesPolicy(storage *NodeInfoStorage, requested *ResourceMap) *WorkerN
 	return selectOneMachine(filteredStorage, scores)
 }
 
-func randomPolicy(storage *NodeInfoStorage, requested *ResourceMap) *WorkerNode {
+func randomPolicy(storage *NodeInfoStorage, requested *placement.ResourceMap) *WorkerNode {
 	nbNodes := getNumberNodes(storage)
 
 	index := rand.Intn(nbNodes)
@@ -170,7 +170,7 @@ func randomPolicy(storage *NodeInfoStorage, requested *ResourceMap) *WorkerNode 
 // TODO: Refactor this with side effect handling.
 var schedulingCounterRoundRobin int = 0
 
-func roundRobinPolicy(storage *NodeInfoStorage, requested *ResourceMap) *WorkerNode {
+func roundRobinPolicy(storage *NodeInfoStorage, requested *placement.ResourceMap) *WorkerNode {
 	nbNodes := getNumberNodes(storage)
 
 	index := schedulingCounterRoundRobin % nbNodes

@@ -1,6 +1,7 @@
 package common
 
 import (
+	"github.com/stretchr/testify/assert"
 	"testing"
 )
 
@@ -9,9 +10,9 @@ func TestDifference(t *testing.T) {
 	s2 := []string{"b", "c", "d"}
 
 	lr := difference(s1, s2)
-	if lr == nil || len(lr) != 1 || lr[0] != "a" {
-		t.Error("s1 \\ s2 yielded a wrong result.")
-	}
+	assert.NotNil(t, lr, "s1 \\ s2 yielded a wrong result.")
+	assert.Equal(t, len(lr), 1, "s1 \\ s2 yielded a wrong result.")
+	assert.Equal(t, lr[0], "a", "s1 \\ s2 yielded a wrong result.")
 
 	rr := difference(s2, s1)
 	if rr == nil || len(rr) != 1 || rr[0] != "d" {

@@ -1,9 +1,9 @@
 package tests
 
 import (
-	"cluster_manager/api"
 	proto2 "cluster_manager/api/proto"
-	"cluster_manager/common"
+	common "cluster_manager/internal/common"
+	"cluster_manager/internal/control_plane"
 	"cluster_manager/tests/proto"
 	"context"
 	"github.com/sirupsen/logrus"
@@ -25,7 +25,7 @@ func TestDeployService(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), common.GRPCFunctionTimeout)
 	defer cancel()
 
-	autoscalingConfig := api.NewDefaultAutoscalingMetadata()
+	autoscalingConfig := control_plane.NewDefaultAutoscalingMetadata()
 	autoscalingConfig.ScalingUpperBound = 1
 	//autoscalingConfig.ScalingLowerBound = 1
 

@@ -2,7 +2,7 @@ package tests
 
 import (
 	proto2 "cluster_manager/api/proto"
-	"cluster_manager/common"
+	"cluster_manager/internal/common"
 	"cluster_manager/tests/proto"
 	"context"
 	"fmt"

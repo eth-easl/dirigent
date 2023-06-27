@@ -3,7 +3,7 @@ package main
 import (
 	"cluster_manager/api"
 	"cluster_manager/api/proto"
-	"cluster_manager/common"
+	common "cluster_manager/internal/common"
 	"flag"
 	"path"
 

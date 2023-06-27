@@ -2,7 +2,7 @@ package api
 
 import (
 	"cluster_manager/api/proto"
-	"cluster_manager/common"
+	"cluster_manager/internal/common"
 	"context"
 )
 

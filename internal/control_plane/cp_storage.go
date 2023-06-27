@@ -1,9 +1,9 @@
-package api
+package control_plane
 
 import (
 	"cluster_manager/api/proto"
-	"cluster_manager/common"
-	"cluster_manager/types/placement"
+	"cluster_manager/internal/algorithms/placement"
+	common "cluster_manager/internal/common"
 	"context"
 	"fmt"
 	"sync"
@@ -103,7 +103,7 @@ func (ss *ServiceInfoStorage) doUpscaling(toCreateCount int, nodeList *NodeInfoS
 			defer barrier.Done()
 
 			// TODO : @Lazar, We need to ask some resources
-			requested := CreateResourceMap(1, 1)
+			requested := placement.CreateResourceMap(1, 1)
 			node := placementPolicy(ss.PlacementPolicy, nodeList, requested)
 
 			ctx, cancel := context.WithTimeout(context.Background(), WorkerNodeTrafficTimeout)

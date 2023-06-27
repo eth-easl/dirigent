@@ -3,8 +3,8 @@ package main
 import (
 	"cluster_manager/api"
 	"cluster_manager/api/proto"
-	"cluster_manager/common"
-	"cluster_manager/proxy"
+	common "cluster_manager/internal/common"
+	"cluster_manager/internal/proxy"
 	"context"
 	"flag"
 	"path"
