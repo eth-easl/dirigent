@@ -6,28 +6,24 @@ import (
 	"github.com/containerd/containerd/namespaces"
 	"github.com/containerd/go-cni"
 	"github.com/sirupsen/logrus"
-	"log"
+	"github.com/stretchr/testify/assert"
 	"math/rand"
 	"sync"
 	"testing"
 	"time"
 )
 
-const cniConfigPath = "/home/lcvetkovic/projects/cluster_manager/configs/cni.conf"
+const cniConfigPath = "../../configs/cni.conf"
 
 func TestCreateAContainer(t *testing.T) {
 	// fails to expose networking to the container
 	rand.Seed(time.Now().UnixNano())
 
 	client, err := containerd.New("/run/containerd/containerd.sock")
-	if err != nil {
-		log.Fatal("Failed to create a containerd client")
-	}
+	assert.NoError(t, err, "Failed to create a containerd client")
 
 	network, err := cni.New(cni.WithConfFile(cniConfigPath))
-	if err != nil {
-		logrus.Fatal(err)
-	}
+	assert.NoError(t, err, "Failed to open cni configuration")
 
 	ctx := namespaces.WithNamespace(context.Background(), "default")
 
@@ -36,11 +32,11 @@ func TestCreateAContainer(t *testing.T) {
 	logrus.Info("Image fetching - ", time.Since(start).Microseconds(), "μs")
 
 	start = time.Now()
-	container, err := CreateContainer(ctx, client, image)
+	container, err, _ := CreateContainer(ctx, client, image)
 	logrus.Info("Create container - ", time.Since(start).Microseconds(), "μs")
 
 	start = time.Now()
-	task, exitCh, ip, netns, err := StartContainer(ctx, container, network)
+	task, exitCh, ip, netns, err, _, _ := StartContainer(ctx, container, network)
 	logrus.Info("Start container - ", time.Since(start).Microseconds(), "μs")
 
 	sm := &Metadata{
@@ -61,14 +57,10 @@ func TestParallelCreation(t *testing.T) {
 	wg := sync.WaitGroup{}
 
 	client, err := containerd.New("/run/containerd/containerd.sock")
-	if err != nil {
-		log.Fatal("Failed to create a containerd client")
-	}
+	assert.NoError(t, err, "Failed to create a containerd client")
 
 	network, err := cni.New(cni.WithConfFile(cniConfigPath))
-	if err != nil {
-		logrus.Fatal(err)
-	}
+	assert.NoError(t, err)
 
 	ctx := namespaces.WithNamespace(context.Background(), "default")
 	image, _ := FetchImage(ctx, client, "docker.io/cvetkovic/empty_function:latest")
@@ -80,10 +72,10 @@ func TestParallelCreation(t *testing.T) {
 			start := time.Now()
 
 			start = time.Now()
-			container, _ := CreateContainer(ctx, client, image)
+			container, _, _ := CreateContainer(ctx, client, image)
 
 			start = time.Now()
-			task, exitCh, ip, netns, _ := StartContainer(ctx, container, network)
+			task, exitCh, ip, netns, _, _, _ := StartContainer(ctx, container, network)
 
 			sm := &Metadata{
 				Task:        task,
@@ -94,7 +86,7 @@ func TestParallelCreation(t *testing.T) {
 			}
 
 			logrus.Debug("Sandbox creation took: ", time.Since(start).Milliseconds(), " ms")
-			time.Sleep(10 * time.Second)
+			time.Sleep(2 * time.Second)
 
 			_ = DeleteContainer(ctx, network, sm)
 

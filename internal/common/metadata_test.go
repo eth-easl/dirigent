@@ -1,6 +1,7 @@
 package common
 
 import (
+	"cluster_manager/api/proto"
 	"github.com/stretchr/testify/assert"
 	"testing"
 )
@@ -15,9 +16,9 @@ func TestDifference(t *testing.T) {
 	assert.Equal(t, lr[0], "a", "s1 \\ s2 yielded a wrong result.")
 
 	rr := difference(s2, s1)
-	if rr == nil || len(rr) != 1 || rr[0] != "d" {
-		t.Error("s2 \\ s1 yielded a wrong result.")
-	}
+	assert.NotNil(t, rr, "s2 \\ s1 yielded a wrong result.")
+	assert.Len(t, rr, 1, "s2 \\ s1 yielded a wrong result.")
+	assert.Equal(t, rr[0], "d", "s2 \\ s1 yielded a wrong result.")
 }
 
 func TestEndpointMerge(t *testing.T) {
@@ -67,9 +68,9 @@ func TestEndpointMerge(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.testName, func(t *testing.T) {
-			var endpoints []UpstreamEndpoint
+			var endpoints []*UpstreamEndpoint
 			for i := 0; i < len(test.oldURLs); i++ {
-				endpoints = append(endpoints, UpstreamEndpoint{
+				endpoints = append(endpoints, &UpstreamEndpoint{
 					URL: test.oldURLs[i],
 				})
 			}
@@ -79,13 +80,18 @@ func TestEndpointMerge(t *testing.T) {
 				upstreamEndpoints: endpoints,
 			}
 
-			metadata.mergeEndpointList(test.newURLs)
-
-			mergedResults := metadata.getAllUrls()
-
-			if len(mergedResults) != len(test.expectedURLs) {
-				t.Error("Invalid endpoint merge. Algorithm is broken.")
+			endpointsInfo := make([]*proto.EndpointInfo, 0)
+			for _, elem := range test.newURLs {
+				endpointsInfo = append(endpointsInfo, &proto.EndpointInfo{
+					ID:  "mock_id",
+					URL: elem,
+				})
 			}
+
+			metadata.mergeEndpointList(endpointsInfo)
+			mergedResults := metadata.upstreamEndpoints
+
+			assert.Equal(t, len(mergedResults), len(test.expectedURLs), "Invalid endpoint merge. Algorithm is broken.")
 
 			for i := 0; i < len(mergedResults); i++ {
 				found := false
@@ -100,9 +106,7 @@ func TestEndpointMerge(t *testing.T) {
 					}
 				}
 
-				if !found {
-					t.Error("Invalid endpoint merge. Algorithm is broken.")
-				}
+				assert.True(t, found, "Invalid endpoint merge. Algorithm is broken.")
 			}
 		})
 	}

@@ -1,11 +1,13 @@
 package proxy
 
 import (
+	proto2 "cluster_manager/api/proto"
 	common "cluster_manager/internal/common"
 	testserver "cluster_manager/tests"
 	"cluster_manager/tests/proto"
 	"fmt"
 	"github.com/sirupsen/logrus"
+	"github.com/stretchr/testify/assert"
 	"golang.org/x/net/http2"
 	"golang.org/x/net/http2/h2c"
 	"google.golang.org/grpc"
@@ -36,27 +38,24 @@ func TestE2E_HTTP_H2C_NoColdStart(t *testing.T) {
 		}
 
 		err := srv.ListenAndServe()
-		if err != nil {
-			t.Error("Failed to create a http2 server.")
-		}
+		assert.NoError(t, err, "Failed to create a http2 server.")
 	}()
 
 	// http and proxy server setup may take some time
 	time.Sleep(5 * time.Second)
+	assert.True(t, cache.AddDeployment("/test"), "Failed to add deployment to cache.")
 
-	if !cache.AddDeployment("/test") {
-		t.Error("Failed to add deployment to cache.")
-	}
-	fx := cache.GetDeployment("/test")
-	fx.SetUpstreamURLs([]string{"localhost:" + endpointPort})
+	fx, _ := cache.GetDeployment("/test")
+	fx.SetUpstreamURLs([]*proto2.EndpointInfo{&proto2.EndpointInfo{
+		ID:  "mockId",
+		URL: "localhost:" + endpointPort},
+	})
 
 	client := &http.Client{}
 	req, _ := http.NewRequest("GET", "http://localhost:9000/test", nil)
 	res, err := client.Do(req)
 
-	if err != nil || res.StatusCode != http.StatusOK {
-		t.Error("Failed to proxy HTTP request.")
-	}
+	assert.True(t, err == nil && res.StatusCode == http.StatusOK, "Failed to proxy HTTP request.")
 }
 
 // uses ports 9002 and 9003
@@ -72,8 +71,11 @@ func TestE2E_gRPC_H2C_NoColdStart(t *testing.T) {
 	if !cache.AddDeployment("/faas.Executor/Execute") {
 		t.Error("Failed to add deployment to cache.")
 	}
-	fx := cache.GetDeployment("/faas.Executor/Execute")
-	fx.SetUpstreamURLs([]string{"localhost:" + fmt.Sprintf("%s", sandboxPort)})
+	fx, _ := cache.GetDeployment("/faas.Executor/Execute")
+	fx.SetUpstreamURLs([]*proto2.EndpointInfo{&proto2.EndpointInfo{
+		ID:  "mockId",
+		URL: "localhost:" + fmt.Sprintf("%s", sandboxPort)},
+	})
 
 	// proxy
 	//go CreateProxyServer(host, proxyPort, cache)
@@ -84,11 +86,13 @@ func TestE2E_gRPC_H2C_NoColdStart(t *testing.T) {
 
 	time.Sleep(5 * time.Second)
 
+	conn := common.EstablishGRPCConnectionPoll(host, proxyPort)
+	assert.NotNil(t, conn, "Failed to establish gRPC connection with the data plane")
+	executorClient := proto.NewExecutorClient(conn)
+
 	// invocation
-	err := testserver.FireInvocation(t, host, proxyPort)
-	if err != nil {
-		t.Error(fmt.Sprintf("Invocation failed - %s", err))
-	}
+	err := testserver.FireInvocation(executorClient)
+	assert.NoErrorf(t, err, "Invocation failed - %s", err)
 }
 
 // uses ports 9004, 9005, 9006
@@ -101,10 +105,7 @@ func TestE2E_ColdStart_WithResolution(t *testing.T) {
 	apiServerPort := "9006"
 
 	cache := common.NewDeploymentList()
-	if !cache.AddDeployment("/faas.Executor/Execute") {
-		t.Error("Failed to add deployment to cache.")
-	}
-
+	assert.True(t, cache.AddDeployment("/faas.Executor/Execute"), "Failed to add deployment to cache.")
 	// api server
 	//go api.CreateDataPlaneAPIServer(host, apiServerPort, cache)
 	// proxy
@@ -116,23 +117,28 @@ func TestE2E_ColdStart_WithResolution(t *testing.T) {
 
 	time.Sleep(5 * time.Second)
 
+	conn := common.EstablishGRPCConnectionPoll(host, proxyPort)
+	assert.NotNil(t, conn, "Failed to establish gRPC connection with the data plane")
+	executorClient := proto.NewExecutorClient(conn)
+
 	// invocation to experience cold start
 	result := make(chan interface{})
 	go func() {
-		err := testserver.FireInvocation(t, host, proxyPort)
+		err := testserver.FireInvocation(executorClient)
 		result <- err
 	}()
 
 	time.Sleep(3 * time.Second)
 
-	testserver.UpdateEndpointList(t, host, apiServerPort, []string{host + ":" + sandboxPort})
+	testserver.UpdateEndpointList(t, host, apiServerPort, []*proto2.EndpointInfo{&proto2.EndpointInfo{
+		ID:  "id",
+		URL: host + ":" + sandboxPort,
+	}})
 
 	time.Sleep(2 * time.Second)
 
 	msg := <-result
-	if msg != nil {
-		t.Error("Failed to take the request of the cold start buffer.")
-	}
+	assert.NotNil(t, msg, "Failed to take the request of the cold start buffer.")
 }
 
 // uses ports 9007 and 9008
@@ -154,9 +160,11 @@ func TestE2E_gRPC_H2C_NoDeployment(t *testing.T) {
 
 	time.Sleep(5 * time.Second)
 
+	conn := common.EstablishGRPCConnectionPoll(host, proxyPort)
+	assert.NotNil(t, conn, "Failed to establish gRPC connection with the data plane")
+	executorClient := proto.NewExecutorClient(conn)
+
 	// invocation
-	err := testserver.FireInvocation(t, host, proxyPort)
-	if err == nil {
-		t.Error(fmt.Sprintf("Invocation failed - %s", err))
-	}
+	err := testserver.FireInvocation(executorClient)
+	assert.NoErrorf(t, err, "Invocation failed - %s", err)
 }

@@ -12,7 +12,7 @@ message NodeInfo {
   string IP = 2;
   int32 Port = 3;
   int32 CpuCores = 4;
-  int32 MemorySize = 5;
+  uint64 MemorySize = 5;
 }
 
 message NodeHeartbeatMessage {

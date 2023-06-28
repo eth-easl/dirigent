@@ -17,8 +17,8 @@ func GetNumberCpus() int32 {
 	return int32(runtime.NumCPU())
 }
 
-func GetMemory() int32 {
-	return int32(memory.TotalMemory())
+func GetMemory() uint64 {
+	return memory.TotalMemory()
 }
 
 func getCpuUsage() int32 {

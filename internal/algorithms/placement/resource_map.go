@@ -1,5 +1,7 @@
 package placement
 
+import "github.com/sirupsen/logrus"
+
 const (
 	RM_CPU_KEY    = "cpu"
 	RM_MEMORY_KEY = "memory"
@@ -39,7 +41,8 @@ func (r *ResourceMap) GetByKey(key string) int {
 	if v, ok := r.resources[key]; ok {
 		return v
 	} else {
-		panic("There is no resource with the given key.")
+		logrus.Fatal("There is no resource with the given key.")
+		return 0
 	}
 }
 

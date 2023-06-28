@@ -7,6 +7,7 @@ import (
 	"github.com/docker/docker/client"
 	"github.com/docker/go-connections/nat"
 	"github.com/sirupsen/logrus"
+	"github.com/stretchr/testify/assert"
 	"sync"
 	"testing"
 	"time"
@@ -14,9 +15,7 @@ import (
 
 func TestDockerClient(t *testing.T) {
 	cli, err := client.NewClientWithOpts(client.FromEnv)
-	if err != nil {
-		logrus.Fatal(err)
-	}
+	assert.NoError(t, err)
 
 	containerConfig := &container.Config{
 		Image: "docker.io/cvetkovic/empty_function:latest",
@@ -40,14 +39,10 @@ func TestDockerClient(t *testing.T) {
 	defer cancel()
 
 	resp, err := cli.ContainerCreate(ctx, containerConfig, hostConfig, nil, nil, "")
-	if err != nil {
-		logrus.Fatal(err)
-	}
+	assert.NoError(t, err)
 
 	err = cli.ContainerStart(ctx, resp.ID, types.ContainerStartOptions{})
-	if err != nil {
-		logrus.Fatal(err)
-	}
+	assert.NoError(t, err)
 }
 
 func CreateSingle(t *testing.T, cli *client.Client) string {
@@ -57,9 +52,7 @@ func CreateSingle(t *testing.T, cli *client.Client) string {
 	hostConfig := &container.HostConfig{}
 
 	id, err := CreateSandbox(cli, hostConfig, containerConfig)
-	if err != nil {
-		t.Fatal(err)
-	}
+	assert.NoError(t, err)
 
 	return id
 }
@@ -71,9 +64,7 @@ func TestCreateSandboxWithTeardown(t *testing.T) {
 	id := CreateSingle(t, cli)
 
 	err := DeleteSandbox(cli, id)
-	if err != nil {
-		t.Error(err)
-	}
+	assert.NoError(t, err)
 }
 
 func TestParallelSandboxCreation(t *testing.T) {
