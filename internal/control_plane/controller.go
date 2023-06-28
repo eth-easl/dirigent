@@ -104,7 +104,7 @@ func getRequestedResources(machine *WorkerNode, request *placement.ResourceMap) 
 }
 
 func prioritizeNodes(storage *NodeInfoStorage, request *placement.ResourceMap) map[string]int {
-	var scores map[string]int = nil
+	scores := make(map[string]int)
 
 	filterAlgorithms := placement.CreateScoringPipeline()
 

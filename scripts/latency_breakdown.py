@@ -3,7 +3,7 @@ import pandas as pd
 from clustered_plot import *
 
 rootPath = '/home/lcvetkovic/Desktop/cluster_manager/cold_starts/'
-load = [1, 25, 50, 100]
+load = [1, 25, 50, 100, 200, 400, 800]
 
 
 def processQuantile(d, percentile):
@@ -49,9 +49,12 @@ plotClusteredStackedBarchart(result,
                                  '25 cold start',
                                  '50 cold start',
                                  '100 cold start',
+                                 '200 cold start',
+                                 '400 cold start',
+                                 '800 cold start',
                              ],
-                             clusterLabelPosition=(-0.335, 1),
-                             categoryLabelPosition=(-0.25, 0.75))
+                             clusterLabelPosition=(-0.335, 1.1),
+                             categoryLabelPosition=(-0.25, 0.65))
 
 plt.title(f'Cold start latency breakdown')
 plt.xlabel('Percentile')
