@@ -127,7 +127,7 @@ func (ss *ServiceInfoStorage) doUpscaling(toCreateCount int, nodeList *NodeInfoS
 				return
 			}
 
-			logrus.Debug("Sandbox creation took: ", resp.LatencyBreakdown.Total, " ms")
+			logrus.Debug("Sandbox creation took: ", resp.LatencyBreakdown.Total.AsDuration().Milliseconds(), " ms")
 
 			// Critical section
 			endpointMutex.Lock()

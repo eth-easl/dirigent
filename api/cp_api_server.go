@@ -153,7 +153,9 @@ func (c *CpApiServer) RegisterService(ctx context.Context, serviceInfo *proto.Se
 			DesiredStateChannel: &scalingChannel,
 			NotifyChannel:       &scalingChannel,
 			Period:              2 * time.Second, // TODO: hardcoded autoscaling period for now
-			ScalingMetadata:     control_plane.ConvertProtoToAutoscalingStruct(serviceInfo.AutoscalingConfig),
+			ScalingMetadata: control_plane.AutoscalingMetadata{
+				AutoscalingConfig: serviceInfo.AutoscalingConfig,
+			},
 		},
 		ColdStartTracingChannel: &c.ColdStartTracing.InputChannel,
 		PlacementPolicy:         placement.KUBERNETES,

@@ -18,24 +18,12 @@ const (
 type AutoscalingMetadata struct {
 	ActualScale int
 
-	ScalingMethod AveragingMethod
-	ScalingPeriod time.Duration
+	AutoscalingConfig *proto.AutoscalingConfiguration
+	ScalingMethod     AveragingMethod
 
-	InPanicMode              bool
-	StartPanickingTimestamp  time.Time
-	MaxPanicPods             int
-	PanicThresholdPercentage float64
-
-	MaxScaleUpRate   float64
-	MaxScaleDownRate float64
-
-	ContainerConcurrency                 int
-	ContainerConcurrencyTargetPercentage int
-	ScalingUpperBound                    int
-	ScalingLowerBound                    int
-
-	StableWindowWidth time.Duration
-	PanicWindowWidth  time.Duration
+	InPanicMode             bool
+	StartPanickingTimestamp time.Time
+	MaxPanicPods            int
 
 	cachedScalingMetric float64
 	scalingMetrics      []float64
@@ -57,21 +45,6 @@ func NewDefaultAutoscalingMetadata() *proto.AutoscalingConfiguration {
 	}
 }
 
-func ConvertProtoToAutoscalingStruct(p *proto.AutoscalingConfiguration) AutoscalingMetadata {
-	return AutoscalingMetadata{
-		ScalingUpperBound:                    int(p.ScalingUpperBound),
-		ScalingLowerBound:                    int(p.ScalingLowerBound),
-		PanicThresholdPercentage:             float64(p.PanicThresholdPercentage),
-		MaxScaleUpRate:                       float64(p.MaxScaleUpRate),
-		MaxScaleDownRate:                     float64(p.MaxScaleDownRate),
-		ContainerConcurrency:                 int(p.ContainerConcurrency),
-		ContainerConcurrencyTargetPercentage: int(p.ContainerConcurrencyTargetPercentage),
-		StableWindowWidth:                    time.Duration(p.StableWindowWidthSeconds) * time.Second,
-		PanicWindowWidth:                     time.Duration(p.PanicWindowWidthSeconds) * time.Second,
-		ScalingPeriod:                        time.Duration(p.ScalingPeriodSeconds) * time.Second,
-	}
-}
-
 func (s *AutoscalingMetadata) SetCachedScalingMetric(value float64) {
 	s.cachedScalingMetric = value
 }
@@ -83,10 +56,10 @@ func (s *AutoscalingMetadata) KnativeScaling(isScaleFromZero bool) int {
 
 	desiredScale, _ := s.internalScaleAlgorithm(s.cachedScalingMetric)
 
-	if desiredScale > s.ScalingUpperBound {
-		desiredScale = s.ScalingUpperBound
-	} else if desiredScale < s.ScalingLowerBound {
-		desiredScale = s.ScalingLowerBound
+	if desiredScale > int(s.AutoscalingConfig.ScalingUpperBound) {
+		desiredScale = int(s.AutoscalingConfig.ScalingUpperBound)
+	} else if desiredScale < int(s.AutoscalingConfig.ScalingLowerBound) {
+		desiredScale = int(s.AutoscalingConfig.ScalingLowerBound)
 	}
 
 	return desiredScale
@@ -106,16 +79,16 @@ func (s *AutoscalingMetadata) internalScaleAlgorithm(scalingMetric float64) (int
 	// pod if we need to scale up.
 	// E.g. MSUR=1.1, OCC=3, RPC=2, TV=1 => OCC/TV=3, MSU=2.2 => DSPC=2, while we definitely, need
 	// 3 pods. See the unit test for this scenario in action.
-	maxScaleUp := math.Ceil(s.MaxScaleUpRate * readyPodsCount)
+	maxScaleUp := math.Ceil(float64(s.AutoscalingConfig.MaxScaleUpRate) * readyPodsCount)
 	// Same logic, opposite math applies here.
-	maxScaleDown := math.Floor(readyPodsCount / s.MaxScaleDownRate)
+	maxScaleDown := math.Floor(readyPodsCount / float64(s.AutoscalingConfig.MaxScaleDownRate))
 
 	desired := float64(0)
 
-	if s.ContainerConcurrency == 0 {
-		desired = 100 * (float64(s.ContainerConcurrencyTargetPercentage) / 100)
+	if s.AutoscalingConfig.ContainerConcurrency == 0 {
+		desired = 100 * (float64(s.AutoscalingConfig.ContainerConcurrencyTargetPercentage) / 100)
 	} else {
-		desired = float64(s.ContainerConcurrency) * (float64(s.ContainerConcurrencyTargetPercentage) / 100)
+		desired = float64(s.AutoscalingConfig.ContainerConcurrency) * (float64(s.AutoscalingConfig.ContainerConcurrencyTargetPercentage) / 100)
 	}
 
 	var avgStable, avgPanic float64
@@ -128,7 +101,7 @@ func (s *AutoscalingMetadata) internalScaleAlgorithm(scalingMetric float64) (int
 	desiredStablePodCount := int(math.Min(math.Max(dspc, maxScaleDown), maxScaleUp))
 	desiredPanicPodCount := int(math.Min(math.Max(dppc, maxScaleDown), maxScaleUp))
 
-	isOverPanicThreshold := dppc/readyPodsCount >= (s.PanicThresholdPercentage / 100)
+	isOverPanicThreshold := dppc/readyPodsCount >= (float64(s.AutoscalingConfig.PanicThresholdPercentage) / 100)
 
 	if !s.InPanicMode && isOverPanicThreshold {
 		s.InPanicMode = true
@@ -140,7 +113,8 @@ func (s *AutoscalingMetadata) internalScaleAlgorithm(scalingMetric float64) (int
 		s.StartPanickingTimestamp = time.Now()
 
 		logrus.Debug("Extended panic mode")
-	} else if s.InPanicMode && !isOverPanicThreshold && s.StartPanickingTimestamp.Add(s.StableWindowWidth).Before(time.Now()) {
+	} else if s.InPanicMode && !isOverPanicThreshold &&
+		s.StartPanickingTimestamp.Add(time.Duration(s.AutoscalingConfig.StableWindowWidthSeconds)*time.Second).Before(time.Now()) {
 		// Stop panicking after the surge has made its way into the stable metric.
 		s.InPanicMode = false
 		s.StartPanickingTimestamp = time.Time{}
@@ -176,8 +150,8 @@ func (s *AutoscalingMetadata) internalScaleAlgorithm(scalingMetric float64) (int
 }
 
 func (s *AutoscalingMetadata) windowAverage(observedStableValue float64) (float64, float64) {
-	panicBucketCount := int64(s.PanicWindowWidth / s.ScalingPeriod)
-	stableBucketCount := int64(s.StableWindowWidth / s.ScalingPeriod)
+	panicBucketCount := int64(s.AutoscalingConfig.PanicWindowWidthSeconds / s.AutoscalingConfig.ScalingPeriodSeconds)
+	stableBucketCount := int64(s.AutoscalingConfig.StableWindowWidthSeconds / s.AutoscalingConfig.ScalingPeriodSeconds)
 
 	var smoothingCoefficientStable, smoothingCoefficientPanic, multiplierStable, multiplierPanic float64
 
