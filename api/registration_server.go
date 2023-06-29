@@ -15,7 +15,7 @@ func StartServiceRegistrationServer(cpApi *CpApiServer, registrationPort string)
 		if r.Method != http.MethodPost {
 			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 			return
-		} else if cpApi.dpiInterface == nil {
+		} else if cpApi.DataPlaneConnections == nil || len(cpApi.DataPlaneConnections) == 0 {
 			http.Error(w, "No data plane found", http.StatusPreconditionFailed)
 			return
 		}
@@ -63,7 +63,22 @@ func StartServiceRegistrationServer(cpApi *CpApiServer, registrationPort string)
 			w.WriteHeader(http.StatusConflict)
 		}
 
-		w.Write([]byte(fmt.Sprintf("%s:%s", cpApi.dpiIP, cpApi.dpiProxyPort)))
+		endpointList := ""
+		for idx, conn := range cpApi.DataPlaneConnections {
+			setDelimiter := idx != len(cpApi.DataPlaneConnections)-1
+			delimiter := ""
+
+			if setDelimiter {
+				delimiter = ";"
+			}
+
+			endpointList += fmt.Sprintf("%s:%s%s", conn.IP, conn.ProxyPort, delimiter)
+		}
+
+		_, err = w.Write([]byte(endpointList))
+		if err != nil {
+			w.WriteHeader(http.StatusInternalServerError)
+		}
 	})
 
 	logrus.Info("Starting service registration service")

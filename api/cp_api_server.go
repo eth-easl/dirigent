@@ -3,7 +3,7 @@ package api
 import (
 	"cluster_manager/api/proto"
 	"cluster_manager/internal/algorithms/placement"
-	common "cluster_manager/internal/common"
+	"cluster_manager/internal/common"
 	"cluster_manager/internal/control_plane"
 	"context"
 	"strconv"
@@ -16,10 +16,7 @@ import (
 type CpApiServer struct {
 	proto.UnimplementedCpiInterfaceServer
 
-	dpiInterface proto.DpiInterfaceClient
-	dpiIP        string
-	dpiAPIPort   string
-	dpiProxyPort string
+	DataPlaneConnections []*common.DataPlaneConnectionInfo
 
 	NIStorage control_plane.NodeInfoStorage
 	SIStorage map[string]*control_plane.ServiceInfoStorage
@@ -37,20 +34,19 @@ func CreateNewCpApiServer(outputFile string) *CpApiServer {
 	}
 }
 
-func (c *CpApiServer) DpiInterface() proto.DpiInterfaceClient {
-	if c.dpiInterface == nil {
-		logrus.Fatal("Connection with the data plane has not been established.")
-	}
-
-	return c.dpiInterface
+func (c *CpApiServer) GetDpiConnections() []*common.DataPlaneConnectionInfo {
+	return c.DataPlaneConnections
 }
 
-func (c *CpApiServer) setDpiInterface(iface proto.DpiInterfaceClient, ip, apiPort, proxyPort string) {
-	c.dpiInterface = iface
+func (c *CpApiServer) appendDpiConnection(iface proto.DpiInterfaceClient, ip, apiPort, proxyPort string) {
+	conn := &common.DataPlaneConnectionInfo{
+		Iface:     iface,
+		IP:        ip,
+		APIPort:   apiPort,
+		ProxyPort: proxyPort,
+	}
 
-	c.dpiIP = ip
-	c.dpiAPIPort = apiPort
-	c.dpiProxyPort = proxyPort
+	c.DataPlaneConnections = append(c.DataPlaneConnections, conn)
 }
 
 func (c *CpApiServer) OnMetricsReceive(_ context.Context, metric *proto.AutoscalingMetric) (*proto.ActionStatus, error) {
@@ -139,10 +135,12 @@ func updateWorkerNode(workerNode *control_plane.WorkerNode, in *proto.NodeHeartb
 }
 
 func (c *CpApiServer) RegisterService(ctx context.Context, serviceInfo *proto.ServiceInfo) (*proto.ActionStatus, error) {
-	resp, err := c.DpiInterface().AddDeployment(ctx, serviceInfo)
-	if err != nil || !resp.Success {
-		logrus.Warn("Failed to propagate service registration to the data plane")
-		return &proto.ActionStatus{Success: false}, nil
+	for _, conn := range c.DataPlaneConnections {
+		resp, err := conn.Iface.AddDeployment(ctx, serviceInfo)
+		if err != nil || !resp.Success {
+			logrus.Warn("Failed to propagate service registration to the data plane")
+			return &proto.ActionStatus{Success: false}, nil
+		}
 	}
 
 	scalingChannel := make(chan int)
@@ -162,7 +160,7 @@ func (c *CpApiServer) RegisterService(ctx context.Context, serviceInfo *proto.Se
 	}
 	c.SIStorage[serviceInfo.Name] = service
 
-	go service.ScalingControllerLoop(&c.NIStorage, c.DpiInterface())
+	go service.ScalingControllerLoop(&c.NIStorage, c.GetDpiConnections())
 
 	return &proto.ActionStatus{Success: true}, nil
 }
@@ -177,7 +175,7 @@ func (c *CpApiServer) RegisterDataplane(ctx context.Context, in *proto.Dataplane
 		return &proto.ActionStatus{Success: false}, nil
 	}
 
-	c.setDpiInterface(common.InitializeDataPlaneConnection(ipAddress, apiPort), ipAddress, apiPort, proxyPort)
+	c.appendDpiConnection(common.InitializeDataPlaneConnection(ipAddress, apiPort), ipAddress, apiPort, proxyPort)
 
 	return &proto.ActionStatus{Success: true}, nil
 }

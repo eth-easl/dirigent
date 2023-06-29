@@ -10,6 +10,13 @@ import (
 	"time"
 )
 
+type DataPlaneConnectionInfo struct {
+	Iface     proto.DpiInterfaceClient
+	IP        string
+	APIPort   string
+	ProxyPort string
+}
+
 type RequestThrottler chan struct{}
 
 type UpstreamEndpoint struct {

@@ -3,7 +3,7 @@ package control_plane
 import (
 	"cluster_manager/api/proto"
 	"cluster_manager/internal/algorithms/placement"
-	common "cluster_manager/internal/common"
+	"cluster_manager/internal/common"
 	"context"
 	"fmt"
 	"sync"
@@ -48,7 +48,7 @@ func (ss *ServiceInfoStorage) GetAllURLs() []string {
 	return res
 }
 
-func (ss *ServiceInfoStorage) ScalingControllerLoop(nodeList *NodeInfoStorage, dpiClient proto.DpiInterfaceClient) {
+func (ss *ServiceInfoStorage) ScalingControllerLoop(nodeList *NodeInfoStorage, dpiClients []*common.DataPlaneConnectionInfo) {
 	for {
 		select {
 		case desiredCount := <-*ss.Controller.DesiredStateChannel:
@@ -58,7 +58,7 @@ func (ss *ServiceInfoStorage) ScalingControllerLoop(nodeList *NodeInfoStorage, d
 			ss.Controller.ScalingMetadata.ActualScale = desiredCount
 
 			if actualScale < desiredCount {
-				go ss.doUpscaling(desiredCount-actualScale, nodeList, dpiClient)
+				go ss.doUpscaling(desiredCount-actualScale, nodeList, dpiClients)
 			} else if actualScale > desiredCount {
 				currentState := ss.Controller.Endpoints
 				toEvict := make(map[*Endpoint]struct{})
@@ -79,7 +79,7 @@ func (ss *ServiceInfoStorage) ScalingControllerLoop(nodeList *NodeInfoStorage, d
 
 				ss.Controller.Endpoints = excludeEndpoints(ss.Controller.Endpoints, toEvict)
 
-				go ss.doDownscaling(toEvict, ss.prepareUrlList(), dpiClient)
+				go ss.doDownscaling(toEvict, ss.prepareUrlList(), dpiClients)
 			}
 
 			ss.Controller.Unlock() // for all cases (>, ==, <)
@@ -87,7 +87,7 @@ func (ss *ServiceInfoStorage) ScalingControllerLoop(nodeList *NodeInfoStorage, d
 	}
 }
 
-func (ss *ServiceInfoStorage) doUpscaling(toCreateCount int, nodeList *NodeInfoStorage, dpiClient proto.DpiInterfaceClient) {
+func (ss *ServiceInfoStorage) doUpscaling(toCreateCount int, nodeList *NodeInfoStorage, dpiClients []*common.DataPlaneConnectionInfo) {
 	barrier := sync.WaitGroup{}
 
 	var finalEndpoint []*Endpoint
@@ -155,7 +155,7 @@ func (ss *ServiceInfoStorage) doUpscaling(toCreateCount int, nodeList *NodeInfoS
 	ss.Controller.Unlock()
 
 	logrus.Debug("Propagating endpoints.")
-	ss.updateEndpoints(dpiClient, urls)
+	ss.updateEndpoints(dpiClients, urls)
 	logrus.Debug("Endpoints updated.")
 }
 
@@ -186,7 +186,7 @@ func excludeEndpoints(total []*Endpoint, toExclude map[*Endpoint]struct{}) []*En
 	return result
 }
 
-func (ss *ServiceInfoStorage) doDownscaling(toEvict map[*Endpoint]struct{}, urls []*proto.EndpointInfo, dpiClient proto.DpiInterfaceClient) {
+func (ss *ServiceInfoStorage) doDownscaling(toEvict map[*Endpoint]struct{}, urls []*proto.EndpointInfo, dpiClients []*common.DataPlaneConnectionInfo) {
 	barrier := sync.WaitGroup{}
 
 	barrier.Add(len(toEvict))
@@ -218,17 +218,30 @@ func (ss *ServiceInfoStorage) doDownscaling(toEvict map[*Endpoint]struct{}, urls
 
 	// batch update of endpoints
 	barrier.Wait()
-	ss.updateEndpoints(dpiClient, urls)
+	ss.updateEndpoints(dpiClients, urls)
 }
 
-func (ss *ServiceInfoStorage) updateEndpoints(dpiClient proto.DpiInterfaceClient, endpoints []*proto.EndpointInfo) {
-	resp, err := dpiClient.UpdateEndpointList(context.Background(), &proto.DeploymentEndpointPatch{
-		Service:   ss.ServiceInfo,
-		Endpoints: endpoints,
-	})
-	if err != nil || !resp.Success {
-		logrus.Warn("Failed to update endpoint list in the data plane")
+func (ss *ServiceInfoStorage) updateEndpoints(dpiClients []*common.DataPlaneConnectionInfo, endpoints []*proto.EndpointInfo) {
+	wg := &sync.WaitGroup{}
+
+	for _, conn := range dpiClients {
+		c := conn
+		wg.Add(1)
+		
+		go func() {
+			resp, err := c.Iface.UpdateEndpointList(context.Background(), &proto.DeploymentEndpointPatch{
+				Service:   ss.ServiceInfo,
+				Endpoints: endpoints,
+			})
+			if err != nil || !resp.Success {
+				logrus.Warn("Failed to update endpoint list in the data plane")
+			}
+
+			wg.Done()
+		}()
 	}
+
+	wg.Wait()
 }
 
 type WorkerNode struct {
