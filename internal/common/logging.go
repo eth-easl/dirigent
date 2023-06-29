@@ -1,15 +1,17 @@
 package common
 
 import (
-	"github.com/sirupsen/logrus"
 	"math/rand"
 	"time"
+
+	"github.com/sirupsen/logrus"
 )
 
 func InitLibraries(verbosity string) {
 	rand.Seed(time.Now().UnixNano())
 
 	logrus.SetFormatter(&logrus.TextFormatter{TimestampFormat: time.StampMilli, FullTimestamp: true})
+
 	switch verbosity {
 	case "debug":
 		logrus.SetLevel(logrus.DebugLevel)

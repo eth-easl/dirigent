@@ -28,7 +28,12 @@ func (b *bufferPool) Get() []byte {
 		return make([]byte, 32*1024)
 	}
 
-	return *buf.(*[]byte)
+	buffer, ok := buf.(*[]byte)
+	if !ok {
+		panic("Failed to get buffer") // TODO: François Costa, is it the best way of doing?
+	}
+
+	return *buffer
 }
 
 // Put returns the given Buffer to the bufferPool.

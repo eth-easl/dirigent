@@ -3,13 +3,15 @@ package proxy
 import (
 	"cluster_manager/api/proto"
 	common "cluster_manager/internal/common"
+	"cluster_manager/internal/proxy/load_balancing"
 	net2 "cluster_manager/internal/proxy/net"
-	"github.com/sirupsen/logrus"
-	"golang.org/x/net/http2"
-	"golang.org/x/net/http2/h2c"
 	"net"
 	"net/http"
 	"time"
+
+	"github.com/sirupsen/logrus"
+	"golang.org/x/net/http2"
+	"golang.org/x/net/http2/h2c"
 )
 
 type ProxyingService struct {
@@ -77,6 +79,7 @@ func (ps *ProxyingService) createInvocationHandler(next http.Handler, cache *com
 
 			return
 		}
+
 		logrus.Trace("Invocation for service ", serviceName, " has been received.")
 
 		///////////////////////////////////////////////
@@ -86,12 +89,15 @@ func (ps *ProxyingService) createInvocationHandler(next http.Handler, cache *com
 		defer metadata.DecreaseInflight()
 
 		coldStartPause := time.Duration(0)
+
 		if coldStartChannel != nil {
 			logrus.Debug("Enqueued invocation for ", serviceName)
 
 			// wait until a cold start is resolved
 			coldStartWaitTime := time.Now()
+
 			<-coldStartChannel
+
 			durationColdStart += time.Since(coldStartWaitTime)
 
 			time.Sleep(metadata.GetColdStartDelay())
@@ -101,18 +107,24 @@ func (ps *ProxyingService) createInvocationHandler(next http.Handler, cache *com
 		///////////////////////////////////////////////
 		// LOAD BALANCING AND ROUTING
 		///////////////////////////////////////////////
-		lbSuccess, endpoint, durationLB, durationCC := DoLoadBalancing(r, metadata)
+
+		loadBalancingPolicy := load_balancing.LOAD_BALANCING_RANDOM
+
+		lbSuccess, endpoint, durationLB, durationCC := load_balancing.DoLoadBalancing(r, metadata, loadBalancingPolicy)
 		if !lbSuccess {
 			w.WriteHeader(http.StatusGone)
 			logrus.Debug("Cold start passed by no sandbox available.")
+
 			return
 		}
+
 		defer giveBackCCCapacity(endpoint.Capacity)
 
 		///////////////////////////////////////////////
 		// PROXYING - LEAVING THE MACHINE
 		///////////////////////////////////////////////
 		startProxy := time.Now()
+
 		next.ServeHTTP(w, r)
 		///////////////////////////////////////////////
 		// ON THE WAY BACK

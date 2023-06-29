@@ -1,9 +1,10 @@
 package sandbox
 
 import (
-	"github.com/stretchr/testify/assert"
 	"strconv"
 	"testing"
+
+	"github.com/stretchr/testify/assert"
 )
 
 func TestSandboxManager(t *testing.T) {

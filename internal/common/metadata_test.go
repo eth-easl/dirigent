@@ -2,8 +2,9 @@ package common
 
 import (
 	"cluster_manager/api/proto"
-	"github.com/stretchr/testify/assert"
 	"testing"
+
+	"github.com/stretchr/testify/assert"
 )
 
 func TestDifference(t *testing.T) {

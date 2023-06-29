@@ -6,10 +6,11 @@ import (
 	"cluster_manager/internal/control_plane"
 	"cluster_manager/tests/proto"
 	"context"
-	"github.com/sirupsen/logrus"
-	"google.golang.org/grpc"
 	"testing"
 	"time"
+
+	"github.com/sirupsen/logrus"
+	"google.golang.org/grpc"
 )
 
 const (
@@ -57,6 +58,7 @@ func TestInvocationProxying(t *testing.T) {
 
 	executorClient := proto.NewExecutorClient(conn)
 	err := FireInvocation(executorClient)
+
 	if err != nil {
 		t.Error("Invocation failed - ", err)
 	}

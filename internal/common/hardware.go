@@ -1,11 +1,12 @@
 package common
 
 import (
-	"github.com/pbnjay/memory"
-	"github.com/shirou/gopsutil/cpu"
 	"log"
 	"math"
 	"runtime"
+
+	"github.com/pbnjay/memory"
+	"github.com/shirou/gopsutil/cpu"
 )
 
 type HarwareUsage struct {
@@ -26,6 +27,7 @@ func getCpuUsage() int32 {
 	if err != nil {
 		log.Fatal(err)
 	}
+
 	return int32(math.Ceil(percent[0]))
 }
 

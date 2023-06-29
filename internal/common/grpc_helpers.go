@@ -4,14 +4,15 @@ import (
 	"cluster_manager/api/proto"
 	"context"
 	"fmt"
+	"net"
+	"time"
+
 	"github.com/sirupsen/logrus"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/grpc/peer"
 	"google.golang.org/grpc/reflection"
 	"k8s.io/apimachinery/pkg/util/wait"
-	"net"
-	"time"
 )
 
 const (
@@ -74,8 +75,9 @@ func EstablishGRPCConnectionPoll(host, port string, dialOptions ...grpc.DialOpti
 	var conn *grpc.ClientConn
 
 	var options []grpc.DialOption
+
 	options = append(options, GetLongLivingConnectionDialOptions()...)
-	options = append(dialOptions)
+	options = append(options, dialOptions...)
 
 	_ = wait.PollUntilContextCancel(context.Background(), 5*time.Second, false,
 		func(ctx context.Context) (done bool, err error) {
@@ -92,6 +94,7 @@ func EstablishGRPCConnectionPoll(host, port string, dialOptions ...grpc.DialOpti
 			}
 
 			conn = c
+
 			return c != nil, nil
 		},
 	)
@@ -106,6 +109,7 @@ func InitializeControlPlaneConnection(host string, port string, dataplanePort, p
 	}
 
 	logrus.Info("Successfully established connection with the control plane")
+
 	dpiClient := proto.NewCpiInterfaceClient(conn)
 
 	if dataplanePort != -1 {
@@ -130,6 +134,7 @@ func InitializeWorkerNodeConnection(host, port string) proto.WorkerNodeInterface
 	}
 
 	logrus.Info("Successfully established connection with the worker node")
+
 	return proto.NewWorkerNodeInterfaceClient(conn)
 }
 
@@ -140,6 +145,7 @@ func InitializeDataPlaneConnection(host string, port string) proto.DpiInterfaceC
 	}
 
 	logrus.Info("Successfully established connection with the data plane")
+
 	return proto.NewDpiInterfaceClient(conn)
 }
 

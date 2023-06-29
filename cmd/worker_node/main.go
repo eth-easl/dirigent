@@ -8,12 +8,13 @@ import (
 	"context"
 	"flag"
 	"fmt"
-	"github.com/sirupsen/logrus"
-	"google.golang.org/grpc"
-	"k8s.io/apimachinery/pkg/util/wait"
 	"os"
 	"strconv"
 	"time"
+
+	"github.com/sirupsen/logrus"
+	"google.golang.org/grpc"
+	"k8s.io/apimachinery/pkg/util/wait"
 )
 
 var (
@@ -37,6 +38,7 @@ func main() {
 
 	cniClient := sandbox.GetCNIClient(*cniConfigPath)
 	ipt, err := sandbox.NewIptablesUtil()
+
 	if err != nil {
 		logrus.Fatal("Error while accessing iptables - ", err)
 	}
@@ -44,9 +46,11 @@ func main() {
 	cpApi := common.InitializeControlPlaneConnection(*controlPlaneIP, *controlPlanePort, -1, -1)
 
 	registerNodeWithControlPlane(&cpApi)
+
 	go setupHeartbeatLoop(&cpApi)
 
 	logrus.Info("Starting API handlers")
+
 	go common.CreateGRPCServer("0.0.0.0", strconv.Itoa(common.DefaultWorkerNodePort), func(sr grpc.ServiceRegistrar) {
 		proto.RegisterWorkerNodeInterfaceServer(sr, &api.WnApiServer{
 			ContainerdClient: containerdClient,
@@ -122,7 +126,6 @@ func getWorkerStatistics() (*proto.NodeHeartbeatMessage, error) {
 }
 
 func sendHeartbeatLoop(cpApi *proto.CpiInterfaceClient) {
-
 	pollContext, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 
@@ -148,5 +151,4 @@ func sendHeartbeatLoop(cpApi *proto.CpiInterfaceClient) {
 	} else {
 		logrus.Debug("Sent heartbeat to the control plane")
 	}
-
 }

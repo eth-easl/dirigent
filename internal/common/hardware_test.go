@@ -2,9 +2,10 @@ package common
 
 import (
 	"fmt"
+	"testing"
+
 	"github.com/pbnjay/memory"
 	"github.com/stretchr/testify/assert"
-	"testing"
 )
 
 func TestGetCpu(t *testing.T) {

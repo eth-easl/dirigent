@@ -12,20 +12,25 @@ func consumeNode(xff string, from int) (string, int) {
 	// The x-forwarded-header consists of multiple nodes, split by ","
 	rest := xff[from:]
 	i := strings.Index(rest, ",")
+
 	if i == -1 {
 		i = len(rest)
 	}
+
 	return strings.TrimSpace(rest[:i]), from + i + 1
 }
 
 func writeNode(fwd *strings.Builder, node string) {
 	// For simplicity, an address is IPv6 it contains a colon (:)
 	ipv6 := strings.Contains(node, ":")
+
 	if ipv6 {
 		// Convert IPv6 address to "[ipv6 addr]" format
 		fwd.WriteString(`"[`)
 	}
+
 	fwd.WriteString(node)
+
 	if ipv6 {
 		fwd.WriteString(`]"`)
 	}
@@ -40,27 +45,33 @@ func generateForwarded(xff, xfp, xfh string) string {
 	fwd.Grow(len(xff) + len(xfp) + len(xfh) + 6 + 7 + 9*(strings.Count(xff, ",")+1))
 
 	node, next := consumeNode(xff, 0)
+
 	if xff != "" {
 		fwd.WriteString("for=")
 		writeNode(fwd, node)
 	}
+
 	if xfh != "" {
 		if node != "" {
 			fwd.WriteRune(';')
 		}
+
 		fwd.WriteString("host=")
 		fwd.WriteString(xfh)
 	}
+
 	if xfp != "" {
 		if node != "" || xfh != "" {
 			fwd.WriteRune(';')
 		}
+
 		fwd.WriteString("proto=")
 		fwd.WriteString(xfp)
 	}
 
 	for next < len(xff) {
 		node, next = consumeNode(xff, next)
+
 		fwd.WriteString(", for=")
 		writeNode(fwd, node)
 	}

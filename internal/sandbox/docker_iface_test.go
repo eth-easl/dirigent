@@ -2,15 +2,16 @@ package sandbox
 
 import (
 	"context"
+	"sync"
+	"testing"
+	"time"
+
 	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/client"
 	"github.com/docker/go-connections/nat"
 	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
-	"sync"
-	"testing"
-	"time"
 )
 
 func TestDockerClient(t *testing.T) {
@@ -59,6 +60,7 @@ func CreateSingle(t *testing.T, cli *client.Client) string {
 
 func TestCreateSandboxWithTeardown(t *testing.T) {
 	logrus.SetLevel(logrus.DebugLevel)
+
 	cli := GetDockerClient()
 
 	id := CreateSingle(t, cli)
@@ -79,10 +81,13 @@ func TestParallelSandboxCreation(t *testing.T) {
 		go func() {
 			start := time.Now()
 			cli := GetDockerClient()
+
 			logrus.Debug("Create Docker client: ", time.Since(start).Microseconds(), " μs")
 
 			start = time.Now()
+
 			CreateSingle(t, cli)
+
 			logrus.Debug("Sandbox creation took: ", time.Since(start).Milliseconds(), " ms")
 
 			wg.Done()

@@ -5,12 +5,13 @@ import (
 	"crypto/tls"
 	"errors"
 	"fmt"
-	"golang.org/x/net/http2"
-	"k8s.io/apimachinery/pkg/util/wait"
 	"net"
 	"net/http"
 	"net/http/httputil"
 	"time"
+
+	"golang.org/x/net/http2"
+	"k8s.io/apimachinery/pkg/util/wait"
 )
 
 var EmptyReverseProxyDirector = func(request *http.Request) {}
@@ -31,31 +32,41 @@ func dialBackOffHelper(ctx context.Context, network, address string, bo wait.Bac
 		Timeout:   bo.Duration, // Initial duration.
 	}
 	start := time.Now()
+
 	for {
 		var (
 			c   net.Conn
 			err error
 		)
+
 		if tlsConf == nil {
 			c, err = dialer.DialContext(ctx, network, address)
 		} else {
 			c, err = tls.DialWithDialer(dialer, network, address, tlsConf)
 		}
+
 		if err != nil {
 			var errNet net.Error
 			if errors.As(err, &errNet) && errNet.Timeout() {
 				if bo.Steps < 1 {
 					break
 				}
+
 				dialer.Timeout = bo.Step()
+
 				time.Sleep(wait.Jitter(30*time.Millisecond, 1.0)) // Sleep with jitter.
+
 				continue
 			}
+
 			return nil, err
 		}
+
 		return c, nil
 	}
+
 	elapsed := time.Since(start)
+
 	return nil, fmt.Errorf("timed out dialing after %.2fs", elapsed.Seconds())
 }
 

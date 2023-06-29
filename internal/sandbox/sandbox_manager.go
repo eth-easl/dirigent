@@ -1,8 +1,9 @@
 package sandbox
 
 import (
-	"github.com/containerd/containerd"
 	"sync"
+
+	"github.com/containerd/containerd"
 )
 
 type Manager struct {

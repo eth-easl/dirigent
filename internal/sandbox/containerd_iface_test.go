@@ -2,15 +2,16 @@ package sandbox
 
 import (
 	"context"
+	"math/rand"
+	"sync"
+	"testing"
+	"time"
+
 	"github.com/containerd/containerd"
 	"github.com/containerd/containerd/namespaces"
 	"github.com/containerd/go-cni"
 	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
-	"math/rand"
-	"sync"
-	"testing"
-	"time"
 )
 
 const cniConfigPath = "../../configs/cni.conf"
@@ -29,14 +30,17 @@ func TestCreateAContainer(t *testing.T) {
 
 	start := time.Now()
 	image, _ := FetchImage(ctx, client, "docker.io/cvetkovic/empty_function:latest")
+
 	logrus.Info("Image fetching - ", time.Since(start).Microseconds(), "μs")
 
 	start = time.Now()
 	container, err, _ := CreateContainer(ctx, client, image)
+	assert.NoError(t, err, "Failed to create container")
 	logrus.Info("Create container - ", time.Since(start).Microseconds(), "μs")
 
 	start = time.Now()
 	task, exitCh, ip, netns, err, _, _ := StartContainer(ctx, container, network)
+	assert.NoError(t, err, "Failed to start container")
 	logrus.Info("Start container - ", time.Since(start).Microseconds(), "μs")
 
 	sm := &Metadata{
@@ -47,7 +51,8 @@ func TestCreateAContainer(t *testing.T) {
 		NetNs:       netns,
 	}
 
-	_ = DeleteContainer(ctx, network, sm)
+	err = DeleteContainer(ctx, network, sm)
+	assert.NoError(t, err, "Failed to delete container")
 }
 
 func TestParallelCreation(t *testing.T) {
@@ -69,14 +74,12 @@ func TestParallelCreation(t *testing.T) {
 		wg.Add(1)
 
 		go func() {
+			container, err, _ := CreateContainer(ctx, client, image)
+			assert.NoError(t, err, "Failed to create a container")
+
 			start := time.Now()
-
-			start = time.Now()
-			container, _, _ := CreateContainer(ctx, client, image)
-
-			start = time.Now()
-			task, exitCh, ip, netns, _, _, _ := StartContainer(ctx, container, network)
-
+			task, exitCh, ip, netns, err, _, _ := StartContainer(ctx, container, network)
+			assert.NoError(t, err, "Failed to start a container")
 			sm := &Metadata{
 				Task:        task,
 				Container:   container,
@@ -88,7 +91,8 @@ func TestParallelCreation(t *testing.T) {
 			logrus.Debug("Sandbox creation took: ", time.Since(start).Milliseconds(), " ms")
 			time.Sleep(2 * time.Second)
 
-			_ = DeleteContainer(ctx, network, sm)
+			err = DeleteContainer(ctx, network, sm)
+			assert.NoError(t, err, "Failed to delete container")
 
 			wg.Done()
 		}()

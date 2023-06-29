@@ -6,9 +6,10 @@ import (
 	"cluster_manager/tests/proto"
 	"context"
 	"fmt"
-	"github.com/sirupsen/logrus"
 	"testing"
 	"time"
+
+	"github.com/sirupsen/logrus"
 )
 
 type TestServer struct {

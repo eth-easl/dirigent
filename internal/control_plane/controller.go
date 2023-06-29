@@ -1,8 +1,8 @@
 package control_plane
 
 import (
-	"cluster_manager/internal/algorithms/placement"
 	"cluster_manager/internal/common"
+	"cluster_manager/internal/control_plane/placement"
 	"math/rand"
 	"sort"
 	"sync"
@@ -79,11 +79,11 @@ func placementPolicy(placementPolicy placement.PlacementPolicy, storage *NodeInf
 	defer storage.Unlock()
 
 	switch placementPolicy {
-	case placement.RANDOM:
+	case placement.PLACMENT_RANDOM:
 		return randomPolicy(storage, requested)
-	case placement.ROUND_ROBIN:
+	case placement.PLACEMENT_ROUND_ROBIN:
 		return roundRobinPolicy(storage, requested)
-	case placement.KUBERNETES:
+	case placement.PLACEMENT_KUBERNETES:
 		return kubernetesPolicy(storage, requested)
 	default:
 		return kubernetesPolicy(storage, requested)

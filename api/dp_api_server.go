@@ -22,7 +22,10 @@ func (api *DpApiServer) UpdateEndpointList(_ context.Context, patch *proto.Deplo
 		return &proto.DeploymentUpdateSuccess{Success: false}, nil
 	}
 
-	deployment.SetUpstreamURLs(patch.Endpoints)
+	err := deployment.SetUpstreamURLs(patch.Endpoints)
+	if err != nil {
+		return nil, err
+	}
 
 	return &proto.DeploymentUpdateSuccess{Success: true}, nil
 }

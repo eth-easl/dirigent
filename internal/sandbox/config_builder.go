@@ -4,11 +4,12 @@ import (
 	"cluster_manager/api/proto"
 	"errors"
 	"fmt"
-	"github.com/docker/docker/api/types/container"
-	"github.com/docker/go-connections/nat"
 	"math/rand"
 	"strconv"
 	"sync"
+
+	"github.com/docker/docker/api/types/container"
+	"github.com/docker/go-connections/nat"
 )
 
 var portsInUse = make(map[int]struct{})

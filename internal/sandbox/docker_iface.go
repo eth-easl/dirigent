@@ -2,14 +2,15 @@ package sandbox
 
 import (
 	"context"
-	"github.com/docker/docker/api/types"
-	"github.com/docker/docker/api/types/container"
-	"github.com/docker/docker/client"
-	"github.com/sirupsen/logrus"
 	"io"
 	"os"
 	"strings"
 	"time"
+
+	"github.com/docker/docker/api/types"
+	"github.com/docker/docker/api/types/container"
+	"github.com/docker/docker/client"
+	"github.com/sirupsen/logrus"
 )
 
 const requestTimeout = 30 * time.Second
@@ -38,6 +39,7 @@ func resolveImage(cli *client.Client, image string) error {
 	io.Copy(os.Stdout, reader)
 
 	logrus.Debug("Image pull took: ", time.Since(start).Microseconds(), " μs")
+
 	return nil
 }
 
@@ -46,21 +48,22 @@ func CreateSandbox(cli *client.Client, hostConfig *container.HostConfig, contain
 	defer cancel()
 
 	var r container.CreateResponse
+
 	for {
 		resp, err := cli.ContainerCreate(ctx, containerConfig, hostConfig, nil, nil, "")
 		r = resp
 
-		if err != nil {
-			if strings.Contains(err.Error(), "No such image") {
-				logrus.Debug("Image not found. Fetching...")
-				err := resolveImage(cli, containerConfig.Image)
+		if err != nil && strings.Contains(err.Error(), "No such image") {
+			logrus.Debug("Image not found. Fetching...")
 
-				if err != nil {
-					return "", err
-				}
-			} else {
+			err := resolveImage(cli, containerConfig.Image)
+			if err != nil {
 				return "", err
 			}
+		}
+
+		if err != nil {
+			return "", err
 		} else {
 			break
 		}

@@ -2,9 +2,10 @@ package sandbox
 
 import (
 	"context"
-	"github.com/containerd/containerd"
 	"sync"
 	"time"
+
+	"github.com/containerd/containerd"
 )
 
 type ImageManager struct {

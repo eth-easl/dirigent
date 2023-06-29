@@ -4,10 +4,12 @@ import (
 	"cluster_manager/api/proto"
 	"container/list"
 	"context"
-	"github.com/sirupsen/logrus"
+	"errors"
 	"sync"
 	"sync/atomic"
 	"time"
+
+	"github.com/sirupsen/logrus"
 )
 
 type DataPlaneConnectionInfo struct {
@@ -63,17 +65,21 @@ func difference(a, b []string) []string {
 	for _, x := range b {
 		mb[x] = struct{}{}
 	}
+
 	var diff []string
+
 	for _, x := range a {
 		if _, found := mb[x]; !found {
 			diff = append(diff, x)
 		}
 	}
+
 	return diff
 }
 
 func extractField[T any](m []T, extractor func(T) string) ([]string, map[string]T) {
 	var res []string
+
 	mm := make(map[string]T)
 
 	for i := 0; i < len(m); i++ {
@@ -120,7 +126,7 @@ func (m *FunctionMetadata) mergeEndpointList(data []*proto.EndpointInfo) {
 	}
 }
 
-func (m *FunctionMetadata) SetUpstreamURLs(endpoints []*proto.EndpointInfo) {
+func (m *FunctionMetadata) SetUpstreamURLs(endpoints []*proto.EndpointInfo) error {
 	m.Lock()
 	defer m.Unlock()
 
@@ -135,7 +141,11 @@ func (m *FunctionMetadata) SetUpstreamURLs(endpoints []*proto.EndpointInfo) {
 			dequeue := m.queue.Front()
 			m.queue.Remove(dequeue)
 
-			signal := dequeue.Value.(chan struct{})
+			signal, ok := dequeue.Value.(chan struct{})
+			if !ok {
+				return errors.New("Failed to convert dequeue into channel")
+			}
+
 			signal <- struct{}{}
 			close(signal)
 
@@ -146,6 +156,8 @@ func (m *FunctionMetadata) SetUpstreamURLs(endpoints []*proto.EndpointInfo) {
 			logrus.Debug("Dequeued ", dequeueCnt, " requests for ", m.identifier)
 		}
 	}
+
+	return nil
 }
 
 func (m *FunctionMetadata) DecreaseInflight() {
@@ -185,6 +197,7 @@ func (m *FunctionMetadata) TryWarmStart(cp *proto.CpiInterfaceClient) (chan stru
 
 func (m *FunctionMetadata) sendMetricsLoop(cp *proto.CpiInterfaceClient) {
 	timer := time.NewTicker(m.metrics.timeWindowSize)
+
 	logrus.Debug("Started metrics loop")
 
 	for ; true; <-timer.C {
@@ -252,7 +265,7 @@ func (d *Deployments) AddDeployment(name string) bool {
 		metrics: ScalingMetric{
 			timeWindowSize: 2 * time.Second,
 		},
-		coldStartDelay: 10 * time.Millisecond, // TODO: implement readiness probing
+		coldStartDelay: 50 * time.Millisecond, // TODO: implement readiness probing
 	}
 
 	logrus.Info("Service with name '", name, "' has been registered")

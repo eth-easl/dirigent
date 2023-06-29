@@ -2,9 +2,10 @@ package sandbox
 
 import (
 	"fmt"
-	"github.com/coreos/go-iptables/iptables"
 	"github.com/sirupsen/logrus"
 	"strconv"
+
+	"github.com/coreos/go-iptables/iptables"
 )
 
 func NewIptablesUtil() (*iptables.IPTables, error) {

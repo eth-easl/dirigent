@@ -5,19 +5,23 @@ import (
 	common "cluster_manager/internal/common"
 	testserver "cluster_manager/tests"
 	"cluster_manager/tests/proto"
+	"cluster_manager/utils"
 	"fmt"
+	"io"
+	"net/http"
+	"testing"
+	"time"
+
 	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
 	"golang.org/x/net/http2"
 	"golang.org/x/net/http2/h2c"
 	"google.golang.org/grpc"
-	"io"
-	"net/http"
-	"testing"
-	"time"
 )
 
-// uses ports 9000 and 9001
+const localhost string = "localhost"
+
+// uses ports 9000 and 9001.
 func TestE2E_HTTP_H2C_NoColdStart(t *testing.T) {
 	logrus.SetLevel(logrus.DebugLevel)
 
@@ -46,23 +50,25 @@ func TestE2E_HTTP_H2C_NoColdStart(t *testing.T) {
 	assert.True(t, cache.AddDeployment("/test"), "Failed to add deployment to cache.")
 
 	fx, _ := cache.GetDeployment("/test")
-	fx.SetUpstreamURLs([]*proto2.EndpointInfo{&proto2.EndpointInfo{
+	err := fx.SetUpstreamURLs([]*proto2.EndpointInfo{{
 		ID:  "mockId",
 		URL: "localhost:" + endpointPort},
 	})
 
+	assert.NoError(t, err, "Failed to set upstream urls")
+
 	client := &http.Client{}
-	req, _ := http.NewRequest("GET", "http://localhost:9000/test", nil)
+	req, _ := http.NewRequest(http.MethodGet, "http://localhost:9000/test", nil)
 	res, err := client.Do(req)
 
 	assert.True(t, err == nil && res.StatusCode == http.StatusOK, "Failed to proxy HTTP request.")
 }
 
-// uses ports 9002 and 9003
+// uses ports 9002 and 9003.
 func TestE2E_gRPC_H2C_NoColdStart(t *testing.T) {
 	logrus.SetLevel(logrus.DebugLevel)
 
-	host := "localhost"
+	host := utils.LOCALHOST
 	proxyPort := "9002"
 	sandboxPort := "9003"
 
@@ -71,11 +77,14 @@ func TestE2E_gRPC_H2C_NoColdStart(t *testing.T) {
 	if !cache.AddDeployment("/faas.Executor/Execute") {
 		t.Error("Failed to add deployment to cache.")
 	}
+
 	fx, _ := cache.GetDeployment("/faas.Executor/Execute")
-	fx.SetUpstreamURLs([]*proto2.EndpointInfo{&proto2.EndpointInfo{
+	err := fx.SetUpstreamURLs([]*proto2.EndpointInfo{{
 		ID:  "mockId",
-		URL: "localhost:" + fmt.Sprintf("%s", sandboxPort)},
+		URL: utils.LOCALHOST + ":" + fmt.Sprintf("%s", sandboxPort)},
 	})
+
+	assert.NoError(t, err, "Failed to set upstream URLs")
 
 	// proxy
 	//go CreateProxyServer(host, proxyPort, cache)
@@ -91,11 +100,11 @@ func TestE2E_gRPC_H2C_NoColdStart(t *testing.T) {
 	executorClient := proto.NewExecutorClient(conn)
 
 	// invocation
-	err := testserver.FireInvocation(executorClient)
+	err = testserver.FireInvocation(executorClient)
 	assert.NoErrorf(t, err, "Invocation failed - %s", err)
 }
 
-// uses ports 9004, 9005, 9006
+// uses ports 9004, 9005, 9006.
 func TestE2E_ColdStart_WithResolution(t *testing.T) {
 	logrus.SetLevel(logrus.DebugLevel)
 
@@ -130,7 +139,7 @@ func TestE2E_ColdStart_WithResolution(t *testing.T) {
 
 	time.Sleep(3 * time.Second)
 
-	testserver.UpdateEndpointList(t, host, apiServerPort, []*proto2.EndpointInfo{&proto2.EndpointInfo{
+	testserver.UpdateEndpointList(t, host, apiServerPort, []*proto2.EndpointInfo{{
 		ID:  "id",
 		URL: host + ":" + sandboxPort,
 	}})
@@ -141,7 +150,7 @@ func TestE2E_ColdStart_WithResolution(t *testing.T) {
 	assert.NotNil(t, msg, "Failed to take the request of the cold start buffer.")
 }
 
-// uses ports 9007 and 9008
+// uses ports 9007 and 9008.
 func TestE2E_gRPC_H2C_NoDeployment(t *testing.T) {
 	logrus.SetLevel(logrus.DebugLevel)
 

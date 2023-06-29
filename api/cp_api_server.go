@@ -2,9 +2,9 @@ package api
 
 import (
 	"cluster_manager/api/proto"
-	"cluster_manager/internal/algorithms/placement"
 	"cluster_manager/internal/common"
 	"cluster_manager/internal/control_plane"
+	"cluster_manager/internal/control_plane/placement"
 	"context"
 	"strconv"
 	"time"
@@ -156,7 +156,7 @@ func (c *CpApiServer) RegisterService(ctx context.Context, serviceInfo *proto.Se
 			},
 		},
 		ColdStartTracingChannel: &c.ColdStartTracing.InputChannel,
-		PlacementPolicy:         placement.KUBERNETES,
+		PlacementPolicy:         placement.PLACEMENT_KUBERNETES,
 	}
 	c.SIStorage[serviceInfo.Name] = service
 
