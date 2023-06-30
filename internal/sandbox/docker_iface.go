@@ -53,17 +53,17 @@ func CreateSandbox(cli *client.Client, hostConfig *container.HostConfig, contain
 		resp, err := cli.ContainerCreate(ctx, containerConfig, hostConfig, nil, nil, "")
 		r = resp
 
-		if err != nil && strings.Contains(err.Error(), "No such image") {
-			logrus.Debug("Image not found. Fetching...")
+		if err != nil {
+			if strings.Contains(err.Error(), "No such image") {
+				logrus.Debug("Image not found. Fetching...")
+				err := resolveImage(cli, containerConfig.Image)
 
-			err := resolveImage(cli, containerConfig.Image)
-			if err != nil {
+				if err != nil {
+					return "", err
+				}
+			} else {
 				return "", err
 			}
-		}
-
-		if err != nil {
-			return "", err
 		} else {
 			break
 		}
