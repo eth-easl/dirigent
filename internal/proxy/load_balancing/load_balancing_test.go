@@ -64,19 +64,19 @@ func TestLeastProcessedLoadBalancing(t *testing.T) {
 	endpoints, endpointsSize := getTestEndpoints()
 	metadata := common.NewFunctionMetadata("mockMetaData")
 
-	(*metadata.GetRequestCountPerInstance())[endpoints[0]]++
-	(*metadata.GetRequestCountPerInstance())[endpoints[1]]++
+	metadata.GetRequestCountPerInstance()[endpoints[0]]++
+	metadata.GetRequestCountPerInstance()[endpoints[1]]++
 
 	// TODO: Refactor the last statement, François Costa
 	for i := 2; i < endpointsSize; i++ {
 		endpoint := leastProcessedLoadBalancing(metadata, endpoints)
 		assert.Equal(t, endpoints[i], endpoint, "Endpoint isn't the correct one")
-		(*metadata.GetRequestCountPerInstance())[endpoint]++
+		metadata.GetRequestCountPerInstance()[endpoint]++
 	}
 
 	for i := 0; i < endpointsSize; i++ {
 		endpoint := leastProcessedLoadBalancing(metadata, endpoints)
 		assert.Equal(t, endpoints[i], endpoint, "Endpoint isn't the correct one")
-		(*metadata.GetRequestCountPerInstance())[endpoint]++
+		metadata.GetRequestCountPerInstance()[endpoint]++
 	}
 }

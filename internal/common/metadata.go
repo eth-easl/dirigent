@@ -37,7 +37,7 @@ type FunctionMetadata struct {
 	upstreamEndpointsCount int32
 	queue                  *list.List
 
-	requestCountPerInstance *map[*UpstreamEndpoint]int64
+	requestCountPerInstance map[*UpstreamEndpoint]int64
 
 	beingDrained   *chan struct{} // TODO: implement this feature
 	metrics        ScalingMetric
@@ -55,8 +55,6 @@ type ScalingMetric struct {
 }
 
 func NewFunctionMetadata(name string) *FunctionMetadata {
-	requestPerInstance := make(map[*UpstreamEndpoint]int64)
-
 	return &FunctionMetadata{
 		identifier:         name,
 		sandboxParallelism: 1, // TODO: make dynamic
@@ -65,7 +63,7 @@ func NewFunctionMetadata(name string) *FunctionMetadata {
 			timeWindowSize: 2 * time.Second,
 		},
 		coldStartDelay:          50 * time.Millisecond, // TODO: implement readiness probing
-		requestCountPerInstance: &requestPerInstance,
+		requestCountPerInstance: make(map[*UpstreamEndpoint]int64),
 	}
 }
 
@@ -77,7 +75,7 @@ func (m *FunctionMetadata) GetUpstreamEndpoints() []*UpstreamEndpoint {
 	return m.upstreamEndpoints
 }
 
-func (m *FunctionMetadata) GetRequestCountPerInstance() *map[*UpstreamEndpoint]int64 {
+func (m *FunctionMetadata) GetRequestCountPerInstance() map[*UpstreamEndpoint]int64 {
 	return m.requestCountPerInstance
 }
 

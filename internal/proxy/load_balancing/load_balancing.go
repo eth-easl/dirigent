@@ -54,7 +54,7 @@ func DoLoadBalancing(req *http.Request, metadata *common.FunctionMetadata, loadB
 	req.URL.Host = endpoint.URL
 	logrus.Debug("Invocation forwarded to ", endpoint.URL)
 
-	(*metadata.GetRequestCountPerInstance())[endpoint]++
+	metadata.GetRequestCountPerInstance()[endpoint]++
 
 	return true, endpoint, time.Since(start), ccDuration
 }
@@ -76,10 +76,10 @@ func leastProcessedLoadBalancing(metadata *common.FunctionMetadata, endpoints []
 	requestCountPerInstance := metadata.GetRequestCountPerInstance()
 
 	minEndpoint := endpoints[0]
-	minValue := (*requestCountPerInstance)[minEndpoint]
+	minValue := requestCountPerInstance[minEndpoint]
 
 	for _, endpoint := range endpoints {
-		countPerInstance := (*requestCountPerInstance)[endpoint]
+		countPerInstance := requestCountPerInstance[endpoint]
 
 		if countPerInstance < minValue {
 			minEndpoint = endpoint
