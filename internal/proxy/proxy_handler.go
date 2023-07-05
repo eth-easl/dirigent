@@ -142,7 +142,7 @@ func (ps *ProxyingService) createInvocationHandler(next http.Handler, cache *com
 			Proxying:       time.Since(startProxy),
 		}
 
-		metadata.DecrementLocalQueueLength(endpoint)
+		defer metadata.DecrementLocalQueueLength(endpoint)
 	}
 }
 

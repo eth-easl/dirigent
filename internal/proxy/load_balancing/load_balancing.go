@@ -137,6 +137,8 @@ func kubernetesFirstAvailableLoadBalancing(metadata *common.FunctionMetadata) *c
 		}
 	}
 
+	logrus.Debug("No worker free, performing random choice")
+
 	// If no node is available, we assign a random node
 	return randomEndpoint(endpoints)
 }
@@ -144,21 +146,24 @@ func kubernetesFirstAvailableLoadBalancing(metadata *common.FunctionMetadata) *c
 func kubernetesRoundRobinLoadBalancing(metadata *common.FunctionMetadata) *common.UpstreamEndpoint {
 	endpoints := metadata.GetUpstreamEndpoints()
 
-	idx := metadata.GetKubernetesRoundRobinCounter()
-	baseIdx := idx
+	baseIdx := metadata.GetKubernetesRoundRobinCounter()
 
-	for len(endpoints[idx].Capacity) == 0 {
+	for len(endpoints[metadata.GetKubernetesRoundRobinCounter()].Capacity) == 0 {
 		metadata.IncrementKubernetesRoundRobinCounter()
 		if metadata.GetKubernetesRoundRobinCounter() == baseIdx {
 			break
 		}
 	}
 
+	idx := metadata.GetKubernetesRoundRobinCounter()
+
 	// Check if we found a node
 	if len(endpoints[idx].Capacity) > 0 {
 		metadata.IncrementKubernetesRoundRobinCounter()
 		return endpoints[idx]
 	}
+
+	logrus.Debug("No worker free, performing random choice")
 
 	// If no node is available, we assign a random node
 	return randomEndpoint(endpoints)
@@ -169,7 +174,7 @@ func kubernetesNativeLoadBalancing(metadata *common.FunctionMetadata) *common.Up
 
 	if containerConcurrency == common.UNLIMITED_CONCURENCY {
 		return bestOfTwoRandoms(metadata)
-	} else if containerConcurrency <= common.FIRST_AVAILABLE_THRESHOLD {
+	} else if containerConcurrency <= 3 {
 		return kubernetesFirstAvailableLoadBalancing(metadata)
 	} else {
 		return kubernetesRoundRobinLoadBalancing(metadata)

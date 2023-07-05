@@ -2,6 +2,7 @@ package load_balancing
 
 import (
 	"cluster_manager/internal/common"
+	"math/rand"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -62,11 +63,11 @@ func TestRandomLoadBalancing(t *testing.T) {
 }
 
 func TestRoundRobinLoadBalancing(t *testing.T) {
-	metadata, sizeEndoints := getTestEndpoints()
+	metadata, sizeEndpoints := getTestEndpoints()
 	endpoints := metadata.GetUpstreamEndpoints()
 
 	for i := 0; i < 100; i++ {
-		for j := 0; j < sizeEndoints; j++ {
+		for j := 0; j < sizeEndpoints; j++ {
 			endpoint := roundRobinLoadBalancing(metadata)
 			assert.Equal(t, endpoints[j], endpoint, "Endpoint isn't the correct one")
 		}
@@ -117,7 +118,7 @@ func TestBestOfTwoRandoms(t *testing.T) {
 	}
 }
 
-func TestKubernetesRoundRobinLoadBalancing(t *testing.T) {
+func TestKubernetesRoundRobinLoadBalancingSimple(t *testing.T) {
 	metadata, size := getTestEndpoints()
 	endpoints := metadata.GetUpstreamEndpoints()
 
@@ -131,9 +132,14 @@ func TestKubernetesRoundRobinLoadBalancing(t *testing.T) {
 			<-endpoint.Capacity
 		}
 	}
+}
 
-	/*for i := 0; i < 1; i++ {
-		index := rand.Intn(len(endpoints))
+func TestKubernetesRoundRobinLoadBalancingRandomFree(t *testing.T) {
+	metadata, size := getTestEndpoints()
+	endpoints := metadata.GetUpstreamEndpoints()
+
+	for i := 0; i < 200; i++ {
+		index := rand.Intn(size)
 
 		endpoints[index].Capacity <- struct{}{}
 
@@ -141,5 +147,39 @@ func TestKubernetesRoundRobinLoadBalancing(t *testing.T) {
 		assert.Equal(t, endpoints[index], endpoint, "Endpoints aren't the same")
 
 		<-endpoint.Capacity
-	}*/
+	}
+}
+
+func TestKubernetesFirstAvailableLoadBalancingSimple(t *testing.T) {
+	metadata, size := getTestEndpoints()
+	endpoints := metadata.GetUpstreamEndpoints()
+
+	for j := 0; j < 200; j++ {
+		for i := 0; i < size; i++ {
+			endpoints[i].Capacity <- struct{}{}
+
+			endpoint := kubernetesFirstAvailableLoadBalancing(metadata)
+			assert.Equal(t, endpoints[i], endpoint, "Endpoints aren't the same")
+
+			<-endpoint.Capacity
+		}
+	}
+}
+
+func TestKubernetesFirstAvailableLoadBalancingRandom(t *testing.T) {
+	metadata, size := getTestEndpoints()
+	endpoints := metadata.GetUpstreamEndpoints()
+
+	endpoints[size-1].Capacity <- struct{}{}
+
+	for i := 0; i < 200; i++ {
+		index := rand.Intn(size - 1)
+
+		endpoints[index].Capacity <- struct{}{}
+
+		endpoint := kubernetesFirstAvailableLoadBalancing(metadata)
+		assert.Equal(t, endpoints[index], endpoint, "Endpoints aren't the same")
+
+		<-endpoint.Capacity
+	}
 }

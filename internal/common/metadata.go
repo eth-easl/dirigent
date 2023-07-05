@@ -13,8 +13,7 @@ import (
 )
 
 const (
-	UNLIMITED_CONCURENCY      int64 = 0
-	FIRST_AVAILABLE_THRESHOLD int64 = 3
+	UNLIMITED_CONCURENCY uint = 0
 )
 
 type DataPlaneConnectionInfo struct {
@@ -33,8 +32,8 @@ type UpstreamEndpoint struct {
 }
 
 type LoadBalancingMetadata struct {
-	RoundRobinCounter           int64
-	KubernetesRoundRobinCounter int64
+	RoundRobinCounter           uint32
+	KubernetesRoundRobinCounter uint32
 	RequestCountPerInstance     map[*UpstreamEndpoint]int64
 	FAInstanceQueueLength       map[*UpstreamEndpoint]int64
 }
@@ -43,7 +42,7 @@ type FunctionMetadata struct {
 	sync.RWMutex
 
 	identifier         string
-	sandboxParallelism int64
+	sandboxParallelism uint
 
 	upstreamEndpoints      []*UpstreamEndpoint
 	upstreamEndpointsCount int32
@@ -88,35 +87,46 @@ func (m *FunctionMetadata) GetColdStartDelay() time.Duration {
 	return m.coldStartDelay
 }
 
+// TODO: Find better synchronization primitive
+var upstreamEndpointsLock sync.Mutex
+
 func (m *FunctionMetadata) GetUpstreamEndpoints() []*UpstreamEndpoint {
+	upstreamEndpointsLock.Lock()
+	defer upstreamEndpointsLock.Unlock()
+
 	return m.upstreamEndpoints
 }
 
-func (m *FunctionMetadata) GetSandboxParallelism() int64 {
+func (m *FunctionMetadata) GetSandboxParallelism() uint {
 	return m.sandboxParallelism
 }
 
-func (m *FunctionMetadata) GetRoundRobinCounter() int64 {
-	return m.loadBalancingMetadata.RoundRobinCounter
+func (m *FunctionMetadata) GetRoundRobinCounter() uint32 {
+	return m.loadBalancingMetadata.RoundRobinCounter % uint32(len(m.GetUpstreamEndpoints()))
 }
 
 func (m *FunctionMetadata) IncrementRoundRobinCounter() {
-	m.loadBalancingMetadata.RoundRobinCounter = (m.loadBalancingMetadata.RoundRobinCounter + 1) % int64(len(m.GetUpstreamEndpoints()))
+	atomic.AddUint32(&m.loadBalancingMetadata.RoundRobinCounter, 1)
 }
 
-func (m *FunctionMetadata) GetKubernetesRoundRobinCounter() int64 {
-	return m.loadBalancingMetadata.RoundRobinCounter
+func (m *FunctionMetadata) GetKubernetesRoundRobinCounter() uint32 {
+	return m.loadBalancingMetadata.KubernetesRoundRobinCounter % uint32(len(m.GetUpstreamEndpoints()))
 }
 
 func (m *FunctionMetadata) IncrementKubernetesRoundRobinCounter() {
-	m.loadBalancingMetadata.RoundRobinCounter = (m.loadBalancingMetadata.RoundRobinCounter + 1) % int64(len(m.GetUpstreamEndpoints()))
+	atomic.AddUint32(&m.loadBalancingMetadata.KubernetesRoundRobinCounter, 1)
 }
 
 func (m *FunctionMetadata) GetRequestCountPerInstance() map[*UpstreamEndpoint]int64 {
 	return m.loadBalancingMetadata.RequestCountPerInstance
 }
 
+// TODO: Find better synchronization primitive - IMPORTANT
+var requestCountPerInstanceLock sync.Mutex
+
 func (m *FunctionMetadata) UpdateRequestMetadata(endpoint *UpstreamEndpoint) {
+	requestCountPerInstanceLock.Lock()
+	defer requestCountPerInstanceLock.Unlock()
 	m.loadBalancingMetadata.RequestCountPerInstance[endpoint]++
 }
 
@@ -124,11 +134,20 @@ func (m *FunctionMetadata) GetLocalQueueLength(endpoint *UpstreamEndpoint) int64
 	return m.loadBalancingMetadata.FAInstanceQueueLength[endpoint]
 }
 
+// TODO: Find better synchronization primitive - IMPORTANT
+var localQueueLengthLock sync.Mutex
+
 func (m *FunctionMetadata) IncrementLocalQueueLength(endpoint *UpstreamEndpoint) {
+	localQueueLengthLock.Lock()
+	defer localQueueLengthLock.Unlock()
+
 	m.loadBalancingMetadata.FAInstanceQueueLength[endpoint]++
 }
 
 func (m *FunctionMetadata) DecrementLocalQueueLength(endpoint *UpstreamEndpoint) {
+	localQueueLengthLock.Lock()
+	defer localQueueLengthLock.Unlock()
+
 	m.loadBalancingMetadata.FAInstanceQueueLength[endpoint]--
 }
 
@@ -164,11 +183,10 @@ func extractField[T any](m []T, extractor func(T) string) ([]string, map[string]
 	return res, mm
 }
 
-func createThrottlerChannel(capacity int64) RequestThrottler {
+func createThrottlerChannel(capacity uint) RequestThrottler {
 	ccChannel := make(chan struct{}, capacity)
 
-	var cc int64 = 0
-	for ; cc < capacity; cc++ {
+	for cc := 0; uint(cc) < capacity; cc++ {
 		ccChannel <- struct{}{}
 	}
 
