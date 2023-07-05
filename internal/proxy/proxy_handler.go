@@ -141,6 +141,8 @@ func (ps *ProxyingService) createInvocationHandler(next http.Handler, cache *com
 			CCThrottling:   durationCC,
 			Proxying:       time.Since(startProxy),
 		}
+
+		metadata.DecrementLocalQueueLength(endpoint)
 	}
 }
 

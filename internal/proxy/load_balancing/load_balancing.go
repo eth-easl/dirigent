@@ -33,15 +33,15 @@ func DoLoadBalancing(req *http.Request, metadata *common.FunctionMetadata, loadB
 
 	switch loadBalancingPolicy {
 	case LOAD_BALANCING_RANDOM:
-		endpoint = randomLoadBalancing(endpoints)
+		endpoint = randomLoadBalancing(metadata)
 	case LOAD_BALANCING_ROUND_ROBIN:
-		endpoint = roundRobinLoadBalancing(endpoints)
+		endpoint = roundRobinLoadBalancing(metadata)
 	case LOAD_BALANCING_LEAST_PROCESSED:
-		endpoint = leastProcessedLoadBalancing(metadata, endpoints) // TODO: François Costa, check how to implement it & implement it
+		endpoint = leastProcessedLoadBalancing(metadata)
 	case LOAD_BALANCING_KNATIVE:
-		panic("Implement this") // TODO: François Costa, check how to implement it & implement it
+		endpoint = kubernetesNativeLoadBalancing(metadata)
 	default:
-		endpoint = randomLoadBalancing(endpoints)
+		endpoint = randomLoadBalancing(metadata)
 	}
 
 	ccStart := time.Now()
@@ -54,25 +54,30 @@ func DoLoadBalancing(req *http.Request, metadata *common.FunctionMetadata, loadB
 	req.URL.Host = endpoint.URL
 	logrus.Debug("Invocation forwarded to ", endpoint.URL)
 
-	metadata.GetRequestCountPerInstance()[endpoint]++
+	metadata.UpdateRequestMetadata(endpoint)
 
 	return true, endpoint, time.Since(start), ccDuration
 }
 
-func randomLoadBalancing(endpoints []*common.UpstreamEndpoint) *common.UpstreamEndpoint {
+func randomEndpoint(endpoints []*common.UpstreamEndpoint) *common.UpstreamEndpoint {
 	index := rand.Intn(len(endpoints))
 	return endpoints[index]
 }
 
-var roundRobinCounterIndex int = 0 // TODO: Refactor this François Costa
-func roundRobinLoadBalancing(endpoints []*common.UpstreamEndpoint) *common.UpstreamEndpoint {
-	outputEndpoint := endpoints[roundRobinCounterIndex]
-	roundRobinCounterIndex = (roundRobinCounterIndex + 1) % len(endpoints)
+func randomLoadBalancing(metadata *common.FunctionMetadata) *common.UpstreamEndpoint {
+	return randomEndpoint(metadata.GetUpstreamEndpoints())
+}
+
+func roundRobinLoadBalancing(metadata *common.FunctionMetadata) *common.UpstreamEndpoint {
+	endpoints := metadata.GetUpstreamEndpoints()
+	outputEndpoint := endpoints[metadata.GetRoundRobinCounter()]
+	metadata.IncrementRoundRobinCounter()
 
 	return outputEndpoint
 }
 
-func leastProcessedLoadBalancing(metadata *common.FunctionMetadata, endpoints []*common.UpstreamEndpoint) *common.UpstreamEndpoint {
+func leastProcessedLoadBalancing(metadata *common.FunctionMetadata) *common.UpstreamEndpoint {
+	endpoints := metadata.GetUpstreamEndpoints()
 	requestCountPerInstance := metadata.GetRequestCountPerInstance()
 
 	minEndpoint := endpoints[0]
@@ -88,4 +93,85 @@ func leastProcessedLoadBalancing(metadata *common.FunctionMetadata, endpoints []
 	}
 
 	return minEndpoint
+}
+
+func generateTwoUniformRandomEndpoints(endpoints []*common.UpstreamEndpoint) (*common.UpstreamEndpoint, *common.UpstreamEndpoint) {
+	/*
+		The trick is that we generate from 0 to l-1 and if the generated value is bigger than the first.
+		We increase by one. We get two uniform randoms distributions and the number are different.
+	*/
+	size := len(endpoints)
+	r1, r2 := rand.Intn(size), rand.Intn(size-1)
+	if r2 >= r1 {
+		r2++
+	}
+
+	return endpoints[r1], endpoints[r2]
+}
+
+func bestOfTwoRandoms(metadata *common.FunctionMetadata) *common.UpstreamEndpoint {
+	endpoints := metadata.GetUpstreamEndpoints()
+	var output *common.UpstreamEndpoint
+
+	if len(endpoints) == 1 {
+		output = endpoints[0]
+	} else {
+		endpoint1, endpoint2 := generateTwoUniformRandomEndpoints(endpoints)
+		if metadata.GetLocalQueueLength(endpoint1) > metadata.GetLocalQueueLength(endpoint2) {
+			output = endpoint1
+		} else {
+			output = endpoint2
+		}
+	}
+
+	metadata.IncrementLocalQueueLength(output)
+
+	return output
+}
+
+func kubernetesFirstAvailableLoadBalancing(metadata *common.FunctionMetadata) *common.UpstreamEndpoint {
+	endpoints := metadata.GetUpstreamEndpoints()
+	for _, endpoint := range endpoints {
+		if len(endpoint.Capacity) > 0 {
+			return endpoint
+		}
+	}
+
+	// If no node is available, we assign a random node
+	return randomEndpoint(endpoints)
+}
+
+func kubernetesRoundRobinLoadBalancing(metadata *common.FunctionMetadata) *common.UpstreamEndpoint {
+	endpoints := metadata.GetUpstreamEndpoints()
+
+	idx := metadata.GetKubernetesRoundRobinCounter()
+	baseIdx := idx
+
+	for len(endpoints[idx].Capacity) == 0 {
+		metadata.IncrementKubernetesRoundRobinCounter()
+		if metadata.GetKubernetesRoundRobinCounter() == baseIdx {
+			break
+		}
+	}
+
+	// Check if we found a node
+	if len(endpoints[idx].Capacity) > 0 {
+		metadata.IncrementKubernetesRoundRobinCounter()
+		return endpoints[idx]
+	}
+
+	// If no node is available, we assign a random node
+	return randomEndpoint(endpoints)
+}
+
+func kubernetesNativeLoadBalancing(metadata *common.FunctionMetadata) *common.UpstreamEndpoint {
+	containerConcurrency := metadata.GetSandboxParallelism()
+
+	if containerConcurrency == common.UNLIMITED_CONCURENCY {
+		return bestOfTwoRandoms(metadata)
+	} else if containerConcurrency <= common.FIRST_AVAILABLE_THRESHOLD {
+		return kubernetesFirstAvailableLoadBalancing(metadata)
+	} else {
+		return kubernetesRoundRobinLoadBalancing(metadata)
+	}
 }

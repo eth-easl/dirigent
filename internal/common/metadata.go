@@ -12,6 +12,11 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
+const (
+	UNLIMITED_CONCURENCY      int64 = 0
+	FIRST_AVAILABLE_THRESHOLD int64 = 3
+)
+
 type DataPlaneConnectionInfo struct {
 	Iface     proto.DpiInterfaceClient
 	IP        string
@@ -27,17 +32,24 @@ type UpstreamEndpoint struct {
 	URL      string
 }
 
+type LoadBalancingMetadata struct {
+	RoundRobinCounter           int64
+	KubernetesRoundRobinCounter int64
+	RequestCountPerInstance     map[*UpstreamEndpoint]int64
+	FAInstanceQueueLength       map[*UpstreamEndpoint]int64
+}
+
 type FunctionMetadata struct {
 	sync.RWMutex
 
 	identifier         string
-	sandboxParallelism int
+	sandboxParallelism int64
 
 	upstreamEndpoints      []*UpstreamEndpoint
 	upstreamEndpointsCount int32
 	queue                  *list.List
 
-	requestCountPerInstance map[*UpstreamEndpoint]int64
+	loadBalancingMetadata LoadBalancingMetadata
 
 	beingDrained   *chan struct{} // TODO: implement this feature
 	metrics        ScalingMetric
@@ -62,8 +74,13 @@ func NewFunctionMetadata(name string) *FunctionMetadata {
 		metrics: ScalingMetric{
 			timeWindowSize: 2 * time.Second,
 		},
-		coldStartDelay:          50 * time.Millisecond, // TODO: implement readiness probing
-		requestCountPerInstance: make(map[*UpstreamEndpoint]int64),
+		coldStartDelay: 50 * time.Millisecond, // TODO: implement readiness probing
+		loadBalancingMetadata: LoadBalancingMetadata{
+			RoundRobinCounter:           0,
+			KubernetesRoundRobinCounter: 0,
+			RequestCountPerInstance:     make(map[*UpstreamEndpoint]int64),
+			FAInstanceQueueLength:       make(map[*UpstreamEndpoint]int64),
+		},
 	}
 }
 
@@ -75,8 +92,44 @@ func (m *FunctionMetadata) GetUpstreamEndpoints() []*UpstreamEndpoint {
 	return m.upstreamEndpoints
 }
 
+func (m *FunctionMetadata) GetSandboxParallelism() int64 {
+	return m.sandboxParallelism
+}
+
+func (m *FunctionMetadata) GetRoundRobinCounter() int64 {
+	return m.loadBalancingMetadata.RoundRobinCounter
+}
+
+func (m *FunctionMetadata) IncrementRoundRobinCounter() {
+	m.loadBalancingMetadata.RoundRobinCounter = (m.loadBalancingMetadata.RoundRobinCounter + 1) % int64(len(m.GetUpstreamEndpoints()))
+}
+
+func (m *FunctionMetadata) GetKubernetesRoundRobinCounter() int64 {
+	return m.loadBalancingMetadata.RoundRobinCounter
+}
+
+func (m *FunctionMetadata) IncrementKubernetesRoundRobinCounter() {
+	m.loadBalancingMetadata.RoundRobinCounter = (m.loadBalancingMetadata.RoundRobinCounter + 1) % int64(len(m.GetUpstreamEndpoints()))
+}
+
 func (m *FunctionMetadata) GetRequestCountPerInstance() map[*UpstreamEndpoint]int64 {
-	return m.requestCountPerInstance
+	return m.loadBalancingMetadata.RequestCountPerInstance
+}
+
+func (m *FunctionMetadata) UpdateRequestMetadata(endpoint *UpstreamEndpoint) {
+	m.loadBalancingMetadata.RequestCountPerInstance[endpoint]++
+}
+
+func (m *FunctionMetadata) GetLocalQueueLength(endpoint *UpstreamEndpoint) int64 {
+	return m.loadBalancingMetadata.FAInstanceQueueLength[endpoint]
+}
+
+func (m *FunctionMetadata) IncrementLocalQueueLength(endpoint *UpstreamEndpoint) {
+	m.loadBalancingMetadata.FAInstanceQueueLength[endpoint]++
+}
+
+func (m *FunctionMetadata) DecrementLocalQueueLength(endpoint *UpstreamEndpoint) {
+	m.loadBalancingMetadata.FAInstanceQueueLength[endpoint]--
 }
 
 func difference(a, b []string) []string {
@@ -111,9 +164,11 @@ func extractField[T any](m []T, extractor func(T) string) ([]string, map[string]
 	return res, mm
 }
 
-func createThrottlerChannel(capacity int) RequestThrottler {
+func createThrottlerChannel(capacity int64) RequestThrottler {
 	ccChannel := make(chan struct{}, capacity)
-	for cc := 0; cc < capacity; cc++ {
+
+	var cc int64 = 0
+	for ; cc < capacity; cc++ {
 		ccChannel <- struct{}{}
 	}
 
@@ -177,6 +232,10 @@ func (m *FunctionMetadata) SetUpstreamURLs(endpoints []*proto.EndpointInfo) erro
 	}
 
 	return nil
+}
+
+func (m *FunctionMetadata) SetEndpoints(newEndpoints []*UpstreamEndpoint) {
+	m.upstreamEndpoints = newEndpoints
 }
 
 func (m *FunctionMetadata) DecreaseInflight() {
