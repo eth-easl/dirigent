@@ -226,6 +226,7 @@ func (ss *ServiceInfoStorage) updateEndpoints(dpiClients []*common.DataPlaneConn
 
 	for _, conn := range dpiClients {
 		c := conn
+
 		wg.Add(1)
 
 		go func() {

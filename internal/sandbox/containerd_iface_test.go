@@ -80,6 +80,7 @@ func TestParallelCreation(t *testing.T) {
 			start := time.Now()
 			task, exitCh, ip, netns, err, _, _ := StartContainer(ctx, container, network)
 			assert.NoError(t, err, "Failed to start a container")
+
 			sm := &Metadata{
 				Task:        task,
 				Container:   container,

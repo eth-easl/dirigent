@@ -1,10 +1,8 @@
 package common
 
 import (
-	"fmt"
 	"testing"
 
-	"github.com/pbnjay/memory"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -13,7 +11,6 @@ func TestGetCpu(t *testing.T) {
 }
 
 func TestGetMemory(t *testing.T) {
-	fmt.Println(memory.TotalMemory())
 	assert.Positive(t, GetMemory())
 }
 

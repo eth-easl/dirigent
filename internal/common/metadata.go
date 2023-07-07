@@ -88,7 +88,7 @@ func (m *FunctionMetadata) GetColdStartDelay() time.Duration {
 	return m.coldStartDelay
 }
 
-// TODO: Find better synchronization primitive
+// TODO: Should we lock it or maybe try to find a better synchronization primitive?
 var upstreamEndpointsLock sync.Mutex
 
 func (m *FunctionMetadata) GetUpstreamEndpoints() []*UpstreamEndpoint {
@@ -118,8 +118,8 @@ func (m *FunctionMetadata) IncrementKubernetesRoundRobinCounter() {
 	atomic.AddUint32(&m.loadBalancingMetadata.KubernetesRoundRobinCounter, 1)
 }
 
-func (m *FunctionMetadata) GetRequestCountPerInstance() utils.AtomicMap[*UpstreamEndpoint] {
-	return m.loadBalancingMetadata.RequestCountPerInstance
+func (m *FunctionMetadata) GetRequestCountPerInstance() *utils.AtomicMap[*UpstreamEndpoint] {
+	return &m.loadBalancingMetadata.RequestCountPerInstance
 }
 
 func (m *FunctionMetadata) UpdateRequestMetadata(endpoint *UpstreamEndpoint) {

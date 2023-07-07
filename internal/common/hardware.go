@@ -9,7 +9,7 @@ import (
 	"github.com/shirou/gopsutil/cpu"
 )
 
-type HarwareUsage struct {
+type HardwareUsage struct {
 	CpuUsage    int32
 	MemoryUsage int32
 }
@@ -31,17 +31,13 @@ func getCpuUsage() int32 {
 	return int32(math.Ceil(percent[0]))
 }
 
-func getCpuUsageInterval() int32 {
-	return 0 // TODO: Fill this function
-}
-
 func getMemoryUsage() int32 {
 	memory := float64(memory.TotalMemory()-memory.FreeMemory()) / float64(memory.TotalMemory())
 	return int32(memory * 100)
 }
 
-func GetHardwareUsage() HarwareUsage {
-	return HarwareUsage{
+func GetHardwareUsage() HardwareUsage {
+	return HardwareUsage{
 		CpuUsage:    getCpuUsage(),
 		MemoryUsage: getMemoryUsage(),
 	}

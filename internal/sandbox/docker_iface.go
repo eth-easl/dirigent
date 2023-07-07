@@ -43,6 +43,17 @@ func resolveImage(cli *client.Client, image string) error {
 	return nil
 }
 
+func isImageMissing(err error) bool {
+	noSuchImageString := "No such image"
+	return strings.Contains(err.Error(), noSuchImageString)
+}
+
+func tryFetchImage(cli *client.Client, containerImage string) error {
+	logrus.Debug("Image not found. Fetching...")
+
+	return resolveImage(cli, containerImage)
+}
+
 func CreateSandbox(cli *client.Client, hostConfig *container.HostConfig, containerConfig *container.Config) (string, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), requestTimeout)
 	defer cancel()
@@ -53,17 +64,12 @@ func CreateSandbox(cli *client.Client, hostConfig *container.HostConfig, contain
 		resp, err := cli.ContainerCreate(ctx, containerConfig, hostConfig, nil, nil, "")
 		r = resp
 
-		if err != nil {
-			if strings.Contains(err.Error(), "No such image") {
-				logrus.Debug("Image not found. Fetching...")
-				err := resolveImage(cli, containerConfig.Image)
+		if isImageMissing(err) {
+			err = tryFetchImage(cli, containerConfig.Image)
+		}
 
-				if err != nil {
-					return "", err
-				}
-			} else {
-				return "", err
-			}
+		if err != nil {
+			return "", err
 		} else {
 			break
 		}

@@ -102,6 +102,7 @@ func generateTwoUniformRandomEndpoints(endpoints []*common.UpstreamEndpoint) (*c
 	*/
 	size := len(endpoints)
 	r1, r2 := rand.Intn(size), rand.Intn(size-1)
+
 	if r2 >= r1 {
 		r2++
 	}
@@ -111,6 +112,7 @@ func generateTwoUniformRandomEndpoints(endpoints []*common.UpstreamEndpoint) (*c
 
 func bestOfTwoRandoms(metadata *common.FunctionMetadata) *common.UpstreamEndpoint {
 	endpoints := metadata.GetUpstreamEndpoints()
+
 	var output *common.UpstreamEndpoint
 
 	if len(endpoints) == 1 {
@@ -150,6 +152,7 @@ func kubernetesRoundRobinLoadBalancing(metadata *common.FunctionMetadata) *commo
 
 	for len(endpoints[metadata.GetKubernetesRoundRobinCounter()].Capacity) == 0 {
 		metadata.IncrementKubernetesRoundRobinCounter()
+
 		if metadata.GetKubernetesRoundRobinCounter() == baseIdx {
 			break
 		}
