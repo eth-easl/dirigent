@@ -2,6 +2,7 @@ package common
 
 import (
 	"cluster_manager/api/proto"
+	"cluster_manager/utils"
 	"container/list"
 	"context"
 	"errors"
@@ -34,8 +35,8 @@ type UpstreamEndpoint struct {
 type LoadBalancingMetadata struct {
 	RoundRobinCounter           uint32
 	KubernetesRoundRobinCounter uint32
-	RequestCountPerInstance     map[*UpstreamEndpoint]int64
-	FAInstanceQueueLength       map[*UpstreamEndpoint]int64
+	RequestCountPerInstance     utils.AtomicMap[*UpstreamEndpoint]
+	FAInstanceQueueLength       utils.AtomicMap[*UpstreamEndpoint]
 }
 
 type FunctionMetadata struct {
@@ -77,8 +78,8 @@ func NewFunctionMetadata(name string) *FunctionMetadata {
 		loadBalancingMetadata: LoadBalancingMetadata{
 			RoundRobinCounter:           0,
 			KubernetesRoundRobinCounter: 0,
-			RequestCountPerInstance:     make(map[*UpstreamEndpoint]int64),
-			FAInstanceQueueLength:       make(map[*UpstreamEndpoint]int64),
+			RequestCountPerInstance:     utils.NewAtomicMap[*UpstreamEndpoint](),
+			FAInstanceQueueLength:       utils.NewAtomicMap[*UpstreamEndpoint](),
 		},
 	}
 }
@@ -117,38 +118,24 @@ func (m *FunctionMetadata) IncrementKubernetesRoundRobinCounter() {
 	atomic.AddUint32(&m.loadBalancingMetadata.KubernetesRoundRobinCounter, 1)
 }
 
-func (m *FunctionMetadata) GetRequestCountPerInstance() map[*UpstreamEndpoint]int64 {
+func (m *FunctionMetadata) GetRequestCountPerInstance() utils.AtomicMap[*UpstreamEndpoint] {
 	return m.loadBalancingMetadata.RequestCountPerInstance
 }
 
-// TODO: Find better synchronization primitive - IMPORTANT
-var requestCountPerInstanceLock sync.Mutex
-
 func (m *FunctionMetadata) UpdateRequestMetadata(endpoint *UpstreamEndpoint) {
-	requestCountPerInstanceLock.Lock()
-	defer requestCountPerInstanceLock.Unlock()
-	m.loadBalancingMetadata.RequestCountPerInstance[endpoint]++
+	m.loadBalancingMetadata.RequestCountPerInstance.AtomicIncrement(endpoint)
 }
 
-func (m *FunctionMetadata) GetLocalQueueLength(endpoint *UpstreamEndpoint) int64 {
-	return m.loadBalancingMetadata.FAInstanceQueueLength[endpoint]
+func (m *FunctionMetadata) GetLocalQueueLength(endpoint *UpstreamEndpoint) uint64 {
+	return m.loadBalancingMetadata.RequestCountPerInstance.AtomicGet(endpoint)
 }
-
-// TODO: Find better synchronization primitive - IMPORTANT
-var localQueueLengthLock sync.Mutex
 
 func (m *FunctionMetadata) IncrementLocalQueueLength(endpoint *UpstreamEndpoint) {
-	localQueueLengthLock.Lock()
-	defer localQueueLengthLock.Unlock()
-
-	m.loadBalancingMetadata.FAInstanceQueueLength[endpoint]++
+	m.loadBalancingMetadata.FAInstanceQueueLength.AtomicIncrement(endpoint)
 }
 
 func (m *FunctionMetadata) DecrementLocalQueueLength(endpoint *UpstreamEndpoint) {
-	localQueueLengthLock.Lock()
-	defer localQueueLengthLock.Unlock()
-
-	m.loadBalancingMetadata.FAInstanceQueueLength[endpoint]--
+	m.loadBalancingMetadata.FAInstanceQueueLength.AtomicDecrement(endpoint)
 }
 
 func difference(a, b []string) []string {

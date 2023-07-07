@@ -81,10 +81,10 @@ func leastProcessedLoadBalancing(metadata *common.FunctionMetadata) *common.Upst
 	requestCountPerInstance := metadata.GetRequestCountPerInstance()
 
 	minEndpoint := endpoints[0]
-	minValue := requestCountPerInstance[minEndpoint]
+	minValue := requestCountPerInstance.AtomicGet(minEndpoint)
 
 	for _, endpoint := range endpoints {
-		countPerInstance := requestCountPerInstance[endpoint]
+		countPerInstance := requestCountPerInstance.AtomicGet(endpoint)
 
 		if countPerInstance < minValue {
 			minEndpoint = endpoint

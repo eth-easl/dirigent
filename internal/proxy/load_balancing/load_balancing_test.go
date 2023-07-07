@@ -78,19 +78,20 @@ func TestLeastProcessedLoadBalancing(t *testing.T) {
 	metadata, endpointsSize := getTestEndpoints()
 	endpoints := metadata.GetUpstreamEndpoints()
 
-	metadata.GetRequestCountPerInstance()[endpoints[0]]++
-	metadata.GetRequestCountPerInstance()[endpoints[1]]++
+	countPerInstance := metadata.GetRequestCountPerInstance()
+	countPerInstance.AtomicIncrement(endpoints[0])
+	countPerInstance.AtomicIncrement(endpoints[1])
 
 	for i := 2; i < endpointsSize; i++ {
 		endpoint := leastProcessedLoadBalancing(metadata)
 		assert.Equal(t, endpoints[i], endpoint, "Endpoint isn't the correct one")
-		metadata.GetRequestCountPerInstance()[endpoint]++
+		countPerInstance.AtomicGet(endpoints[i])
 	}
 
 	for i := 0; i < endpointsSize; i++ {
 		endpoint := leastProcessedLoadBalancing(metadata)
 		assert.Equal(t, endpoints[i], endpoint, "Endpoint isn't the correct one")
-		metadata.GetRequestCountPerInstance()[endpoint]++
+		countPerInstance.AtomicIncrement(endpoints[i])
 	}
 }
 
