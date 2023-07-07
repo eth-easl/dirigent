@@ -85,7 +85,7 @@ func TestLeastProcessedLoadBalancing(t *testing.T) {
 	for i := 2; i < endpointsSize; i++ {
 		endpoint := leastProcessedLoadBalancing(metadata)
 		assert.Equal(t, endpoints[i], endpoint, "Endpoint isn't the correct one")
-		countPerInstance.AtomicGet(endpoints[i])
+		countPerInstance.AtomicIncrement(endpoints[i])
 	}
 
 	for i := 0; i < endpointsSize; i++ {
