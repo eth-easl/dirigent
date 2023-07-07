@@ -1,8 +1,8 @@
 package control_plane
 
 import (
-	"cluster_manager/internal/common"
 	placement2 "cluster_manager/internal/control_plane/placement"
+	"cluster_manager/utils"
 	"sort"
 	"testing"
 
@@ -39,7 +39,7 @@ func TestRoundRobin(t *testing.T) {
 	storage.NodeInfo["w2"] = &WorkerNode{}
 	storage.NodeInfo["w3"] = &WorkerNode{}
 
-	nodes := sort.StringSlice(common.Keys(storage.NodeInfo))
+	nodes := sort.StringSlice(utils.Keys(storage.NodeInfo))
 	nodes.Sort()
 
 	for i := 0; i < 100; i++ {

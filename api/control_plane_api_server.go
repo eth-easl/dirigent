@@ -5,6 +5,7 @@ import (
 	"cluster_manager/internal/common"
 	"cluster_manager/internal/control_plane"
 	"cluster_manager/internal/control_plane/placement"
+	"cluster_manager/utils"
 	"context"
 	"strconv"
 	"time"
@@ -71,7 +72,7 @@ func (c *CpApiServer) OnMetricsReceive(_ context.Context, metric *proto.Autoscal
 }
 
 func (c *CpApiServer) ListServices(_ context.Context, _ *emptypb.Empty) (*proto.ServiceList, error) {
-	return &proto.ServiceList{Service: common.Keys(c.SIStorage)}, nil
+	return &proto.ServiceList{Service: utils.Keys(c.SIStorage)}, nil
 }
 
 func (c *CpApiServer) RegisterNode(ctx context.Context, in *proto.NodeInfo) (*proto.ActionStatus, error) {

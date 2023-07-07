@@ -2,6 +2,7 @@ package common
 
 import (
 	"cluster_manager/api/proto"
+	"cluster_manager/utils"
 	"context"
 	"fmt"
 	"net"
@@ -21,7 +22,7 @@ const (
 )
 
 func CreateGRPCServer(host, port string, serverSpecific func(sr grpc.ServiceRegistrar), options ...grpc.ServerOption) {
-	lis, err := net.Listen("tcp", net.JoinHostPort(host, port))
+	lis, err := net.Listen(utils.TCP, net.JoinHostPort(host, port))
 	if err != nil {
 		logrus.Fatalf("Failed to create data plane API server socket - %s\n", err)
 	}

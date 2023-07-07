@@ -5,6 +5,7 @@ import (
 	common "cluster_manager/internal/common"
 	"cluster_manager/internal/control_plane"
 	"cluster_manager/tests/proto"
+	"cluster_manager/utils"
 	"context"
 	"testing"
 	"time"
@@ -21,7 +22,7 @@ func TestDeployService(t *testing.T) {
 	logrus.SetLevel(logrus.DebugLevel)
 	logrus.SetFormatter(&logrus.TextFormatter{TimestampFormat: time.StampMilli, FullTimestamp: true})
 
-	cpApi := common.InitializeControlPlaneConnection("localhost", common.DefaultControlPlanePort, -1, -1)
+	cpApi := common.InitializeControlPlaneConnection("localhost", utils.DefaultControlPlanePort, -1, -1)
 
 	ctx, cancel := context.WithTimeout(context.Background(), common.GRPCFunctionTimeout)
 	defer cancel()

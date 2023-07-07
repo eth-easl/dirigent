@@ -1,9 +1,10 @@
 package tests
 
 import (
-	proto2 "cluster_manager/api/proto"
+	protoApi "cluster_manager/api/proto"
 	"cluster_manager/internal/common"
 	"cluster_manager/tests/proto"
+	"cluster_manager/utils"
 	"context"
 	"fmt"
 	"testing"
@@ -40,7 +41,7 @@ func FireInvocation(client proto.ExecutorClient) error {
 	return err
 }
 
-func UpdateEndpointList(t *testing.T, host string, port string, endpoints []*proto2.EndpointInfo) {
+func UpdateEndpointList(t *testing.T, host string, port string, endpoints []*protoApi.EndpointInfo) {
 	conn := common.EstablishGRPCConnectionPoll(host, port)
 	if conn == nil {
 		logrus.Fatal("Failed to establish gRPC connection with the data plane")
@@ -50,13 +51,13 @@ func UpdateEndpointList(t *testing.T, host string, port string, endpoints []*pro
 	defer cancelExecution()
 
 	// TODO: make this not be static and random
-	resp, err := proto2.NewDpiInterfaceClient(conn).UpdateEndpointList(executionCxt, &proto2.DeploymentEndpointPatch{
-		Service: &proto2.ServiceInfo{
+	resp, err := protoApi.NewDpiInterfaceClient(conn).UpdateEndpointList(executionCxt, &protoApi.DeploymentEndpointPatch{
+		Service: &protoApi.ServiceInfo{
 			Name:  "/faas.Executor/Execute",
-			Image: "docker.io/cvetkovic/empty_function:latest",
-			PortForwarding: &proto2.PortMapping{
+			Image: utils.TestDockerImageName,
+			PortForwarding: &protoApi.PortMapping{
 				GuestPort: 80,
-				Protocol:  proto2.L4Protocol_TCP,
+				Protocol:  protoApi.L4Protocol_TCP,
 			},
 		},
 		Endpoints: endpoints,

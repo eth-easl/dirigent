@@ -4,6 +4,7 @@ import (
 	"cluster_manager/api"
 	"cluster_manager/api/proto"
 	common "cluster_manager/internal/common"
+	"cluster_manager/utils"
 	"flag"
 	"path"
 
@@ -11,15 +12,15 @@ import (
 )
 
 var (
-	port              = flag.String("cpPort", common.DefaultControlPlanePort, "Control plane traffic incoming port")
-	portRegistration  = flag.String("portRegistration", common.DefaultControlPlanePortServiceRegistration, "HTTP service registration incoming traffic port")
+	port              = flag.String("cpPort", utils.DefaultControlPlanePort, "Control plane traffic incoming port")
+	portRegistration  = flag.String("portRegistration", utils.DefaultControlPlanePortServiceRegistration, "HTTP service registration incoming traffic port")
 	verbosity         = flag.String("verbosity", "info", "Logging verbosity - choose from [info, debug, trace]")
-	traceOutputFolder = flag.String("traceOutputFolder", common.DefaultTraceOutputFolder, "Folder where to write all logs")
+	traceOutputFolder = flag.String("traceOutputFolder", utils.DefaultTraceOutputFolder, "Folder where to write all logs")
 )
 
 func main() {
 	flag.Parse()
-	common.InitLibraries(*verbosity)
+	utils.SetupLogger(*verbosity)
 
 	cpApiServer := api.CreateNewCpApiServer(path.Join(*traceOutputFolder, "cold_start_trace.csv"))
 

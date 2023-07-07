@@ -5,11 +5,11 @@ import (
 	"cluster_manager/api/proto"
 	common "cluster_manager/internal/common"
 	sandbox "cluster_manager/internal/sandbox"
+	"cluster_manager/utils"
 	"context"
 	"flag"
 	"fmt"
 	"os"
-	"strconv"
 	"time"
 
 	"github.com/sirupsen/logrus"
@@ -19,8 +19,8 @@ import (
 
 var (
 	controlPlaneIP   = flag.String("controlPlaneIP", "localhost", "Control plane IP address")
-	controlPlanePort = flag.String("controlPlanePort", common.DefaultControlPlanePort, "Control plane port")
-	port             = flag.Int("port", common.DefaultWorkerNodePort, "Worker daemon incoming traffic port")
+	controlPlanePort = flag.String("controlPlanePort", utils.DefaultControlPlanePort, "Control plane port")
+	port             = flag.Int("port", utils.DefaultWorkerNodePort, "Worker daemon incoming traffic port")
 	verbosity        = flag.String("verbosity", "info", "Logging verbosity - choose from [info, debug, trace]")
 
 	criPath       = flag.String("criPath", "/run/containerd/containerd.sock", "Path to containerd socket")
@@ -29,7 +29,7 @@ var (
 
 func main() {
 	flag.Parse()
-	common.InitLibraries(*verbosity)
+	utils.SetupLogger(*verbosity)
 
 	stopChannel := make(chan struct{})
 
@@ -51,7 +51,7 @@ func main() {
 
 	logrus.Info("Starting API handlers")
 
-	go common.CreateGRPCServer("0.0.0.0", strconv.Itoa(common.DefaultWorkerNodePort), func(sr grpc.ServiceRegistrar) {
+	go common.CreateGRPCServer(utils.DockerLocalhost, string(*port), func(sr grpc.ServiceRegistrar) {
 		proto.RegisterWorkerNodeInterfaceServer(sr, &api.WnApiServer{
 			ContainerdClient: containerdClient,
 			CNIClient:        cniClient,
@@ -80,8 +80,8 @@ func registerNodeWithControlPlane(cpApi *proto.CpiInterfaceClient) {
 				NodeID: hostName,
 				// IP fetched from server-side context
 				Port:       int32(*port),
-				CpuCores:   common.GetNumberCpus(),
-				MemorySize: common.GetMemory(),
+				CpuCores:   utils.GetNumberCpus(),
+				MemorySize: utils.GetMemory(),
 			})
 
 			if err != nil || resp == nil {
@@ -111,7 +111,7 @@ func setupHeartbeatLoop(cpApi *proto.CpiInterfaceClient) {
 }
 
 func getWorkerStatistics() (*proto.NodeHeartbeatMessage, error) {
-	harwareUsage := common.GetHardwareUsage()
+	harwareUsage := utils.GetHardwareUsage()
 
 	hostname, err := os.Hostname()
 	if err != nil {

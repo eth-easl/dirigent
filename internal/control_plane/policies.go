@@ -175,7 +175,7 @@ func (s *AutoscalingMetadata) windowAverage(observedStableValue float64) (float6
 	windowLength := int(math.Min(float64(stableBucketCount), float64(len(s.scalingMetrics))))
 	for i := 0; i < windowLength; i++ {
 		// sum values of buckets, starting at most recent measurement
-		// most recent one has highest weight
+		// most recent one has the highest weight
 		value := s.scalingMetrics[currentWindowIndex]
 		if s.ScalingMethod == Exponential {
 			value = value * multiplierStable

@@ -37,7 +37,7 @@ func TestSumResources(t *testing.T) {
 	assert.Equal(t, sumResourceMap, CreateResourceMap(mockSumCpu, mockSumMemory))
 }
 
-func TestSubstractResource(t *testing.T) {
+func TestSubtractResource(t *testing.T) {
 	resourceMap1 := CreateResourceMap(mockCpus2, mockMemory2)
 	resourceMap2 := CreateResourceMap(mockCpus, mockMemory)
 	sumResourceMap := SubtractResources(resourceMap1, resourceMap2)

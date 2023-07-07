@@ -1,8 +1,8 @@
 package control_plane
 
 import (
-	"cluster_manager/internal/common"
 	"cluster_manager/internal/control_plane/placement"
+	"cluster_manager/utils"
 	"math/rand"
 	"sort"
 	"sync"
@@ -180,11 +180,11 @@ func roundRobinPolicy(storage *NodeInfoStorage, requested *placement.ResourceMap
 }
 
 func getNumberNodes(storage *NodeInfoStorage) int {
-	return len(common.Keys(storage.NodeInfo))
+	return len(utils.Keys(storage.NodeInfo))
 }
 
 func nodeFromIndex(storage *NodeInfoStorage, index int) *WorkerNode {
-	nodes := sort.StringSlice(common.Keys(storage.NodeInfo))
+	nodes := sort.StringSlice(utils.Keys(storage.NodeInfo))
 	nodes.Sort()
 	nodeName := nodes[index]
 

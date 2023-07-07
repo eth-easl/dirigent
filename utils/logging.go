@@ -1,4 +1,4 @@
-package common
+package utils
 
 import (
 	"math/rand"
@@ -7,7 +7,7 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-func InitLibraries(verbosity string) {
+func SetupLogger(verbosity string) {
 	rand.Seed(time.Now().UnixNano())
 
 	logrus.SetFormatter(&logrus.TextFormatter{TimestampFormat: time.StampMilli, FullTimestamp: true})

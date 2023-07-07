@@ -5,6 +5,7 @@ import (
 	"cluster_manager/api/proto"
 	common "cluster_manager/internal/common"
 	"cluster_manager/internal/proxy"
+	"cluster_manager/utils"
 	"context"
 	"flag"
 	"path"
@@ -17,16 +18,16 @@ import (
 
 var (
 	controlPlaneIP    = flag.String("controlPlaneIP", "localhost", "Control plane IP address")
-	controlPlanePort  = flag.String("controlPlanePort", common.DefaultControlPlanePort, "Control plane port")
-	portProxy         = flag.String("portProxy", common.DefaultDataPlaneProxyPort, "Data plane incoming traffic port")
-	portGRPC          = flag.String("portGRPC", common.DefaultDataPlaneApiPort, "Data plane incoming traffic port")
+	controlPlanePort  = flag.String("controlPlanePort", utils.DefaultControlPlanePort, "Control plane port")
+	portProxy         = flag.String("portProxy", utils.DefaultDataPlaneProxyPort, "Data plane incoming traffic port")
+	portGRPC          = flag.String("portGRPC", utils.DefaultDataPlaneApiPort, "Data plane incoming traffic port")
 	verbosity         = flag.String("verbosity", "info", "Logging verbosity - choose from [info, debug, trace]")
-	traceOutputFolder = flag.String("traceOutputFolder", common.DefaultTraceOutputFolder, "Folder where to write all logs")
+	traceOutputFolder = flag.String("traceOutputFolder", utils.DefaultTraceOutputFolder, "Folder where to write all logs")
 )
 
 func main() {
 	flag.Parse()
-	common.InitLibraries(*verbosity)
+	utils.SetupLogger(*verbosity)
 
 	cache := common.NewDeploymentList()
 	dpCreated := make(chan struct{})

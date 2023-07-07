@@ -68,7 +68,7 @@ func TestE2E_HTTP_H2C_NoColdStart(t *testing.T) {
 func TestE2E_gRPC_H2C_NoColdStart(t *testing.T) {
 	logrus.SetLevel(logrus.DebugLevel)
 
-	host := utils.LOCALHOST
+	host := utils.Localhost
 	proxyPort := "9002"
 	sandboxPort := "9003"
 
@@ -81,7 +81,7 @@ func TestE2E_gRPC_H2C_NoColdStart(t *testing.T) {
 	fx, _ := cache.GetDeployment("/faas.Executor/Execute")
 	err := fx.SetUpstreamURLs([]*proto2.EndpointInfo{{
 		ID:  "mockId",
-		URL: utils.LOCALHOST + ":" + fmt.Sprintf("%s", sandboxPort)},
+		URL: utils.Localhost + ":" + fmt.Sprintf("%s", sandboxPort)},
 	})
 
 	assert.NoError(t, err, "Failed to set upstream URLs")
