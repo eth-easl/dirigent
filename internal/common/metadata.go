@@ -120,7 +120,7 @@ func createThrottlerChannel(capacity int) RequestThrottler {
 	return ccChannel
 }
 
-func (m *FunctionMetadata) mergeEndpointList(data []*proto.EndpointInfo) {
+func (m *FunctionMetadata) updateEndpointList(data []*proto.EndpointInfo) {
 	oldURLs, mmOld := extractField[*UpstreamEndpoint](m.upstreamEndpoints, func(info *UpstreamEndpoint) string { return info.URL })
 	newURLs, mmNew := extractField[*proto.EndpointInfo](data, func(info *proto.EndpointInfo) string { return info.URL })
 
@@ -150,7 +150,7 @@ func (m *FunctionMetadata) SetUpstreamURLs(endpoints []*proto.EndpointInfo) erro
 	defer m.Unlock()
 
 	logrus.Debug("Updated endpoint list for ", m.identifier)
-	m.mergeEndpointList(endpoints)
+	m.updateEndpointList(endpoints)
 	atomic.StoreInt32(&m.upstreamEndpointsCount, int32(len(m.upstreamEndpoints)))
 
 	if len(m.upstreamEndpoints) > 0 {
