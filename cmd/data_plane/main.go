@@ -63,11 +63,7 @@ func main() {
 
 	<-dpCreated
 
-<<<<<<< HEAD
 	var loadBalancingPolicy load_balancing.LoadBalancingPolicy = parseLoadBalancingPolicy(config)
-=======
-	var loadBalancingPolicy load_balancing.LoadBalancingPolicy = config2.ParseLoadBalancingPolicy(config)
->>>>>>> 79bc225 (Replace flags by config file)
 
 	proxyServer := proxy.NewProxyingService("0.0.0.0", config.PortProxy, cache, &dpConnection, path.Join(config.TraceOutputFolder, "proxy_trace.csv"), loadBalancingPolicy)
 
