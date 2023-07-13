@@ -4,9 +4,9 @@ import (
 	"cluster_manager/api"
 	"cluster_manager/api/proto"
 	common "cluster_manager/internal/common"
+	"cluster_manager/internal/control_plane"
 	config2 "cluster_manager/pkg/config"
 	"cluster_manager/pkg/logger"
-	"cluster_manager/pkg/redis_client"
 	"cluster_manager/pkg/utils"
 	context2 "context"
 	"path"
@@ -24,12 +24,12 @@ func main() {
 
 	logger.SetupLogger(config.Verbosity)
 
-	_, err = redis_client.CreateRedisClient(context2.Background(), config.RedisLogin)
+	redisClient, err := control_plane.CreateRedisClient(context2.Background(), config.RedisLogin)
 	if err != nil {
 		logrus.Fatal("Failed to connect to the database (error : %s)", err.Error())
 	}
 
-	cpApiServer := api.CreateNewCpApiServer(path.Join(config.TraceOutputFolder, "cold_start_trace.csv"), config2.ParsePlacementPolicy(config))
+	cpApiServer := api.CreateNewCpApiServer(redisClient, path.Join(config.TraceOutputFolder, "cold_start_trace.csv"), config2.ParsePlacementPolicy(config))
 
 	go cpApiServer.ColdStartTracing.StartTracingService()
 	defer close(cpApiServer.ColdStartTracing.InputChannel)

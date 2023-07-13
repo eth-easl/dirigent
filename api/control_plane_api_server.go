@@ -6,6 +6,7 @@ import (
 	"cluster_manager/internal/control_plane"
 	_map "cluster_manager/pkg/map"
 	"context"
+	"fmt"
 	"strconv"
 	"time"
 
@@ -23,9 +24,10 @@ type CpApiServer struct {
 
 	ColdStartTracing *common.TracingService[common.ColdStartLogEntry]
 	PlacementPolicy  control_plane.PlacementPolicy
+	PersistenceLayer control_plane.RedisClient
 }
 
-func CreateNewCpApiServer(outputFile string, placementPolicy control_plane.PlacementPolicy) *CpApiServer {
+func CreateNewCpApiServer(client control_plane.RedisClient, outputFile string, placementPolicy control_plane.PlacementPolicy) *CpApiServer {
 	return &CpApiServer{
 		NIStorage: control_plane.NodeInfoStorage{
 			NodeInfo: make(map[string]*control_plane.WorkerNode),
@@ -33,6 +35,7 @@ func CreateNewCpApiServer(outputFile string, placementPolicy control_plane.Place
 		SIStorage:        make(map[string]*control_plane.ServiceInfoStorage),
 		ColdStartTracing: common.NewColdStartTracingService(outputFile),
 		PlacementPolicy:  placementPolicy,
+		PersistenceLayer: client,
 	}
 }
 
@@ -104,6 +107,18 @@ func (c *CpApiServer) RegisterNode(ctx context.Context, in *proto.NodeInfo) (*pr
 		Memory:   int(in.MemorySize),
 	}
 
+	err := c.PersistenceLayer.StoreWorkerNodeInformation(ctx, fmt.Sprintf("worker:%s", wn.Name), control_plane.WorkerNodeInformation{
+		Name:     wn.Name,
+		Ip:       wn.IP,
+		Port:     wn.Port,
+		CpuCores: strconv.Itoa(wn.CpuCores),
+		Memory:   strconv.Itoa(wn.Memory),
+	})
+	if err != nil {
+		logrus.Error("Failed to store information to persistence layer")
+		return &proto.ActionStatus{Success: false}, err
+	}
+
 	c.NIStorage.NodeInfo[in.NodeID] = wn
 	go wn.GetAPI()
 
@@ -160,6 +175,13 @@ func (c *CpApiServer) RegisterService(ctx context.Context, serviceInfo *proto.Se
 		ColdStartTracingChannel: &c.ColdStartTracing.InputChannel,
 		PlacementPolicy:         c.PlacementPolicy,
 	}
+
+	err := c.PersistenceLayer.StoreServiceInformation(ctx, fmt.Sprintf("service:%s", serviceInfo.Name), serviceInfo)
+	if err != nil {
+		logrus.Error("Failed to store information to persistence layer")
+		return &proto.ActionStatus{Success: false}, err
+	}
+
 	c.SIStorage[serviceInfo.Name] = service
 
 	go service.ScalingControllerLoop(&c.NIStorage, c.GetDpiConnections())
@@ -175,6 +197,16 @@ func (c *CpApiServer) RegisterDataplane(ctx context.Context, in *proto.Dataplane
 	if !ok {
 		logrus.Debug("Failed to extract IP address from data plane registration request")
 		return &proto.ActionStatus{Success: false}, nil
+	}
+
+	err := c.PersistenceLayer.StoreDataPlaneInformation(ctx, fmt.Sprintf("dataplane:%s", ipAddress), control_plane.DataPlaneInformation{
+		Address:   ipAddress,
+		ApiPort:   apiPort,
+		ProxyPort: proxyPort,
+	})
+	if err != nil {
+		logrus.Error("Failed to store information to persistence layer")
+		return &proto.ActionStatus{Success: false}, err
 	}
 
 	c.appendDpiConnection(common.InitializeDataPlaneConnection(ipAddress, apiPort), ipAddress, apiPort, proxyPort)
