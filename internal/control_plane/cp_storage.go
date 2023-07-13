@@ -29,7 +29,7 @@ type ServiceInfoStorage struct {
 	ColdStartTracingChannel *chan common.ColdStartLogEntry
 
 	PlacementPolicy  PlacementPolicy
-	PertistenceLayer RedisClient
+	PersistenceLayer RedisClient
 }
 
 type Endpoint struct {
@@ -185,7 +185,7 @@ func (ss *ServiceInfoStorage) addEndpoints(endpoints []*Endpoint) {
 }
 
 func (ss *ServiceInfoStorage) updatePersistenceLayer() error {
-	return ss.PertistenceLayer.UpdateEndpoints(context.Background(), ss.ServiceInfo.Name, ss.Controller.Endpoints)
+	return ss.PersistenceLayer.UpdateEndpoints(context.Background(), ss.ServiceInfo.Name, ss.Controller.Endpoints)
 }
 
 func (ss *ServiceInfoStorage) prepareUrlList() []*proto.EndpointInfo {

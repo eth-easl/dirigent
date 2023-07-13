@@ -193,7 +193,7 @@ func (c *CpApiServer) connectToRegisteredService(ctx context.Context, serviceInf
 		},
 		ColdStartTracingChannel: &c.ColdStartTracing.InputChannel,
 		PlacementPolicy:         c.PlacementPolicy,
-		PertistenceLayer:        c.PersistenceLayer,
+		PersistenceLayer:        c.PersistenceLayer,
 	}
 
 	c.SIStorage[serviceInfo.Name] = service
