@@ -12,7 +12,6 @@ import (
 	"path"
 
 	"github.com/sirupsen/logrus"
-
 	"google.golang.org/grpc"
 )
 

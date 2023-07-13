@@ -182,7 +182,6 @@ func (c *CpApiServer) RegisterService(ctx context.Context, serviceInfo *proto.Se
 }
 
 func (c *CpApiServer) connectToRegisteredService(ctx context.Context, serviceInfo *proto.ServiceInfo) error {
-
 	scalingChannel := make(chan int)
 
 	service := &control_plane.ServiceInfoStorage{
