@@ -17,6 +17,22 @@ import (
 	"google.golang.org/protobuf/types/known/emptypb"
 )
 
+func parseLoadBalancingPolicy(dataPlaneConfig config2.DataPlaneConfig) load_balancing.LoadBalancingPolicy {
+	switch dataPlaneConfig.LoadBalancingPolicy {
+	case "random":
+		return load_balancing.LOAD_BALANCING_RANDOM
+	case "round-robin":
+		return load_balancing.LOAD_BALANCING_ROUND_ROBIN
+	case "least-processed":
+		return load_balancing.LOAD_BALANCING_LEAST_PROCESSED
+	case "knative":
+		return load_balancing.LOAD_BALANCING_KNATIVE
+	default:
+		logrus.Error("Failed to parse policy, default policy is random")
+		return load_balancing.LOAD_BALANCING_RANDOM
+	}
+}
+
 func main() {
 	config, err := config2.ReadDataPlaneConfiguration("cmd/data_plane/config.yaml")
 	if err != nil {
@@ -47,7 +63,7 @@ func main() {
 
 	<-dpCreated
 
-	var loadBalancingPolicy load_balancing.LoadBalancingPolicy = config2.ParseLoadBalancingPolicy(config)
+	var loadBalancingPolicy load_balancing.LoadBalancingPolicy = parseLoadBalancingPolicy(config)
 
 	proxyServer := proxy.NewProxyingService("0.0.0.0", config.PortProxy, cache, &dpConnection, path.Join(config.TraceOutputFolder, "proxy_trace.csv"), loadBalancingPolicy)
 

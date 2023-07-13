@@ -1,12 +1,8 @@
 package config
 
 import (
-	"cluster_manager/internal/control_plane"
-	"cluster_manager/internal/proxy/load_balancing"
 	"path/filepath"
 	"strings"
-
-	"github.com/sirupsen/logrus"
 
 	"github.com/spf13/viper"
 )
@@ -114,34 +110,4 @@ func ReadWorkedNodeConfiguration(configPath string) (WorkerNodeConfig, error) {
 	}
 
 	return workerNodeConfig, nil
-}
-
-func ParsePlacementPolicy(controlPlaneConfig ControlPlaneConfig) control_plane.PlacementPolicy {
-	switch controlPlaneConfig.PlacementPolicy {
-	case "random":
-		return control_plane.PLACEMENT_RANDOM
-	case "round-robin":
-		return control_plane.PLACEMENT_ROUND_ROBIN
-	case "kubernetes":
-		return control_plane.PLACEMENT_KUBERNETES
-	default:
-		logrus.Error("Failed to parse placement, default policy is random")
-		return control_plane.PLACEMENT_RANDOM
-	}
-}
-
-func ParseLoadBalancingPolicy(dataPlaneConfig DataPlaneConfig) load_balancing.LoadBalancingPolicy {
-	switch dataPlaneConfig.LoadBalancingPolicy {
-	case "random":
-		return load_balancing.LOAD_BALANCING_RANDOM
-	case "round-robin":
-		return load_balancing.LOAD_BALANCING_ROUND_ROBIN
-	case "least-processed":
-		return load_balancing.LOAD_BALANCING_LEAST_PROCESSED
-	case "knative":
-		return load_balancing.LOAD_BALANCING_KNATIVE
-	default:
-		logrus.Error("Failed to parse policy, default policy is random")
-		return load_balancing.LOAD_BALANCING_RANDOM
-	}
 }

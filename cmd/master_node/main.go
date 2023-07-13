@@ -16,6 +16,20 @@ import (
 	"google.golang.org/grpc"
 )
 
+func parsePlacementPolicy(controlPlaneConfig config2.ControlPlaneConfig) control_plane.PlacementPolicy {
+	switch controlPlaneConfig.PlacementPolicy {
+	case "random":
+		return control_plane.PLACEMENT_RANDOM
+	case "round-robin":
+		return control_plane.PLACEMENT_ROUND_ROBIN
+	case "kubernetes":
+		return control_plane.PLACEMENT_KUBERNETES
+	default:
+		logrus.Error("Failed to parse placement, default policy is random")
+		return control_plane.PLACEMENT_RANDOM
+	}
+}
+
 func main() {
 	config, err := config2.ReadControlPlaneConfiguration("cmd/master_node/config.yaml")
 	if err != nil {
@@ -29,7 +43,7 @@ func main() {
 		logrus.Fatal("Failed to connect to the database (error : %s)", err.Error())
 	}
 
-	cpApiServer := api.CreateNewCpApiServer(redisClient, path.Join(config.TraceOutputFolder, "cold_start_trace.csv"), config2.ParsePlacementPolicy(config))
+	cpApiServer := api.CreateNewCpApiServer(redisClient, path.Join(config.TraceOutputFolder, "cold_start_trace.csv"), parsePlacementPolicy(config))
 
 	go cpApiServer.ColdStartTracing.StartTracingService()
 	defer close(cpApiServer.ColdStartTracing.InputChannel)
