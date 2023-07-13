@@ -6,7 +6,9 @@ import (
 	common "cluster_manager/internal/common"
 	config2 "cluster_manager/pkg/config"
 	"cluster_manager/pkg/logger"
+	"cluster_manager/pkg/redis_client"
 	"cluster_manager/pkg/utils"
+	context2 "context"
 	"path"
 
 	"github.com/sirupsen/logrus"
@@ -21,6 +23,11 @@ func main() {
 	}
 
 	logger.SetupLogger(config.Verbosity)
+
+	_, err = redis_client.CreateRedisClient(context2.Background(), config.RedisLogin)
+	if err != nil {
+		logrus.Fatal("Failed to connect to the database (error : %s)", err.Error())
+	}
 
 	cpApiServer := api.CreateNewCpApiServer(path.Join(config.TraceOutputFolder, "cold_start_trace.csv"), config2.ParsePlacementPolicy(config))
 

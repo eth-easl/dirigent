@@ -3,3 +3,8 @@ portRegistration: "9091"
 verbosity: "info"
 traceOutputFolder: "data"
 placementPolicy: "kubernetes"
+
+redis:
+  address: "127.0.0.1:6379"
+  password: ""
+  db: 0

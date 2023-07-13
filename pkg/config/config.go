@@ -12,11 +12,12 @@ import (
 )
 
 type ControlPlaneConfig struct {
-	Port              string `mapstructure:"port"`
-	PortRegistration  string `mapstructure:"portRegistration"`
-	Verbosity         string `mapstructure:"verbosity"`
-	TraceOutputFolder string `mapstructure:"traceOutputFolder"`
-	PlacementPolicy   string `mapstructure:"placementPolicy"`
+	Port              string     `mapstructure:"port"`
+	PortRegistration  string     `mapstructure:"portRegistration"`
+	Verbosity         string     `mapstructure:"verbosity"`
+	TraceOutputFolder string     `mapstructure:"traceOutputFolder"`
+	PlacementPolicy   string     `mapstructure:"placementPolicy"`
+	RedisLogin        RedisLogin `mapstructure:"redis"`
 }
 
 type DataPlaneConfig struct {
@@ -36,6 +37,12 @@ type WorkerNodeConfig struct {
 	Verbosity        string `mapstructure:"verbosity"`
 	CRIPath          string `mapstructure:"criPath"`
 	CNIConfigPath    string `mapstructure:"cniConfigPath"`
+}
+
+type RedisLogin struct {
+	Address  string `mapstructure:"address"`
+	Password string `mapstructure:"password"`
+	Db       int    `mapstructure:"db"`
 }
 
 func parseConfigPath(configPath string) (string, string, string) {
