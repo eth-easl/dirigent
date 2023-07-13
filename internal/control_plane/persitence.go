@@ -6,9 +6,10 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strconv"
+
 	"github.com/redis/go-redis/v9"
 	"github.com/sirupsen/logrus"
-	"strconv"
 )
 
 const (
@@ -36,6 +37,11 @@ const (
 	stableWindowWidthSeconds             string = "stabledinwowidthseconds"
 	panicWindowWidthSeconds              string = "panicwindowswidthseconds"
 	scalingPeriodSeconds                 string = "scalingperiodseconds"
+
+	dataplanePrefix string = "dataplane"
+	workerPrefix    string = "worker"
+	servicePrefix   string = "service"
+	endpointPrefix  string = "endpoint"
 )
 
 type RedisClient struct {
@@ -92,16 +98,22 @@ type EndpointInformation struct {
 }
 
 func (driver *RedisClient) scanKeys(ctx context.Context, prefix string) ([]string, error) {
-	var cursor uint64
-	var n int
-	var keys []string
+	var (
+		cursor uint64
+		n      int
+		keys   []string
+	)
+
 	for {
 		var err error
-		keys, cursor, err = driver.redisClient.Scan(ctx, cursor, prefix, 10).Result()
+		keys, cursor, err = driver.redisClient.Scan(ctx, cursor, fmt.Sprintf("%s*", prefix), 10).Result()
+
 		if err != nil {
 			return keys, err
 		}
+
 		n += len(keys)
+
 		if cursor == 0 {
 			break
 		}
@@ -110,15 +122,18 @@ func (driver *RedisClient) scanKeys(ctx context.Context, prefix string) ([]strin
 	return keys, nil
 }
 
-func (driver *RedisClient) StoreDataPlaneInformation(ctx context.Context, key string, dataplaneInfo DataPlaneInformation) error {
+func (driver *RedisClient) StoreDataPlaneInformation(ctx context.Context, dataplaneInfo DataPlaneInformation) error {
 	logrus.Trace("store dataplane information in the database")
+
+	key := fmt.Sprintf("%s:%s", dataplanePrefix, dataplaneInfo.Address)
+
 	return driver.redisClient.HSet(ctx, key, dataplaneInfo).Err()
 }
 
 func (driver *RedisClient) GetDataPlaneInformation(ctx context.Context) ([]*DataPlaneInformation, error) {
 	logrus.Trace("get dataplane information from the database")
 
-	keys, err := driver.scanKeys(ctx, "dataplane*")
+	keys, err := driver.scanKeys(ctx, dataplanePrefix)
 	if err != nil {
 		return nil, err
 	}
@@ -143,15 +158,18 @@ func (driver *RedisClient) GetDataPlaneInformation(ctx context.Context) ([]*Data
 	return dataPlanes, nil
 }
 
-func (driver *RedisClient) StoreWorkerNodeInformation(ctx context.Context, key string, workerNodeInfo WorkerNodeInformation) error {
+func (driver *RedisClient) StoreWorkerNodeInformation(ctx context.Context, workerNodeInfo WorkerNodeInformation) error {
 	logrus.Trace("store worker node information in the database")
+
+	key := fmt.Sprintf("%s:%s", workerPrefix, workerNodeInfo.Name)
+
 	return driver.redisClient.HSet(ctx, key, workerNodeInfo).Err()
 }
 
 func (driver *RedisClient) GetWorkerNodeInformation(ctx context.Context) ([]*WorkerNodeInformation, error) {
 	logrus.Trace("get workers information from the database")
 
-	keys, err := driver.scanKeys(ctx, "worker*")
+	keys, err := driver.scanKeys(ctx, workerPrefix)
 	if err != nil {
 		return nil, err
 	}
@@ -207,20 +225,20 @@ func (driver *RedisClient) GetServiceInformation(ctx context.Context, key string
 		return nil, err
 	}
 
-	hostPort, err := strconv.Atoi(fields[hostPort])
-	guestPort, err := strconv.Atoi(fields[guestPort])
-	protocol, err := strconv.Atoi(fields[protocol])
+	hostPort, _ := strconv.Atoi(fields[hostPort])
+	guestPort, _ := strconv.Atoi(fields[guestPort])
+	protocol, _ := strconv.Atoi(fields[protocol])
 
-	scalingUpperBound, err := strconv.Atoi(fields[scalingUpperBound])
-	scalingLowerBound, err := strconv.Atoi(fields[scalingLowerBound])
-	panicThresholdPercentage, err := strconv.ParseFloat(fields[panicThresholdPercentage], 32)
-	maxScaleUpRate, err := strconv.ParseFloat(fields[maxScaleUpRate], 32)
-	maxScaleDownRate, err := strconv.ParseFloat(fields[maxScaleDownRate], 32)
-	containerConcurrency, err := strconv.Atoi(fields[ContainerConcurrency])
-	containerConcurrencyTargetPercentage, err := strconv.Atoi(fields[containerConcurrencyTargetPercentage])
-	stableWindowWidthSeconds, err := strconv.Atoi(fields[stableWindowWidthSeconds])
-	panicWindowWidthSeconds, err := strconv.Atoi(fields[panicWindowWidthSeconds])
-	scalingPeriodSeconds, err := strconv.Atoi(fields[scalingPeriodSeconds])
+	scalingUpperBound, _ := strconv.Atoi(fields[scalingUpperBound])
+	scalingLowerBound, _ := strconv.Atoi(fields[scalingLowerBound])
+	panicThresholdPercentage, _ := strconv.ParseFloat(fields[panicThresholdPercentage], 32)
+	maxScaleUpRate, _ := strconv.ParseFloat(fields[maxScaleUpRate], 32)
+	maxScaleDownRate, _ := strconv.ParseFloat(fields[maxScaleDownRate], 32)
+	containerConcurrency, _ := strconv.Atoi(fields[ContainerConcurrency])
+	containerConcurrencyTargetPercentage, _ := strconv.Atoi(fields[containerConcurrencyTargetPercentage])
+	stableWindowWidthSeconds, _ := strconv.Atoi(fields[stableWindowWidthSeconds])
+	panicWindowWidthSeconds, _ := strconv.Atoi(fields[panicWindowWidthSeconds])
+	scalingPeriodSeconds, _ := strconv.Atoi(fields[scalingPeriodSeconds])
 
 	return &proto.ServiceInfo{
 		Name:  fields[name],

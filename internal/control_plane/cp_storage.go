@@ -230,10 +230,13 @@ func (ss *ServiceInfoStorage) doDownscaling(toEvict map[*Endpoint]struct{}, urls
 	barrier.Wait()
 
 	ss.Controller.Lock()
+
 	err := ss.updatePersistenceLayer()
+
 	if err != nil {
 		logrus.Fatal("Implement this part")
 	}
+
 	ss.Controller.Unlock()
 
 	ss.updateEndpoints(dpiClients, urls)

@@ -107,7 +107,7 @@ func (c *CpApiServer) RegisterNode(ctx context.Context, in *proto.NodeInfo) (*pr
 		Memory:   int(in.MemorySize),
 	}
 
-	err := c.PersistenceLayer.StoreWorkerNodeInformation(ctx, fmt.Sprintf("worker:%s", wn.Name), control_plane.WorkerNodeInformation{
+	err := c.PersistenceLayer.StoreWorkerNodeInformation(ctx, control_plane.WorkerNodeInformation{
 		Name:     wn.Name,
 		Ip:       wn.IP,
 		Port:     wn.Port,
@@ -202,7 +202,7 @@ func (c *CpApiServer) RegisterDataplane(ctx context.Context, in *proto.Dataplane
 		return &proto.ActionStatus{Success: false}, nil
 	}
 
-	err := c.PersistenceLayer.StoreDataPlaneInformation(ctx, fmt.Sprintf("dataplane:%s", ipAddress), control_plane.DataPlaneInformation{
+	err := c.PersistenceLayer.StoreDataPlaneInformation(ctx, control_plane.DataPlaneInformation{
 		Address:   ipAddress,
 		ApiPort:   apiPort,
 		ProxyPort: proxyPort,
