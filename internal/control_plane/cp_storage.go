@@ -28,7 +28,8 @@ type ServiceInfoStorage struct {
 	Controller              *PFStateController
 	ColdStartTracingChannel *chan common.ColdStartLogEntry
 
-	PlacementPolicy PlacementPolicy
+	PlacementPolicy  PlacementPolicy
+	PertistenceLayer RedisClient
 }
 
 type Endpoint struct {
@@ -152,11 +153,20 @@ func (ss *ServiceInfoStorage) doUpscaling(toCreateCount int, nodeList *NodeInfoS
 	ss.Controller.Endpoints = append(ss.Controller.Endpoints, finalEndpoint...)
 	urls := ss.prepareUrlList()
 
+	err := ss.updatePersistenceLayer()
+	if err != nil {
+		logrus.Fatal("Implement this part")
+	}
+
 	ss.Controller.Unlock()
 
 	logrus.Debug("Propagating endpoints.")
 	ss.updateEndpoints(dpiClients, urls)
 	logrus.Debug("Endpoints updated.")
+}
+
+func (ss *ServiceInfoStorage) updatePersistenceLayer() error {
+	return ss.PertistenceLayer.UpdateEndpoints(context.Background(), fmt.Sprintf("endpoints:%s", ss.ServiceInfo.Name), ss.Controller.Endpoints)
 }
 
 func (ss *ServiceInfoStorage) prepareUrlList() []*proto.EndpointInfo {
@@ -218,6 +228,14 @@ func (ss *ServiceInfoStorage) doDownscaling(toEvict map[*Endpoint]struct{}, urls
 
 	// batch update of endpoints
 	barrier.Wait()
+
+	ss.Controller.Lock()
+	err := ss.updatePersistenceLayer()
+	if err != nil {
+		logrus.Fatal("Implement this part")
+	}
+	ss.Controller.Unlock()
+
 	ss.updateEndpoints(dpiClients, urls)
 }
 

@@ -5,6 +5,7 @@ import (
 	"cluster_manager/pkg/config"
 	"context"
 	"errors"
+	"fmt"
 	"github.com/redis/go-redis/v9"
 	"strconv"
 )
@@ -82,8 +83,15 @@ type ServiceInformation struct {
 	ScalingPeriodSeconds                 int32            `redis:"scalingPeriodSeconds"`
 }
 
+type EndpointInformation struct {
+	SandboxId string `redis:"sandboxId"`
+	URL       string `redis:"uRL"`
+	NodeName  string `redis:"nodeName"`
+	HostPort  int32  `redis:"hostPort"`
+}
+
 func (driver *RedisClient) StoreDataPlaneInformation(ctx context.Context, key string, dataplaneInfo DataPlaneInformation) error {
-	return driver.redisClient.HMSet(ctx, key, dataplaneInfo).Err()
+	return driver.redisClient.HSet(ctx, key, dataplaneInfo).Err()
 }
 
 func (driver *RedisClient) GetDataPlaneInformation(ctx context.Context, key string) (*DataPlaneInformation, error) {
@@ -100,7 +108,7 @@ func (driver *RedisClient) GetDataPlaneInformation(ctx context.Context, key stri
 }
 
 func (driver *RedisClient) StoreWorkerNodeInformation(ctx context.Context, key string, workerNodeInfo WorkerNodeInformation) error {
-	return driver.redisClient.HMSet(ctx, key, workerNodeInfo).Err()
+	return driver.redisClient.HSet(ctx, key, workerNodeInfo).Err()
 }
 
 func (driver *RedisClient) GetWorkerNodeInformation(ctx context.Context, key string) (*WorkerNodeInformation, error) {
@@ -123,7 +131,7 @@ func (driver *RedisClient) StoreServiceInformation(ctx context.Context, key stri
 		return errors.New("Struct to save is incomplete")
 	}
 
-	return driver.redisClient.HMSet(ctx, key,
+	return driver.redisClient.HSet(ctx, key,
 		name, serviceInfo.Name,
 		image, serviceInfo.Image,
 		hostPort, serviceInfo.PortForwarding.HostPort,
@@ -183,4 +191,38 @@ func (driver *RedisClient) GetServiceInformation(ctx context.Context, key string
 			ScalingPeriodSeconds:                 int32(scalingPeriodSeconds),
 		},
 	}, nil
+}
+
+func (driver *RedisClient) UpdateEndpoints(ctx context.Context, key string, endpoints []*Endpoint) error {
+	err := driver.DeleteEndpoints(ctx, key)
+	if err != nil {
+		return err
+	}
+
+	return driver.StoreEndpoints(ctx, key, endpoints)
+}
+
+func (driver *RedisClient) StoreEndpoints(ctx context.Context, key string, endpoints []*Endpoint) error {
+	for _, endpoint := range endpoints {
+		err := driver.redisClient.HSet(ctx, fmt.Sprintf("%s:%s", key, endpoint.Node.Name), EndpointInformation{
+			SandboxId: endpoint.SandboxID,
+			URL:       endpoint.URL,
+			NodeName:  endpoint.Node.Name,
+			HostPort:  endpoint.HostPort,
+		}).Err()
+		if err != nil {
+			driver.DeleteEndpoints(ctx, key)
+			return err
+		}
+	}
+
+	return nil
+}
+
+func (driver *RedisClient) DeleteEndpoints(ctx context.Context, key string) error {
+	return driver.redisClient.Del(ctx, key).Err()
+}
+
+func (driver *RedisClient) GetEndpoints(ctx context.Context, key string) ([]*EndpointInformation, error) {
+	return make([]*EndpointInformation, 0), nil
 }

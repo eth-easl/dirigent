@@ -174,6 +174,7 @@ func (c *CpApiServer) RegisterService(ctx context.Context, serviceInfo *proto.Se
 		},
 		ColdStartTracingChannel: &c.ColdStartTracing.InputChannel,
 		PlacementPolicy:         c.PlacementPolicy,
+		PertistenceLayer:        c.PersistenceLayer,
 	}
 
 	err := c.PersistenceLayer.StoreServiceInformation(ctx, fmt.Sprintf("service:%s", serviceInfo.Name), serviceInfo)
