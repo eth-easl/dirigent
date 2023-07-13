@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"github.com/redis/go-redis/v9"
+	"github.com/sirupsen/logrus"
 	"strconv"
 )
 
@@ -90,24 +91,60 @@ type EndpointInformation struct {
 	HostPort  int32  `redis:"hostPort"`
 }
 
+func (driver *RedisClient) scanKeys(ctx context.Context, prefix string) ([]string, error) {
+	var cursor uint64
+	var n int
+	var keys []string
+	for {
+		var err error
+		keys, cursor, err = driver.redisClient.Scan(ctx, cursor, prefix, 10).Result()
+		if err != nil {
+			return keys, err
+		}
+		n += len(keys)
+		if cursor == 0 {
+			break
+		}
+	}
+
+	return keys, nil
+}
+
 func (driver *RedisClient) StoreDataPlaneInformation(ctx context.Context, key string, dataplaneInfo DataPlaneInformation) error {
+	logrus.Trace("store dataplane information in the database")
 	return driver.redisClient.HSet(ctx, key, dataplaneInfo).Err()
 }
 
-func (driver *RedisClient) GetDataPlaneInformation(ctx context.Context, key string) (*DataPlaneInformation, error) {
-	fields, err := driver.redisClient.HGetAll(ctx, key).Result()
+func (driver *RedisClient) GetDataPlaneInformation(ctx context.Context) ([]*DataPlaneInformation, error) {
+	logrus.Trace("get dataplane information from the database")
+
+	keys, err := driver.scanKeys(ctx, "dataplane*")
 	if err != nil {
 		return nil, err
 	}
 
-	return &DataPlaneInformation{
-		Address:   fields[address],
-		ApiPort:   fields[apiPort],
-		ProxyPort: fields[proxyPort],
-	}, nil
+	dataPlanes := make([]*DataPlaneInformation, 0)
+
+	for _, key := range keys {
+		fields, err := driver.redisClient.HGetAll(ctx, key).Result()
+		if err != nil {
+			return nil, err
+		}
+
+		dataPlanes = append(dataPlanes, &DataPlaneInformation{
+			Address:   fields[address],
+			ApiPort:   fields[apiPort],
+			ProxyPort: fields[proxyPort],
+		})
+	}
+
+	logrus.Tracef("Found %d dataplane(s) in the database", len(dataPlanes))
+
+	return dataPlanes, nil
 }
 
 func (driver *RedisClient) StoreWorkerNodeInformation(ctx context.Context, key string, workerNodeInfo WorkerNodeInformation) error {
+	logrus.Trace("store worker node information in the database")
 	return driver.redisClient.HSet(ctx, key, workerNodeInfo).Err()
 }
 

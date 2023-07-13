@@ -44,6 +44,7 @@ func main() {
 	}
 
 	cpApiServer := api.CreateNewCpApiServer(redisClient, path.Join(config.TraceOutputFolder, "cold_start_trace.csv"), parsePlacementPolicy(config))
+	cpApiServer.ReconstructState(context2.Background())
 
 	go cpApiServer.ColdStartTracing.StartTracingService()
 	defer close(cpApiServer.ColdStartTracing.InputChannel)
