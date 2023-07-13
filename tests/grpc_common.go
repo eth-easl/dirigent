@@ -3,8 +3,8 @@ package tests
 import (
 	protoApi "cluster_manager/api/proto"
 	"cluster_manager/internal/common"
+	"cluster_manager/pkg/utils"
 	"cluster_manager/tests/proto"
-	"cluster_manager/utils"
 	"context"
 	"fmt"
 	"testing"

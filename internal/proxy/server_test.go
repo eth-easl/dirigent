@@ -3,9 +3,9 @@ package proxy
 import (
 	proto2 "cluster_manager/api/proto"
 	common "cluster_manager/internal/common"
+	"cluster_manager/pkg/utils"
 	testserver "cluster_manager/tests"
 	"cluster_manager/tests/proto"
-	"cluster_manager/utils"
 	"fmt"
 	"io"
 	"net/http"

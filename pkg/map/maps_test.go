@@ -1,4 +1,4 @@
-package utils
+package _map
 
 import (
 	"testing"

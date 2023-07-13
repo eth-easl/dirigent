@@ -15,20 +15,22 @@ import (
 )
 
 type ProxyingService struct {
-	Host        string
-	Port        string
-	Cache       *common.Deployments
-	CPInterface *proto.CpiInterfaceClient
+	Host                string
+	Port                string
+	Cache               *common.Deployments
+	CPInterface         *proto.CpiInterfaceClient
+	LoadBalancingPolicy load_balancing.LoadBalancingPolicy
 
 	Tracing *common.TracingService[common.ProxyLogEntry]
 }
 
-func NewProxyingService(host string, port string, cache *common.Deployments, cp *proto.CpiInterfaceClient, outputFile string) *ProxyingService {
+func NewProxyingService(host string, port string, cache *common.Deployments, cp *proto.CpiInterfaceClient, outputFile string, loadBalancingPolicy load_balancing.LoadBalancingPolicy) *ProxyingService {
 	return &ProxyingService{
-		Host:        host,
-		Port:        port,
-		Cache:       cache,
-		CPInterface: cp,
+		Host:                host,
+		Port:                port,
+		Cache:               cache,
+		CPInterface:         cp,
+		LoadBalancingPolicy: loadBalancingPolicy,
 
 		Tracing: common.NewProxyTracingService(outputFile),
 	}
@@ -108,9 +110,7 @@ func (ps *ProxyingService) createInvocationHandler(next http.Handler, cache *com
 		// LOAD BALANCING AND ROUTING
 		///////////////////////////////////////////////
 
-		loadBalancingPolicy := load_balancing.LOAD_BALANCING_RANDOM
-
-		lbSuccess, endpoint, durationLB, durationCC := load_balancing.DoLoadBalancing(r, metadata, loadBalancingPolicy)
+		lbSuccess, endpoint, durationLB, durationCC := load_balancing.DoLoadBalancing(r, metadata, ps.LoadBalancingPolicy)
 		if !lbSuccess {
 			w.WriteHeader(http.StatusGone)
 			logrus.Debug("Cold start passed by no sandbox available.")

@@ -2,13 +2,21 @@ package control_plane
 
 import (
 	"cluster_manager/internal/control_plane/placement"
-	"cluster_manager/utils"
+	_map "cluster_manager/pkg/map"
 	"math/rand"
 	"sort"
 	"sync"
 	"time"
 
 	"github.com/sirupsen/logrus"
+)
+
+type PlacementPolicy = int
+
+const (
+	PLACEMENT_RANDOM PlacementPolicy = iota
+	PLACEMENT_ROUND_ROBIN
+	PLACEMENT_KUBERNETES
 )
 
 type ScalingMetric string
@@ -74,16 +82,16 @@ func (as *PFStateController) ScalingLoop() {
 // POLICIES
 ////////////////////////////////////////////////////.//.
 
-func placementPolicy(placementPolicy placement.PlacementPolicy, storage *NodeInfoStorage, requested *placement.ResourceMap) *WorkerNode {
+func placementPolicy(placementPolicy PlacementPolicy, storage *NodeInfoStorage, requested *placement.ResourceMap) *WorkerNode {
 	storage.Lock()
 	defer storage.Unlock()
 
 	switch placementPolicy {
-	case placement.PLACMENT_RANDOM:
+	case PLACEMENT_RANDOM:
 		return randomPolicy(storage, requested)
-	case placement.PLACEMENT_ROUND_ROBIN:
+	case PLACEMENT_ROUND_ROBIN:
 		return roundRobinPolicy(storage, requested)
-	case placement.PLACEMENT_KUBERNETES:
+	case PLACEMENT_KUBERNETES:
 		return kubernetesPolicy(storage, requested)
 	default:
 		return kubernetesPolicy(storage, requested)
@@ -180,11 +188,11 @@ func roundRobinPolicy(storage *NodeInfoStorage, requested *placement.ResourceMap
 }
 
 func getNumberNodes(storage *NodeInfoStorage) int {
-	return len(utils.Keys(storage.NodeInfo))
+	return len(_map.Keys(storage.NodeInfo))
 }
 
 func nodeFromIndex(storage *NodeInfoStorage, index int) *WorkerNode {
-	nodes := sort.StringSlice(utils.Keys(storage.NodeInfo))
+	nodes := sort.StringSlice(_map.Keys(storage.NodeInfo))
 	nodes.Sort()
 	nodeName := nodes[index]
 

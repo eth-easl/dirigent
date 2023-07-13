@@ -2,7 +2,7 @@ package control_plane
 
 import (
 	placement2 "cluster_manager/internal/control_plane/placement"
-	"cluster_manager/utils"
+	_map "cluster_manager/pkg/map"
 	"sort"
 	"testing"
 
@@ -10,7 +10,7 @@ import (
 )
 
 func TestRandomPolicy(t *testing.T) {
-	policy := placement2.PLACMENT_RANDOM
+	policy := PLACEMENT_RANDOM
 	storage := &NodeInfoStorage{
 		NodeInfo: make(map[string]*WorkerNode),
 	}
@@ -28,7 +28,7 @@ func TestRandomPolicy(t *testing.T) {
 }
 
 func TestRoundRobin(t *testing.T) {
-	policy := placement2.PLACEMENT_ROUND_ROBIN
+	policy := PLACEMENT_ROUND_ROBIN
 	storage := &NodeInfoStorage{
 		NodeInfo: make(map[string]*WorkerNode),
 	}
@@ -39,7 +39,7 @@ func TestRoundRobin(t *testing.T) {
 	storage.NodeInfo["w2"] = &WorkerNode{}
 	storage.NodeInfo["w3"] = &WorkerNode{}
 
-	nodes := sort.StringSlice(utils.Keys(storage.NodeInfo))
+	nodes := sort.StringSlice(_map.Keys(storage.NodeInfo))
 	nodes.Sort()
 
 	for i := 0; i < 100; i++ {

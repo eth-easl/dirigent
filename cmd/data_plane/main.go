@@ -5,9 +5,10 @@ import (
 	"cluster_manager/api/proto"
 	common "cluster_manager/internal/common"
 	"cluster_manager/internal/proxy"
-	"cluster_manager/utils"
+	"cluster_manager/internal/proxy/load_balancing"
+	config2 "cluster_manager/pkg/config"
+	"cluster_manager/pkg/logger"
 	"context"
-	"flag"
 	"path"
 	"strconv"
 
@@ -16,23 +17,18 @@ import (
 	"google.golang.org/protobuf/types/known/emptypb"
 )
 
-var (
-	controlPlaneIP    = flag.String("controlPlaneIP", "localhost", "Control plane IP address")
-	controlPlanePort  = flag.String("controlPlanePort", utils.DefaultControlPlanePort, "Control plane port")
-	portProxy         = flag.String("portProxy", utils.DefaultDataPlaneProxyPort, "Data plane incoming traffic port")
-	portGRPC          = flag.String("portGRPC", utils.DefaultDataPlaneApiPort, "Data plane incoming traffic port")
-	verbosity         = flag.String("verbosity", "info", "Logging verbosity - choose from [info, debug, trace]")
-	traceOutputFolder = flag.String("traceOutputFolder", utils.DefaultTraceOutputFolder, "Folder where to write all logs")
-)
-
 func main() {
-	flag.Parse()
-	utils.SetupLogger(*verbosity)
+	config, err := config2.ReadDataPlaneConfiguration("config.yaml")
+	if err != nil {
+		logrus.Fatal("Failed to read configuration file (error : %s)", err.Error())
+	}
+
+	logger.SetupLogger(config.Verbosity)
 
 	cache := common.NewDeploymentList()
 	dpCreated := make(chan struct{})
 
-	go common.CreateGRPCServer("0.0.0.0", *portGRPC, func(sr grpc.ServiceRegistrar) {
+	go common.CreateGRPCServer("0.0.0.0", config.PortGRPC, func(sr grpc.ServiceRegistrar) {
 		proto.RegisterDpiInterfaceServer(sr, &api.DpApiServer{
 			Deployments: cache,
 		})
@@ -40,10 +36,10 @@ func main() {
 
 	var dpConnection proto.CpiInterfaceClient
 	go func() {
-		grpcPort, _ := strconv.Atoi(*portGRPC)
-		proxyPort, _ := strconv.Atoi(*portProxy)
+		grpcPort, _ := strconv.Atoi(config.PortGRPC)
+		proxyPort, _ := strconv.Atoi(config.PortProxy)
 
-		dpConnection = common.InitializeControlPlaneConnection(*controlPlaneIP, *controlPlanePort, int32(grpcPort), int32(proxyPort))
+		dpConnection = common.InitializeControlPlaneConnection(config.ControlPlaneIp, config.ControlPlanePort, int32(grpcPort), int32(proxyPort))
 		syncDeploymentCache(&dpConnection, cache)
 
 		dpCreated <- struct{}{}
@@ -51,11 +47,12 @@ func main() {
 
 	<-dpCreated
 
-	proxyServer := proxy.NewProxyingService("0.0.0.0", *portProxy, cache, &dpConnection, path.Join(*traceOutputFolder, "proxy_trace.csv"))
+	var loadBalancingPolicy load_balancing.LoadBalancingPolicy = config2.ParseLoadBalancingPolicy(config)
+
+	proxyServer := proxy.NewProxyingService("0.0.0.0", config.PortProxy, cache, &dpConnection, path.Join(config.TraceOutputFolder, "proxy_trace.csv"), loadBalancingPolicy)
 
 	go proxyServer.Tracing.StartTracingService()
 	defer close(proxyServer.Tracing.InputChannel)
-
 	proxyServer.StartProxyServer()
 }
 

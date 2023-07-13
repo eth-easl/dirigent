@@ -28,7 +28,7 @@ type ServiceInfoStorage struct {
 	Controller              *PFStateController
 	ColdStartTracingChannel *chan common.ColdStartLogEntry
 
-	PlacementPolicy placement2.PlacementPolicy
+	PlacementPolicy PlacementPolicy
 }
 
 type Endpoint struct {

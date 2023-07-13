@@ -3,13 +3,16 @@ package main
 import (
 	"cluster_manager/api"
 	"cluster_manager/api/proto"
-	common "cluster_manager/internal/common"
-	sandbox "cluster_manager/internal/sandbox"
-	"cluster_manager/utils"
+	"cluster_manager/internal/common"
+	"cluster_manager/internal/sandbox"
+	config2 "cluster_manager/pkg/config"
+	"cluster_manager/pkg/hardware"
+	"cluster_manager/pkg/logger"
+	"cluster_manager/pkg/utils"
 	"context"
-	"flag"
 	"fmt"
 	"os"
+	"strconv"
 	"time"
 
 	"github.com/sirupsen/logrus"
@@ -17,41 +20,35 @@ import (
 	"k8s.io/apimachinery/pkg/util/wait"
 )
 
-var (
-	controlPlaneIP   = flag.String("controlPlaneIP", "localhost", "Control plane IP address")
-	controlPlanePort = flag.String("controlPlanePort", utils.DefaultControlPlanePort, "Control plane port")
-	port             = flag.Int("port", utils.DefaultWorkerNodePort, "Worker daemon incoming traffic port")
-	verbosity        = flag.String("verbosity", "info", "Logging verbosity - choose from [info, debug, trace]")
-
-	criPath       = flag.String("criPath", "/run/containerd/containerd.sock", "Path to containerd socket")
-	cniConfigPath = flag.String("cniConfigPath", "../../configs/cni.conf", "Path to CNI config")
-)
-
 func main() {
-	flag.Parse()
-	utils.SetupLogger(*verbosity)
+	config, err := config2.ReadWorkedNodeConfiguration("config.yaml")
+	if err != nil {
+		logrus.Fatal("Failed to read configuration file (error : %s)", err.Error())
+	}
+
+	logger.SetupLogger(config.Verbosity)
 
 	stopChannel := make(chan struct{})
 
-	containerdClient := sandbox.GetContainerdClient(*criPath)
+	containerdClient := sandbox.GetContainerdClient(config.CRIPath)
 	defer containerdClient.Close()
 
-	cniClient := sandbox.GetCNIClient(*cniConfigPath)
+	cniClient := sandbox.GetCNIClient(config.CNIConfigPath)
 	ipt, err := sandbox.NewIptablesUtil()
 
 	if err != nil {
 		logrus.Fatal("Error while accessing iptables - ", err)
 	}
 
-	cpApi := common.InitializeControlPlaneConnection(*controlPlaneIP, *controlPlanePort, -1, -1)
+	cpApi := common.InitializeControlPlaneConnection(config.ControlPlaneIp, config.ControlPlanePort, -1, -1)
 
-	registerNodeWithControlPlane(&cpApi)
+	registerNodeWithControlPlane(config, &cpApi)
 
 	go setupHeartbeatLoop(&cpApi)
 
 	logrus.Info("Starting API handlers")
 
-	go common.CreateGRPCServer(utils.DockerLocalhost, string(*port), func(sr grpc.ServiceRegistrar) {
+	go common.CreateGRPCServer(utils.DockerLocalhost, strconv.Itoa(config.Port), func(sr grpc.ServiceRegistrar) {
 		proto.RegisterWorkerNodeInterfaceServer(sr, &api.WnApiServer{
 			ContainerdClient: containerdClient,
 			CNIClient:        cniClient,
@@ -65,7 +62,7 @@ func main() {
 	<-stopChannel
 }
 
-func registerNodeWithControlPlane(cpApi *proto.CpiInterfaceClient) {
+func registerNodeWithControlPlane(config config2.WorkerNodeConfig, cpApi *proto.CpiInterfaceClient) {
 	hostName, err := os.Hostname()
 	if err != nil {
 		logrus.Warn("Error fetching host name.")
@@ -79,9 +76,9 @@ func registerNodeWithControlPlane(cpApi *proto.CpiInterfaceClient) {
 			resp, err := (*cpApi).RegisterNode(context.Background(), &proto.NodeInfo{
 				NodeID: hostName,
 				// IP fetched from server-side context
-				Port:       int32(*port),
-				CpuCores:   utils.GetNumberCpus(),
-				MemorySize: utils.GetMemory(),
+				Port:       int32(config.Port),
+				CpuCores:   hardware.GetNumberCpus(),
+				MemorySize: hardware.GetMemory(),
 			})
 
 			if err != nil || resp == nil {
@@ -111,7 +108,7 @@ func setupHeartbeatLoop(cpApi *proto.CpiInterfaceClient) {
 }
 
 func getWorkerStatistics() (*proto.NodeHeartbeatMessage, error) {
-	harwareUsage := utils.GetHardwareUsage()
+	harwareUsage := hardware.GetHardwareUsage()
 
 	hostname, err := os.Hostname()
 	if err != nil {

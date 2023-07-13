@@ -1,4 +1,4 @@
-package utils
+package atomic_map
 
 import (
 	"sync"

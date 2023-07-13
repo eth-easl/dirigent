@@ -1,0 +1,5 @@
+port: "9090"
+portRegistration: "9091"
+verbosity: "info"
+traceOutputFolder: "data"
+placementPolicy: "kubernetes"

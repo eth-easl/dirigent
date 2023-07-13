@@ -2,7 +2,7 @@ package common
 
 import (
 	"cluster_manager/api/proto"
-	"cluster_manager/utils"
+	"cluster_manager/pkg/utils"
 	"context"
 	"fmt"
 	"net"

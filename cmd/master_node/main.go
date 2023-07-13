@@ -4,31 +4,31 @@ import (
 	"cluster_manager/api"
 	"cluster_manager/api/proto"
 	common "cluster_manager/internal/common"
-	"cluster_manager/utils"
-	"flag"
+	config2 "cluster_manager/pkg/config"
+	"cluster_manager/pkg/logger"
+	"cluster_manager/pkg/utils"
 	"path"
+
+	"github.com/sirupsen/logrus"
 
 	"google.golang.org/grpc"
 )
 
-var (
-	port              = flag.String("cpPort", utils.DefaultControlPlanePort, "Control plane traffic incoming port")
-	portRegistration  = flag.String("portRegistration", utils.DefaultControlPlanePortServiceRegistration, "HTTP service registration incoming traffic port")
-	verbosity         = flag.String("verbosity", "info", "Logging verbosity - choose from [info, debug, trace]")
-	traceOutputFolder = flag.String("traceOutputFolder", utils.DefaultTraceOutputFolder, "Folder where to write all logs")
-)
-
 func main() {
-	flag.Parse()
-	utils.SetupLogger(*verbosity)
+	config, err := config2.ReadControlPlaneConfiguration("config.yaml")
+	if err != nil {
+		logrus.Fatal("Failed to read configuration file (error : %s)", err.Error())
+	}
 
-	cpApiServer := api.CreateNewCpApiServer(path.Join(*traceOutputFolder, "cold_start_trace.csv"))
+	logger.SetupLogger(config.Verbosity)
+
+	cpApiServer := api.CreateNewCpApiServer(path.Join(config.TraceOutputFolder, "cold_start_trace.csv"), config2.ParsePlacementPolicy(config))
 
 	go cpApiServer.ColdStartTracing.StartTracingService()
 	defer close(cpApiServer.ColdStartTracing.InputChannel)
 
-	go api.StartServiceRegistrationServer(cpApiServer, *portRegistration)
-	common.CreateGRPCServer("0.0.0.0", *port, func(sr grpc.ServiceRegistrar) {
+	go api.StartServiceRegistrationServer(cpApiServer, config.PortRegistration)
+	common.CreateGRPCServer(utils.DockerLocalhost, config.Port, func(sr grpc.ServiceRegistrar) {
 		proto.RegisterCpiInterfaceServer(sr, cpApiServer)
 	})
 }

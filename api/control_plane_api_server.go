@@ -4,8 +4,7 @@ import (
 	"cluster_manager/api/proto"
 	"cluster_manager/internal/common"
 	"cluster_manager/internal/control_plane"
-	"cluster_manager/internal/control_plane/placement"
-	"cluster_manager/utils"
+	_map "cluster_manager/pkg/map"
 	"context"
 	"strconv"
 	"time"
@@ -23,15 +22,17 @@ type CpApiServer struct {
 	SIStorage map[string]*control_plane.ServiceInfoStorage
 
 	ColdStartTracing *common.TracingService[common.ColdStartLogEntry]
+	PlacementPolicy  control_plane.PlacementPolicy
 }
 
-func CreateNewCpApiServer(outputFile string) *CpApiServer {
+func CreateNewCpApiServer(outputFile string, placementPolicy control_plane.PlacementPolicy) *CpApiServer {
 	return &CpApiServer{
 		NIStorage: control_plane.NodeInfoStorage{
 			NodeInfo: make(map[string]*control_plane.WorkerNode),
 		},
 		SIStorage:        make(map[string]*control_plane.ServiceInfoStorage),
 		ColdStartTracing: common.NewColdStartTracingService(outputFile),
+		PlacementPolicy:  placementPolicy,
 	}
 }
 
@@ -72,7 +73,7 @@ func (c *CpApiServer) OnMetricsReceive(_ context.Context, metric *proto.Autoscal
 }
 
 func (c *CpApiServer) ListServices(_ context.Context, _ *emptypb.Empty) (*proto.ServiceList, error) {
-	return &proto.ServiceList{Service: utils.Keys(c.SIStorage)}, nil
+	return &proto.ServiceList{Service: _map.Keys(c.SIStorage)}, nil
 }
 
 func (c *CpApiServer) RegisterNode(ctx context.Context, in *proto.NodeInfo) (*proto.ActionStatus, error) {
@@ -157,7 +158,7 @@ func (c *CpApiServer) RegisterService(ctx context.Context, serviceInfo *proto.Se
 			},
 		},
 		ColdStartTracingChannel: &c.ColdStartTracing.InputChannel,
-		PlacementPolicy:         placement.PLACEMENT_KUBERNETES,
+		PlacementPolicy:         c.PlacementPolicy,
 	}
 	c.SIStorage[serviceInfo.Name] = service
 
