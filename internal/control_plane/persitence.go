@@ -148,19 +148,34 @@ func (driver *RedisClient) StoreWorkerNodeInformation(ctx context.Context, key s
 	return driver.redisClient.HSet(ctx, key, workerNodeInfo).Err()
 }
 
-func (driver *RedisClient) GetWorkerNodeInformation(ctx context.Context, key string) (*WorkerNodeInformation, error) {
-	fields, err := driver.redisClient.HGetAll(ctx, key).Result()
+func (driver *RedisClient) GetWorkerNodeInformation(ctx context.Context) ([]*WorkerNodeInformation, error) {
+	logrus.Trace("get workers information from the database")
+
+	keys, err := driver.scanKeys(ctx, "worker*")
 	if err != nil {
 		return nil, err
 	}
 
-	return &WorkerNodeInformation{
-		Name:     fields[name],
-		Ip:       fields[ip],
-		Port:     fields[port],
-		CpuCores: fields[cpuCores],
-		Memory:   fields[memory],
-	}, nil
+	workers := make([]*WorkerNodeInformation, 0)
+
+	for _, key := range keys {
+		fields, err := driver.redisClient.HGetAll(ctx, key).Result()
+		if err != nil {
+			return nil, err
+		}
+
+		workers = append(workers, &WorkerNodeInformation{
+			Name:     fields[name],
+			Ip:       fields[ip],
+			Port:     fields[port],
+			CpuCores: fields[cpuCores],
+			Memory:   fields[memory],
+		})
+	}
+
+	logrus.Tracef("Found %d worker(s) in the database", len(workers))
+
+	return workers, nil
 }
 
 func (driver *RedisClient) StoreServiceInformation(ctx context.Context, key string, serviceInfo *proto.ServiceInfo) error {

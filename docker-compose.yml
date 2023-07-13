@@ -1,6 +1,3 @@
-volumes:
-  database:
-
 services:
   redis:
     image: redis

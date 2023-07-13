@@ -119,12 +119,14 @@ func (c *CpApiServer) RegisterNode(ctx context.Context, in *proto.NodeInfo) (*pr
 		return &proto.ActionStatus{Success: false}, err
 	}
 
-	c.NIStorage.NodeInfo[in.NodeID] = wn
-	go wn.GetAPI()
-
 	logrus.Info("Node '", in.NodeID, "' has been successfully register with the control plane")
 
 	return &proto.ActionStatus{Success: true}, nil
+}
+
+func (c *CpApiServer) connectToRegisteredWorker(wn *control_plane.WorkerNode) {
+	c.NIStorage.NodeInfo[wn.Name] = wn
+	go wn.GetAPI()
 }
 
 func (c *CpApiServer) NodeHeartbeat(_ context.Context, in *proto.NodeHeartbeatMessage) (*proto.ActionStatus, error) {
@@ -213,14 +215,14 @@ func (c *CpApiServer) RegisterDataplane(ctx context.Context, in *proto.Dataplane
 	return &proto.ActionStatus{Success: true}, nil
 }
 
-func (c *CpApiServer) ReconstructState(ctx context.Context) error {
+func (c *CpApiServer) reconstructDataplaneState(ctx context.Context) error {
 	dataplanesValues, err := c.PersistenceLayer.GetDataPlaneInformation(ctx)
 	if err != nil {
 		return err
 	}
 
 	for _, dataplane := range dataplanesValues {
-		c.ConnectToRegisteredDataplane(control_plane.DataPlaneInformation{
+		c.connectToRegisteredDataplane(control_plane.DataPlaneInformation{
 			Address:   dataplane.Address,
 			ApiPort:   dataplane.ApiPort,
 			ProxyPort: dataplane.ProxyPort,
@@ -230,7 +232,43 @@ func (c *CpApiServer) ReconstructState(ctx context.Context) error {
 	return nil
 }
 
-func (c *CpApiServer) ConnectToRegisteredDataplane(information control_plane.DataPlaneInformation) {
+func (c *CpApiServer) reconstructWorkersState(ctx context.Context) error {
+	workers, err := c.PersistenceLayer.GetWorkerNodeInformation(ctx)
+	if err != nil {
+		return err
+	}
+
+	for _, worker := range workers {
+		cores, _ := strconv.Atoi(worker.CpuCores)
+		memory, _ := strconv.Atoi(worker.Memory)
+
+		c.connectToRegisteredWorker(&control_plane.WorkerNode{
+			Name:     worker.Name,
+			IP:       worker.Ip,
+			Port:     worker.Port,
+			CpuCores: cores,
+			Memory:   memory,
+		})
+	}
+
+	return nil
+}
+
+func (c *CpApiServer) ReconstructState(ctx context.Context) error {
+	err := c.reconstructDataplaneState(ctx)
+	if err != nil {
+		return err
+	}
+
+	err = c.reconstructWorkersState(ctx)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (c *CpApiServer) connectToRegisteredDataplane(information control_plane.DataPlaneInformation) {
 	c.appendDpiConnection(
 		common.InitializeDataPlaneConnection(information.Address, information.ApiPort),
 		information.Address,
