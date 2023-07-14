@@ -114,9 +114,11 @@ func (c *CpApiServer) RegisterNode(ctx context.Context, in *proto.NodeInfo) (*pr
 		Memory:   strconv.Itoa(wn.Memory),
 	})
 	if err != nil {
-		logrus.Error("Failed to store information to persistence layer")
+		logrus.Errorf("Failed to store information to persistence layer (error : %s)", err.Error())
 		return &proto.ActionStatus{Success: false}, err
 	}
+
+	c.connectToRegisteredWorker(wn)
 
 	logrus.Info("Node '", in.NodeID, "' has been successfully register with the control plane")
 
@@ -155,7 +157,7 @@ func updateWorkerNode(workerNode *control_plane.WorkerNode, in *proto.NodeHeartb
 func (c *CpApiServer) RegisterService(ctx context.Context, serviceInfo *proto.ServiceInfo) (*proto.ActionStatus, error) {
 	err := c.PersistenceLayer.StoreServiceInformation(ctx, serviceInfo)
 	if err != nil {
-		logrus.Error("Failed to store information to persistence layer")
+		logrus.Errorf("Failed to store information to persistence layer (error : %s)", err.Error())
 		return &proto.ActionStatus{Success: false}, err
 	}
 
@@ -203,23 +205,26 @@ func (c *CpApiServer) connectToRegisteredService(ctx context.Context, serviceInf
 
 func (c *CpApiServer) RegisterDataplane(ctx context.Context, in *proto.DataplaneInfo) (*proto.ActionStatus, error) {
 	ipAddress, ok := common.GetIPAddressFromGRPCCall(ctx)
-	apiPort := strconv.Itoa(int(in.APIPort))
-	proxyPort := strconv.Itoa(int(in.ProxyPort))
-
 	if !ok {
 		logrus.Debug("Failed to extract IP address from data plane registration request")
 		return &proto.ActionStatus{Success: false}, nil
 	}
 
-	err := c.PersistenceLayer.StoreDataPlaneInformation(ctx, control_plane.DataPlaneInformation{
+	apiPort := strconv.Itoa(int(in.APIPort))
+	proxyPort := strconv.Itoa(int(in.ProxyPort))
+	dataplaneInfo := control_plane.DataPlaneInformation{
 		Address:   ipAddress,
 		ApiPort:   apiPort,
 		ProxyPort: proxyPort,
-	})
+	}
+
+	err := c.PersistenceLayer.StoreDataPlaneInformation(ctx, dataplaneInfo)
 	if err != nil {
-		logrus.Error("Failed to store information to persistence layer")
+		logrus.Errorf("Failed to store information to persistence layer (error : %s)", err.Error())
 		return &proto.ActionStatus{Success: false}, err
 	}
+
+	c.connectToRegisteredDataplane(dataplaneInfo)
 
 	return &proto.ActionStatus{Success: true}, nil
 }
@@ -279,7 +284,7 @@ func (c *CpApiServer) reconstructServiceState(ctx context.Context) error {
 	}
 
 	for _, service := range services {
-		c.connectToRegisteredService(ctx, &proto.ServiceInfo{
+		err := c.connectToRegisteredService(ctx, &proto.ServiceInfo{
 			Name:  service.Name,
 			Image: service.Image,
 			PortForwarding: &proto.PortMapping{
@@ -300,6 +305,9 @@ func (c *CpApiServer) reconstructServiceState(ctx context.Context) error {
 				ScalingPeriodSeconds:                 service.AutoscalingConfig.ScalingPeriodSeconds,
 			},
 		})
+		if err != nil {
+			return err
+		}
 	}
 
 	return nil
@@ -319,25 +327,10 @@ func (c *CpApiServer) reconstructEndpointsState(ctx context.Context) error {
 }
 
 func (c *CpApiServer) ReconstructState(ctx context.Context) error {
-	err := c.reconstructDataplaneState(ctx)
-	if err != nil {
-		return err
-	}
-
-	err = c.reconstructWorkersState(ctx)
-	if err != nil {
-		return err
-	}
-
-	err = c.reconstructServiceState(ctx)
-	if err != nil {
-		return err
-	}
-
-	err = c.reconstructEndpointsState(ctx)
-	if err != nil {
-		return err
-	}
+	go c.reconstructDataplaneState(ctx)
+	go c.reconstructWorkersState(ctx)
+	go c.reconstructServiceState(ctx)
+	go c.reconstructEndpointsState(ctx)
 
 	return nil
 }

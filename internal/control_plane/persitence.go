@@ -216,7 +216,7 @@ func (driver *RedisClient) StoreServiceInformation(ctx context.Context, serviceI
 		image, serviceInfo.Image,
 		hostPort, serviceInfo.PortForwarding.HostPort,
 		guestPort, serviceInfo.PortForwarding.GuestPort,
-		protocol, serviceInfo.PortForwarding.Protocol,
+		protocol, int32(serviceInfo.PortForwarding.Protocol),
 		scalingUpperBound, serviceInfo.AutoscalingConfig.ScalingUpperBound,
 		scalingLowerBound, serviceInfo.AutoscalingConfig.ScalingLowerBound,
 		panicThresholdPercentage, serviceInfo.AutoscalingConfig.PanicThresholdPercentage,
