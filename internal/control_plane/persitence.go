@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"strconv"
+	"strings"
 
 	"github.com/redis/go-redis/v9"
 	"github.com/sirupsen/logrus"
@@ -37,6 +38,11 @@ const (
 	stableWindowWidthSeconds             string = "stabledinwowidthseconds"
 	panicWindowWidthSeconds              string = "panicwindowswidthseconds"
 	scalingPeriodSeconds                 string = "scalingperiodseconds"
+
+	SandboxId string = "sandboxId"
+	URL       string = "uRL"
+	NodeName  string = "nodeName"
+	HostPort  string = "hostPort"
 
 	dataplanePrefix string = "dataplane"
 	workerPrefix    string = "worker"
@@ -196,10 +202,14 @@ func (driver *RedisClient) GetWorkerNodeInformation(ctx context.Context) ([]*Wor
 	return workers, nil
 }
 
-func (driver *RedisClient) StoreServiceInformation(ctx context.Context, key string, serviceInfo *proto.ServiceInfo) error {
+func (driver *RedisClient) StoreServiceInformation(ctx context.Context, serviceInfo *proto.ServiceInfo) error {
+	logrus.Trace("store service information in the database")
+
 	if serviceInfo == nil || serviceInfo.AutoscalingConfig == nil || serviceInfo.PortForwarding == nil {
 		return errors.New("Struct to save is incomplete")
 	}
+
+	key := fmt.Sprintf("%s:%s", servicePrefix, serviceInfo.Name)
 
 	return driver.redisClient.HSet(ctx, key,
 		name, serviceInfo.Name,
@@ -219,69 +229,89 @@ func (driver *RedisClient) StoreServiceInformation(ctx context.Context, key stri
 		scalingPeriodSeconds, serviceInfo.AutoscalingConfig.ScalingPeriodSeconds).Err()
 }
 
-func (driver *RedisClient) GetServiceInformation(ctx context.Context, key string) (*proto.ServiceInfo, error) {
-	fields, err := driver.redisClient.HGetAll(ctx, key).Result()
+func (driver *RedisClient) GetServiceInformation(ctx context.Context) ([]*proto.ServiceInfo, error) {
+	logrus.Trace("get services information from the database")
+
+	keys, err := driver.scanKeys(ctx, servicePrefix)
 	if err != nil {
 		return nil, err
 	}
 
-	hostPort, _ := strconv.Atoi(fields[hostPort])
-	guestPort, _ := strconv.Atoi(fields[guestPort])
-	protocol, _ := strconv.Atoi(fields[protocol])
+	services := make([]*proto.ServiceInfo, 0)
 
-	scalingUpperBound, _ := strconv.Atoi(fields[scalingUpperBound])
-	scalingLowerBound, _ := strconv.Atoi(fields[scalingLowerBound])
-	panicThresholdPercentage, _ := strconv.ParseFloat(fields[panicThresholdPercentage], 32)
-	maxScaleUpRate, _ := strconv.ParseFloat(fields[maxScaleUpRate], 32)
-	maxScaleDownRate, _ := strconv.ParseFloat(fields[maxScaleDownRate], 32)
-	containerConcurrency, _ := strconv.Atoi(fields[ContainerConcurrency])
-	containerConcurrencyTargetPercentage, _ := strconv.Atoi(fields[containerConcurrencyTargetPercentage])
-	stableWindowWidthSeconds, _ := strconv.Atoi(fields[stableWindowWidthSeconds])
-	panicWindowWidthSeconds, _ := strconv.Atoi(fields[panicWindowWidthSeconds])
-	scalingPeriodSeconds, _ := strconv.Atoi(fields[scalingPeriodSeconds])
+	for _, key := range keys {
+		fields, err := driver.redisClient.HGetAll(ctx, key).Result()
+		if err != nil {
+			return nil, err
+		}
 
-	return &proto.ServiceInfo{
-		Name:  fields[name],
-		Image: fields[image],
-		PortForwarding: &proto.PortMapping{
-			HostPort:  int32(hostPort),
-			GuestPort: int32(guestPort),
-			Protocol:  proto.L4Protocol(protocol),
-		},
-		AutoscalingConfig: &proto.AutoscalingConfiguration{
-			ScalingUpperBound:                    int32(scalingUpperBound),
-			ScalingLowerBound:                    int32(scalingLowerBound),
-			PanicThresholdPercentage:             float32(panicThresholdPercentage),
-			MaxScaleUpRate:                       float32(maxScaleUpRate),
-			MaxScaleDownRate:                     float32(maxScaleDownRate),
-			ContainerConcurrency:                 int32(containerConcurrency),
-			ContainerConcurrencyTargetPercentage: int32(containerConcurrencyTargetPercentage),
-			StableWindowWidthSeconds:             int32(stableWindowWidthSeconds),
-			PanicWindowWidthSeconds:              int32(panicWindowWidthSeconds),
-			ScalingPeriodSeconds:                 int32(scalingPeriodSeconds),
-		},
-	}, nil
+		hostPort, _ := strconv.Atoi(fields[hostPort])
+		guestPort, _ := strconv.Atoi(fields[guestPort])
+		protocol, _ := strconv.Atoi(fields[protocol])
+
+		scalingUpperBound, _ := strconv.Atoi(fields[scalingUpperBound])
+		scalingLowerBound, _ := strconv.Atoi(fields[scalingLowerBound])
+		panicThresholdPercentage, _ := strconv.ParseFloat(fields[panicThresholdPercentage], 32)
+		maxScaleUpRate, _ := strconv.ParseFloat(fields[maxScaleUpRate], 32)
+		maxScaleDownRate, _ := strconv.ParseFloat(fields[maxScaleDownRate], 32)
+		containerConcurrency, _ := strconv.Atoi(fields[ContainerConcurrency])
+		containerConcurrencyTargetPercentage, _ := strconv.Atoi(fields[containerConcurrencyTargetPercentage])
+		stableWindowWidthSeconds, _ := strconv.Atoi(fields[stableWindowWidthSeconds])
+		panicWindowWidthSeconds, _ := strconv.Atoi(fields[panicWindowWidthSeconds])
+		scalingPeriodSeconds, _ := strconv.Atoi(fields[scalingPeriodSeconds])
+
+		services = append(services, &proto.ServiceInfo{
+			Name:  fields[name],
+			Image: fields[image],
+			PortForwarding: &proto.PortMapping{
+				HostPort:  int32(hostPort),
+				GuestPort: int32(guestPort),
+				Protocol:  proto.L4Protocol(protocol),
+			},
+			AutoscalingConfig: &proto.AutoscalingConfiguration{
+				ScalingUpperBound:                    int32(scalingUpperBound),
+				ScalingLowerBound:                    int32(scalingLowerBound),
+				PanicThresholdPercentage:             float32(panicThresholdPercentage),
+				MaxScaleUpRate:                       float32(maxScaleUpRate),
+				MaxScaleDownRate:                     float32(maxScaleDownRate),
+				ContainerConcurrency:                 int32(containerConcurrency),
+				ContainerConcurrencyTargetPercentage: int32(containerConcurrencyTargetPercentage),
+				StableWindowWidthSeconds:             int32(stableWindowWidthSeconds),
+				PanicWindowWidthSeconds:              int32(panicWindowWidthSeconds),
+				ScalingPeriodSeconds:                 int32(scalingPeriodSeconds),
+			},
+		})
+	}
+
+	logrus.Tracef("Found %d service(s) in the database", len(services))
+
+	return services, nil
 }
 
-func (driver *RedisClient) UpdateEndpoints(ctx context.Context, key string, endpoints []*Endpoint) error {
+func (driver *RedisClient) UpdateEndpoints(ctx context.Context, serviceName string, endpoints []*Endpoint) error {
+	logrus.Trace("store endpoints information in the database")
+
+	key := fmt.Sprintf("%s:%s:*", endpointPrefix, serviceName)
 	err := driver.DeleteEndpoints(ctx, key)
 	if err != nil {
 		return err
 	}
 
-	return driver.StoreEndpoints(ctx, key, endpoints)
+	return driver.StoreEndpoints(ctx, serviceName, endpoints)
 }
 
-func (driver *RedisClient) StoreEndpoints(ctx context.Context, key string, endpoints []*Endpoint) error {
+func (driver *RedisClient) StoreEndpoints(ctx context.Context, serviceName string, endpoints []*Endpoint) error {
 	for _, endpoint := range endpoints {
-		err := driver.redisClient.HSet(ctx, fmt.Sprintf("%s:%s", key, endpoint.Node.Name), EndpointInformation{
+		key := fmt.Sprintf("%s:%s:%s", endpointPrefix, serviceName, endpoint.Node.Name)
+
+		err := driver.redisClient.HSet(ctx, key, EndpointInformation{
 			SandboxId: endpoint.SandboxID,
 			URL:       endpoint.URL,
 			NodeName:  endpoint.Node.Name,
 			HostPort:  endpoint.HostPort,
 		}).Err()
 		if err != nil {
-			driver.DeleteEndpoints(ctx, key)
+			driver.DeleteEndpoints(ctx, serviceName)
 			return err
 		}
 	}
@@ -293,6 +323,36 @@ func (driver *RedisClient) DeleteEndpoints(ctx context.Context, key string) erro
 	return driver.redisClient.Del(ctx, key).Err()
 }
 
-func (driver *RedisClient) GetEndpoints(ctx context.Context, key string) ([]*EndpointInformation, error) {
-	return make([]*EndpointInformation, 0), nil
+func (driver *RedisClient) GetEndpoints(ctx context.Context) ([]*EndpointInformation, []string, error) {
+	logrus.Trace("get endpoints information from the database")
+
+	keys, err := driver.scanKeys(ctx, endpointPrefix)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	endpoints := make([]*EndpointInformation, 0)
+	services := make([]string, 0)
+
+	for _, key := range keys {
+		fields, err := driver.redisClient.HGetAll(ctx, key).Result()
+		if err != nil {
+			return nil, nil, err
+		}
+
+		hostPort, _ := strconv.Atoi(fields[HostPort])
+
+		endpoints = append(endpoints, &EndpointInformation{
+			SandboxId: fields[SandboxId],
+			URL:       fields[URL],
+			NodeName:  fields[NodeName],
+			HostPort:  int32(hostPort),
+		})
+
+		services = append(services, strings.Split(key, ":")[1])
+	}
+
+	logrus.Tracef("Found %d endpoint(s) in the database", len(endpoints))
+
+	return endpoints, services, nil
 }

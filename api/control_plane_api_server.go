@@ -6,7 +6,6 @@ import (
 	"cluster_manager/internal/control_plane"
 	_map "cluster_manager/pkg/map"
 	"context"
-	"fmt"
 	"strconv"
 	"time"
 
@@ -154,13 +153,29 @@ func updateWorkerNode(workerNode *control_plane.WorkerNode, in *proto.NodeHeartb
 }
 
 func (c *CpApiServer) RegisterService(ctx context.Context, serviceInfo *proto.ServiceInfo) (*proto.ActionStatus, error) {
+	err := c.PersistenceLayer.StoreServiceInformation(ctx, serviceInfo)
+	if err != nil {
+		logrus.Error("Failed to store information to persistence layer")
+		return &proto.ActionStatus{Success: false}, err
+	}
+
 	for _, conn := range c.DataPlaneConnections {
 		resp, err := conn.Iface.AddDeployment(ctx, serviceInfo)
 		if err != nil || !resp.Success {
 			logrus.Warn("Failed to propagate service registration to the data plane")
-			return &proto.ActionStatus{Success: false}, nil
+			return &proto.ActionStatus{Success: false}, err
 		}
 	}
+
+	err = c.connectToRegisteredService(ctx, serviceInfo)
+	if err != nil {
+		return &proto.ActionStatus{Success: false}, err
+	}
+
+	return &proto.ActionStatus{Success: true}, nil
+}
+
+func (c *CpApiServer) connectToRegisteredService(ctx context.Context, serviceInfo *proto.ServiceInfo) error {
 
 	scalingChannel := make(chan int)
 
@@ -179,17 +194,11 @@ func (c *CpApiServer) RegisterService(ctx context.Context, serviceInfo *proto.Se
 		PertistenceLayer:        c.PersistenceLayer,
 	}
 
-	err := c.PersistenceLayer.StoreServiceInformation(ctx, fmt.Sprintf("service:%s", serviceInfo.Name), serviceInfo)
-	if err != nil {
-		logrus.Error("Failed to store information to persistence layer")
-		return &proto.ActionStatus{Success: false}, err
-	}
-
 	c.SIStorage[serviceInfo.Name] = service
 
 	go service.ScalingControllerLoop(&c.NIStorage, c.GetDpiConnections())
 
-	return &proto.ActionStatus{Success: true}, nil
+	return nil
 }
 
 func (c *CpApiServer) RegisterDataplane(ctx context.Context, in *proto.DataplaneInfo) (*proto.ActionStatus, error) {
@@ -213,6 +222,15 @@ func (c *CpApiServer) RegisterDataplane(ctx context.Context, in *proto.Dataplane
 	}
 
 	return &proto.ActionStatus{Success: true}, nil
+}
+
+func (c *CpApiServer) connectToRegisteredDataplane(information control_plane.DataPlaneInformation) {
+	c.appendDpiConnection(
+		common.InitializeDataPlaneConnection(information.Address, information.ApiPort),
+		information.Address,
+		information.ApiPort,
+		information.ProxyPort,
+	)
 }
 
 func (c *CpApiServer) reconstructDataplaneState(ctx context.Context) error {
@@ -254,6 +272,52 @@ func (c *CpApiServer) reconstructWorkersState(ctx context.Context) error {
 	return nil
 }
 
+func (c *CpApiServer) reconstructServiceState(ctx context.Context) error {
+	services, err := c.PersistenceLayer.GetServiceInformation(ctx)
+	if err != nil {
+		return err
+	}
+
+	for _, service := range services {
+		c.connectToRegisteredService(ctx, &proto.ServiceInfo{
+			Name:  service.Name,
+			Image: service.Image,
+			PortForwarding: &proto.PortMapping{
+				HostPort:  service.PortForwarding.HostPort,
+				GuestPort: service.PortForwarding.GuestPort,
+				Protocol:  service.PortForwarding.Protocol,
+			},
+			AutoscalingConfig: &proto.AutoscalingConfiguration{
+				ScalingUpperBound:                    service.AutoscalingConfig.ScalingUpperBound,
+				ScalingLowerBound:                    service.AutoscalingConfig.ScalingLowerBound,
+				PanicThresholdPercentage:             service.AutoscalingConfig.PanicThresholdPercentage,
+				MaxScaleUpRate:                       service.AutoscalingConfig.MaxScaleUpRate,
+				MaxScaleDownRate:                     service.AutoscalingConfig.MaxScaleDownRate,
+				ContainerConcurrency:                 service.AutoscalingConfig.ContainerConcurrency,
+				ContainerConcurrencyTargetPercentage: service.AutoscalingConfig.ContainerConcurrencyTargetPercentage,
+				StableWindowWidthSeconds:             service.AutoscalingConfig.StableWindowWidthSeconds,
+				PanicWindowWidthSeconds:              service.AutoscalingConfig.PanicWindowWidthSeconds,
+				ScalingPeriodSeconds:                 service.AutoscalingConfig.ScalingPeriodSeconds,
+			},
+		})
+	}
+
+	return nil
+}
+
+func (c *CpApiServer) reconstructEndpointsState(ctx context.Context) error {
+	endpoints, services, err := c.PersistenceLayer.GetEndpoints(ctx)
+	if err != nil {
+		return err
+	}
+
+	for i, endpoint := range endpoints {
+		c.SIStorage[services[i]].ReconstructEndpointsFromDatabase(endpoint)
+	}
+
+	return nil
+}
+
 func (c *CpApiServer) ReconstructState(ctx context.Context) error {
 	err := c.reconstructDataplaneState(ctx)
 	if err != nil {
@@ -265,14 +329,15 @@ func (c *CpApiServer) ReconstructState(ctx context.Context) error {
 		return err
 	}
 
-	return nil
-}
+	err = c.reconstructServiceState(ctx)
+	if err != nil {
+		return err
+	}
 
-func (c *CpApiServer) connectToRegisteredDataplane(information control_plane.DataPlaneInformation) {
-	c.appendDpiConnection(
-		common.InitializeDataPlaneConnection(information.Address, information.ApiPort),
-		information.Address,
-		information.ApiPort,
-		information.ProxyPort,
-	)
+	err = c.reconstructEndpointsState(ctx)
+	if err != nil {
+		return err
+	}
+
+	return nil
 }

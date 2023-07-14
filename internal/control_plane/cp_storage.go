@@ -165,8 +165,27 @@ func (ss *ServiceInfoStorage) doUpscaling(toCreateCount int, nodeList *NodeInfoS
 	logrus.Debug("Endpoints updated.")
 }
 
+func (ss *ServiceInfoStorage) ReconstructEndpointsFromDatabase(endpoint *EndpointInformation) {
+	ss.Controller.Lock()
+	defer ss.Controller.Unlock()
+
+	endpoints := make([]*Endpoint, 0)
+	endpoints = append(endpoints, &Endpoint{
+		SandboxID: endpoint.SandboxId,
+		URL:       endpoint.URL,
+		Node:      nil,
+		HostPort:  endpoint.HostPort,
+	})
+
+	ss.addEndpoints(endpoints)
+}
+
+func (ss *ServiceInfoStorage) addEndpoints(endpoints []*Endpoint) {
+	ss.Controller.Endpoints = append(ss.Controller.Endpoints, endpoints...)
+}
+
 func (ss *ServiceInfoStorage) updatePersistenceLayer() error {
-	return ss.PertistenceLayer.UpdateEndpoints(context.Background(), fmt.Sprintf("endpoints:%s", ss.ServiceInfo.Name), ss.Controller.Endpoints)
+	return ss.PertistenceLayer.UpdateEndpoints(context.Background(), ss.ServiceInfo.Name, ss.Controller.Endpoints)
 }
 
 func (ss *ServiceInfoStorage) prepareUrlList() []*proto.EndpointInfo {
