@@ -54,7 +54,6 @@ func randSeq(n int) string {
 }
 
 func deployXservices(t *testing.T, x int) {
-
 	cpApi := common.InitializeControlPlaneConnection("localhost", utils.DefaultControlPlanePort, -1, -1)
 
 	autoscalingConfig := control_plane.NewDefaultAutoscalingMetadata()
@@ -75,7 +74,6 @@ func deployXservices(t *testing.T, x int) {
 }
 
 func TestDeployService(t *testing.T) {
-
 	cpApi := common.InitializeControlPlaneConnection("localhost", utils.DefaultControlPlanePort, -1, -1)
 
 	autoscalingConfig := control_plane.NewDefaultAutoscalingMetadata()
