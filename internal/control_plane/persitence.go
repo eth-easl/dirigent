@@ -8,6 +8,7 @@ import (
 	proto2 "github.com/golang/protobuf/proto"
 	"github.com/redis/go-redis/v9"
 	"github.com/sirupsen/logrus"
+	"k8s.io/apimachinery/pkg/util/json"
 	"strings"
 )
 
@@ -186,6 +187,32 @@ func (driver *RedisClient) StoreServiceInformation(ctx context.Context, serviceI
 	logrus.Trace("store service information in the database")
 
 	data, err := proto2.Marshal(serviceInfo)
+	if err != nil {
+		return err
+	}
+
+	key := fmt.Sprintf("%s:%s", servicePrefix, data)
+
+	return driver.redisClient.HSet(ctx, key, "data", data).Err()
+}
+
+func (driver *RedisClient) StoreServiceInformationProto(ctx context.Context, serviceInfo *proto.ServiceInfo) error {
+	logrus.Trace("store service information in the database")
+
+	data, err := proto2.Marshal(serviceInfo)
+	if err != nil {
+		return err
+	}
+
+	key := fmt.Sprintf("%s:%s", servicePrefix, data)
+
+	return driver.redisClient.HSet(ctx, key, "data", data).Err()
+}
+
+func (driver *RedisClient) StoreServiceInformationJSON(ctx context.Context, serviceInfo *proto.ServiceInfo) error {
+	logrus.Trace("store service information in the database")
+
+	data, err := json.Marshal(serviceInfo)
 	if err != nil {
 		return err
 	}
