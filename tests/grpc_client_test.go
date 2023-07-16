@@ -2,7 +2,7 @@ package tests
 
 import (
 	proto2 "cluster_manager/api/proto"
-	common "cluster_manager/internal/common"
+	"cluster_manager/internal/common"
 	"cluster_manager/internal/control_plane"
 	"cluster_manager/pkg/utils"
 	"cluster_manager/tests/proto"
@@ -54,7 +54,6 @@ func randSeq(n int) string {
 }
 
 func deployXservices(t *testing.T, x int) {
-
 	cpApi := common.InitializeControlPlaneConnection("localhost", utils.DefaultControlPlanePort, -1, -1)
 
 	autoscalingConfig := control_plane.NewDefaultAutoscalingMetadata()
@@ -75,17 +74,10 @@ func deployXservices(t *testing.T, x int) {
 }
 
 func TestDeployService(t *testing.T) {
-
-	cpApi := common.InitializeControlPlaneConnection("localhost", utils.DefaultControlPlanePort, -1, -1)
-
-	autoscalingConfig := control_plane.NewDefaultAutoscalingMetadata()
-	autoscalingConfig.ScalingUpperBound = 1
-	//autoscalingConfig.ScalingLowerBound = 1
-
 	logrus.SetLevel(logrus.DebugLevel)
 	logrus.SetFormatter(&logrus.TextFormatter{TimestampFormat: time.StampMilli, FullTimestamp: true})
 
-	deploySingleService(t, cpApi, autoscalingConfig, deployedFunctionName)
+	deployXservices(t, 1)
 }
 
 func TestDeployRandomService(t *testing.T) {
