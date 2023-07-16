@@ -21,17 +21,11 @@ const (
 	deployedFunctionName = "/faas.Executor/Execute"
 )
 
-func deploySingleService(t *testing.T, name string) {
+func deploySingleService(t *testing.T, cpApi proto2.CpiInterfaceClient, autoscalingConfig *proto2.AutoscalingConfiguration, name string) {
 	ctx, cancel := context.WithTimeout(context.Background(), common.GRPCFunctionTimeout)
 	defer cancel()
 
 	logrus.Info("Starting deploying a service in the database")
-
-	cpApi := common.InitializeControlPlaneConnection("localhost", utils.DefaultControlPlanePort, -1, -1)
-
-	autoscalingConfig := control_plane.NewDefaultAutoscalingMetadata()
-	autoscalingConfig.ScalingUpperBound = 1
-	//autoscalingConfig.ScalingLowerBound = 1
 
 	resp, err := cpApi.RegisterService(ctx, &proto2.ServiceInfo{
 		Name:  name,
@@ -60,12 +54,19 @@ func randSeq(n int) string {
 }
 
 func deployXservices(t *testing.T, x int) {
+
+	cpApi := common.InitializeControlPlaneConnection("localhost", utils.DefaultControlPlanePort, -1, -1)
+
+	autoscalingConfig := control_plane.NewDefaultAutoscalingMetadata()
+	autoscalingConfig.ScalingUpperBound = 1
+	//autoscalingConfig.ScalingLowerBound = 1
+
 	wg := sync.WaitGroup{}
 	wg.Add(x)
 
 	for i := 0; i < x; i++ {
 		go func() {
-			deploySingleService(t, randSeq(25))
+			deploySingleService(t, cpApi, autoscalingConfig, randSeq(25))
 			wg.Done()
 		}()
 	}
@@ -74,10 +75,17 @@ func deployXservices(t *testing.T, x int) {
 }
 
 func TestDeployService(t *testing.T) {
+
+	cpApi := common.InitializeControlPlaneConnection("localhost", utils.DefaultControlPlanePort, -1, -1)
+
+	autoscalingConfig := control_plane.NewDefaultAutoscalingMetadata()
+	autoscalingConfig.ScalingUpperBound = 1
+	//autoscalingConfig.ScalingLowerBound = 1
+
 	logrus.SetLevel(logrus.DebugLevel)
 	logrus.SetFormatter(&logrus.TextFormatter{TimestampFormat: time.StampMilli, FullTimestamp: true})
 
-	deploySingleService(t, deployedFunctionName)
+	deploySingleService(t, cpApi, autoscalingConfig, deployedFunctionName)
 }
 
 func TestDeployRandomService(t *testing.T) {
