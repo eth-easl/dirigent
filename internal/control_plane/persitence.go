@@ -6,11 +6,10 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"strconv"
-	"strings"
-
 	"github.com/redis/go-redis/v9"
 	"github.com/sirupsen/logrus"
+	"strconv"
+	"strings"
 )
 
 const (
@@ -84,7 +83,7 @@ type ServiceInformation struct {
 	HostPort                             int32            `redis:"hostPort"`
 	GuestPort                            int32            `redis:"guestPort"`
 	Protocol                             proto.L4Protocol `redis:"protocol"`
-	ScalingUpperBound                    int32            `redis:"scalingUpperBound"`
+	ScalingUpperBound                    int32            `edis:"scalingUpperBound"`
 	ScalingLowerBound                    int32            `redis:"scalingLowerBound"`
 	PanicThresholdPercentage             float32          `redis:"panicThresholdPercentage"`
 	MaxScaleUpRate                       float32          `redis:"maxScaleUpRate"`
@@ -107,25 +106,25 @@ func (driver *RedisClient) scanKeys(ctx context.Context, prefix string) ([]strin
 	var (
 		cursor uint64
 		n      int
-		keys   []string
 	)
 
+	output := make([]string, 0)
+
 	for {
+		var keys []string
 		var err error
 		keys, cursor, err = driver.redisClient.Scan(ctx, cursor, fmt.Sprintf("%s*", prefix), 10).Result()
-
 		if err != nil {
-			return keys, err
+			panic(err)
 		}
-
 		n += len(keys)
-
+		output = append(output, keys...)
 		if cursor == 0 {
 			break
 		}
 	}
 
-	return keys, nil
+	return output, nil
 }
 
 func (driver *RedisClient) StoreDataPlaneInformation(ctx context.Context, dataplaneInfo DataPlaneInformation) error {

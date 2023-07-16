@@ -7,6 +7,7 @@ import (
 	_map "cluster_manager/pkg/map"
 	"context"
 	"strconv"
+	"sync"
 	"time"
 
 	"github.com/sirupsen/logrus"
@@ -24,6 +25,9 @@ type CpApiServer struct {
 	ColdStartTracing *common.TracingService[common.ColdStartLogEntry]
 	PlacementPolicy  control_plane.PlacementPolicy
 	PersistenceLayer control_plane.RedisClient
+
+	// TODO: Improve the synchronization mechanisme here Francois Costa
+	lock sync.Mutex
 }
 
 func CreateNewCpApiServer(client control_plane.RedisClient, outputFile string, placementPolicy control_plane.PlacementPolicy) *CpApiServer {
@@ -196,7 +200,9 @@ func (c *CpApiServer) connectToRegisteredService(ctx context.Context, serviceInf
 		PersistenceLayer:        c.PersistenceLayer,
 	}
 
+	c.lock.Lock()
 	c.SIStorage[serviceInfo.Name] = service
+	c.lock.Unlock()
 
 	go service.ScalingControllerLoop(&c.NIStorage, c.GetDpiConnections())
 

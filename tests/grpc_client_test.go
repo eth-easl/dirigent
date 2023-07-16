@@ -7,6 +7,9 @@ import (
 	"cluster_manager/pkg/utils"
 	"cluster_manager/tests/proto"
 	"context"
+	"fmt"
+	"math/rand"
+	"sync"
 	"testing"
 	"time"
 
@@ -18,21 +21,20 @@ const (
 	deployedFunctionName = "/faas.Executor/Execute"
 )
 
-func TestDeployService(t *testing.T) {
-	logrus.SetLevel(logrus.DebugLevel)
-	logrus.SetFormatter(&logrus.TextFormatter{TimestampFormat: time.StampMilli, FullTimestamp: true})
-
-	cpApi := common.InitializeControlPlaneConnection("localhost", utils.DefaultControlPlanePort, -1, -1)
-
+func deploySingleService(t *testing.T, name string) {
 	ctx, cancel := context.WithTimeout(context.Background(), common.GRPCFunctionTimeout)
 	defer cancel()
+
+	logrus.Info("Starting deploying a service in the database")
+
+	cpApi := common.InitializeControlPlaneConnection("localhost", utils.DefaultControlPlanePort, -1, -1)
 
 	autoscalingConfig := control_plane.NewDefaultAutoscalingMetadata()
 	autoscalingConfig.ScalingUpperBound = 1
 	//autoscalingConfig.ScalingLowerBound = 1
 
 	resp, err := cpApi.RegisterService(ctx, &proto2.ServiceInfo{
-		Name:  deployedFunctionName,
+		Name:  name,
 		Image: "docker.io/cvetkovic/empty_function:latest",
 		PortForwarding: &proto2.PortMapping{
 			GuestPort: 80,
@@ -44,6 +46,73 @@ func TestDeployService(t *testing.T) {
 	if err != nil || !resp.Success {
 		t.Error("Failed to deploy service")
 	}
+}
+
+var letters = []rune("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ")
+
+func randSeq(n int) string {
+	b := make([]rune, n)
+	for i := range b {
+		b[i] = letters[rand.Intn(len(letters))]
+	}
+	fmt.Println(string(b))
+	return string(b)
+}
+
+func deployXservices(t *testing.T, x int) {
+	wg := sync.WaitGroup{}
+	wg.Add(x)
+
+	for i := 0; i < x; i++ {
+		go func() {
+			deploySingleService(t, randSeq(25))
+			wg.Done()
+		}()
+	}
+
+	wg.Wait()
+}
+
+func TestDeployService(t *testing.T) {
+	logrus.SetLevel(logrus.DebugLevel)
+	logrus.SetFormatter(&logrus.TextFormatter{TimestampFormat: time.StampMilli, FullTimestamp: true})
+
+	deploySingleService(t, deployedFunctionName)
+}
+
+func TestDeployRandomService(t *testing.T) {
+	logrus.SetLevel(logrus.DebugLevel)
+	logrus.SetFormatter(&logrus.TextFormatter{TimestampFormat: time.StampMilli, FullTimestamp: true})
+
+	deployXservices(t, 1)
+}
+
+func TestDeploy10Services(t *testing.T) {
+	logrus.SetLevel(logrus.DebugLevel)
+	logrus.SetFormatter(&logrus.TextFormatter{TimestampFormat: time.StampMilli, FullTimestamp: true})
+
+	deployXservices(t, 10)
+}
+
+func TestDeploy100Services(t *testing.T) {
+	logrus.SetLevel(logrus.DebugLevel)
+	logrus.SetFormatter(&logrus.TextFormatter{TimestampFormat: time.StampMilli, FullTimestamp: true})
+
+	deployXservices(t, 100)
+}
+
+func TestDeploy1000Services(t *testing.T) {
+	logrus.SetLevel(logrus.DebugLevel)
+	logrus.SetFormatter(&logrus.TextFormatter{TimestampFormat: time.StampMilli, FullTimestamp: true})
+
+	deployXservices(t, 1000)
+}
+
+func TestDeploy10000Services(t *testing.T) {
+	logrus.SetLevel(logrus.DebugLevel)
+	logrus.SetFormatter(&logrus.TextFormatter{TimestampFormat: time.StampMilli, FullTimestamp: true})
+
+	deployXservices(t, 10000)
 }
 
 func TestInvocationProxying(t *testing.T) {
