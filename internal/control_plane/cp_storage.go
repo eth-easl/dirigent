@@ -39,6 +39,21 @@ type Endpoint struct {
 	HostPort  int32
 }
 
+type WorkerNode struct {
+	Name string
+	IP   string
+	Port string
+
+	CpuUsage    int
+	MemoryUsage int
+
+	CpuCores int
+	Memory   int
+
+	LastHeartbeat time.Time
+	api           proto.WorkerNodeInterfaceClient
+}
+
 func (ss *ServiceInfoStorage) GetAllURLs() []string {
 	var res []string
 
@@ -295,21 +310,6 @@ func (ss *ServiceInfoStorage) updateEndpoints(dpiClients []*common.DataPlaneConn
 	}
 
 	wg.Wait()
-}
-
-type WorkerNode struct {
-	Name string
-	IP   string
-	Port string
-
-	CpuUsage    int
-	MemoryUsage int
-
-	CpuCores int
-	Memory   int
-
-	LastHeartbeat time.Time
-	api           proto.WorkerNodeInterfaceClient
 }
 
 func (w *WorkerNode) GetAPI() proto.WorkerNodeInterfaceClient {
