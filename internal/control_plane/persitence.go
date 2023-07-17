@@ -8,7 +8,6 @@ import (
 	proto2 "github.com/golang/protobuf/proto"
 	"github.com/redis/go-redis/v9"
 	"github.com/sirupsen/logrus"
-	"k8s.io/apimachinery/pkg/util/json"
 	"strings"
 )
 
@@ -31,45 +30,6 @@ func CreateRedisClient(ctx context.Context, redisLogin config.RedisLogin) (Redis
 	})
 
 	return RedisClient{redisClient: redisClient}, redisClient.Ping(ctx).Err()
-}
-
-type DataPlaneInformation struct {
-	Address   string `redis:"address"`
-	ApiPort   string `redis:"apiPort"`
-	ProxyPort string `redis:"proxyPort"`
-}
-
-type WorkerNodeInformation struct {
-	Name     string `redis:"name"`
-	Ip       string `redis:"ip"`
-	Port     string `redis:"port"`
-	CpuCores string `redis:"cpuCores"`
-	Memory   string `redis:"memory"`
-}
-
-type ServiceInformation struct {
-	Name                                 string           `redis:"name"`
-	Image                                string           `redis:"image"`
-	HostPort                             int32            `redis:"hostPort"`
-	GuestPort                            int32            `redis:"guestPort"`
-	Protocol                             proto.L4Protocol `redis:"protocol"`
-	ScalingUpperBound                    int32            `edis:"scalingUpperBound"`
-	ScalingLowerBound                    int32            `redis:"scalingLowerBound"`
-	PanicThresholdPercentage             float32          `redis:"panicThresholdPercentage"`
-	MaxScaleUpRate                       float32          `redis:"maxScaleUpRate"`
-	MaxScaleDownRate                     float32          `redis:"maxScaleDownRate"`
-	ContainerConcurrency                 int32            `redis:"containerConcurrency"`
-	ContainerConcurrencyTargetPercentage int32            `redis:"containerConcurrencyTargetPercentage"`
-	StableWindowWidthSeconds             int32            `redis:"stableWindowWidthSeconds"`
-	PanicWindowWidthSeconds              int32            `redis:"panicWindowWidthSeconds"`
-	ScalingPeriodSeconds                 int32            `redis:"scalingPeriodSeconds"`
-}
-
-type EndpointInformation struct {
-	SandboxId string `redis:"sandboxId"`
-	URL       string `redis:"uRL"`
-	NodeName  string `redis:"nodeName"`
-	HostPort  int32  `redis:"hostPort"`
 }
 
 func (driver *RedisClient) scanKeys(ctx context.Context, prefix string) ([]string, error) {
@@ -200,19 +160,6 @@ func (driver *RedisClient) StoreServiceInformationProto(ctx context.Context, ser
 	logrus.Trace("store service information in the database")
 
 	data, err := proto2.Marshal(serviceInfo)
-	if err != nil {
-		return err
-	}
-
-	key := fmt.Sprintf("%s:%s", servicePrefix, data)
-
-	return driver.redisClient.HSet(ctx, key, "data", data).Err()
-}
-
-func (driver *RedisClient) StoreServiceInformationJSON(ctx context.Context, serviceInfo *proto.ServiceInfo) error {
-	logrus.Trace("store service information in the database")
-
-	data, err := json.Marshal(serviceInfo)
 	if err != nil {
 		return err
 	}
