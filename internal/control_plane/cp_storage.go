@@ -165,17 +165,19 @@ func (ss *ServiceInfoStorage) doUpscaling(toCreateCount int, nodeList *NodeInfoS
 	logrus.Debug("Endpoints updated.")
 }
 
-func (ss *ServiceInfoStorage) ReconstructEndpointsFromDatabase(endpoint *EndpointInformation) {
+func (ss *ServiceInfoStorage) ReconstructEndpointsFromDatabase(endpoint *proto.Endpoint) {
 	ss.Controller.Lock()
 	defer ss.Controller.Unlock()
 
 	endpoints := make([]*Endpoint, 0)
 	endpoints = append(endpoints, &Endpoint{
-		SandboxID: endpoint.SandboxId,
+		SandboxID: endpoint.SandboxID,
 		URL:       endpoint.URL,
 		Node:      nil,
 		HostPort:  endpoint.HostPort,
 	})
+
+	// TODO: Add node François Costa
 
 	ss.addEndpoints(endpoints)
 }
@@ -185,7 +187,17 @@ func (ss *ServiceInfoStorage) addEndpoints(endpoints []*Endpoint) {
 }
 
 func (ss *ServiceInfoStorage) updatePersistenceLayer() error {
-	return ss.PersistenceLayer.UpdateEndpoints(context.Background(), ss.ServiceInfo.Name, ss.Controller.Endpoints)
+	endpointsInformations := make([]*proto.Endpoint, 0)
+	for _, endpoint := range ss.Controller.Endpoints {
+		endpointsInformations = append(endpointsInformations, &proto.Endpoint{
+			SandboxID: endpoint.SandboxID,
+			URL:       endpoint.URL,
+			NodeName:  endpoint.Node.Name,
+			HostPort:  endpoint.HostPort,
+		})
+	}
+
+	return ss.PersistenceLayer.UpdateEndpoints(context.Background(), ss.ServiceInfo.Name, endpointsInformations)
 }
 
 func (ss *ServiceInfoStorage) prepareUrlList() []*proto.EndpointInfo {

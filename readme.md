@@ -113,6 +113,14 @@ golangci-lint run -v --timeout 5m0s
 
 ## Generate proto files
 
+First you have to install the protobuf compiler
+
+```bash
+make install_golang_proto_compiler
+```
+
+Then you can compile the proto types
+
 ```bash
 make proto
 ```

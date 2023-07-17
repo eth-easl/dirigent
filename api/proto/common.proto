@@ -42,3 +42,24 @@ message ActionStatus {
   bool Success = 1;
   string Message = 2;
 }
+
+message DataplaneInformation {
+  string Address = 1;
+  string ApiPort = 2;
+  string ProxyPort = 3;
+}
+
+message WorkerNodeInformation {
+  string Name = 1;
+  string Ip = 2;
+  string Port = 3;
+  int32 CpuCores = 4;
+  int32 Memory = 5;
+}
+
+message Endpoint {
+  string SandboxID = 1;
+  string URL = 2;
+  string NodeName = 3;
+  int32 HostPort = 4;
+}

@@ -4,47 +4,14 @@ import (
 	"cluster_manager/api/proto"
 	"cluster_manager/pkg/config"
 	"context"
-	"errors"
 	"fmt"
 	proto2 "github.com/golang/protobuf/proto"
 	"github.com/redis/go-redis/v9"
 	"github.com/sirupsen/logrus"
-	"k8s.io/apimachinery/pkg/util/json"
-	"strconv"
 	"strings"
 )
 
 const (
-	address   string = "address"
-	apiPort   string = "apiPort"
-	proxyPort string = "proxyPort"
-
-	name     string = "name"
-	ip       string = "ip"
-	port     string = "port"
-	cpuCores string = "cpuCores"
-	memory   string = "memory"
-
-	image                                string = "image"
-	hostPort                             string = "hostport"
-	guestPort                            string = "guestport"
-	protocol                             string = "protocol"
-	scalingUpperBound                    string = "scalingupperbound"
-	scalingLowerBound                    string = "scalinglowerbound"
-	panicThresholdPercentage             string = "panicthresholdpercentage"
-	maxScaleUpRate                       string = "maxscaleuprate"
-	maxScaleDownRate                     string = "maxscaledownrate"
-	ContainerConcurrency                 string = "containerconcurrency"
-	containerConcurrencyTargetPercentage string = "containerconcurrencytargetpercentage"
-	stableWindowWidthSeconds             string = "stabledinwowidthseconds"
-	panicWindowWidthSeconds              string = "panicwindowswidthseconds"
-	scalingPeriodSeconds                 string = "scalingperiodseconds"
-
-	SandboxId string = "sandboxId"
-	URL       string = "uRL"
-	NodeName  string = "nodeName"
-	HostPort  string = "hostPort"
-
 	dataplanePrefix string = "dataplane"
 	workerPrefix    string = "worker"
 	servicePrefix   string = "service"
@@ -63,45 +30,6 @@ func CreateRedisClient(ctx context.Context, redisLogin config.RedisLogin) (Redis
 	})
 
 	return RedisClient{redisClient: redisClient}, redisClient.Ping(ctx).Err()
-}
-
-type DataPlaneInformation struct {
-	Address   string `redis:"address"`
-	ApiPort   string `redis:"apiPort"`
-	ProxyPort string `redis:"proxyPort"`
-}
-
-type WorkerNodeInformation struct {
-	Name     string `redis:"name"`
-	Ip       string `redis:"ip"`
-	Port     string `redis:"port"`
-	CpuCores string `redis:"cpuCores"`
-	Memory   string `redis:"memory"`
-}
-
-type ServiceInformation struct {
-	Name                                 string           `redis:"name"`
-	Image                                string           `redis:"image"`
-	HostPort                             int32            `redis:"hostPort"`
-	GuestPort                            int32            `redis:"guestPort"`
-	Protocol                             proto.L4Protocol `redis:"protocol"`
-	ScalingUpperBound                    int32            `edis:"scalingUpperBound"`
-	ScalingLowerBound                    int32            `redis:"scalingLowerBound"`
-	PanicThresholdPercentage             float32          `redis:"panicThresholdPercentage"`
-	MaxScaleUpRate                       float32          `redis:"maxScaleUpRate"`
-	MaxScaleDownRate                     float32          `redis:"maxScaleDownRate"`
-	ContainerConcurrency                 int32            `redis:"containerConcurrency"`
-	ContainerConcurrencyTargetPercentage int32            `redis:"containerConcurrencyTargetPercentage"`
-	StableWindowWidthSeconds             int32            `redis:"stableWindowWidthSeconds"`
-	PanicWindowWidthSeconds              int32            `redis:"panicWindowWidthSeconds"`
-	ScalingPeriodSeconds                 int32            `redis:"scalingPeriodSeconds"`
-}
-
-type EndpointInformation struct {
-	SandboxId string `redis:"sandboxId"`
-	URL       string `redis:"uRL"`
-	NodeName  string `redis:"nodeName"`
-	HostPort  int32  `redis:"hostPort"`
 }
 
 func (driver *RedisClient) scanKeys(ctx context.Context, prefix string) ([]string, error) {
@@ -129,15 +57,20 @@ func (driver *RedisClient) scanKeys(ctx context.Context, prefix string) ([]strin
 	return output, nil
 }
 
-func (driver *RedisClient) StoreDataPlaneInformation(ctx context.Context, dataplaneInfo DataPlaneInformation) error {
+func (driver *RedisClient) StoreDataPlaneInformation(ctx context.Context, dataplaneInfo *proto.DataplaneInformation) error {
 	logrus.Trace("store dataplane information in the database")
+
+	data, err := proto2.Marshal(dataplaneInfo)
+	if err != nil {
+		return err
+	}
 
 	key := fmt.Sprintf("%s:%s", dataplanePrefix, dataplaneInfo.Address)
 
-	return driver.redisClient.HSet(ctx, key, dataplaneInfo).Err()
+	return driver.redisClient.HSet(ctx, key, "data", data).Err()
 }
 
-func (driver *RedisClient) GetDataPlaneInformation(ctx context.Context) ([]*DataPlaneInformation, error) {
+func (driver *RedisClient) GetDataPlaneInformation(ctx context.Context) ([]*proto.DataplaneInformation, error) {
 	logrus.Trace("get dataplane information from the database")
 
 	keys, err := driver.scanKeys(ctx, dataplanePrefix)
@@ -145,7 +78,7 @@ func (driver *RedisClient) GetDataPlaneInformation(ctx context.Context) ([]*Data
 		return nil, err
 	}
 
-	dataPlanes := make([]*DataPlaneInformation, 0)
+	dataPlanes := make([]*proto.DataplaneInformation, 0)
 
 	for _, key := range keys {
 		fields, err := driver.redisClient.HGetAll(ctx, key).Result()
@@ -153,11 +86,13 @@ func (driver *RedisClient) GetDataPlaneInformation(ctx context.Context) ([]*Data
 			return nil, err
 		}
 
-		dataPlanes = append(dataPlanes, &DataPlaneInformation{
-			Address:   fields[address],
-			ApiPort:   fields[apiPort],
-			ProxyPort: fields[proxyPort],
-		})
+		dataPlaneInfo := &proto.DataplaneInformation{}
+		err = proto2.Unmarshal([]byte(fields["data"]), dataPlaneInfo)
+		if err != nil {
+			panic(err)
+		}
+
+		dataPlanes = append(dataPlanes, dataPlaneInfo)
 	}
 
 	logrus.Tracef("Found %d dataplane(s) in the database", len(dataPlanes))
@@ -165,15 +100,20 @@ func (driver *RedisClient) GetDataPlaneInformation(ctx context.Context) ([]*Data
 	return dataPlanes, nil
 }
 
-func (driver *RedisClient) StoreWorkerNodeInformation(ctx context.Context, workerNodeInfo WorkerNodeInformation) error {
+func (driver *RedisClient) StoreWorkerNodeInformation(ctx context.Context, workerNodeInfo *proto.WorkerNodeInformation) error {
 	logrus.Trace("store worker node information in the database")
+
+	data, err := proto2.Marshal(workerNodeInfo)
+	if err != nil {
+		return err
+	}
 
 	key := fmt.Sprintf("%s:%s", workerPrefix, workerNodeInfo.Name)
 
-	return driver.redisClient.HSet(ctx, key, workerNodeInfo).Err()
+	return driver.redisClient.HSet(ctx, key, "data", data).Err()
 }
 
-func (driver *RedisClient) GetWorkerNodeInformation(ctx context.Context) ([]*WorkerNodeInformation, error) {
+func (driver *RedisClient) GetWorkerNodeInformation(ctx context.Context) ([]*proto.WorkerNodeInformation, error) {
 	logrus.Trace("get workers information from the database")
 
 	keys, err := driver.scanKeys(ctx, workerPrefix)
@@ -181,7 +121,7 @@ func (driver *RedisClient) GetWorkerNodeInformation(ctx context.Context) ([]*Wor
 		return nil, err
 	}
 
-	workers := make([]*WorkerNodeInformation, 0)
+	workers := make([]*proto.WorkerNodeInformation, 0)
 
 	for _, key := range keys {
 		fields, err := driver.redisClient.HGetAll(ctx, key).Result()
@@ -189,13 +129,13 @@ func (driver *RedisClient) GetWorkerNodeInformation(ctx context.Context) ([]*Wor
 			return nil, err
 		}
 
-		workers = append(workers, &WorkerNodeInformation{
-			Name:     fields[name],
-			Ip:       fields[ip],
-			Port:     fields[port],
-			CpuCores: fields[cpuCores],
-			Memory:   fields[memory],
-		})
+		workerNodeInfo := &proto.WorkerNodeInformation{}
+		err = proto2.Unmarshal([]byte(fields["data"]), workerNodeInfo)
+		if err != nil {
+			panic(err)
+		}
+
+		workers = append(workers, workerNodeInfo)
 	}
 
 	logrus.Tracef("Found %d worker(s) in the database", len(workers))
@@ -206,47 +146,7 @@ func (driver *RedisClient) GetWorkerNodeInformation(ctx context.Context) ([]*Wor
 func (driver *RedisClient) StoreServiceInformation(ctx context.Context, serviceInfo *proto.ServiceInfo) error {
 	logrus.Trace("store service information in the database")
 
-	if serviceInfo == nil || serviceInfo.AutoscalingConfig == nil || serviceInfo.PortForwarding == nil {
-		return errors.New("Struct to save is incomplete")
-	}
-
-	key := fmt.Sprintf("%s:%s", servicePrefix, serviceInfo.Name)
-
-	return driver.redisClient.HSet(ctx, key,
-		name, serviceInfo.Name,
-		image, serviceInfo.Image,
-		hostPort, serviceInfo.PortForwarding.HostPort,
-		guestPort, serviceInfo.PortForwarding.GuestPort,
-		protocol, int32(serviceInfo.PortForwarding.Protocol),
-		scalingUpperBound, serviceInfo.AutoscalingConfig.ScalingUpperBound,
-		scalingLowerBound, serviceInfo.AutoscalingConfig.ScalingLowerBound,
-		panicThresholdPercentage, serviceInfo.AutoscalingConfig.PanicThresholdPercentage,
-		maxScaleUpRate, serviceInfo.AutoscalingConfig.MaxScaleUpRate,
-		maxScaleDownRate, serviceInfo.AutoscalingConfig.MaxScaleDownRate,
-		ContainerConcurrency, serviceInfo.AutoscalingConfig.ContainerConcurrency,
-		containerConcurrencyTargetPercentage, serviceInfo.AutoscalingConfig.ContainerConcurrencyTargetPercentage,
-		stableWindowWidthSeconds, serviceInfo.AutoscalingConfig.StableWindowWidthSeconds,
-		panicWindowWidthSeconds, serviceInfo.AutoscalingConfig.PanicWindowWidthSeconds,
-		scalingPeriodSeconds, serviceInfo.AutoscalingConfig.ScalingPeriodSeconds).Err()
-}
-
-func (driver *RedisClient) StoreServiceInformationProto(ctx context.Context, serviceInfo *proto.ServiceInfo) error {
-	logrus.Trace("store service information in the database")
-
 	data, err := proto2.Marshal(serviceInfo)
-	if err != nil {
-		return err
-	}
-
-	key := fmt.Sprintf("%s:%s", servicePrefix, data)
-
-	return driver.redisClient.HSet(ctx, key, "data", data).Err()
-}
-
-func (driver *RedisClient) StoreServiceInformationJSON(ctx context.Context, serviceInfo *proto.ServiceInfo) error {
-	logrus.Trace("store service information in the database")
-
-	data, err := json.Marshal(serviceInfo)
 	if err != nil {
 		return err
 	}
@@ -272,42 +172,13 @@ func (driver *RedisClient) GetServiceInformation(ctx context.Context) ([]*proto.
 			return nil, err
 		}
 
-		hostPort, _ := strconv.Atoi(fields[hostPort])
-		guestPort, _ := strconv.Atoi(fields[guestPort])
-		protocol, _ := strconv.Atoi(fields[protocol])
+		serviceInfo := &proto.ServiceInfo{}
+		err = proto2.Unmarshal([]byte(fields["data"]), serviceInfo)
+		if err != nil {
+			panic(err)
+		}
 
-		scalingUpperBound, _ := strconv.Atoi(fields[scalingUpperBound])
-		scalingLowerBound, _ := strconv.Atoi(fields[scalingLowerBound])
-		panicThresholdPercentage, _ := strconv.ParseFloat(fields[panicThresholdPercentage], 32)
-		maxScaleUpRate, _ := strconv.ParseFloat(fields[maxScaleUpRate], 32)
-		maxScaleDownRate, _ := strconv.ParseFloat(fields[maxScaleDownRate], 32)
-		containerConcurrency, _ := strconv.Atoi(fields[ContainerConcurrency])
-		containerConcurrencyTargetPercentage, _ := strconv.Atoi(fields[containerConcurrencyTargetPercentage])
-		stableWindowWidthSeconds, _ := strconv.Atoi(fields[stableWindowWidthSeconds])
-		panicWindowWidthSeconds, _ := strconv.Atoi(fields[panicWindowWidthSeconds])
-		scalingPeriodSeconds, _ := strconv.Atoi(fields[scalingPeriodSeconds])
-
-		services = append(services, &proto.ServiceInfo{
-			Name:  fields[name],
-			Image: fields[image],
-			PortForwarding: &proto.PortMapping{
-				HostPort:  int32(hostPort),
-				GuestPort: int32(guestPort),
-				Protocol:  proto.L4Protocol(protocol),
-			},
-			AutoscalingConfig: &proto.AutoscalingConfiguration{
-				ScalingUpperBound:                    int32(scalingUpperBound),
-				ScalingLowerBound:                    int32(scalingLowerBound),
-				PanicThresholdPercentage:             float32(panicThresholdPercentage),
-				MaxScaleUpRate:                       float32(maxScaleUpRate),
-				MaxScaleDownRate:                     float32(maxScaleDownRate),
-				ContainerConcurrency:                 int32(containerConcurrency),
-				ContainerConcurrencyTargetPercentage: int32(containerConcurrencyTargetPercentage),
-				StableWindowWidthSeconds:             int32(stableWindowWidthSeconds),
-				PanicWindowWidthSeconds:              int32(panicWindowWidthSeconds),
-				ScalingPeriodSeconds:                 int32(scalingPeriodSeconds),
-			},
-		})
+		services = append(services, serviceInfo)
 	}
 
 	logrus.Tracef("Found %d service(s) in the database", len(services))
@@ -315,7 +186,7 @@ func (driver *RedisClient) GetServiceInformation(ctx context.Context) ([]*proto.
 	return services, nil
 }
 
-func (driver *RedisClient) UpdateEndpoints(ctx context.Context, serviceName string, endpoints []*Endpoint) error {
+func (driver *RedisClient) UpdateEndpoints(ctx context.Context, serviceName string, endpoints []*proto.Endpoint) error {
 	logrus.Trace("store endpoints information in the database")
 
 	key := fmt.Sprintf("%s:%s:*", endpointPrefix, serviceName)
@@ -327,16 +198,16 @@ func (driver *RedisClient) UpdateEndpoints(ctx context.Context, serviceName stri
 	return driver.StoreEndpoints(ctx, serviceName, endpoints)
 }
 
-func (driver *RedisClient) StoreEndpoints(ctx context.Context, serviceName string, endpoints []*Endpoint) error {
+func (driver *RedisClient) StoreEndpoints(ctx context.Context, serviceName string, endpoints []*proto.Endpoint) error {
 	for _, endpoint := range endpoints {
-		key := fmt.Sprintf("%s:%s:%s", endpointPrefix, serviceName, endpoint.Node.Name)
+		key := fmt.Sprintf("%s:%s:%s", endpointPrefix, serviceName, endpoint.NodeName)
 
-		err := driver.redisClient.HSet(ctx, key, EndpointInformation{
-			SandboxId: endpoint.SandboxID,
-			URL:       endpoint.URL,
-			NodeName:  endpoint.Node.Name,
-			HostPort:  endpoint.HostPort,
-		}).Err()
+		data, err := proto2.Marshal(endpoint)
+		if err != nil {
+			return err
+		}
+
+		err = driver.redisClient.HSet(ctx, key, data).Err()
 		if err != nil {
 			driver.DeleteEndpoints(ctx, serviceName)
 			return err
@@ -350,7 +221,7 @@ func (driver *RedisClient) DeleteEndpoints(ctx context.Context, key string) erro
 	return driver.redisClient.Del(ctx, key).Err()
 }
 
-func (driver *RedisClient) GetEndpoints(ctx context.Context) ([]*EndpointInformation, []string, error) {
+func (driver *RedisClient) GetEndpoints(ctx context.Context) ([]*proto.Endpoint, []string, error) {
 	logrus.Trace("get endpoints information from the database")
 
 	keys, err := driver.scanKeys(ctx, endpointPrefix)
@@ -358,7 +229,7 @@ func (driver *RedisClient) GetEndpoints(ctx context.Context) ([]*EndpointInforma
 		return nil, nil, err
 	}
 
-	endpoints := make([]*EndpointInformation, 0)
+	endpoints := make([]*proto.Endpoint, 0)
 	services := make([]string, 0)
 
 	for _, key := range keys {
@@ -367,15 +238,13 @@ func (driver *RedisClient) GetEndpoints(ctx context.Context) ([]*EndpointInforma
 			return nil, nil, err
 		}
 
-		hostPort, _ := strconv.Atoi(fields[HostPort])
+		endpoint := &proto.Endpoint{}
+		err = proto2.Unmarshal([]byte(fields["data"]), endpoint)
+		if err != nil {
+			panic(err)
+		}
 
-		endpoints = append(endpoints, &EndpointInformation{
-			SandboxId: fields[SandboxId],
-			URL:       fields[URL],
-			NodeName:  fields[NodeName],
-			HostPort:  int32(hostPort),
-		})
-
+		endpoints = append(endpoints, endpoint)
 		services = append(services, strings.Split(key, ":")[1])
 	}
 

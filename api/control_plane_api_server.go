@@ -110,12 +110,12 @@ func (c *CpApiServer) RegisterNode(ctx context.Context, in *proto.NodeInfo) (*pr
 		Memory:   int(in.MemorySize),
 	}
 
-	err := c.PersistenceLayer.StoreWorkerNodeInformation(ctx, control_plane.WorkerNodeInformation{
+	err := c.PersistenceLayer.StoreWorkerNodeInformation(ctx, &proto.WorkerNodeInformation{
 		Name:     wn.Name,
 		Ip:       wn.IP,
 		Port:     wn.Port,
-		CpuCores: strconv.Itoa(wn.CpuCores),
-		Memory:   strconv.Itoa(wn.Memory),
+		CpuCores: int32(wn.CpuCores),
+		Memory:   int32(wn.Memory),
 	})
 	if err != nil {
 		logrus.Errorf("Failed to store information to persistence layer (error : %s)", err.Error())
@@ -218,24 +218,24 @@ func (c *CpApiServer) RegisterDataplane(ctx context.Context, in *proto.Dataplane
 
 	apiPort := strconv.Itoa(int(in.APIPort))
 	proxyPort := strconv.Itoa(int(in.ProxyPort))
-	dataplaneInfo := control_plane.DataPlaneInformation{
+	dataplaneInfo := proto.DataplaneInformation{
 		Address:   ipAddress,
 		ApiPort:   apiPort,
 		ProxyPort: proxyPort,
 	}
 
-	err := c.PersistenceLayer.StoreDataPlaneInformation(ctx, dataplaneInfo)
+	err := c.PersistenceLayer.StoreDataPlaneInformation(ctx, &dataplaneInfo)
 	if err != nil {
 		logrus.Errorf("Failed to store information to persistence layer (error : %s)", err.Error())
 		return &proto.ActionStatus{Success: false}, err
 	}
 
-	c.connectToRegisteredDataplane(dataplaneInfo)
+	c.connectToRegisteredDataplane(&dataplaneInfo)
 
 	return &proto.ActionStatus{Success: true}, nil
 }
 
-func (c *CpApiServer) connectToRegisteredDataplane(information control_plane.DataPlaneInformation) {
+func (c *CpApiServer) connectToRegisteredDataplane(information *proto.DataplaneInformation) {
 	c.appendDpiConnection(
 		common.InitializeDataPlaneConnection(information.Address, information.ApiPort),
 		information.Address,
@@ -251,11 +251,7 @@ func (c *CpApiServer) reconstructDataplaneState(ctx context.Context) error {
 	}
 
 	for _, dataplane := range dataplanesValues {
-		c.connectToRegisteredDataplane(control_plane.DataPlaneInformation{
-			Address:   dataplane.Address,
-			ApiPort:   dataplane.ApiPort,
-			ProxyPort: dataplane.ProxyPort,
-		})
+		c.connectToRegisteredDataplane(dataplane)
 	}
 
 	return nil
@@ -268,15 +264,12 @@ func (c *CpApiServer) reconstructWorkersState(ctx context.Context) error {
 	}
 
 	for _, worker := range workers {
-		cores, _ := strconv.Atoi(worker.CpuCores)
-		memory, _ := strconv.Atoi(worker.Memory)
-
 		c.connectToRegisteredWorker(&control_plane.WorkerNode{
 			Name:     worker.Name,
 			IP:       worker.Ip,
 			Port:     worker.Port,
-			CpuCores: cores,
-			Memory:   memory,
+			CpuCores: int(worker.CpuCores),
+			Memory:   int(worker.Memory),
 		})
 	}
 
