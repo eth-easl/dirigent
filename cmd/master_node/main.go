@@ -9,9 +9,12 @@ import (
 	"cluster_manager/pkg/logger"
 	"cluster_manager/pkg/utils"
 	context2 "context"
-	"path"
-
 	"github.com/sirupsen/logrus"
+	"golang.org/x/net/context"
+	"os/signal"
+	"path"
+	"syscall"
+
 	"google.golang.org/grpc"
 )
 
@@ -45,11 +48,21 @@ func main() {
 	cpApiServer := api.CreateNewCpApiServer(redisClient, path.Join(config.TraceOutputFolder, "cold_start_trace.csv"), parsePlacementPolicy(config))
 	cpApiServer.ReconstructState(context2.Background())
 
+	defer cpApiServer.SerializeCpApiServer(context.Background())
+
+	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
+	defer stop()
+
 	go cpApiServer.ColdStartTracing.StartTracingService()
 	defer close(cpApiServer.ColdStartTracing.InputChannel)
 
 	go api.StartServiceRegistrationServer(cpApiServer, config.PortRegistration)
-	common.CreateGRPCServer(utils.DockerLocalhost, config.Port, func(sr grpc.ServiceRegistrar) {
+	go common.CreateGRPCServer(utils.DockerLocalhost, config.Port, func(sr grpc.ServiceRegistrar) {
 		proto.RegisterCpiInterfaceServer(sr, cpApiServer)
 	})
+
+	select {
+	case <-ctx.Done():
+		logrus.Info("Received interruption signal, try to gracefully stop")
+	}
 }

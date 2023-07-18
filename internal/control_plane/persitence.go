@@ -16,6 +16,7 @@ const (
 	workerPrefix    string = "worker"
 	servicePrefix   string = "service"
 	endpointPrefix  string = "endpoint"
+	controlPlaneKey string = "controlPlane"
 )
 
 type RedisClient struct {
@@ -264,4 +265,8 @@ func (driver *RedisClient) GetEndpoints(ctx context.Context) ([]*proto.Endpoint,
 	logrus.Tracef("Found %d endpoint(s) in the database", len(endpoints))
 
 	return endpoints, services, nil
+}
+
+func (driver *RedisClient) StoreControlPlane(ctx context.Context, controlPlane []byte) error {
+	return driver.redisClient.HSet(ctx, controlPlaneKey, "data", controlPlane).Err()
 }

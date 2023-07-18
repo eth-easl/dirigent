@@ -6,6 +6,7 @@ import (
 	"cluster_manager/internal/control_plane"
 	_map "cluster_manager/pkg/map"
 	"context"
+	"encoding/json"
 	"strconv"
 	"sync"
 	"time"
@@ -22,7 +23,7 @@ type CpApiServer struct {
 	NIStorage control_plane.NodeInfoStorage
 	SIStorage map[string]*control_plane.ServiceInfoStorage
 
-	ColdStartTracing *common.TracingService[common.ColdStartLogEntry]
+	ColdStartTracing *common.TracingService[common.ColdStartLogEntry] `json:"-"`
 	PlacementPolicy  control_plane.PlacementPolicy
 	PersistenceLayer control_plane.RedisClient
 
@@ -331,4 +332,20 @@ func (c *CpApiServer) ReconstructState(ctx context.Context) error {
 	go c.reconstructEndpointsState(ctx)
 
 	return nil
+}
+
+func (c *CpApiServer) SerializeCpApiServer(ctx context.Context) {
+	serialized, err := json.Marshal(*c)
+	if err != nil {
+		logrus.Errorf("Failed to serialize control plane on failure : %s", err.Error())
+		return
+	}
+
+	err = c.PersistenceLayer.StoreControlPlane(context.Background(), serialized)
+	if err != nil {
+		logrus.Errorf("Failed to save control plane on failure : %s", err.Error())
+		return
+	}
+
+	logrus.Info("Stored the control plane in the persistence layer with success")
 }
