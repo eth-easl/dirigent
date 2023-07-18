@@ -64,8 +64,10 @@ func StartServiceRegistrationServer(cpApi *CpApiServer, registrationPort string)
 		}
 
 		endpointList := ""
-		for idx, conn := range cpApi.DataPlaneConnections {
-			setDelimiter := idx != len(cpApi.DataPlaneConnections)-1
+
+		cnt := 0
+		for _, conn := range cpApi.DataPlaneConnections {
+			setDelimiter := cnt != len(cpApi.DataPlaneConnections)-1
 			delimiter := ""
 
 			if setDelimiter {
@@ -73,6 +75,8 @@ func StartServiceRegistrationServer(cpApi *CpApiServer, registrationPort string)
 			}
 
 			endpointList += fmt.Sprintf("%s:%s%s", conn.IP, conn.ProxyPort, delimiter)
+
+			cnt++
 		}
 
 		_, err = w.Write([]byte(endpointList))

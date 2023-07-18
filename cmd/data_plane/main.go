@@ -9,8 +9,10 @@ import (
 	config2 "cluster_manager/pkg/config"
 	"cluster_manager/pkg/logger"
 	"context"
+	"os/signal"
 	"path"
 	"strconv"
+	"syscall"
 
 	"github.com/sirupsen/logrus"
 	"google.golang.org/grpc"
@@ -51,10 +53,11 @@ func main() {
 	})
 
 	var dpConnection proto.CpiInterfaceClient
-	go func() {
-		grpcPort, _ := strconv.Atoi(config.PortGRPC)
-		proxyPort, _ := strconv.Atoi(config.PortProxy)
 
+	grpcPort, _ := strconv.Atoi(config.PortGRPC)
+	proxyPort, _ := strconv.Atoi(config.PortProxy)
+
+	go func() {
 		dpConnection = common.InitializeControlPlaneConnection(config.ControlPlaneIp, config.ControlPlanePort, int32(grpcPort), int32(proxyPort))
 		syncDeploymentCache(&dpConnection, cache)
 
@@ -69,7 +72,17 @@ func main() {
 
 	go proxyServer.Tracing.StartTracingService()
 	defer close(proxyServer.Tracing.InputChannel)
-	proxyServer.StartProxyServer()
+	go proxyServer.StartProxyServer()
+
+	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
+	defer stop()
+
+	defer common.DeregisterControlPlaneConnection(config.ControlPlaneIp, config.ControlPlanePort, int32(grpcPort), int32(proxyPort))
+
+	select {
+	case <-ctx.Done():
+		logrus.Info("Received interruption signal, try to gracefully stop")
+	}
 }
 
 func syncDeploymentCache(cpApi *proto.CpiInterfaceClient, deployments *common.Deployments) {
@@ -81,4 +94,8 @@ func syncDeploymentCache(cpApi *proto.CpiInterfaceClient, deployments *common.De
 	for i := 0; i < len(resp.Service); i++ {
 		deployments.AddDeployment(resp.Service[i])
 	}
+}
+
+func deregisterNode() {
+
 }

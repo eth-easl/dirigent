@@ -1,6 +1,6 @@
 port: "9090"
 portRegistration: "9091"
-verbosity: "info"
+verbosity: "trace"
 traceOutputFolder: "data"
 placementPolicy: "kubernetes"
 

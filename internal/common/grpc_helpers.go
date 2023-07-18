@@ -128,6 +128,31 @@ func InitializeControlPlaneConnection(host string, port string, dataplanePort, p
 	return dpiClient
 }
 
+func DeregisterControlPlaneConnection(host string, port string, dataplanePort, proxyPort int32) proto.CpiInterfaceClient {
+	conn := EstablishGRPCConnectionPoll(host, port)
+	if conn == nil {
+		logrus.Fatal("Failed to establish connection with the control plane")
+	}
+
+	logrus.Info("Successfully established connection with the control plane")
+
+	dpiClient := proto.NewCpiInterfaceClient(conn)
+
+	if dataplanePort != -1 {
+		dpInfo := &proto.DataplaneInfo{
+			APIPort:   dataplanePort,
+			ProxyPort: proxyPort,
+		}
+
+		resp, err := dpiClient.DeregisterDataplane(context.Background(), dpInfo)
+		if err != nil || !resp.Success {
+			logrus.Fatal("Failed to register data plane with the control plane")
+		}
+	}
+
+	return dpiClient
+}
+
 func InitializeWorkerNodeConnection(host, port string) proto.WorkerNodeInterfaceClient {
 	conn := EstablishGRPCConnectionPoll(host, port)
 	if conn == nil {

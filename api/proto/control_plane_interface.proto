@@ -39,6 +39,8 @@ service CpiInterface {
   rpc RegisterService(ServiceInfo) returns (ActionStatus);
   rpc RegisterNode(NodeInfo) returns (ActionStatus);
   rpc NodeHeartbeat(NodeHeartbeatMessage) returns (ActionStatus);
+
+  rpc DeregisterDataplane(DataplaneInfo) returns (ActionStatus);
 }
 
 message SandboxID {

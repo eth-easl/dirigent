@@ -71,6 +71,14 @@ func (driver *RedisClient) StoreDataPlaneInformation(ctx context.Context, datapl
 	return driver.redisClient.HSet(ctx, key, "data", data).Err()
 }
 
+func (driver *RedisClient) DeleteDataPlaneInformation(ctx context.Context, dataplaneInfo *proto.DataplaneInformation) error {
+	logrus.Trace("delete dataplane information in the database")
+
+	key := fmt.Sprintf("%s:%s", dataplanePrefix, dataplaneInfo.Address)
+
+	return driver.redisClient.Del(ctx, key).Err()
+}
+
 func (driver *RedisClient) GetDataPlaneInformation(ctx context.Context) ([]*proto.DataplaneInformation, error) {
 	logrus.Trace("get dataplane information from the database")
 

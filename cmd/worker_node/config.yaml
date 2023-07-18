@@ -1,6 +1,6 @@
 controlPlaneIp: "localhost"
 controlPlanePort: "9090"
 port: "10010"
-verbosity: "info"
+verbosity: "trace"
 criPath: "/run/containerd/containerd.sock"
 cniConfigPath: "configs/cni.conf"

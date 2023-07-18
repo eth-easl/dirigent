@@ -18,7 +18,7 @@ import (
 type CpApiServer struct {
 	proto.UnimplementedCpiInterfaceServer
 
-	DataPlaneConnections []*common.DataPlaneConnectionInfo
+	DataPlaneConnections map[string]*common.DataPlaneConnectionInfo
 
 	NIStorage control_plane.NodeInfoStorage
 	SIStorage map[string]*control_plane.ServiceInfoStorage
@@ -36,26 +36,25 @@ func CreateNewCpApiServer(client control_plane.RedisClient, outputFile string, p
 		NIStorage: control_plane.NodeInfoStorage{
 			NodeInfo: make(map[string]*control_plane.WorkerNode),
 		},
-		SIStorage:        make(map[string]*control_plane.ServiceInfoStorage),
-		ColdStartTracing: common.NewColdStartTracingService(outputFile),
-		PlacementPolicy:  placementPolicy,
-		PersistenceLayer: client,
+		SIStorage:            make(map[string]*control_plane.ServiceInfoStorage),
+		DataPlaneConnections: make(map[string]*common.DataPlaneConnectionInfo),
+		ColdStartTracing:     common.NewColdStartTracingService(outputFile),
+		PlacementPolicy:      placementPolicy,
+		PersistenceLayer:     client,
 	}
 }
 
-func (c *CpApiServer) GetDpiConnections() []*common.DataPlaneConnectionInfo {
+func (c *CpApiServer) GetDpiConnections() map[string]*common.DataPlaneConnectionInfo {
 	return c.DataPlaneConnections
 }
 
 func (c *CpApiServer) appendDpiConnection(iface proto.DpiInterfaceClient, ip, apiPort, proxyPort string) {
-	conn := &common.DataPlaneConnectionInfo{
+	c.DataPlaneConnections[ip] = &common.DataPlaneConnectionInfo{
 		Iface:     iface,
 		IP:        ip,
 		APIPort:   apiPort,
 		ProxyPort: proxyPort,
 	}
-
-	c.DataPlaneConnections = append(c.DataPlaneConnections, conn)
 }
 
 func (c *CpApiServer) OnMetricsReceive(_ context.Context, metric *proto.AutoscalingMetric) (*proto.ActionStatus, error) {
@@ -210,6 +209,8 @@ func (c *CpApiServer) connectToRegisteredService(ctx context.Context, serviceInf
 }
 
 func (c *CpApiServer) RegisterDataplane(ctx context.Context, in *proto.DataplaneInfo) (*proto.ActionStatus, error) {
+	logrus.Trace("Revieved a control plane registration")
+
 	ipAddress, ok := common.GetIPAddressFromGRPCCall(ctx)
 	if !ok {
 		logrus.Debug("Failed to extract IP address from data plane registration request")
@@ -235,6 +236,34 @@ func (c *CpApiServer) RegisterDataplane(ctx context.Context, in *proto.Dataplane
 	return &proto.ActionStatus{Success: true}, nil
 }
 
+func (c *CpApiServer) DeregisterDataplane(ctx context.Context, in *proto.DataplaneInfo) (*proto.ActionStatus, error) {
+	logrus.Trace("Revieved a control plane deregistration")
+
+	ipAddress, ok := common.GetIPAddressFromGRPCCall(ctx)
+	if !ok {
+		logrus.Debug("Failed to extract IP address from data plane registration request")
+		return &proto.ActionStatus{Success: false}, nil
+	}
+
+	apiPort := strconv.Itoa(int(in.APIPort))
+	proxyPort := strconv.Itoa(int(in.ProxyPort))
+	dataplaneInfo := proto.DataplaneInformation{
+		Address:   ipAddress,
+		ApiPort:   apiPort,
+		ProxyPort: proxyPort,
+	}
+
+	err := c.PersistenceLayer.DeleteDataPlaneInformation(ctx, &dataplaneInfo)
+	if err != nil {
+		logrus.Errorf("Failed to store information to persistence layer (error : %s)", err.Error())
+		return &proto.ActionStatus{Success: false}, err
+	}
+
+	c.deregisterDataplane(&dataplaneInfo)
+
+	return &proto.ActionStatus{Success: true}, nil
+}
+
 func (c *CpApiServer) connectToRegisteredDataplane(information *proto.DataplaneInformation) {
 	c.appendDpiConnection(
 		common.InitializeDataPlaneConnection(information.Address, information.ApiPort),
@@ -242,6 +271,10 @@ func (c *CpApiServer) connectToRegisteredDataplane(information *proto.DataplaneI
 		information.ApiPort,
 		information.ProxyPort,
 	)
+}
+
+func (c *CpApiServer) deregisterDataplane(information *proto.DataplaneInformation) {
+	delete(c.DataPlaneConnections, information.Address)
 }
 
 func (c *CpApiServer) reconstructDataplaneState(ctx context.Context) error {
@@ -341,7 +374,7 @@ func (c *CpApiServer) SerializeCpApiServer(ctx context.Context) {
 		return
 	}
 
-	err = c.PersistenceLayer.StoreControlPlane(context.Background(), serialized)
+	err = c.PersistenceLayer.StoreControlPlane(ctx, serialized)
 	if err != nil {
 		logrus.Errorf("Failed to save control plane on failure : %s", err.Error())
 		return

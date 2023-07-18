@@ -64,7 +64,7 @@ func (ss *ServiceInfoStorage) GetAllURLs() []string {
 	return res
 }
 
-func (ss *ServiceInfoStorage) ScalingControllerLoop(nodeList *NodeInfoStorage, dpiClients []*common.DataPlaneConnectionInfo) {
+func (ss *ServiceInfoStorage) ScalingControllerLoop(nodeList *NodeInfoStorage, dpiClients map[string]*common.DataPlaneConnectionInfo) {
 	for {
 		select {
 		case desiredCount := <-*ss.Controller.DesiredStateChannel:
@@ -103,7 +103,7 @@ func (ss *ServiceInfoStorage) ScalingControllerLoop(nodeList *NodeInfoStorage, d
 	}
 }
 
-func (ss *ServiceInfoStorage) doUpscaling(toCreateCount int, nodeList *NodeInfoStorage, dpiClients []*common.DataPlaneConnectionInfo) {
+func (ss *ServiceInfoStorage) doUpscaling(toCreateCount int, nodeList *NodeInfoStorage, dpiClients map[string]*common.DataPlaneConnectionInfo) {
 	barrier := sync.WaitGroup{}
 
 	var finalEndpoint []*Endpoint
@@ -242,7 +242,7 @@ func excludeEndpoints(total []*Endpoint, toExclude map[*Endpoint]struct{}) []*En
 	return result
 }
 
-func (ss *ServiceInfoStorage) doDownscaling(toEvict map[*Endpoint]struct{}, urls []*proto.EndpointInfo, dpiClients []*common.DataPlaneConnectionInfo) {
+func (ss *ServiceInfoStorage) doDownscaling(toEvict map[*Endpoint]struct{}, urls []*proto.EndpointInfo, dpiClients map[string]*common.DataPlaneConnectionInfo) {
 	barrier := sync.WaitGroup{}
 
 	barrier.Add(len(toEvict))
@@ -288,7 +288,7 @@ func (ss *ServiceInfoStorage) doDownscaling(toEvict map[*Endpoint]struct{}, urls
 	ss.updateEndpoints(dpiClients, urls)
 }
 
-func (ss *ServiceInfoStorage) updateEndpoints(dpiClients []*common.DataPlaneConnectionInfo, endpoints []*proto.EndpointInfo) {
+func (ss *ServiceInfoStorage) updateEndpoints(dpiClients map[string]*common.DataPlaneConnectionInfo, endpoints []*proto.EndpointInfo) {
 	wg := &sync.WaitGroup{}
 
 	for _, conn := range dpiClients {
