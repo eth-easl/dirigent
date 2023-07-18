@@ -12,7 +12,9 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"os/signal"
 	"strconv"
+	"syscall"
 	"time"
 
 	"github.com/sirupsen/logrus"
@@ -28,8 +30,6 @@ func main() {
 
 	logger.SetupLogger(config.Verbosity)
 
-	stopChannel := make(chan struct{})
-
 	containerdClient := sandbox.GetContainerdClient(config.CRIPath)
 	defer containerdClient.Close()
 
@@ -42,9 +42,12 @@ func main() {
 
 	cpApi := common.InitializeControlPlaneConnection(config.ControlPlaneIp, config.ControlPlanePort, -1, -1)
 
-	registerNodeWithControlPlane(config, &cpApi)
+	quitChannel := make(chan bool)
 
-	go setupHeartbeatLoop(&cpApi)
+	registerNodeWithControlPlane(config, &cpApi)
+	defer deregisterNodeFromControlPlane(config, &cpApi, quitChannel)
+
+	go setupHeartbeatLoop(&cpApi, quitChannel)
 
 	logrus.Info("Starting API handlers")
 
@@ -59,10 +62,18 @@ func main() {
 		})
 	})
 
-	<-stopChannel
+	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
+	defer stop()
+
+	select {
+	case <-ctx.Done():
+		logrus.Info("Received interruption signal, try to gracefully stop")
+	}
 }
 
 func registerNodeWithControlPlane(config config2.WorkerNodeConfig, cpApi *proto.CpiInterfaceClient) {
+	logrus.Info("Trying to register the node with the control plane")
+
 	hostName, err := os.Hostname()
 	if err != nil {
 		logrus.Warn("Error fetching host name.")
@@ -96,12 +107,56 @@ func registerNodeWithControlPlane(config config2.WorkerNodeConfig, cpApi *proto.
 	logrus.Info("Successfully registered the node with the control plane")
 }
 
-func setupHeartbeatLoop(cpApi *proto.CpiInterfaceClient) {
+func deregisterNodeFromControlPlane(config config2.WorkerNodeConfig, cpApi *proto.CpiInterfaceClient, quitChannel chan bool) {
+	logrus.Info("Trying to deregister the node with the control plane")
+
+	quitChannel <- true
+
+	hostName, err := os.Hostname()
+	if err != nil {
+		logrus.Warn("Error fetching host name.")
+	}
+
+	pollContext, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	pollErr := wait.PollUntilContextCancel(pollContext, 5*time.Second, false,
+		func(ctx context.Context) (done bool, err error) {
+			resp, err := (*cpApi).DeregisterNode(context.Background(), &proto.NodeInfo{
+				NodeID: hostName,
+				// IP fetched from server-side context
+				Port:       int32(config.Port),
+				CpuCores:   hardware.GetNumberCpus(),
+				MemorySize: hardware.GetMemory(),
+			})
+
+			if err != nil || resp == nil {
+				logrus.Warn("Retrying to register the node with the control plane in 5 seconds")
+				return false, nil
+			}
+
+			return resp.Success, nil
+		},
+	)
+	if pollErr != nil {
+		logrus.Fatal("Failed to register the node with the control plane")
+	}
+
+	logrus.Info("Successfully registered the node with the control plane")
+}
+
+func setupHeartbeatLoop(cpApi *proto.CpiInterfaceClient, quitChannel chan bool) {
 	const HeartbeatInterval = 10 * time.Second
 
 	for {
-		// Send
-		sendHeartbeatLoop(cpApi)
+		// Quit (if required) or Send
+		select {
+		case <-quitChannel:
+			return
+		default:
+			sendHeartbeatLoop(cpApi)
+		}
+
 		// Wait
 		time.Sleep(HeartbeatInterval)
 	}

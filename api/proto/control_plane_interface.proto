@@ -41,6 +41,7 @@ service CpiInterface {
   rpc NodeHeartbeat(NodeHeartbeatMessage) returns (ActionStatus);
 
   rpc DeregisterDataplane(DataplaneInfo) returns (ActionStatus);
+  rpc DeregisterNode(NodeInfo) returns (ActionStatus);
 }
 
 message SandboxID {

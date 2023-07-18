@@ -9,14 +9,13 @@ import (
 	config2 "cluster_manager/pkg/config"
 	"cluster_manager/pkg/logger"
 	"context"
+	"github.com/sirupsen/logrus"
+	"google.golang.org/grpc"
+	"google.golang.org/protobuf/types/known/emptypb"
 	"os/signal"
 	"path"
 	"strconv"
 	"syscall"
-
-	"github.com/sirupsen/logrus"
-	"google.golang.org/grpc"
-	"google.golang.org/protobuf/types/known/emptypb"
 )
 
 func parseLoadBalancingPolicy(dataPlaneConfig config2.DataPlaneConfig) load_balancing.LoadBalancingPolicy {

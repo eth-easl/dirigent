@@ -129,9 +129,60 @@ func (c *CpApiServer) RegisterNode(ctx context.Context, in *proto.NodeInfo) (*pr
 	return &proto.ActionStatus{Success: true}, nil
 }
 
+func (c *CpApiServer) DeregisterNode(ctx context.Context, in *proto.NodeInfo) (*proto.ActionStatus, error) {
+	c.NIStorage.Lock()
+	defer c.NIStorage.Unlock()
+
+	_, ok := c.NIStorage.NodeInfo[in.NodeID]
+	if !ok {
+		return &proto.ActionStatus{
+			Success: false,
+			Message: "Node registration failed. Node doesn't exists.",
+		}, nil
+	}
+
+	ipAddress, ok := common.GetIPAddressFromGRPCCall(ctx)
+	if !ok {
+		return &proto.ActionStatus{
+			Success: false,
+			Message: "Node registration failed. Error getting IP address from context.",
+		}, nil
+	}
+
+	wn := &control_plane.WorkerNode{
+		Name:     in.NodeID,
+		IP:       ipAddress,
+		Port:     strconv.Itoa(int(in.Port)),
+		CpuCores: int(in.CpuCores),
+		Memory:   int(in.MemorySize),
+	}
+
+	err := c.PersistenceLayer.DeleteWorkerNodeInformation(ctx, &proto.WorkerNodeInformation{
+		Name:     wn.Name,
+		Ip:       wn.IP,
+		Port:     wn.Port,
+		CpuCores: int32(wn.CpuCores),
+		Memory:   int32(wn.Memory),
+	})
+	if err != nil {
+		logrus.Errorf("Failed to delete information to persistence layer (error : %s)", err.Error())
+		return &proto.ActionStatus{Success: false}, err
+	}
+
+	c.disconnectRegisteredWorker(wn)
+
+	logrus.Info("Node '", in.NodeID, "' has been successfully deregistered with the control plane")
+
+	return &proto.ActionStatus{Success: true}, nil
+}
+
 func (c *CpApiServer) connectToRegisteredWorker(wn *control_plane.WorkerNode) {
 	c.NIStorage.NodeInfo[wn.Name] = wn
 	go wn.GetAPI()
+}
+
+func (c *CpApiServer) disconnectRegisteredWorker(wn *control_plane.WorkerNode) {
+	delete(c.NIStorage.NodeInfo, wn.Name)
 }
 
 func (c *CpApiServer) NodeHeartbeat(_ context.Context, in *proto.NodeHeartbeatMessage) (*proto.ActionStatus, error) {
@@ -237,7 +288,7 @@ func (c *CpApiServer) RegisterDataplane(ctx context.Context, in *proto.Dataplane
 }
 
 func (c *CpApiServer) DeregisterDataplane(ctx context.Context, in *proto.DataplaneInfo) (*proto.ActionStatus, error) {
-	logrus.Trace("Revieved a control plane deregistration")
+	logrus.Trace("Recieved a data plane deregistration")
 
 	ipAddress, ok := common.GetIPAddressFromGRPCCall(ctx)
 	if !ok {
