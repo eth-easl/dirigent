@@ -332,7 +332,6 @@ func (c *CpApiServer) ReconstructState(ctx context.Context) error {
 	go c.reconstructDataplaneState(ctx)
 	go c.reconstructWorkersState(ctx)
 	go c.reconstructServiceState(ctx)
-	go c.reconstructEndpointsState(ctx)
 
 	return nil
 }
@@ -366,7 +365,7 @@ func (c *CpApiServer) reconstructWorkersState(ctx context.Context) error {
 		})
 	}
 
-	return nil
+	return c.reconstructEndpointsState(ctx)
 }
 
 func (c *CpApiServer) reconstructServiceState(ctx context.Context) error {
@@ -376,27 +375,7 @@ func (c *CpApiServer) reconstructServiceState(ctx context.Context) error {
 	}
 
 	for _, service := range services {
-		err := c.connectToRegisteredService(ctx, &proto.ServiceInfo{
-			Name:  service.Name,
-			Image: service.Image,
-			PortForwarding: &proto.PortMapping{
-				HostPort:  service.PortForwarding.HostPort,
-				GuestPort: service.PortForwarding.GuestPort,
-				Protocol:  service.PortForwarding.Protocol,
-			},
-			AutoscalingConfig: &proto.AutoscalingConfiguration{
-				ScalingUpperBound:                    service.AutoscalingConfig.ScalingUpperBound,
-				ScalingLowerBound:                    service.AutoscalingConfig.ScalingLowerBound,
-				PanicThresholdPercentage:             service.AutoscalingConfig.PanicThresholdPercentage,
-				MaxScaleUpRate:                       service.AutoscalingConfig.MaxScaleUpRate,
-				MaxScaleDownRate:                     service.AutoscalingConfig.MaxScaleDownRate,
-				ContainerConcurrency:                 service.AutoscalingConfig.ContainerConcurrency,
-				ContainerConcurrencyTargetPercentage: service.AutoscalingConfig.ContainerConcurrencyTargetPercentage,
-				StableWindowWidthSeconds:             service.AutoscalingConfig.StableWindowWidthSeconds,
-				PanicWindowWidthSeconds:              service.AutoscalingConfig.PanicWindowWidthSeconds,
-				ScalingPeriodSeconds:                 service.AutoscalingConfig.ScalingPeriodSeconds,
-			},
-		})
+		err := c.connectToRegisteredService(ctx, service)
 		if err != nil {
 			return err
 		}
@@ -412,7 +391,13 @@ func (c *CpApiServer) reconstructEndpointsState(ctx context.Context) error {
 	}
 
 	for i, endpoint := range endpoints {
-		c.SIStorage[services[i]].ReconstructEndpointsFromDatabase(endpoint)
+		controlPlaneEndpoint := &control_plane.Endpoint{
+			SandboxID: endpoint.SandboxID,
+			URL:       endpoint.URL,
+			Node:      c.NIStorage.NodeInfo[endpoint.NodeName],
+			HostPort:  endpoint.HostPort,
+		}
+		c.SIStorage[services[i]].ReconstructEndpointsFromDatabase(controlPlaneEndpoint)
 	}
 
 	return nil

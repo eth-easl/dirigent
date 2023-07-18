@@ -180,19 +180,12 @@ func (ss *ServiceInfoStorage) doUpscaling(toCreateCount int, nodeList *NodeInfoS
 	logrus.Debug("Endpoints updated.")
 }
 
-func (ss *ServiceInfoStorage) ReconstructEndpointsFromDatabase(endpoint *proto.Endpoint) {
+func (ss *ServiceInfoStorage) ReconstructEndpointsFromDatabase(endpoint *Endpoint) {
 	ss.Controller.Lock()
 	defer ss.Controller.Unlock()
 
 	endpoints := make([]*Endpoint, 0)
-	endpoints = append(endpoints, &Endpoint{
-		SandboxID: endpoint.SandboxID,
-		URL:       endpoint.URL,
-		Node:      nil,
-		HostPort:  endpoint.HostPort,
-	})
-
-	// TODO: Add node François Costa
+	endpoints = append(endpoints, endpoint)
 
 	ss.addEndpoints(endpoints)
 }
