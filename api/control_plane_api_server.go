@@ -129,6 +129,11 @@ func (c *CpApiServer) RegisterNode(ctx context.Context, in *proto.NodeInfo) (*pr
 	return &proto.ActionStatus{Success: true}, nil
 }
 
+func (c *CpApiServer) connectToRegisteredWorker(wn *control_plane.WorkerNode) {
+	c.NIStorage.NodeInfo[wn.Name] = wn
+	go wn.GetAPI()
+}
+
 func (c *CpApiServer) DeregisterNode(ctx context.Context, in *proto.NodeInfo) (*proto.ActionStatus, error) {
 	c.NIStorage.Lock()
 	defer c.NIStorage.Unlock()
@@ -176,11 +181,6 @@ func (c *CpApiServer) DeregisterNode(ctx context.Context, in *proto.NodeInfo) (*
 	return &proto.ActionStatus{Success: true}, nil
 }
 
-func (c *CpApiServer) connectToRegisteredWorker(wn *control_plane.WorkerNode) {
-	c.NIStorage.NodeInfo[wn.Name] = wn
-	go wn.GetAPI()
-}
-
 func (c *CpApiServer) disconnectRegisteredWorker(wn *control_plane.WorkerNode) {
 	delete(c.NIStorage.NodeInfo, wn.Name)
 }
@@ -196,14 +196,14 @@ func (c *CpApiServer) NodeHeartbeat(_ context.Context, in *proto.NodeHeartbeatMe
 		return &proto.ActionStatus{Success: false}, nil
 	}
 
-	updateWorkerNode(n, in)
+	c.updateWorkerNodeInformation(n, in)
 
 	logrus.Debugf("Heartbeat received from %s with %d percent cpu usage and %d percent memory usage", in.NodeID, in.CpuUsage, in.MemoryUsage)
 
 	return &proto.ActionStatus{Success: true}, nil
 }
 
-func updateWorkerNode(workerNode *control_plane.WorkerNode, in *proto.NodeHeartbeatMessage) {
+func (c *CpApiServer) updateWorkerNodeInformation(workerNode *control_plane.WorkerNode, in *proto.NodeHeartbeatMessage) {
 	workerNode.LastHeartbeat = time.Now()
 	workerNode.CpuUsage = int(in.CpuUsage)
 	workerNode.MemoryUsage = int(in.MemoryUsage)
@@ -287,6 +287,15 @@ func (c *CpApiServer) RegisterDataplane(ctx context.Context, in *proto.Dataplane
 	return &proto.ActionStatus{Success: true}, nil
 }
 
+func (c *CpApiServer) connectToRegisteredDataplane(information *proto.DataplaneInformation) {
+	c.appendDpiConnection(
+		common.InitializeDataPlaneConnection(information.Address, information.ApiPort),
+		information.Address,
+		information.ApiPort,
+		information.ProxyPort,
+	)
+}
+
 func (c *CpApiServer) DeregisterDataplane(ctx context.Context, in *proto.DataplaneInfo) (*proto.ActionStatus, error) {
 	logrus.Trace("Recieved a data plane deregistration")
 
@@ -315,17 +324,17 @@ func (c *CpApiServer) DeregisterDataplane(ctx context.Context, in *proto.Datapla
 	return &proto.ActionStatus{Success: true}, nil
 }
 
-func (c *CpApiServer) connectToRegisteredDataplane(information *proto.DataplaneInformation) {
-	c.appendDpiConnection(
-		common.InitializeDataPlaneConnection(information.Address, information.ApiPort),
-		information.Address,
-		information.ApiPort,
-		information.ProxyPort,
-	)
-}
-
 func (c *CpApiServer) deregisterDataplane(information *proto.DataplaneInformation) {
 	delete(c.DataPlaneConnections, information.Address)
+}
+
+func (c *CpApiServer) ReconstructState(ctx context.Context) error {
+	go c.reconstructDataplaneState(ctx)
+	go c.reconstructWorkersState(ctx)
+	go c.reconstructServiceState(ctx)
+	go c.reconstructEndpointsState(ctx)
+
+	return nil
 }
 
 func (c *CpApiServer) reconstructDataplaneState(ctx context.Context) error {
@@ -409,15 +418,6 @@ func (c *CpApiServer) reconstructEndpointsState(ctx context.Context) error {
 	return nil
 }
 
-func (c *CpApiServer) ReconstructState(ctx context.Context) error {
-	go c.reconstructDataplaneState(ctx)
-	go c.reconstructWorkersState(ctx)
-	go c.reconstructServiceState(ctx)
-	go c.reconstructEndpointsState(ctx)
-
-	return nil
-}
-
 func (c *CpApiServer) SerializeCpApiServer(ctx context.Context) {
 	serialized, err := json.Marshal(*c)
 	if err != nil {
@@ -425,7 +425,7 @@ func (c *CpApiServer) SerializeCpApiServer(ctx context.Context) {
 		return
 	}
 
-	err = c.PersistenceLayer.StoreControlPlane(ctx, serialized)
+	err = c.PersistenceLayer.StoreSerialized(ctx, serialized)
 	if err != nil {
 		logrus.Errorf("Failed to save control plane on failure : %s", err.Error())
 		return

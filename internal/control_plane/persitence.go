@@ -33,31 +33,6 @@ func CreateRedisClient(ctx context.Context, redisLogin config.RedisLogin) (Redis
 	return RedisClient{redisClient: redisClient}, redisClient.Ping(ctx).Err()
 }
 
-func (driver *RedisClient) scanKeys(ctx context.Context, prefix string) ([]string, error) {
-	var (
-		cursor uint64
-		n      int
-	)
-
-	output := make([]string, 0)
-
-	for {
-		var keys []string
-		var err error
-		keys, cursor, err = driver.redisClient.Scan(ctx, cursor, fmt.Sprintf("%s*", prefix), 10).Result()
-		if err != nil {
-			panic(err)
-		}
-		n += len(keys)
-		output = append(output, keys...)
-		if cursor == 0 {
-			break
-		}
-	}
-
-	return output, nil
-}
-
 func (driver *RedisClient) StoreDataPlaneInformation(ctx context.Context, dataplaneInfo *proto.DataplaneInformation) error {
 	logrus.Trace("store dataplane information in the database")
 
@@ -220,15 +195,15 @@ func (driver *RedisClient) UpdateEndpoints(ctx context.Context, serviceName stri
 	logrus.Trace("store endpoints information in the database")
 
 	key := fmt.Sprintf("%s:%s:*", endpointPrefix, serviceName)
-	err := driver.DeleteEndpoints(ctx, key)
+	err := driver.deleteEndpoints(ctx, key)
 	if err != nil {
 		return err
 	}
 
-	return driver.StoreEndpoints(ctx, serviceName, endpoints)
+	return driver.storeEndpoints(ctx, serviceName, endpoints)
 }
 
-func (driver *RedisClient) StoreEndpoints(ctx context.Context, serviceName string, endpoints []*proto.Endpoint) error {
+func (driver *RedisClient) storeEndpoints(ctx context.Context, serviceName string, endpoints []*proto.Endpoint) error {
 	for _, endpoint := range endpoints {
 		key := fmt.Sprintf("%s:%s:%s", endpointPrefix, serviceName, endpoint.NodeName)
 
@@ -239,7 +214,7 @@ func (driver *RedisClient) StoreEndpoints(ctx context.Context, serviceName strin
 
 		err = driver.redisClient.HSet(ctx, key, data).Err()
 		if err != nil {
-			driver.DeleteEndpoints(ctx, serviceName)
+			driver.deleteEndpoints(ctx, serviceName)
 			return err
 		}
 	}
@@ -247,7 +222,7 @@ func (driver *RedisClient) StoreEndpoints(ctx context.Context, serviceName strin
 	return nil
 }
 
-func (driver *RedisClient) DeleteEndpoints(ctx context.Context, key string) error {
+func (driver *RedisClient) deleteEndpoints(ctx context.Context, key string) error {
 	return driver.redisClient.Del(ctx, key).Err()
 }
 
@@ -283,6 +258,31 @@ func (driver *RedisClient) GetEndpoints(ctx context.Context) ([]*proto.Endpoint,
 	return endpoints, services, nil
 }
 
-func (driver *RedisClient) StoreControlPlane(ctx context.Context, controlPlane []byte) error {
+func (driver *RedisClient) StoreSerialized(ctx context.Context, controlPlane []byte) error {
 	return driver.redisClient.HSet(ctx, controlPlaneKey, "data", controlPlane).Err()
+}
+
+func (driver *RedisClient) scanKeys(ctx context.Context, prefix string) ([]string, error) {
+	var (
+		cursor uint64
+		n      int
+	)
+
+	output := make([]string, 0)
+
+	for {
+		var keys []string
+		var err error
+		keys, cursor, err = driver.redisClient.Scan(ctx, cursor, fmt.Sprintf("%s*", prefix), 10).Result()
+		if err != nil {
+			panic(err)
+		}
+		n += len(keys)
+		output = append(output, keys...)
+		if cursor == 0 {
+			break
+		}
+	}
+
+	return output, nil
 }

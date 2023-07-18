@@ -3,14 +3,13 @@ package main
 import (
 	"cluster_manager/api"
 	"cluster_manager/api/proto"
-	common "cluster_manager/internal/common"
+	"cluster_manager/internal/common"
 	"cluster_manager/internal/control_plane"
-	config2 "cluster_manager/pkg/config"
+	"cluster_manager/pkg/config"
 	"cluster_manager/pkg/logger"
 	"cluster_manager/pkg/utils"
-	context2 "context"
+	"context"
 	"github.com/sirupsen/logrus"
-	"golang.org/x/net/context"
 	"os/signal"
 	"path"
 	"syscall"
@@ -18,7 +17,7 @@ import (
 	"google.golang.org/grpc"
 )
 
-func parsePlacementPolicy(controlPlaneConfig config2.ControlPlaneConfig) control_plane.PlacementPolicy {
+func parsePlacementPolicy(controlPlaneConfig config.ControlPlaneConfig) control_plane.PlacementPolicy {
 	switch controlPlaneConfig.PlacementPolicy {
 	case "random":
 		return control_plane.PLACEMENT_RANDOM
@@ -33,25 +32,22 @@ func parsePlacementPolicy(controlPlaneConfig config2.ControlPlaneConfig) control
 }
 
 func main() {
-	config, err := config2.ReadControlPlaneConfiguration("cmd/master_node/config.yaml")
+	config, err := config.ReadControlPlaneConfiguration("cmd/master_node/config.yaml")
 	if err != nil {
 		logrus.Fatal("Failed to read configuration file (error : %s)", err.Error())
 	}
 
 	logger.SetupLogger(config.Verbosity)
 
-	redisClient, err := control_plane.CreateRedisClient(context2.Background(), config.RedisLogin)
+	redisClient, err := control_plane.CreateRedisClient(context.Background(), config.RedisLogin)
 	if err != nil {
 		logrus.Fatal("Failed to connect to the database (error : %s)", err.Error())
 	}
 
 	cpApiServer := api.CreateNewCpApiServer(redisClient, path.Join(config.TraceOutputFolder, "cold_start_trace.csv"), parsePlacementPolicy(config))
-	cpApiServer.ReconstructState(context2.Background())
+	cpApiServer.ReconstructState(context.Background())
 
 	defer cpApiServer.SerializeCpApiServer(context.Background())
-
-	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
-	defer stop()
 
 	go cpApiServer.ColdStartTracing.StartTracingService()
 	defer close(cpApiServer.ColdStartTracing.InputChannel)
@@ -60,6 +56,9 @@ func main() {
 	go common.CreateGRPCServer(utils.DockerLocalhost, config.Port, func(sr grpc.ServiceRegistrar) {
 		proto.RegisterCpiInterfaceServer(sr, cpApiServer)
 	})
+
+	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
+	defer stop()
 
 	select {
 	case <-ctx.Done():
