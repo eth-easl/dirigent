@@ -69,12 +69,6 @@ func (c *CpApiServer) CheckPeriodicallyWorkerNodes() {
 }
 
 func (c *CpApiServer) OnMetricsReceive(_ context.Context, metric *proto.AutoscalingMetric) (*proto.ActionStatus, error) {
-	service, ok := c.SIStorage[metric.ServiceName]
-	if !ok {
-		logrus.Warn("Autoscaling controller does not exist for function ", metric.ServiceName)
-		return &proto.ActionStatus{Success: false}, nil
-	}
-
 	storage, ok := c.SIStorage[metric.ServiceName]
 	if !ok {
 		logrus.Warn("SIStorage does not exist for '", metric.ServiceName, "'")
@@ -82,9 +76,9 @@ func (c *CpApiServer) OnMetricsReceive(_ context.Context, metric *proto.Autoscal
 	}
 
 	storage.Controller.ScalingMetadata.SetCachedScalingMetric(float64(metric.Metric))
-	logrus.Debug("Scaling metric for '", service.ServiceInfo.Name, "' is ", metric.Metric)
+	logrus.Debug("Scaling metric for '", storage.ServiceInfo.Name, "' is ", metric.Metric)
 
-	service.Controller.Start()
+	storage.Controller.Start()
 
 	return &proto.ActionStatus{Success: true}, nil
 }
