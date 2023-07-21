@@ -2,34 +2,30 @@ package api
 
 import (
 	"cluster_manager/api/proto"
-	"cluster_manager/internal/common"
+	"cluster_manager/internal/data_plane"
 	"context"
 )
 
 type DpApiServer struct {
 	proto.UnimplementedDpiInterfaceServer
 
-	Deployments *common.Deployments
+	dataplane *data_plane.Dataplane
+}
+
+func NewDpApiServer(dataplane *data_plane.Dataplane) *DpApiServer {
+	return &DpApiServer{
+		dataplane: dataplane,
+	}
 }
 
 func (api *DpApiServer) AddDeployment(_ context.Context, in *proto.ServiceInfo) (*proto.DeploymentUpdateSuccess, error) {
-	return &proto.DeploymentUpdateSuccess{Success: api.Deployments.AddDeployment(in.GetName())}, nil
+	return api.dataplane.AddDeployment(in)
 }
 
 func (api *DpApiServer) UpdateEndpointList(_ context.Context, patch *proto.DeploymentEndpointPatch) (*proto.DeploymentUpdateSuccess, error) {
-	deployment, _ := api.Deployments.GetDeployment(patch.GetService().GetName())
-	if deployment == nil {
-		return &proto.DeploymentUpdateSuccess{Success: false}, nil
-	}
-
-	err := deployment.SetUpstreamURLs(patch.Endpoints)
-	if err != nil {
-		return nil, err
-	}
-
-	return &proto.DeploymentUpdateSuccess{Success: true}, nil
+	return api.dataplane.UpdateEndpointList(patch)
 }
 
 func (api *DpApiServer) DeleteDeployment(_ context.Context, name *proto.ServiceInfo) (*proto.DeploymentUpdateSuccess, error) {
-	return &proto.DeploymentUpdateSuccess{Success: api.Deployments.DeleteDeployment(name.GetName())}, nil
+	return api.dataplane.DeleteDeployment(name)
 }

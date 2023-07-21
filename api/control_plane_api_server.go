@@ -2,8 +2,8 @@ package api
 
 import (
 	"cluster_manager/api/proto"
-	"cluster_manager/internal/common"
 	"cluster_manager/internal/control_plane"
+	"cluster_manager/internal/data_plane/function_metadata"
 	"cluster_manager/pkg/grpc_helpers"
 	_map "cluster_manager/pkg/map"
 	"cluster_manager/pkg/tracing"
@@ -21,7 +21,7 @@ import (
 type CpApiServer struct {
 	proto.UnimplementedCpiInterfaceServer
 
-	DataPlaneConnections map[string]*common.DataPlaneConnectionInfo
+	DataPlaneConnections map[string]*function_metadata.DataPlaneConnectionInfo
 
 	NIStorage control_plane.NodeInfoStorage
 	SIStorage map[string]*control_plane.ServiceInfoStorage
@@ -43,7 +43,7 @@ func CreateNewCpApiServer(client control_plane.RedisClient, outputFile string, p
 			NodeInfo: make(map[string]*control_plane.WorkerNode),
 		},
 		SIStorage:            make(map[string]*control_plane.ServiceInfoStorage),
-		DataPlaneConnections: make(map[string]*common.DataPlaneConnectionInfo),
+		DataPlaneConnections: make(map[string]*function_metadata.DataPlaneConnectionInfo),
 		ColdStartTracing:     tracing.NewColdStartTracingService(outputFile),
 		PlacementPolicy:      placementPolicy,
 		PersistenceLayer:     client,
@@ -344,7 +344,7 @@ func (c *CpApiServer) connectToRegisteredDataplane(information *proto.DataplaneI
 }
 
 func (c *CpApiServer) registerDataplane(iface proto.DpiInterfaceClient, ip, apiPort, proxyPort string) {
-	c.DataPlaneConnections[ip] = &common.DataPlaneConnectionInfo{
+	c.DataPlaneConnections[ip] = &function_metadata.DataPlaneConnectionInfo{
 		Iface:     iface,
 		IP:        ip,
 		APIPort:   apiPort,

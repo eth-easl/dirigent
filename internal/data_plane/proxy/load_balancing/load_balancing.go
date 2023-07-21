@@ -1,7 +1,7 @@
 package load_balancing
 
 import (
-	"cluster_manager/internal/common"
+	"cluster_manager/internal/data_plane/function_metadata"
 	"math/rand"
 	"net/http"
 	"time"
@@ -18,7 +18,7 @@ const (
 	LOAD_BALANCING_KNATIVE
 )
 
-func DoLoadBalancing(req *http.Request, metadata *common.FunctionMetadata, loadBalancingPolicy LoadBalancingPolicy) (bool, *common.UpstreamEndpoint, time.Duration, time.Duration) {
+func DoLoadBalancing(req *http.Request, metadata *function_metadata.FunctionMetadata, loadBalancingPolicy LoadBalancingPolicy) (bool, *function_metadata.UpstreamEndpoint, time.Duration, time.Duration) {
 	start := time.Now()
 
 	metadata.RLock()
@@ -29,7 +29,7 @@ func DoLoadBalancing(req *http.Request, metadata *common.FunctionMetadata, loadB
 		return false, nil, time.Since(start), 0
 	}
 
-	var endpoint *common.UpstreamEndpoint
+	var endpoint *function_metadata.UpstreamEndpoint
 
 	switch loadBalancingPolicy {
 	case LOAD_BALANCING_RANDOM:
@@ -59,16 +59,16 @@ func DoLoadBalancing(req *http.Request, metadata *common.FunctionMetadata, loadB
 	return true, endpoint, time.Since(start), ccDuration
 }
 
-func randomEndpoint(endpoints []*common.UpstreamEndpoint) *common.UpstreamEndpoint {
+func randomEndpoint(endpoints []*function_metadata.UpstreamEndpoint) *function_metadata.UpstreamEndpoint {
 	index := rand.Intn(len(endpoints))
 	return endpoints[index]
 }
 
-func randomLoadBalancing(metadata *common.FunctionMetadata) *common.UpstreamEndpoint {
+func randomLoadBalancing(metadata *function_metadata.FunctionMetadata) *function_metadata.UpstreamEndpoint {
 	return randomEndpoint(metadata.GetUpstreamEndpoints())
 }
 
-func roundRobinLoadBalancing(metadata *common.FunctionMetadata) *common.UpstreamEndpoint {
+func roundRobinLoadBalancing(metadata *function_metadata.FunctionMetadata) *function_metadata.UpstreamEndpoint {
 	endpoints := metadata.GetUpstreamEndpoints()
 	outputEndpoint := endpoints[metadata.GetRoundRobinCounter()]
 	metadata.IncrementRoundRobinCounter()
@@ -76,7 +76,7 @@ func roundRobinLoadBalancing(metadata *common.FunctionMetadata) *common.Upstream
 	return outputEndpoint
 }
 
-func leastProcessedLoadBalancing(metadata *common.FunctionMetadata) *common.UpstreamEndpoint {
+func leastProcessedLoadBalancing(metadata *function_metadata.FunctionMetadata) *function_metadata.UpstreamEndpoint {
 	endpoints := metadata.GetUpstreamEndpoints()
 	requestCountPerInstance := metadata.GetRequestCountPerInstance()
 
@@ -95,7 +95,7 @@ func leastProcessedLoadBalancing(metadata *common.FunctionMetadata) *common.Upst
 	return minEndpoint
 }
 
-func generateTwoUniformRandomEndpoints(endpoints []*common.UpstreamEndpoint) (*common.UpstreamEndpoint, *common.UpstreamEndpoint) {
+func generateTwoUniformRandomEndpoints(endpoints []*function_metadata.UpstreamEndpoint) (*function_metadata.UpstreamEndpoint, *function_metadata.UpstreamEndpoint) {
 	/*
 		The trick is that we generate from 0 to l-1 and if the generated value is bigger than the first.
 		We increase by one. We get two uniform randoms distributions and the number are different.
@@ -110,10 +110,10 @@ func generateTwoUniformRandomEndpoints(endpoints []*common.UpstreamEndpoint) (*c
 	return endpoints[r1], endpoints[r2]
 }
 
-func bestOfTwoRandoms(metadata *common.FunctionMetadata) *common.UpstreamEndpoint {
+func bestOfTwoRandoms(metadata *function_metadata.FunctionMetadata) *function_metadata.UpstreamEndpoint {
 	endpoints := metadata.GetUpstreamEndpoints()
 
-	var output *common.UpstreamEndpoint
+	var output *function_metadata.UpstreamEndpoint
 
 	if len(endpoints) == 1 {
 		output = endpoints[0]
@@ -131,7 +131,7 @@ func bestOfTwoRandoms(metadata *common.FunctionMetadata) *common.UpstreamEndpoin
 	return output
 }
 
-func kubernetesFirstAvailableLoadBalancing(metadata *common.FunctionMetadata) *common.UpstreamEndpoint {
+func kubernetesFirstAvailableLoadBalancing(metadata *function_metadata.FunctionMetadata) *function_metadata.UpstreamEndpoint {
 	endpoints := metadata.GetUpstreamEndpoints()
 	for _, endpoint := range endpoints {
 		if len(endpoint.Capacity) > 0 {
@@ -145,7 +145,7 @@ func kubernetesFirstAvailableLoadBalancing(metadata *common.FunctionMetadata) *c
 	return randomEndpoint(endpoints)
 }
 
-func kubernetesRoundRobinLoadBalancing(metadata *common.FunctionMetadata) *common.UpstreamEndpoint {
+func kubernetesRoundRobinLoadBalancing(metadata *function_metadata.FunctionMetadata) *function_metadata.UpstreamEndpoint {
 	endpoints := metadata.GetUpstreamEndpoints()
 
 	baseIdx := metadata.GetKubernetesRoundRobinCounter()
@@ -172,10 +172,10 @@ func kubernetesRoundRobinLoadBalancing(metadata *common.FunctionMetadata) *commo
 	return randomEndpoint(endpoints)
 }
 
-func kubernetesNativeLoadBalancing(metadata *common.FunctionMetadata) *common.UpstreamEndpoint {
+func kubernetesNativeLoadBalancing(metadata *function_metadata.FunctionMetadata) *function_metadata.UpstreamEndpoint {
 	containerConcurrency := metadata.GetSandboxParallelism()
 
-	if containerConcurrency == common.UNLIMITED_CONCURENCY {
+	if containerConcurrency == function_metadata.UNLIMITED_CONCURENCY {
 		return bestOfTwoRandoms(metadata)
 	} else if containerConcurrency <= 3 {
 		return kubernetesFirstAvailableLoadBalancing(metadata)

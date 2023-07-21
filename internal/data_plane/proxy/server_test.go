@@ -2,7 +2,7 @@ package proxy
 
 import (
 	proto2 "cluster_manager/api/proto"
-	common "cluster_manager/internal/common"
+	common "cluster_manager/internal/data_plane/function_metadata"
 	"cluster_manager/pkg/grpc_helpers"
 	"cluster_manager/pkg/utils"
 	testserver "cluster_manager/tests"

@@ -25,8 +25,6 @@ const (
 )
 
 type WorkerNode struct {
-	proto.UnimplementedWorkerNodeInterfaceServer
-
 	ContainerdClient *containerd.Client
 	CNIClient        cni.CNI
 	IPT              *iptables.IPTables

@@ -1,15 +1,15 @@
 package load_balancing
 
 import (
-	"cluster_manager/internal/common"
+	"cluster_manager/internal/data_plane/function_metadata"
 	"math/rand"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 )
 
-func getTestEndpoints() (*common.FunctionMetadata, int) {
-	endpoints := []*common.UpstreamEndpoint{
+func getTestEndpoints() (*function_metadata.FunctionMetadata, int) {
+	endpoints := []*function_metadata.UpstreamEndpoint{
 		{
 			ID:       "1",
 			Capacity: make(chan struct{}, 10),
@@ -40,7 +40,7 @@ func getTestEndpoints() (*common.FunctionMetadata, int) {
 		},
 	}
 
-	metadata := common.NewFunctionMetadata("mockName")
+	metadata := function_metadata.NewFunctionMetadata("mockName")
 	metadata.SetEndpoints(endpoints)
 
 	return metadata, len(endpoints)
@@ -49,7 +49,7 @@ func getTestEndpoints() (*common.FunctionMetadata, int) {
 func TestRandomLoadBalancing(t *testing.T) {
 	metadata, _ := getTestEndpoints()
 
-	endpointsMap := make(map[*common.UpstreamEndpoint]interface{})
+	endpointsMap := make(map[*function_metadata.UpstreamEndpoint]interface{})
 	for _, elem := range metadata.GetUpstreamEndpoints() {
 		endpointsMap[elem] = 0
 	}
@@ -106,7 +106,7 @@ func TestGenerateTwoUniformRandomEndpoints(t *testing.T) {
 func TestBestOfTwoRandoms(t *testing.T) {
 	metadata, _ := getTestEndpoints()
 
-	endpointsMap := make(map[*common.UpstreamEndpoint]interface{})
+	endpointsMap := make(map[*function_metadata.UpstreamEndpoint]interface{})
 	for _, elem := range metadata.GetUpstreamEndpoints() {
 		endpointsMap[elem] = 0
 	}

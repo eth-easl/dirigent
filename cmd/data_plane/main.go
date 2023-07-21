@@ -3,37 +3,17 @@ package main
 import (
 	"cluster_manager/api"
 	"cluster_manager/api/proto"
-	"cluster_manager/internal/common"
-	"cluster_manager/internal/proxy"
-	"cluster_manager/internal/proxy/load_balancing"
+	"cluster_manager/internal/data_plane"
+	"cluster_manager/internal/data_plane/function_metadata"
 	"cluster_manager/pkg/config"
 	"cluster_manager/pkg/grpc_helpers"
 	"cluster_manager/pkg/logger"
 	"context"
 	"github.com/sirupsen/logrus"
 	"google.golang.org/grpc"
-	"google.golang.org/protobuf/types/known/emptypb"
 	"os/signal"
-	"path"
-	"strconv"
 	"syscall"
 )
-
-func parseLoadBalancingPolicy(dataPlaneConfig config.DataPlaneConfig) load_balancing.LoadBalancingPolicy {
-	switch dataPlaneConfig.LoadBalancingPolicy {
-	case "random":
-		return load_balancing.LOAD_BALANCING_RANDOM
-	case "round-robin":
-		return load_balancing.LOAD_BALANCING_ROUND_ROBIN
-	case "least-processed":
-		return load_balancing.LOAD_BALANCING_LEAST_PROCESSED
-	case "knative":
-		return load_balancing.LOAD_BALANCING_KNATIVE
-	default:
-		logrus.Error("Failed to parse policy, default policy is random")
-		return load_balancing.LOAD_BALANCING_RANDOM
-	}
-}
 
 func main() {
 	config, err := config.ReadDataPlaneConfiguration("cmd/data_plane/config.yaml")
@@ -43,32 +23,21 @@ func main() {
 
 	logger.SetupLogger(config.Verbosity)
 
-	cache := common.NewDeploymentList()
+	cache := function_metadata.NewDeploymentList()
+	dataPlane := data_plane.NewDataplane(config, cache)
 
 	go grpc_helpers.CreateGRPCServer("0.0.0.0", config.PortGRPC, func(sr grpc.ServiceRegistrar) {
-		proto.RegisterDpiInterfaceServer(sr, &api.DpApiServer{
-			Deployments: cache,
-		})
+		proto.RegisterDpiInterfaceServer(sr, api.NewDpApiServer(dataPlane))
 	})
 
-	var dpConnection proto.CpiInterfaceClient
-
-	grpcPort, _ := strconv.Atoi(config.PortGRPC)
-	proxyPort, _ := strconv.Atoi(config.PortProxy)
-
-	dpConnection = grpc_helpers.InitializeControlPlaneConnection(config.ControlPlaneIp, config.ControlPlanePort, int32(grpcPort), int32(proxyPort))
-	defer grpc_helpers.DeregisterControlPlaneConnection(config.ControlPlaneIp, config.ControlPlanePort, int32(grpcPort), int32(proxyPort))
-
-	syncDeploymentCache(&dpConnection, cache)
-
-	loadBalancingPolicy := parseLoadBalancingPolicy(config)
-
-	proxyServer := proxy.NewProxyingService("0.0.0.0", config.PortProxy, cache, &dpConnection, path.Join(config.TraceOutputFolder, "proxy_trace.csv"), loadBalancingPolicy)
+	proxyServer := dataPlane.GetProxyServer()
 
 	go proxyServer.Tracing.StartTracingService()
 	defer close(proxyServer.Tracing.InputChannel)
 
 	go proxyServer.StartProxyServer()
+
+	defer dataPlane.DeregisterControlPlaneConnection()
 
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer stop()
@@ -76,16 +45,5 @@ func main() {
 	select {
 	case <-ctx.Done():
 		logrus.Info("Received interruption signal, try to gracefully stop")
-	}
-}
-
-func syncDeploymentCache(cpApi *proto.CpiInterfaceClient, deployments *common.Deployments) {
-	resp, err := (*cpApi).ListServices(context.Background(), &emptypb.Empty{})
-	if err != nil {
-		logrus.Fatal("Initial deployment cache synchronization failed.")
-	}
-
-	for i := 0; i < len(resp.Service); i++ {
-		deployments.AddDeployment(resp.Service[i])
 	}
 }

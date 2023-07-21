@@ -2,9 +2,9 @@ package proxy
 
 import (
 	"cluster_manager/api/proto"
-	common "cluster_manager/internal/common"
-	"cluster_manager/internal/proxy/load_balancing"
-	net2 "cluster_manager/internal/proxy/net"
+	common "cluster_manager/internal/data_plane/function_metadata"
+	"cluster_manager/internal/data_plane/proxy/load_balancing"
+	net2 "cluster_manager/internal/data_plane/proxy/net"
 	"cluster_manager/pkg/tracing"
 	"net"
 	"net/http"

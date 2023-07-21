@@ -2,8 +2,8 @@ package control_plane
 
 import (
 	"cluster_manager/api/proto"
-	"cluster_manager/internal/common"
 	placement2 "cluster_manager/internal/control_plane/placement"
+	"cluster_manager/internal/data_plane/function_metadata"
 	"cluster_manager/pkg/grpc_helpers"
 	"cluster_manager/pkg/tracing"
 	"context"
@@ -70,7 +70,7 @@ func (ss *ServiceInfoStorage) GetAllURLs() []string {
 	return res
 }
 
-func (ss *ServiceInfoStorage) ScalingControllerLoop(nodeList *NodeInfoStorage, dpiClients map[string]*common.DataPlaneConnectionInfo) {
+func (ss *ServiceInfoStorage) ScalingControllerLoop(nodeList *NodeInfoStorage, dpiClients map[string]*function_metadata.DataPlaneConnectionInfo) {
 	for {
 		select {
 		case desiredCount := <-*ss.Controller.DesiredStateChannel:
@@ -113,7 +113,7 @@ func (ss *ServiceInfoStorage) ScalingControllerLoop(nodeList *NodeInfoStorage, d
 	}
 }
 
-func (ss *ServiceInfoStorage) doUpscaling(toCreateCount int, nodeList *NodeInfoStorage, dpiClients map[string]*common.DataPlaneConnectionInfo) {
+func (ss *ServiceInfoStorage) doUpscaling(toCreateCount int, nodeList *NodeInfoStorage, dpiClients map[string]*function_metadata.DataPlaneConnectionInfo) {
 	wg := sync.WaitGroup{}
 
 	var finalEndpoint []*Endpoint
@@ -271,7 +271,7 @@ func excludeSingleEndpoint(total []*Endpoint, toExclude *Endpoint) []*Endpoint {
 	return result
 }
 
-func (ss *ServiceInfoStorage) doDownscaling(toEvict map[*Endpoint]struct{}, urls []*proto.EndpointInfo, dpiClients map[string]*common.DataPlaneConnectionInfo) {
+func (ss *ServiceInfoStorage) doDownscaling(toEvict map[*Endpoint]struct{}, urls []*proto.EndpointInfo, dpiClients map[string]*function_metadata.DataPlaneConnectionInfo) {
 	barrier := sync.WaitGroup{}
 
 	barrier.Add(len(toEvict))
@@ -322,7 +322,7 @@ func (ss *ServiceInfoStorage) doDownscaling(toEvict map[*Endpoint]struct{}, urls
 	ss.updateEndpoints(dpiClients, urls)
 }
 
-func (ss *ServiceInfoStorage) RemoveEndpoint(endpointToEvict *Endpoint, dpiClients map[string]*common.DataPlaneConnectionInfo) error {
+func (ss *ServiceInfoStorage) RemoveEndpoint(endpointToEvict *Endpoint, dpiClients map[string]*function_metadata.DataPlaneConnectionInfo) error {
 
 	ss.Controller.Lock()
 
@@ -341,7 +341,7 @@ func (ss *ServiceInfoStorage) RemoveEndpoint(endpointToEvict *Endpoint, dpiClien
 	return nil
 }
 
-func (ss *ServiceInfoStorage) updateEndpoints(dpiClients map[string]*common.DataPlaneConnectionInfo, endpoints []*proto.EndpointInfo) {
+func (ss *ServiceInfoStorage) updateEndpoints(dpiClients map[string]*function_metadata.DataPlaneConnectionInfo, endpoints []*proto.EndpointInfo) {
 	wg := &sync.WaitGroup{}
 
 	for _, conn := range dpiClients {

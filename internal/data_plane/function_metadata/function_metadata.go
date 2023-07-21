@@ -1,4 +1,4 @@
-package common
+package function_metadata
 
 import (
 	"cluster_manager/api/proto"
