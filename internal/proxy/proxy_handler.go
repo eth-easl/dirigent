@@ -5,6 +5,7 @@ import (
 	common "cluster_manager/internal/common"
 	"cluster_manager/internal/proxy/load_balancing"
 	net2 "cluster_manager/internal/proxy/net"
+	"cluster_manager/pkg/tracing"
 	"net"
 	"net/http"
 	"time"
@@ -21,7 +22,7 @@ type ProxyingService struct {
 	CPInterface         *proto.CpiInterfaceClient
 	LoadBalancingPolicy load_balancing.LoadBalancingPolicy
 
-	Tracing *common.TracingService[common.ProxyLogEntry]
+	Tracing *tracing.TracingService[tracing.ProxyLogEntry]
 }
 
 func NewProxyingService(host string, port string, cache *common.Deployments, cp *proto.CpiInterfaceClient, outputFile string, loadBalancingPolicy load_balancing.LoadBalancingPolicy) *ProxyingService {
@@ -32,7 +33,7 @@ func NewProxyingService(host string, port string, cache *common.Deployments, cp 
 		CPInterface:         cp,
 		LoadBalancingPolicy: loadBalancingPolicy,
 
-		Tracing: common.NewProxyTracingService(outputFile),
+		Tracing: tracing.NewProxyTracingService(outputFile),
 	}
 }
 
@@ -130,7 +131,7 @@ func (ps *ProxyingService) createInvocationHandler(next http.Handler, cache *com
 		// ON THE WAY BACK
 		///////////////////////////////////////////////
 
-		ps.Tracing.InputChannel <- common.ProxyLogEntry{
+		ps.Tracing.InputChannel <- tracing.ProxyLogEntry{
 			ServiceName:    serviceName,
 			ContainerID:    endpoint.ID,
 			Total:          time.Since(start),

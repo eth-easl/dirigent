@@ -3,10 +3,10 @@ package main
 import (
 	"cluster_manager/api"
 	"cluster_manager/api/proto"
-	"cluster_manager/internal/common"
 	"cluster_manager/internal/worker_node"
 	"cluster_manager/internal/worker_node/sandbox"
 	"cluster_manager/pkg/config"
+	"cluster_manager/pkg/grpc_helpers"
 	"cluster_manager/pkg/logger"
 	"cluster_manager/pkg/utils"
 	"context"
@@ -28,7 +28,7 @@ func main() {
 	containerdClient := sandbox.GetContainerdClient(config.CRIPath)
 	defer containerdClient.Close()
 
-	cpApi := common.InitializeControlPlaneConnection(config.ControlPlaneIp, config.ControlPlanePort, -1, -1)
+	cpApi := grpc_helpers.InitializeControlPlaneConnection(config.ControlPlaneIp, config.ControlPlanePort, -1, -1)
 
 	workerNode := worker_node.NewWorkerNode(config, containerdClient)
 
@@ -39,7 +39,7 @@ func main() {
 
 	logrus.Info("Starting API handlers")
 
-	go common.CreateGRPCServer(utils.DockerLocalhost, strconv.Itoa(config.Port), func(sr grpc.ServiceRegistrar) {
+	go grpc_helpers.CreateGRPCServer(utils.DockerLocalhost, strconv.Itoa(config.Port), func(sr grpc.ServiceRegistrar) {
 		proto.RegisterWorkerNodeInterfaceServer(sr, api.NewWorkerNodeApi(workerNode))
 	})
 

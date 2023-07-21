@@ -1,4 +1,4 @@
-package common
+package grpc_helpers
 
 import (
 	"cluster_manager/api/proto"

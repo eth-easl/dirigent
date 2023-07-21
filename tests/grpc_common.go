@@ -2,7 +2,7 @@ package tests
 
 import (
 	protoApi "cluster_manager/api/proto"
-	"cluster_manager/internal/common"
+	"cluster_manager/pkg/grpc_helpers"
 	"cluster_manager/pkg/utils"
 	"cluster_manager/tests/proto"
 	"context"
@@ -26,7 +26,7 @@ func (s *TestServer) Execute(_ context.Context, _ *proto.FaasRequest) (*proto.Fa
 }
 
 func FireInvocation(client proto.ExecutorClient) error {
-	executionCxt, cancelExecution := context.WithTimeout(context.Background(), common.GRPCFunctionTimeout)
+	executionCxt, cancelExecution := context.WithTimeout(context.Background(), grpc_helpers.GRPCFunctionTimeout)
 	defer cancelExecution()
 
 	start := time.Now()
@@ -42,12 +42,12 @@ func FireInvocation(client proto.ExecutorClient) error {
 }
 
 func UpdateEndpointList(t *testing.T, host string, port string, endpoints []*protoApi.EndpointInfo) {
-	conn := common.EstablishGRPCConnectionPoll(host, port)
+	conn := grpc_helpers.EstablishGRPCConnectionPoll(host, port)
 	if conn == nil {
 		logrus.Fatal("Failed to establish gRPC connection with the data plane")
 	}
 
-	executionCxt, cancelExecution := context.WithTimeout(context.Background(), common.GRPCFunctionTimeout)
+	executionCxt, cancelExecution := context.WithTimeout(context.Background(), grpc_helpers.GRPCFunctionTimeout)
 	defer cancelExecution()
 
 	// TODO: make this not be static and random

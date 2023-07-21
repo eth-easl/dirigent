@@ -1,4 +1,4 @@
-package common
+package tracing
 
 import (
 	"cluster_manager/api/proto"

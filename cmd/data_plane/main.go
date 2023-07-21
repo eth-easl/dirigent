@@ -7,6 +7,7 @@ import (
 	"cluster_manager/internal/proxy"
 	"cluster_manager/internal/proxy/load_balancing"
 	"cluster_manager/pkg/config"
+	"cluster_manager/pkg/grpc_helpers"
 	"cluster_manager/pkg/logger"
 	"context"
 	"github.com/sirupsen/logrus"
@@ -44,7 +45,7 @@ func main() {
 
 	cache := common.NewDeploymentList()
 
-	go common.CreateGRPCServer("0.0.0.0", config.PortGRPC, func(sr grpc.ServiceRegistrar) {
+	go grpc_helpers.CreateGRPCServer("0.0.0.0", config.PortGRPC, func(sr grpc.ServiceRegistrar) {
 		proto.RegisterDpiInterfaceServer(sr, &api.DpApiServer{
 			Deployments: cache,
 		})
@@ -55,8 +56,8 @@ func main() {
 	grpcPort, _ := strconv.Atoi(config.PortGRPC)
 	proxyPort, _ := strconv.Atoi(config.PortProxy)
 
-	dpConnection = common.InitializeControlPlaneConnection(config.ControlPlaneIp, config.ControlPlanePort, int32(grpcPort), int32(proxyPort))
-	defer common.DeregisterControlPlaneConnection(config.ControlPlaneIp, config.ControlPlanePort, int32(grpcPort), int32(proxyPort))
+	dpConnection = grpc_helpers.InitializeControlPlaneConnection(config.ControlPlaneIp, config.ControlPlanePort, int32(grpcPort), int32(proxyPort))
+	defer grpc_helpers.DeregisterControlPlaneConnection(config.ControlPlaneIp, config.ControlPlanePort, int32(grpcPort), int32(proxyPort))
 
 	syncDeploymentCache(&dpConnection, cache)
 

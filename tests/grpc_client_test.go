@@ -2,8 +2,8 @@ package tests
 
 import (
 	proto2 "cluster_manager/api/proto"
-	"cluster_manager/internal/common"
 	"cluster_manager/internal/control_plane"
+	"cluster_manager/pkg/grpc_helpers"
 	"cluster_manager/pkg/utils"
 	"cluster_manager/tests/proto"
 	"context"
@@ -22,7 +22,7 @@ const (
 )
 
 func deploySingleService(t *testing.T, cpApi proto2.CpiInterfaceClient, autoscalingConfig *proto2.AutoscalingConfiguration, name string) {
-	ctx, cancel := context.WithTimeout(context.Background(), common.GRPCFunctionTimeout)
+	ctx, cancel := context.WithTimeout(context.Background(), grpc_helpers.GRPCFunctionTimeout)
 	defer cancel()
 
 	logrus.Info("Starting deploying a service in the database")
@@ -54,7 +54,7 @@ func randSeq(n int) string {
 }
 
 func deployXservices(t *testing.T, x int) {
-	cpApi := common.InitializeControlPlaneConnection("localhost", utils.DefaultControlPlanePort, -1, -1)
+	cpApi := grpc_helpers.InitializeControlPlaneConnection("localhost", utils.DefaultControlPlanePort, -1, -1)
 
 	autoscalingConfig := control_plane.NewDefaultAutoscalingMetadata()
 	autoscalingConfig.ScalingUpperBound = 1
@@ -119,7 +119,7 @@ func TestInvocationProxying(t *testing.T) {
 	logrus.SetLevel(logrus.DebugLevel)
 	logrus.SetFormatter(&logrus.TextFormatter{TimestampFormat: time.StampMilli, FullTimestamp: true})
 
-	conn := common.EstablishGRPCConnectionPoll("localhost", "8080", grpc.WithAuthority(deployedFunctionName))
+	conn := grpc_helpers.EstablishGRPCConnectionPoll("localhost", "8080", grpc.WithAuthority(deployedFunctionName))
 	if conn == nil {
 		logrus.Fatal("Failed to establish gRPC connection with the data plane")
 	}
@@ -138,7 +138,7 @@ func Test_100Invocations(t *testing.T) {
 	logrus.SetLevel(logrus.DebugLevel)
 	logrus.SetFormatter(&logrus.TextFormatter{TimestampFormat: time.StampMilli, FullTimestamp: true})
 
-	conn := common.EstablishGRPCConnectionPoll("localhost", "8080", grpc.WithAuthority(deployedFunctionName))
+	conn := grpc_helpers.EstablishGRPCConnectionPoll("localhost", "8080", grpc.WithAuthority(deployedFunctionName))
 	if conn == nil {
 		logrus.Fatal("Failed to establish gRPC connection with the data plane")
 	}

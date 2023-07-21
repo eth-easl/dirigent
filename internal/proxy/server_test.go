@@ -3,6 +3,7 @@ package proxy
 import (
 	proto2 "cluster_manager/api/proto"
 	common "cluster_manager/internal/common"
+	"cluster_manager/pkg/grpc_helpers"
 	"cluster_manager/pkg/utils"
 	testserver "cluster_manager/tests"
 	"cluster_manager/tests/proto"
@@ -89,13 +90,13 @@ func TestE2E_gRPC_H2C_NoColdStart(t *testing.T) {
 	// proxy
 	//go CreateProxyServer(host, proxyPort, cache)
 	// endpoint
-	go common.CreateGRPCServer(host, sandboxPort, func(sr grpc.ServiceRegistrar) {
+	go grpc_helpers.CreateGRPCServer(host, sandboxPort, func(sr grpc.ServiceRegistrar) {
 		proto.RegisterExecutorServer(sr, &testserver.TestServer{})
 	})
 
 	time.Sleep(5 * time.Second)
 
-	conn := common.EstablishGRPCConnectionPoll(host, proxyPort)
+	conn := grpc_helpers.EstablishGRPCConnectionPoll(host, proxyPort)
 	assert.NotNil(t, conn, "Failed to establish gRPC connection with the data plane")
 	executorClient := proto.NewExecutorClient(conn)
 
@@ -120,13 +121,13 @@ func TestE2E_ColdStart_WithResolution(t *testing.T) {
 	// proxy
 	//go CreateProxyServer(host, proxyPort, cache)
 	// endpoint
-	go common.CreateGRPCServer(host, sandboxPort, func(sr grpc.ServiceRegistrar) {
+	go grpc_helpers.CreateGRPCServer(host, sandboxPort, func(sr grpc.ServiceRegistrar) {
 		proto.RegisterExecutorServer(sr, &testserver.TestServer{})
 	})
 
 	time.Sleep(5 * time.Second)
 
-	conn := common.EstablishGRPCConnectionPoll(host, proxyPort)
+	conn := grpc_helpers.EstablishGRPCConnectionPoll(host, proxyPort)
 	assert.NotNil(t, conn, "Failed to establish gRPC connection with the data plane")
 	executorClient := proto.NewExecutorClient(conn)
 
@@ -163,13 +164,13 @@ func TestE2E_gRPC_H2C_NoDeployment(t *testing.T) {
 	// proxy
 	//go CreateProxyServer(host, proxyPort, cache)
 	// endpoint
-	go common.CreateGRPCServer(host, sandboxPort, func(sr grpc.ServiceRegistrar) {
+	go grpc_helpers.CreateGRPCServer(host, sandboxPort, func(sr grpc.ServiceRegistrar) {
 		proto.RegisterExecutorServer(sr, &testserver.TestServer{})
 	})
 
 	time.Sleep(5 * time.Second)
 
-	conn := common.EstablishGRPCConnectionPoll(host, proxyPort)
+	conn := grpc_helpers.EstablishGRPCConnectionPoll(host, proxyPort)
 	assert.NotNil(t, conn, "Failed to establish gRPC connection with the data plane")
 	executorClient := proto.NewExecutorClient(conn)
 

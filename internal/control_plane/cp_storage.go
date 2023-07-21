@@ -4,6 +4,8 @@ import (
 	"cluster_manager/api/proto"
 	"cluster_manager/internal/common"
 	placement2 "cluster_manager/internal/control_plane/placement"
+	"cluster_manager/pkg/grpc_helpers"
+	"cluster_manager/pkg/tracing"
 	"context"
 	"fmt"
 	"sync"
@@ -27,7 +29,7 @@ type ServiceInfoStorage struct {
 	ServiceInfo *proto.ServiceInfo
 
 	Controller              *PFStateController
-	ColdStartTracingChannel *chan common.ColdStartLogEntry
+	ColdStartTracingChannel *chan tracing.ColdStartLogEntry
 
 	PlacementPolicy  PlacementPolicy
 	PertistenceLayer RedisClient
@@ -135,7 +137,7 @@ func (ss *ServiceInfoStorage) doUpscaling(toCreateCount int, nodeList *NodeInfoS
 
 			resp, err := node.GetAPI().CreateSandbox(ctx, ss.ServiceInfo)
 			if resp != nil {
-				*ss.ColdStartTracingChannel <- common.ColdStartLogEntry{
+				*ss.ColdStartTracingChannel <- tracing.ColdStartLogEntry{
 					ServiceName:      ss.ServiceInfo.Name,
 					ContainerID:      resp.ID,
 					Success:          resp.Success,
@@ -365,7 +367,7 @@ func (ss *ServiceInfoStorage) updateEndpoints(dpiClients map[string]*common.Data
 
 func (w *WorkerNode) GetAPI() proto.WorkerNodeInterfaceClient {
 	if w.api == nil {
-		w.api = common.InitializeWorkerNodeConnection(w.IP, w.Port)
+		w.api = grpc_helpers.InitializeWorkerNodeConnection(w.IP, w.Port)
 	}
 
 	return w.api

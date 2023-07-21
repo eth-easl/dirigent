@@ -4,7 +4,9 @@ import (
 	"cluster_manager/api/proto"
 	"cluster_manager/internal/common"
 	"cluster_manager/internal/control_plane"
+	"cluster_manager/pkg/grpc_helpers"
 	_map "cluster_manager/pkg/map"
+	"cluster_manager/pkg/tracing"
 	"cluster_manager/pkg/utils"
 	"context"
 	"encoding/json"
@@ -27,7 +29,7 @@ type CpApiServer struct {
 	WorkerEndpoints     map[string]map[*control_plane.Endpoint]string
 	WorkerEndpointsLock *sync.Mutex // TODO: Better synchronization mechanism
 
-	ColdStartTracing *common.TracingService[common.ColdStartLogEntry] `json:"-"`
+	ColdStartTracing *tracing.TracingService[tracing.ColdStartLogEntry] `json:"-"`
 	PlacementPolicy  control_plane.PlacementPolicy
 	PersistenceLayer control_plane.RedisClient
 
@@ -42,7 +44,7 @@ func CreateNewCpApiServer(client control_plane.RedisClient, outputFile string, p
 		},
 		SIStorage:            make(map[string]*control_plane.ServiceInfoStorage),
 		DataPlaneConnections: make(map[string]*common.DataPlaneConnectionInfo),
-		ColdStartTracing:     common.NewColdStartTracingService(outputFile),
+		ColdStartTracing:     tracing.NewColdStartTracingService(outputFile),
 		PlacementPolicy:      placementPolicy,
 		PersistenceLayer:     client,
 		WorkerEndpoints:      make(map[string]map[*control_plane.Endpoint]string),
@@ -103,7 +105,7 @@ func (c *CpApiServer) RegisterNode(ctx context.Context, in *proto.NodeInfo) (*pr
 		}, nil
 	}
 
-	ipAddress, ok := common.GetIPAddressFromGRPCCall(ctx)
+	ipAddress, ok := grpc_helpers.GetIPAddressFromGRPCCall(ctx)
 	if !ok {
 		return &proto.ActionStatus{
 			Success: false,
@@ -162,7 +164,7 @@ func (c *CpApiServer) DeregisterNode(ctx context.Context, in *proto.NodeInfo) (*
 		}, nil
 	}
 
-	ipAddress, ok := common.GetIPAddressFromGRPCCall(ctx)
+	ipAddress, ok := grpc_helpers.GetIPAddressFromGRPCCall(ctx)
 	if !ok {
 		return &proto.ActionStatus{
 			Success: false,
@@ -307,7 +309,7 @@ func (c *CpApiServer) connectToRegisteredService(ctx context.Context, serviceInf
 func (c *CpApiServer) RegisterDataplane(ctx context.Context, in *proto.DataplaneInfo) (*proto.ActionStatus, error) {
 	logrus.Trace("Revieved a control plane registration")
 
-	ipAddress, ok := common.GetIPAddressFromGRPCCall(ctx)
+	ipAddress, ok := grpc_helpers.GetIPAddressFromGRPCCall(ctx)
 	if !ok {
 		logrus.Debug("Failed to extract IP address from data plane registration request")
 		return &proto.ActionStatus{Success: false}, nil
@@ -334,7 +336,7 @@ func (c *CpApiServer) RegisterDataplane(ctx context.Context, in *proto.Dataplane
 
 func (c *CpApiServer) connectToRegisteredDataplane(information *proto.DataplaneInformation) {
 	c.registerDataplane(
-		common.InitializeDataPlaneConnection(information.Address, information.ApiPort),
+		grpc_helpers.InitializeDataPlaneConnection(information.Address, information.ApiPort),
 		information.Address,
 		information.ApiPort,
 		information.ProxyPort,
@@ -353,7 +355,7 @@ func (c *CpApiServer) registerDataplane(iface proto.DpiInterfaceClient, ip, apiP
 func (c *CpApiServer) DeregisterDataplane(ctx context.Context, in *proto.DataplaneInfo) (*proto.ActionStatus, error) {
 	logrus.Trace("Recieved a data plane deregistration")
 
-	ipAddress, ok := common.GetIPAddressFromGRPCCall(ctx)
+	ipAddress, ok := grpc_helpers.GetIPAddressFromGRPCCall(ctx)
 	if !ok {
 		logrus.Debug("Failed to extract IP address from data plane registration request")
 		return &proto.ActionStatus{Success: false}, nil
