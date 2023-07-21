@@ -49,6 +49,8 @@ func main() {
 
 	defer cpApiServer.SerializeCpApiServer(context.Background())
 
+	go cpApiServer.CheckPeriodicallyWorkerNodes()
+
 	go cpApiServer.ColdStartTracing.StartTracingService()
 	defer close(cpApiServer.ColdStartTracing.InputChannel)
 

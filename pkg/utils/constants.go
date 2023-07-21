@@ -1,5 +1,7 @@
 package utils
 
+import "time"
+
 const (
 	Localhost       string = "localhost"
 	DockerLocalhost string = "0.0.0.0"
@@ -17,4 +19,6 @@ const (
 	TCP string = "tcp"
 
 	TestDockerImageName string = "docker.io/cvetkovic/empty_function:latest"
+
+	HeartbeatInterval = 5 * time.Second
 )

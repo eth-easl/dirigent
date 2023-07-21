@@ -5,6 +5,7 @@ import (
 	"cluster_manager/internal/common"
 	"cluster_manager/internal/control_plane"
 	_map "cluster_manager/pkg/map"
+	"cluster_manager/pkg/utils"
 	"context"
 	"encoding/json"
 	"strconv"
@@ -46,6 +47,22 @@ func CreateNewCpApiServer(client control_plane.RedisClient, outputFile string, p
 		PersistenceLayer:     client,
 		WorkerEndpoints:      make(map[string]map[*control_plane.Endpoint]string),
 		WorkerEndpointsLock:  &sync.Mutex{},
+	}
+}
+
+func (c *CpApiServer) CheckPeriodicallyWorkerNodes() {
+	for {
+		c.NIStorage.Lock()
+
+		for _, workerNode := range c.NIStorage.NodeInfo {
+			if time.Since(workerNode.LastHeartbeat) > 3*utils.HeartbeatInterval {
+				// Triger a node deregistation
+				c.deregisterNode(workerNode)
+			}
+		}
+		c.NIStorage.Unlock()
+
+		time.Sleep(5 * time.Second)
 	}
 }
 
@@ -108,11 +125,12 @@ func (c *CpApiServer) RegisterNode(ctx context.Context, in *proto.NodeInfo) (*pr
 	}
 
 	wn := &control_plane.WorkerNode{
-		Name:     in.NodeID,
-		IP:       ipAddress,
-		Port:     strconv.Itoa(int(in.Port)),
-		CpuCores: int(in.CpuCores),
-		Memory:   int(in.MemorySize),
+		Name:          in.NodeID,
+		IP:            ipAddress,
+		Port:          strconv.Itoa(int(in.Port)),
+		CpuCores:      int(in.CpuCores),
+		Memory:        int(in.MemorySize),
+		LastHeartbeat: time.Now(),
 	}
 
 	err := c.PersistenceLayer.StoreWorkerNodeInformation(ctx, &proto.WorkerNodeInformation{
@@ -173,19 +191,7 @@ func (c *CpApiServer) DeregisterNode(ctx context.Context, in *proto.NodeInfo) (*
 		Memory:   int(in.MemorySize),
 	}
 
-	err := c.PersistenceLayer.DeleteWorkerNodeInformation(ctx, &proto.WorkerNodeInformation{
-		Name:     wn.Name,
-		Ip:       wn.IP,
-		Port:     wn.Port,
-		CpuCores: int32(wn.CpuCores),
-		Memory:   int32(wn.Memory),
-	})
-	if err != nil {
-		logrus.Errorf("Failed to delete information to persistence layer (error : %s)", err.Error())
-		return &proto.ActionStatus{Success: false}, err
-	}
-
-	err = c.disconnectRegisteredWorker(wn)
+	err := c.deregisterNode(wn)
 	if err != nil {
 		logrus.Errorf("Failed to disconnect registered worker (error : %s)", err.Error())
 		return &proto.ActionStatus{Success: false}, err
@@ -194,6 +200,26 @@ func (c *CpApiServer) DeregisterNode(ctx context.Context, in *proto.NodeInfo) (*
 	logrus.Info("Node '", in.NodeID, "' has been successfully deregistered with the control plane")
 
 	return &proto.ActionStatus{Success: true}, nil
+}
+
+func (c *CpApiServer) deregisterNode(wn *control_plane.WorkerNode) error {
+	err := c.PersistenceLayer.DeleteWorkerNodeInformation(context.Background(), &proto.WorkerNodeInformation{
+		Name:     wn.Name,
+		Ip:       wn.IP,
+		Port:     wn.Port,
+		CpuCores: int32(wn.CpuCores),
+		Memory:   int32(wn.Memory),
+	})
+	if err != nil {
+		return err
+	}
+
+	err = c.disconnectRegisteredWorker(wn)
+	if err != nil {
+		return err
+	}
+
+	return nil
 }
 
 func (c *CpApiServer) disconnectRegisteredWorker(wn *control_plane.WorkerNode) error {

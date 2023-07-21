@@ -143,7 +143,6 @@ func sendInstructionToControlPlane(config config2.WorkerNodeConfig, cpi *proto.C
 }
 
 func setupHeartbeatLoop(cpApi *proto.CpiInterfaceClient, quitChannel chan bool) {
-	const HeartbeatInterval = 10 * time.Second
 
 	for {
 		// Quit (if required) or Send
@@ -155,7 +154,7 @@ func setupHeartbeatLoop(cpApi *proto.CpiInterfaceClient, quitChannel chan bool) 
 		}
 
 		// Wait
-		time.Sleep(HeartbeatInterval)
+		time.Sleep(utils.HeartbeatInterval)
 	}
 }
 

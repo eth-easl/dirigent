@@ -134,11 +134,15 @@ func (ss *ServiceInfoStorage) doUpscaling(toCreateCount int, nodeList *NodeInfoS
 			defer cancel()
 
 			resp, err := node.GetAPI().CreateSandbox(ctx, ss.ServiceInfo)
-			*ss.ColdStartTracingChannel <- common.ColdStartLogEntry{
-				ServiceName:      ss.ServiceInfo.Name,
-				ContainerID:      resp.ID,
-				Success:          resp.Success,
-				LatencyBreakdown: resp.LatencyBreakdown,
+			if resp != nil {
+				*ss.ColdStartTracingChannel <- common.ColdStartLogEntry{
+					ServiceName:      ss.ServiceInfo.Name,
+					ContainerID:      resp.ID,
+					Success:          resp.Success,
+					LatencyBreakdown: resp.LatencyBreakdown,
+				}
+			} else {
+				logrus.Errorf("Returned response is nil, can't write to ColdStartTracingChannel")
 			}
 
 			if err != nil || !resp.Success {
