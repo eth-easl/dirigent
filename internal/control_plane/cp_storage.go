@@ -7,6 +7,7 @@ import (
 	"context"
 	"fmt"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/sirupsen/logrus"
@@ -29,7 +30,10 @@ type ServiceInfoStorage struct {
 	ColdStartTracingChannel *chan common.ColdStartLogEntry
 
 	PlacementPolicy  PlacementPolicy
-	PersistenceLayer RedisClient
+	PertistenceLayer RedisClient
+
+	WorkerEndpoints     map[string]map[*Endpoint]string
+	WorkerEndpointsLock *sync.Mutex
 }
 
 type Endpoint struct {
@@ -70,8 +74,12 @@ func (ss *ServiceInfoStorage) ScalingControllerLoop(nodeList *NodeInfoStorage, d
 		case desiredCount := <-*ss.Controller.DesiredStateChannel:
 			ss.Controller.Lock()
 
-			actualScale := ss.Controller.ScalingMetadata.ActualScale
-			ss.Controller.ScalingMetadata.ActualScale = desiredCount
+			swapped := false
+			var actualScale int
+			for !swapped {
+				actualScale = int(*ss.Controller.ScalingMetadata.ActualScale)
+				swapped = atomic.CompareAndSwapInt64(ss.Controller.ScalingMetadata.ActualScale, int64(actualScale), int64(desiredCount))
+			}
 
 			if actualScale < desiredCount {
 				go ss.doUpscaling(desiredCount-actualScale, nodeList, dpiClients)
@@ -137,7 +145,7 @@ func (ss *ServiceInfoStorage) doUpscaling(toCreateCount int, nodeList *NodeInfoS
 				logrus.Warn("Failed to start a sandbox on worker node ", node.Name)
 
 				ss.Controller.Lock()
-				ss.Controller.ScalingMetadata.ActualScale--
+				atomic.AddInt64(ss.Controller.ScalingMetadata.ActualScale, -1)
 				ss.Controller.Unlock()
 
 				return
@@ -148,12 +156,21 @@ func (ss *ServiceInfoStorage) doUpscaling(toCreateCount int, nodeList *NodeInfoS
 			// Critical section
 			endpointMutex.Lock()
 			logrus.Debug("Endpoint appended: ", resp.ID)
-			finalEndpoint = append(finalEndpoint, &Endpoint{
+
+			newEndpoint := &Endpoint{
 				SandboxID: resp.ID,
 				URL:       fmt.Sprintf("%s:%d", node.IP, resp.PortMappings.HostPort),
 				Node:      node,
 				HostPort:  resp.PortMappings.HostPort,
-			})
+			}
+
+			// Update worker node structure
+			ss.WorkerEndpointsLock.Lock()
+			ss.WorkerEndpoints[node.Name][newEndpoint] = ss.ServiceInfo.Name
+			ss.WorkerEndpointsLock.Unlock()
+
+			finalEndpoint = append(finalEndpoint, newEndpoint)
+
 			endpointMutex.Unlock()
 		}()
 	}
@@ -205,7 +222,7 @@ func (ss *ServiceInfoStorage) updatePersistenceLayer() error {
 		})
 	}
 
-	return ss.PersistenceLayer.UpdateEndpoints(context.Background(), ss.ServiceInfo.Name, endpointsInformations)
+	return ss.PertistenceLayer.UpdateEndpoints(context.Background(), ss.ServiceInfo.Name, endpointsInformations)
 }
 
 func (ss *ServiceInfoStorage) prepareUrlList() []*proto.EndpointInfo {
@@ -230,6 +247,19 @@ func excludeEndpoints(total []*Endpoint, toExclude map[*Endpoint]struct{}) []*En
 		if !ok {
 			result = append(result, endpoint)
 		}
+	}
+
+	return result
+}
+
+func excludeSingleEndpoint(total []*Endpoint, toExclude *Endpoint) []*Endpoint {
+	var result []*Endpoint
+
+	for _, endpoint := range total {
+		if endpoint == toExclude {
+			continue
+		}
+		result = append(result, endpoint)
 	}
 
 	return result
@@ -262,6 +292,11 @@ func (ss *ServiceInfoStorage) doDownscaling(toEvict map[*Endpoint]struct{}, urls
 				logrus.Warn("Failed to delete a sandbox with ID '", victim.SandboxID, "' on worker node '", victim.Node.Name, "'")
 				return
 			}
+
+			// Update worker node structure
+			ss.WorkerEndpointsLock.Lock()
+			delete(ss.WorkerEndpoints[key.Node.Name], key)
+			ss.WorkerEndpointsLock.Unlock()
 		}()
 	}
 
@@ -279,6 +314,25 @@ func (ss *ServiceInfoStorage) doDownscaling(toEvict map[*Endpoint]struct{}, urls
 	ss.Controller.Unlock()
 
 	ss.updateEndpoints(dpiClients, urls)
+}
+
+func (ss *ServiceInfoStorage) RemoveEndpoint(endpointToEvict *Endpoint, dpiClients map[string]*common.DataPlaneConnectionInfo) error {
+
+	ss.Controller.Lock()
+
+	ss.Controller.Endpoints = excludeSingleEndpoint(ss.Controller.Endpoints, endpointToEvict)
+	atomic.AddInt64(ss.Controller.ScalingMetadata.ActualScale, -1)
+
+	err := ss.updatePersistenceLayer()
+	if err != nil {
+		return err
+	}
+
+	ss.Controller.Unlock()
+
+	ss.updateEndpoints(dpiClients, ss.prepareUrlList())
+
+	return nil
 }
 
 func (ss *ServiceInfoStorage) updateEndpoints(dpiClients map[string]*common.DataPlaneConnectionInfo, endpoints []*proto.EndpointInfo) {

@@ -288,21 +288,21 @@ func (m *FunctionMetadata) sendMetricsLoop(cp *proto.CpiInterfaceClient) {
 
 		m.Lock()
 
-		metricValue := atomic.LoadInt32(&m.metrics.inflightRequests)
+		inflightRequests := atomic.LoadInt32(&m.metrics.inflightRequests)
 
 		go func() {
 			status, err := (*cp).OnMetricsReceive(context.Background(), &proto.AutoscalingMetric{
 				ServiceName: m.identifier,
-				Metric:      float32(metricValue),
+				Metric:      float32(inflightRequests),
 			})
 			if err != nil || !status.Success {
 				logrus.Warn("Failed to forward metrics to the control plane for service '", m.identifier, "'")
 			}
 
-			logrus.Debug("Metric value of ", metricValue, " was reported for ", m.identifier)
+			logrus.Debug("Metric value of ", inflightRequests, " was reported for ", m.identifier)
 		}()
 
-		toBreak := metricValue == 0
+		toBreak := inflightRequests == 0
 		if toBreak {
 			m.sendMetricsTriggered = false
 		}

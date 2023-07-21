@@ -24,10 +24,8 @@ type ScalingMetric string
 type PFStateController struct {
 	sync.Mutex
 
+	AutoscalingRunning  bool
 	DesiredStateChannel *chan int
-
-	AutoscalingRunning bool
-	NotifyChannel      *chan int
 
 	ScalingMetadata AutoscalingMetadata
 	Endpoints       []*Endpoint
@@ -60,7 +58,7 @@ func (as *PFStateController) ScalingLoop() {
 		desiredScale := as.ScalingMetadata.KnativeScaling(isScaleFromZero)
 		logrus.Debug("Desired scale: ", desiredScale)
 
-		*as.NotifyChannel <- desiredScale
+		*as.DesiredStateChannel <- desiredScale
 
 		if isScaleFromZero {
 			isScaleFromZero = false

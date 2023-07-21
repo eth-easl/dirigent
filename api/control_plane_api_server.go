@@ -23,6 +23,9 @@ type CpApiServer struct {
 	NIStorage control_plane.NodeInfoStorage
 	SIStorage map[string]*control_plane.ServiceInfoStorage
 
+	WorkerEndpoints     map[string]map[*control_plane.Endpoint]string
+	WorkerEndpointsLock *sync.Mutex // TODO: Better synchronization mechanism
+
 	ColdStartTracing *common.TracingService[common.ColdStartLogEntry] `json:"-"`
 	PlacementPolicy  control_plane.PlacementPolicy
 	PersistenceLayer control_plane.RedisClient
@@ -41,6 +44,8 @@ func CreateNewCpApiServer(client control_plane.RedisClient, outputFile string, p
 		ColdStartTracing:     common.NewColdStartTracingService(outputFile),
 		PlacementPolicy:      placementPolicy,
 		PersistenceLayer:     client,
+		WorkerEndpoints:      make(map[string]map[*control_plane.Endpoint]string),
+		WorkerEndpointsLock:  &sync.Mutex{},
 	}
 }
 
@@ -131,6 +136,12 @@ func (c *CpApiServer) RegisterNode(ctx context.Context, in *proto.NodeInfo) (*pr
 
 func (c *CpApiServer) connectToRegisteredWorker(wn *control_plane.WorkerNode) {
 	c.NIStorage.NodeInfo[wn.Name] = wn
+
+	c.WorkerEndpointsLock.Lock()
+	defer c.WorkerEndpointsLock.Unlock()
+
+	c.WorkerEndpoints[wn.Name] = make(map[*control_plane.Endpoint]string)
+
 	go wn.GetAPI()
 }
 
@@ -174,15 +185,35 @@ func (c *CpApiServer) DeregisterNode(ctx context.Context, in *proto.NodeInfo) (*
 		return &proto.ActionStatus{Success: false}, err
 	}
 
-	c.disconnectRegisteredWorker(wn)
+	err = c.disconnectRegisteredWorker(wn)
+	if err != nil {
+		logrus.Errorf("Failed to disconnect registered worker (error : %s)", err.Error())
+		return &proto.ActionStatus{Success: false}, err
+	}
 
 	logrus.Info("Node '", in.NodeID, "' has been successfully deregistered with the control plane")
 
 	return &proto.ActionStatus{Success: true}, nil
 }
 
-func (c *CpApiServer) disconnectRegisteredWorker(wn *control_plane.WorkerNode) {
+func (c *CpApiServer) disconnectRegisteredWorker(wn *control_plane.WorkerNode) error {
 	delete(c.NIStorage.NodeInfo, wn.Name)
+
+	for endpoint, serviceName := range c.WorkerEndpoints[wn.Name] {
+		err := c.PersistenceLayer.DeleteEndoint(context.Background(), serviceName, endpoint.Node.Name)
+		if err != nil {
+			return err
+		}
+
+		err = c.SIStorage[serviceName].RemoveEndpoint(endpoint, c.DataPlaneConnections)
+		if err != nil {
+			return err
+		}
+	}
+
+	delete(c.WorkerEndpoints, wn.Name)
+
+	return nil
 }
 
 func (c *CpApiServer) NodeHeartbeat(_ context.Context, in *proto.NodeHeartbeatMessage) (*proto.ActionStatus, error) {
@@ -239,7 +270,6 @@ func (c *CpApiServer) connectToRegisteredService(ctx context.Context, serviceInf
 		ServiceInfo: serviceInfo,
 		Controller: &control_plane.PFStateController{
 			DesiredStateChannel: &scalingChannel,
-			NotifyChannel:       &scalingChannel,
 			Period:              2 * time.Second, // TODO: hardcoded autoscaling period for now
 			ScalingMetadata: control_plane.AutoscalingMetadata{
 				AutoscalingConfig: serviceInfo.AutoscalingConfig,
@@ -247,7 +277,9 @@ func (c *CpApiServer) connectToRegisteredService(ctx context.Context, serviceInf
 		},
 		ColdStartTracingChannel: &c.ColdStartTracing.InputChannel,
 		PlacementPolicy:         c.PlacementPolicy,
-		PersistenceLayer:        c.PersistenceLayer,
+		PertistenceLayer:        c.PersistenceLayer,
+		WorkerEndpoints:         c.WorkerEndpoints,
+		WorkerEndpointsLock:     c.WorkerEndpointsLock,
 	}
 
 	c.lock.Lock()

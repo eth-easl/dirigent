@@ -195,12 +195,18 @@ func (driver *RedisClient) UpdateEndpoints(ctx context.Context, serviceName stri
 	logrus.Trace("store endpoints information in the database")
 
 	key := fmt.Sprintf("%s:%s:*", endpointPrefix, serviceName)
-	err := driver.deleteEndpoints(ctx, key)
+	err := driver.deleteEndpoint(ctx, key)
 	if err != nil {
 		return err
 	}
 
 	return driver.storeEndpoints(ctx, serviceName, endpoints)
+}
+
+func (driver *RedisClient) DeleteEndoint(ctx context.Context, serviceName string, workerNodeName string) error {
+	key := fmt.Sprintf("%s:%s:%s", endpointPrefix, serviceName, workerNodeName)
+
+	return driver.deleteEndpoint(ctx, key)
 }
 
 func (driver *RedisClient) storeEndpoints(ctx context.Context, serviceName string, endpoints []*proto.Endpoint) error {
@@ -214,7 +220,7 @@ func (driver *RedisClient) storeEndpoints(ctx context.Context, serviceName strin
 
 		err = driver.redisClient.HSet(ctx, key, data).Err()
 		if err != nil {
-			driver.deleteEndpoints(ctx, serviceName)
+			driver.deleteEndpoint(ctx, serviceName)
 			return err
 		}
 	}
@@ -222,7 +228,7 @@ func (driver *RedisClient) storeEndpoints(ctx context.Context, serviceName strin
 	return nil
 }
 
-func (driver *RedisClient) deleteEndpoints(ctx context.Context, key string) error {
+func (driver *RedisClient) deleteEndpoint(ctx context.Context, key string) error {
 	return driver.redisClient.Del(ctx, key).Err()
 }
 
