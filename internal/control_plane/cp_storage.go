@@ -112,7 +112,7 @@ func (ss *ServiceInfoStorage) ScalingControllerLoop(nodeList *NodeInfoStorage, d
 }
 
 func (ss *ServiceInfoStorage) doUpscaling(toCreateCount int, nodeList *NodeInfoStorage, dpiClients map[string]*common.DataPlaneConnectionInfo) {
-	barrier := sync.WaitGroup{}
+	wg := sync.WaitGroup{}
 
 	var finalEndpoint []*Endpoint
 
@@ -120,11 +120,11 @@ func (ss *ServiceInfoStorage) doUpscaling(toCreateCount int, nodeList *NodeInfoS
 
 	logrus.Debug("Need to create: ", toCreateCount, " sandboxes")
 
-	barrier.Add(toCreateCount)
+	wg.Add(toCreateCount)
 
 	for i := 0; i < toCreateCount; i++ {
 		go func() {
-			defer barrier.Done()
+			defer wg.Done()
 
 			// TODO : @Lazar, We need to ask some resources
 			requested := placement2.CreateResourceMap(1, 1)
@@ -180,12 +180,12 @@ func (ss *ServiceInfoStorage) doUpscaling(toCreateCount int, nodeList *NodeInfoS
 	}
 
 	// batch update of endpoints
-	barrier.Wait()
+	wg.Wait()
 
 	logrus.Debug("All sandboxes have been created. Updating endpoints.")
 
 	ss.Controller.Lock()
-	// no need for 'endpointMutex' as the barrier has already been passed
+	// no need for 'endpointMutex' as the barrer has already been passed
 	ss.Controller.Endpoints = append(ss.Controller.Endpoints, finalEndpoint...)
 	urls := ss.prepareUrlList()
 

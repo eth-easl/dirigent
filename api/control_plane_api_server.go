@@ -66,19 +66,6 @@ func (c *CpApiServer) CheckPeriodicallyWorkerNodes() {
 	}
 }
 
-func (c *CpApiServer) GetDpiConnections() map[string]*common.DataPlaneConnectionInfo {
-	return c.DataPlaneConnections
-}
-
-func (c *CpApiServer) appendDpiConnection(iface proto.DpiInterfaceClient, ip, apiPort, proxyPort string) {
-	c.DataPlaneConnections[ip] = &common.DataPlaneConnectionInfo{
-		Iface:     iface,
-		IP:        ip,
-		APIPort:   apiPort,
-		ProxyPort: proxyPort,
-	}
-}
-
 func (c *CpApiServer) OnMetricsReceive(_ context.Context, metric *proto.AutoscalingMetric) (*proto.ActionStatus, error) {
 	service, ok := c.SIStorage[metric.ServiceName]
 	if !ok {
@@ -312,7 +299,7 @@ func (c *CpApiServer) connectToRegisteredService(ctx context.Context, serviceInf
 	c.SIStorage[serviceInfo.Name] = service
 	c.lock.Unlock()
 
-	go service.ScalingControllerLoop(&c.NIStorage, c.GetDpiConnections())
+	go service.ScalingControllerLoop(&c.NIStorage, c.DataPlaneConnections)
 
 	return nil
 }
@@ -346,12 +333,21 @@ func (c *CpApiServer) RegisterDataplane(ctx context.Context, in *proto.Dataplane
 }
 
 func (c *CpApiServer) connectToRegisteredDataplane(information *proto.DataplaneInformation) {
-	c.appendDpiConnection(
+	c.registerDataplane(
 		common.InitializeDataPlaneConnection(information.Address, information.ApiPort),
 		information.Address,
 		information.ApiPort,
 		information.ProxyPort,
 	)
+}
+
+func (c *CpApiServer) registerDataplane(iface proto.DpiInterfaceClient, ip, apiPort, proxyPort string) {
+	c.DataPlaneConnections[ip] = &common.DataPlaneConnectionInfo{
+		Iface:     iface,
+		IP:        ip,
+		APIPort:   apiPort,
+		ProxyPort: proxyPort,
+	}
 }
 
 func (c *CpApiServer) DeregisterDataplane(ctx context.Context, in *proto.DataplaneInfo) (*proto.ActionStatus, error) {
@@ -415,11 +411,12 @@ func (c *CpApiServer) reconstructWorkersState(ctx context.Context) error {
 
 	for _, worker := range workers {
 		c.connectToRegisteredWorker(&control_plane.WorkerNode{
-			Name:     worker.Name,
-			IP:       worker.Ip,
-			Port:     worker.Port,
-			CpuCores: int(worker.CpuCores),
-			Memory:   int(worker.Memory),
+			Name:          worker.Name,
+			IP:            worker.Ip,
+			Port:          worker.Port,
+			CpuCores:      int(worker.CpuCores),
+			Memory:        int(worker.Memory),
+			LastHeartbeat: time.Now(),
 		})
 	}
 
