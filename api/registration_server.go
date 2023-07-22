@@ -2,7 +2,7 @@ package api
 
 import (
 	"cluster_manager/api/proto"
-	"cluster_manager/internal/control_plane"
+	"cluster_manager/internal/control_plane/autoscaling"
 	"fmt"
 	"net/http"
 	"strconv"
@@ -51,7 +51,7 @@ func StartServiceRegistrationServer(cpApi *CpApiServer, registrationPort string)
 			Name:              name,
 			Image:             image,
 			PortForwarding:    portMapping,
-			AutoscalingConfig: control_plane.NewDefaultAutoscalingMetadata(),
+			AutoscalingConfig: autoscaling.NewDefaultAutoscalingMetadata(),
 		})
 		if err != nil {
 			return

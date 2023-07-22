@@ -4,6 +4,7 @@ import (
 	"cluster_manager/api"
 	"cluster_manager/api/proto"
 	"cluster_manager/internal/control_plane"
+	"cluster_manager/internal/control_plane/persistence"
 	"cluster_manager/pkg/config"
 	"cluster_manager/pkg/grpc_helpers"
 	"cluster_manager/pkg/logger"
@@ -39,7 +40,7 @@ func main() {
 
 	logger.SetupLogger(config.Verbosity)
 
-	redisClient, err := control_plane.CreateRedisClient(context.Background(), config.RedisLogin)
+	redisClient, err := persistence.CreateRedisClient(context.Background(), config.RedisLogin)
 	if err != nil {
 		logrus.Fatal("Failed to connect to the database (error : %s)", err.Error())
 	}

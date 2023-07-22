@@ -2,9 +2,9 @@ package control_plane
 
 import (
 	"cluster_manager/api/proto"
-	placement2 "cluster_manager/internal/control_plane/placement"
+	placement2 "cluster_manager/internal/control_plane/k8s_placement"
+	"cluster_manager/internal/control_plane/persistence"
 	"cluster_manager/internal/data_plane/function_metadata"
-	"cluster_manager/pkg/grpc_helpers"
 	"cluster_manager/pkg/tracing"
 	"context"
 	"fmt"
@@ -32,7 +32,7 @@ type ServiceInfoStorage struct {
 	ColdStartTracingChannel *chan tracing.ColdStartLogEntry
 
 	PlacementPolicy  PlacementPolicy
-	PertistenceLayer RedisClient
+	PertistenceLayer persistence.RedisClient
 
 	WorkerEndpoints     map[string]map[*Endpoint]string
 	WorkerEndpointsLock *sync.Mutex
@@ -45,21 +45,6 @@ type Endpoint struct {
 	HostPort  int32
 }
 
-type WorkerNode struct {
-	Name string
-	IP   string
-	Port string
-
-	CpuUsage    int
-	MemoryUsage int
-
-	CpuCores int
-	Memory   int
-
-	LastHeartbeat time.Time
-	api           proto.WorkerNodeInterfaceClient
-}
-
 func (ss *ServiceInfoStorage) GetAllURLs() []string {
 	var res []string
 
@@ -68,6 +53,16 @@ func (ss *ServiceInfoStorage) GetAllURLs() []string {
 	}
 
 	return res
+}
+
+func (ss *ServiceInfoStorage) ReconstructEndpointsFromDatabase(endpoint *Endpoint) {
+	ss.Controller.Lock()
+	defer ss.Controller.Unlock()
+
+	endpoints := make([]*Endpoint, 0)
+	endpoints = append(endpoints, endpoint)
+
+	ss.addEndpoints(endpoints)
 }
 
 func (ss *ServiceInfoStorage) ScalingControllerLoop(nodeList *NodeInfoStorage, dpiClients map[string]*function_metadata.DataPlaneConnectionInfo) {
@@ -103,7 +98,7 @@ func (ss *ServiceInfoStorage) ScalingControllerLoop(nodeList *NodeInfoStorage, d
 					logrus.Warn("downscaling reference error")
 				}
 
-				ss.Controller.Endpoints = excludeEndpoints(ss.Controller.Endpoints, toEvict)
+				ss.Controller.Endpoints = ss.excludeEndpoints(ss.Controller.Endpoints, toEvict)
 
 				go ss.doDownscaling(toEvict, ss.prepareUrlList(), dpiClients)
 			}
@@ -111,6 +106,25 @@ func (ss *ServiceInfoStorage) ScalingControllerLoop(nodeList *NodeInfoStorage, d
 			ss.Controller.Unlock() // for all cases (>, ==, <)
 		}
 	}
+}
+
+func (ss *ServiceInfoStorage) RemoveEndpoint(endpointToEvict *Endpoint, dpiClients map[string]*function_metadata.DataPlaneConnectionInfo) error {
+
+	ss.Controller.Lock()
+
+	ss.Controller.Endpoints = ss.excludeSingleEndpoint(ss.Controller.Endpoints, endpointToEvict)
+	atomic.AddInt64(ss.Controller.ScalingMetadata.ActualScale, -1)
+
+	err := ss.updatePersistenceLayer()
+	if err != nil {
+		return err
+	}
+
+	ss.Controller.Unlock()
+
+	ss.updateEndpoints(dpiClients, ss.prepareUrlList())
+
+	return nil
 }
 
 func (ss *ServiceInfoStorage) doUpscaling(toCreateCount int, nodeList *NodeInfoStorage, dpiClients map[string]*function_metadata.DataPlaneConnectionInfo) {
@@ -203,74 +217,6 @@ func (ss *ServiceInfoStorage) doUpscaling(toCreateCount int, nodeList *NodeInfoS
 	logrus.Debug("Endpoints updated.")
 }
 
-func (ss *ServiceInfoStorage) ReconstructEndpointsFromDatabase(endpoint *Endpoint) {
-	ss.Controller.Lock()
-	defer ss.Controller.Unlock()
-
-	endpoints := make([]*Endpoint, 0)
-	endpoints = append(endpoints, endpoint)
-
-	ss.addEndpoints(endpoints)
-}
-
-func (ss *ServiceInfoStorage) addEndpoints(endpoints []*Endpoint) {
-	ss.Controller.Endpoints = append(ss.Controller.Endpoints, endpoints...)
-}
-
-func (ss *ServiceInfoStorage) updatePersistenceLayer() error {
-	endpointsInformations := make([]*proto.Endpoint, 0)
-	for _, endpoint := range ss.Controller.Endpoints {
-		endpointsInformations = append(endpointsInformations, &proto.Endpoint{
-			SandboxID: endpoint.SandboxID,
-			URL:       endpoint.URL,
-			NodeName:  endpoint.Node.Name,
-			HostPort:  endpoint.HostPort,
-		})
-	}
-
-	return ss.PertistenceLayer.UpdateEndpoints(context.Background(), ss.ServiceInfo.Name, endpointsInformations)
-}
-
-func (ss *ServiceInfoStorage) prepareUrlList() []*proto.EndpointInfo {
-	var res []*proto.EndpointInfo
-
-	for i := 0; i < len(ss.Controller.Endpoints); i++ {
-		res = append(res, &proto.EndpointInfo{
-			ID:  ss.Controller.Endpoints[i].SandboxID,
-			URL: ss.Controller.Endpoints[i].URL,
-		})
-	}
-
-	return res
-}
-
-func excludeEndpoints(total []*Endpoint, toExclude map[*Endpoint]struct{}) []*Endpoint {
-	var result []*Endpoint
-
-	for _, endpoint := range total {
-		_, ok := toExclude[endpoint]
-
-		if !ok {
-			result = append(result, endpoint)
-		}
-	}
-
-	return result
-}
-
-func excludeSingleEndpoint(total []*Endpoint, toExclude *Endpoint) []*Endpoint {
-	var result []*Endpoint
-
-	for _, endpoint := range total {
-		if endpoint == toExclude {
-			continue
-		}
-		result = append(result, endpoint)
-	}
-
-	return result
-}
-
 func (ss *ServiceInfoStorage) doDownscaling(toEvict map[*Endpoint]struct{}, urls []*proto.EndpointInfo, dpiClients map[string]*function_metadata.DataPlaneConnectionInfo) {
 	barrier := sync.WaitGroup{}
 
@@ -322,23 +268,8 @@ func (ss *ServiceInfoStorage) doDownscaling(toEvict map[*Endpoint]struct{}, urls
 	ss.updateEndpoints(dpiClients, urls)
 }
 
-func (ss *ServiceInfoStorage) RemoveEndpoint(endpointToEvict *Endpoint, dpiClients map[string]*function_metadata.DataPlaneConnectionInfo) error {
-
-	ss.Controller.Lock()
-
-	ss.Controller.Endpoints = excludeSingleEndpoint(ss.Controller.Endpoints, endpointToEvict)
-	atomic.AddInt64(ss.Controller.ScalingMetadata.ActualScale, -1)
-
-	err := ss.updatePersistenceLayer()
-	if err != nil {
-		return err
-	}
-
-	ss.Controller.Unlock()
-
-	ss.updateEndpoints(dpiClients, ss.prepareUrlList())
-
-	return nil
+func (ss *ServiceInfoStorage) addEndpoints(endpoints []*Endpoint) {
+	ss.Controller.Endpoints = append(ss.Controller.Endpoints, endpoints...)
 }
 
 func (ss *ServiceInfoStorage) updateEndpoints(dpiClients map[string]*function_metadata.DataPlaneConnectionInfo, endpoints []*proto.EndpointInfo) {
@@ -365,10 +296,56 @@ func (ss *ServiceInfoStorage) updateEndpoints(dpiClients map[string]*function_me
 	wg.Wait()
 }
 
-func (w *WorkerNode) GetAPI() proto.WorkerNodeInterfaceClient {
-	if w.api == nil {
-		w.api = grpc_helpers.InitializeWorkerNodeConnection(w.IP, w.Port)
+func (ss *ServiceInfoStorage) excludeEndpoints(total []*Endpoint, toExclude map[*Endpoint]struct{}) []*Endpoint {
+	var result []*Endpoint
+
+	for _, endpoint := range total {
+		_, ok := toExclude[endpoint]
+
+		if !ok {
+			result = append(result, endpoint)
+		}
 	}
 
-	return w.api
+	return result
+}
+
+func (ss *ServiceInfoStorage) excludeSingleEndpoint(total []*Endpoint, toExclude *Endpoint) []*Endpoint {
+	var result []*Endpoint
+
+	for _, endpoint := range total {
+		if endpoint == toExclude {
+			continue
+		}
+		result = append(result, endpoint)
+	}
+
+	return result
+}
+
+func (ss *ServiceInfoStorage) prepareUrlList() []*proto.EndpointInfo {
+	var res []*proto.EndpointInfo
+
+	for i := 0; i < len(ss.Controller.Endpoints); i++ {
+		res = append(res, &proto.EndpointInfo{
+			ID:  ss.Controller.Endpoints[i].SandboxID,
+			URL: ss.Controller.Endpoints[i].URL,
+		})
+	}
+
+	return res
+}
+
+func (ss *ServiceInfoStorage) updatePersistenceLayer() error {
+	endpointsInformations := make([]*proto.Endpoint, 0)
+	for _, endpoint := range ss.Controller.Endpoints {
+		endpointsInformations = append(endpointsInformations, &proto.Endpoint{
+			SandboxID: endpoint.SandboxID,
+			URL:       endpoint.URL,
+			NodeName:  endpoint.Node.Name,
+			HostPort:  endpoint.HostPort,
+		})
+	}
+
+	return ss.PertistenceLayer.UpdateEndpoints(context.Background(), ss.ServiceInfo.Name, endpointsInformations)
 }

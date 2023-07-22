@@ -1,7 +1,7 @@
 package control_plane
 
 import (
-	placement2 "cluster_manager/internal/control_plane/placement"
+	placement2 "cluster_manager/internal/control_plane/k8s_placement"
 	_map "cluster_manager/pkg/map"
 	"sort"
 	"testing"

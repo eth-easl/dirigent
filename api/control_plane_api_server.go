@@ -3,6 +3,8 @@ package api
 import (
 	"cluster_manager/api/proto"
 	"cluster_manager/internal/control_plane"
+	"cluster_manager/internal/control_plane/autoscaling"
+	"cluster_manager/internal/control_plane/persistence"
 	"cluster_manager/internal/data_plane/function_metadata"
 	"cluster_manager/pkg/grpc_helpers"
 	_map "cluster_manager/pkg/map"
@@ -31,13 +33,13 @@ type CpApiServer struct {
 
 	ColdStartTracing *tracing.TracingService[tracing.ColdStartLogEntry] `json:"-"`
 	PlacementPolicy  control_plane.PlacementPolicy
-	PersistenceLayer control_plane.RedisClient
+	PersistenceLayer persistence.RedisClient
 
 	// TODO: Improve the synchronization mechanisme here Francois Costa
 	lock sync.Mutex
 }
 
-func CreateNewCpApiServer(client control_plane.RedisClient, outputFile string, placementPolicy control_plane.PlacementPolicy) *CpApiServer {
+func CreateNewCpApiServer(client persistence.RedisClient, outputFile string, placementPolicy control_plane.PlacementPolicy) *CpApiServer {
 	return &CpApiServer{
 		NIStorage: control_plane.NodeInfoStorage{
 			NodeInfo: make(map[string]*control_plane.WorkerNode),
@@ -280,7 +282,7 @@ func (c *CpApiServer) connectToRegisteredService(ctx context.Context, serviceInf
 		Controller: &control_plane.PFStateController{
 			DesiredStateChannel: &scalingChannel,
 			Period:              2 * time.Second, // TODO: hardcoded autoscaling period for now
-			ScalingMetadata: control_plane.AutoscalingMetadata{
+			ScalingMetadata: autoscaling.AutoscalingMetadata{
 				AutoscalingConfig: serviceInfo.AutoscalingConfig,
 			},
 		},

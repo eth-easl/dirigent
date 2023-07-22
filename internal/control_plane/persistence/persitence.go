@@ -1,4 +1,4 @@
-package control_plane
+package persistence
 
 import (
 	"cluster_manager/api/proto"

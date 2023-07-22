@@ -1,4 +1,4 @@
-package placement
+package k8s_placement
 
 import (
 	"math"

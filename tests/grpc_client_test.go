@@ -2,7 +2,7 @@ package tests
 
 import (
 	proto2 "cluster_manager/api/proto"
-	"cluster_manager/internal/control_plane"
+	"cluster_manager/internal/control_plane/autoscaling"
 	"cluster_manager/pkg/grpc_helpers"
 	"cluster_manager/pkg/utils"
 	"cluster_manager/tests/proto"
@@ -56,7 +56,7 @@ func randSeq(n int) string {
 func deployXservices(t *testing.T, x int) {
 	cpApi := grpc_helpers.InitializeControlPlaneConnection("localhost", utils.DefaultControlPlanePort, -1, -1)
 
-	autoscalingConfig := control_plane.NewDefaultAutoscalingMetadata()
+	autoscalingConfig := autoscaling.NewDefaultAutoscalingMetadata()
 	autoscalingConfig.ScalingUpperBound = 1
 	//autoscalingConfig.ScalingLowerBound = 1
 

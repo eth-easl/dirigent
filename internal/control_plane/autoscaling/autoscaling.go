@@ -1,4 +1,4 @@
-package control_plane
+package autoscaling
 
 import (
 	"cluster_manager/api/proto"
