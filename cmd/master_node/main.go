@@ -35,14 +35,14 @@ func parsePlacementPolicy(controlPlaneConfig config.ControlPlaneConfig) control_
 func main() {
 	config, err := config.ReadControlPlaneConfiguration("cmd/master_node/config.yaml")
 	if err != nil {
-		logrus.Fatal("Failed to read configuration file (error : %s)", err.Error())
+		logrus.Fatalf("Failed to read configuration file (error : %s)", err.Error())
 	}
 
 	logger.SetupLogger(config.Verbosity)
 
 	redisClient, err := persistence.CreateRedisClient(context.Background(), config.RedisLogin)
 	if err != nil {
-		logrus.Fatal("Failed to connect to the database (error : %s)", err.Error())
+		logrus.Fatalf("Failed to connect to the database (error : %s)", err.Error())
 	}
 
 	cpApiServer := api.CreateNewCpApiServer(redisClient, path.Join(config.TraceOutputFolder, "cold_start_trace.csv"), parsePlacementPolicy(config))

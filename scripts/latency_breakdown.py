@@ -2,7 +2,7 @@ import pandas as pd
 
 from clustered_plot import *
 
-rootPath = '/home/lcvetkovic/Desktop/cluster_manager/cold_starts/'
+rootPath = './persistence'
 load = [1, 25, 50, 100, 200, 400, 800]
 
 

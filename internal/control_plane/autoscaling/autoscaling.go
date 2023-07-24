@@ -16,7 +16,7 @@ const (
 )
 
 type AutoscalingMetadata struct {
-	ActualScale *int64
+	ActualScale int64
 
 	AutoscalingConfig *proto.AutoscalingConfiguration
 	ScalingMethod     AveragingMethod
@@ -66,7 +66,7 @@ func (s *AutoscalingMetadata) KnativeScaling(isScaleFromZero bool) int {
 }
 
 func (s *AutoscalingMetadata) internalScaleAlgorithm(scalingMetric float64) (int, float64) {
-	originalReadyPodsCount := *s.ActualScale
+	originalReadyPodsCount := s.ActualScale
 
 	// Use 1 if there are zero current pods.
 	readyPodsCount := math.Max(1, float64(originalReadyPodsCount))

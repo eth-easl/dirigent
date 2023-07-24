@@ -82,7 +82,7 @@ func EstablishGRPCConnectionPoll(host, port string, dialOptions ...grpc.DialOpti
 
 	_ = wait.PollUntilContextCancel(context.Background(), 5*time.Second, false,
 		func(ctx context.Context) (done bool, err error) {
-			establishContext, end := context.WithTimeout(ctx, 3*time.Second)
+			establishContext, end := context.WithTimeout(ctx, 30*time.Second)
 			defer end()
 
 			c, err := dialConnection(

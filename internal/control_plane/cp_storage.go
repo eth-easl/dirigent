@@ -73,9 +73,10 @@ func (ss *ServiceInfoStorage) ScalingControllerLoop(nodeList *NodeInfoStorage, d
 
 			swapped := false
 			var actualScale int
+
 			for !swapped {
-				actualScale = int(*ss.Controller.ScalingMetadata.ActualScale)
-				swapped = atomic.CompareAndSwapInt64(ss.Controller.ScalingMetadata.ActualScale, int64(actualScale), int64(desiredCount))
+				actualScale = int(ss.Controller.ScalingMetadata.ActualScale)
+				swapped = atomic.CompareAndSwapInt64(&ss.Controller.ScalingMetadata.ActualScale, int64(actualScale), int64(desiredCount))
 			}
 
 			if actualScale < desiredCount {
@@ -113,7 +114,7 @@ func (ss *ServiceInfoStorage) RemoveEndpoint(endpointToEvict *Endpoint, dpiClien
 	ss.Controller.Lock()
 
 	ss.Controller.Endpoints = ss.excludeSingleEndpoint(ss.Controller.Endpoints, endpointToEvict)
-	atomic.AddInt64(ss.Controller.ScalingMetadata.ActualScale, -1)
+	atomic.AddInt64(&ss.Controller.ScalingMetadata.ActualScale, -1)
 
 	err := ss.updatePersistenceLayer()
 	if err != nil {
@@ -165,7 +166,7 @@ func (ss *ServiceInfoStorage) doUpscaling(toCreateCount int, nodeList *NodeInfoS
 				logrus.Warn("Failed to start a sandbox on worker node ", node.Name)
 
 				ss.Controller.Lock()
-				atomic.AddInt64(ss.Controller.ScalingMetadata.ActualScale, -1)
+				atomic.AddInt64(&ss.Controller.ScalingMetadata.ActualScale, -1)
 				ss.Controller.Unlock()
 
 				return
@@ -207,6 +208,7 @@ func (ss *ServiceInfoStorage) doUpscaling(toCreateCount int, nodeList *NodeInfoS
 
 	err := ss.updatePersistenceLayer()
 	if err != nil {
+		logrus.Error(err.Error())
 		logrus.Fatal("Implement this part")
 	}
 
@@ -258,8 +260,8 @@ func (ss *ServiceInfoStorage) doDownscaling(toEvict map[*Endpoint]struct{}, urls
 	ss.Controller.Lock()
 
 	err := ss.updatePersistenceLayer()
-
 	if err != nil {
+		logrus.Error(err.Error())
 		logrus.Fatal("Implement this part")
 	}
 

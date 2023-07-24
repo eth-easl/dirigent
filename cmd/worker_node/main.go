@@ -20,7 +20,7 @@ import (
 func main() {
 	config, err := config.ReadWorkedNodeConfiguration("cmd/worker_node/config.yaml")
 	if err != nil {
-		logrus.Fatal("Failed to read configuration file (error : %s)", err.Error())
+		logrus.Fatalf("Failed to read configuration file (error : %s)", err.Error())
 	}
 
 	logger.SetupLogger(config.Verbosity)

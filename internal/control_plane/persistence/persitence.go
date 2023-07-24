@@ -218,7 +218,7 @@ func (driver *RedisClient) storeEndpoints(ctx context.Context, serviceName strin
 			return err
 		}
 
-		err = driver.redisClient.HSet(ctx, key, data).Err()
+		err = driver.redisClient.HSet(ctx, key, "data", data).Err()
 		if err != nil {
 			driver.deleteEndpoint(ctx, serviceName)
 			return err
