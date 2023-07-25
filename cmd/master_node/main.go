@@ -10,6 +10,7 @@ import (
 	"cluster_manager/pkg/logger"
 	"cluster_manager/pkg/utils"
 	"context"
+	"flag"
 	"github.com/sirupsen/logrus"
 	"os/signal"
 	"path"
@@ -18,19 +19,9 @@ import (
 	"google.golang.org/grpc"
 )
 
-func parsePlacementPolicy(controlPlaneConfig config.ControlPlaneConfig) control_plane.PlacementPolicy {
-	switch controlPlaneConfig.PlacementPolicy {
-	case "random":
-		return control_plane.PLACEMENT_RANDOM
-	case "round-robin":
-		return control_plane.PLACEMENT_ROUND_ROBIN
-	case "kubernetes":
-		return control_plane.PLACEMENT_KUBERNETES
-	default:
-		logrus.Error("Failed to parse placement, default policy is random")
-		return control_plane.PLACEMENT_RANDOM
-	}
-}
+var (
+	configPath = flag.String("configPath", "config.yaml", "Path to the configuration file")
+)
 
 func main() {
 	config, err := config.ReadControlPlaneConfiguration("cmd/master_node/config.yaml")
@@ -66,5 +57,19 @@ func main() {
 	select {
 	case <-ctx.Done():
 		logrus.Info("Received interruption signal, try to gracefully stop")
+	}
+}
+
+func parsePlacementPolicy(controlPlaneConfig config.ControlPlaneConfig) control_plane.PlacementPolicy {
+	switch controlPlaneConfig.PlacementPolicy {
+	case "random":
+		return control_plane.PLACEMENT_RANDOM
+	case "round-robin":
+		return control_plane.PLACEMENT_ROUND_ROBIN
+	case "kubernetes":
+		return control_plane.PLACEMENT_KUBERNETES
+	default:
+		logrus.Error("Failed to parse placement, default policy is random")
+		return control_plane.PLACEMENT_RANDOM
 	}
 }

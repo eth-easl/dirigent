@@ -382,10 +382,18 @@ func (c *CpApiServer) deregisterDataplane(information *proto.DataplaneInformatio
 
 func (c *CpApiServer) ReconstructState(ctx context.Context) error {
 	go c.reconstructDataplaneState(ctx)
-	go c.reconstructWorkersState(ctx)
-	go c.reconstructServiceState(ctx)
 
-	return nil
+	err := c.reconstructWorkersState(ctx)
+	if err != nil {
+		return err
+	}
+
+	err = c.reconstructServiceState(ctx)
+	if err != nil {
+		return err
+	}
+
+	return c.reconstructEndpointsState(ctx)
 }
 
 func (c *CpApiServer) reconstructDataplaneState(ctx context.Context) error {
@@ -418,7 +426,7 @@ func (c *CpApiServer) reconstructWorkersState(ctx context.Context) error {
 		})
 	}
 
-	return c.reconstructEndpointsState(ctx)
+	return nil
 }
 
 func (c *CpApiServer) reconstructServiceState(ctx context.Context) error {

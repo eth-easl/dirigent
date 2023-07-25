@@ -121,7 +121,7 @@ func TestDeploy10000Services(t *testing.T) {
 
 	for i := 0; i < 10000; i++ {
 		resp, err := cpApi.RegisterService(ctx, &proto2.ServiceInfo{
-			Name:  fmt.Sprintf("%s:%d", deployedFunctionName, i),
+			Name:  fmt.Sprintf("%s&%d", deployedFunctionName, i),
 			Image: "docker.io/cvetkovic/empty_function:latest",
 			PortForwarding: &proto2.PortMapping{
 				GuestPort: 80,

@@ -1,0 +1,7 @@
+controlPlaneIp: "10.0.1.2"
+controlPlanePort: "9090"
+portProxy: "8080"
+portGRPC: "8081"
+verbosity: "trace"
+traceOutputFolder: "data"
+loadBalancingPolicy: "knative"

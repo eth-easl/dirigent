@@ -9,10 +9,15 @@ import (
 	"cluster_manager/pkg/grpc_helpers"
 	"cluster_manager/pkg/logger"
 	"context"
+	"flag"
 	"github.com/sirupsen/logrus"
 	"google.golang.org/grpc"
 	"os/signal"
 	"syscall"
+)
+
+var (
+	configPath = flag.String("configPath", "config.yaml", "Path to the configuration file")
 )
 
 func main() {
