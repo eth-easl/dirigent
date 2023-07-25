@@ -19,11 +19,15 @@ import (
 )
 
 var (
-	configPath = flag.String("configPath", "config.yaml", "Path to the configuration file")
+	configPath = flag.String("configPath", "cmd/worker_node/config.yaml", "Path to the configuration file")
 )
 
 func main() {
-	config, err := config.ReadWorkedNodeConfiguration("cmd/worker_node/config.yaml")
+	flag.Parse()
+
+	logrus.Debugf("Configuration path is : %s", *configPath)
+
+	config, err := config.ReadWorkedNodeConfiguration(*configPath)
 	if err != nil {
 		logrus.Fatalf("Failed to read configuration file (error : %s)", err.Error())
 	}

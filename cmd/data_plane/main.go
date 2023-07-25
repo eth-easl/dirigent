@@ -17,11 +17,15 @@ import (
 )
 
 var (
-	configPath = flag.String("configPath", "config.yaml", "Path to the configuration file")
+	configPath = flag.String("configPath", "cmd/data_plane/config.yaml", "Path to the configuration file")
 )
 
 func main() {
-	config, err := config.ReadDataPlaneConfiguration("cmd/data_plane/config.yaml")
+	flag.Parse()
+
+	logrus.Debugf("Configuration path is : %s", *configPath)
+
+	config, err := config.ReadDataPlaneConfiguration(*configPath)
 	if err != nil {
 		logrus.Fatalf("Failed to read configuration file (error : %s)", err.Error())
 	}

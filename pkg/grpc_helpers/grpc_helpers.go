@@ -18,7 +18,7 @@ import (
 
 const (
 	GRPCConnectionTimeout = 5 * time.Second
-	GRPCFunctionTimeout   = 30 * time.Second
+	GRPCFunctionTimeout   = time.Minute
 )
 
 func CreateGRPCServer(host, port string, serverSpecific func(sr grpc.ServiceRegistrar), options ...grpc.ServerOption) {

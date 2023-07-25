@@ -15,16 +15,21 @@ import (
 	"os/signal"
 	"path"
 	"syscall"
+	"time"
 
 	"google.golang.org/grpc"
 )
 
 var (
-	configPath = flag.String("configPath", "config.yaml", "Path to the configuration file")
+	configPath = flag.String("configPath", "cmd/master_node/config.yaml", "Path to the configuration file")
 )
 
 func main() {
-	config, err := config.ReadControlPlaneConfiguration("cmd/master_node/config.yaml")
+	flag.Parse()
+
+	logrus.Debugf("Configuration path is : %s", *configPath)
+
+	config, err := config.ReadControlPlaneConfiguration(*configPath)
 	if err != nil {
 		logrus.Fatalf("Failed to read configuration file (error : %s)", err.Error())
 	}
@@ -37,7 +42,11 @@ func main() {
 	}
 
 	cpApiServer := api.CreateNewCpApiServer(redisClient, path.Join(config.TraceOutputFolder, "cold_start_trace.csv"), parsePlacementPolicy(config))
+
+	start := time.Now()
 	cpApiServer.ReconstructState(context.Background())
+	elapsed := time.Since(start)
+	logrus.Infof("Took %s seconds to reconstruct", elapsed)
 
 	defer cpApiServer.SerializeCpApiServer(context.Background())
 

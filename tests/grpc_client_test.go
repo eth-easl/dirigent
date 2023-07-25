@@ -92,21 +92,7 @@ func TestDeploy10Services(t *testing.T) {
 	deployXservices(t, 10)
 }
 
-func TestDeploy100Services(t *testing.T) {
-	logrus.SetLevel(logrus.DebugLevel)
-	logrus.SetFormatter(&logrus.TextFormatter{TimestampFormat: time.StampMilli, FullTimestamp: true})
-
-	deployXservices(t, 100)
-}
-
-func TestDeploy1000Services(t *testing.T) {
-	logrus.SetLevel(logrus.DebugLevel)
-	logrus.SetFormatter(&logrus.TextFormatter{TimestampFormat: time.StampMilli, FullTimestamp: true})
-
-	deployXservices(t, 1000)
-}
-
-func TestDeploy10000Services(t *testing.T) {
+func deployService(t *testing.T, nbDeploys int) {
 	logrus.SetLevel(logrus.DebugLevel)
 	logrus.SetFormatter(&logrus.TextFormatter{TimestampFormat: time.StampMilli, FullTimestamp: true})
 
@@ -119,7 +105,7 @@ func TestDeploy10000Services(t *testing.T) {
 	autoscalingConfig.ScalingUpperBound = 1
 	//autoscalingConfig.ScalingLowerBound = 1
 
-	for i := 0; i < 10000; i++ {
+	for i := 0; i < nbDeploys; i++ {
 		resp, err := cpApi.RegisterService(ctx, &proto2.ServiceInfo{
 			Name:  fmt.Sprintf("%s&%d", deployedFunctionName, i),
 			Image: "docker.io/cvetkovic/empty_function:latest",
@@ -134,6 +120,22 @@ func TestDeploy10000Services(t *testing.T) {
 			t.Error("Failed to deploy service")
 		}
 	}
+}
+
+func TestDeploy100Services(t *testing.T) {
+	deployService(t, 100)
+}
+
+func TestDeploy1000Services(t *testing.T) {
+	deployService(t, 1000)
+}
+
+func TestDeploy10000Services(t *testing.T) {
+	deployService(t, 10000)
+}
+
+func TestDeploy100000Services(t *testing.T) {
+	deployService(t, 100000)
 }
 
 func testXInvocations(t *testing.T, nbInvocations int) {
