@@ -1,4 +1,4 @@
-package tests
+package utils
 
 import (
 	protoApi "cluster_manager/api/proto"

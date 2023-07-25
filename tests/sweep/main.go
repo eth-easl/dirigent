@@ -1,0 +1,95 @@
+package main
+
+import (
+	"cluster_manager/tests/utils"
+	"flag"
+	"github.com/sirupsen/logrus"
+	"gonum.org/v1/gonum/stat/distuv"
+	"math"
+	"sync"
+	"testing"
+	"time"
+)
+
+var (
+	nbColdStartsPerSecond = flag.Int("frequency", 1, "average number of colds starts per seconds")
+	duration              = flag.Int("duration", 30, "duration in seconds")
+	lambda                = flag.Float64("lambda", 5.0, "Lambda parameter for the poisson distribution")
+)
+
+const (
+	UNIFORM_DISTRIBUTION = iota
+	POISSON_DISTRIBUTION
+
+	SECOND = 1e9
+)
+
+func main() {
+	flag.Parse()
+	logrus.Info("Starting sweep test")
+	// Manual choose the distribution
+	currentDistribution := UNIFORM_DISTRIBUTION
+
+	switch currentDistribution {
+	case UNIFORM_DISTRIBUTION:
+		simulateUniformDistribution()
+		break
+	case POISSON_DISTRIBUTION:
+		simulatePoisonDistribution()
+		break
+	default:
+		logrus.Fatal("No distribution found")
+	}
+
+	logrus.Info("End sweep test")
+}
+
+func simulateUniformDistribution() {
+	// Retrieve frequency
+	trueFrequency := 1 / float64(*nbColdStartsPerSecond)
+
+	// Register services
+	utils.DeployService(&testing.T{}, (*duration)*int(math.Ceil(trueFrequency)), 0)
+
+	// Start simulation
+	offset := 0
+	start := time.Now()
+	for time.Since(start) < time.Duration(SECOND*(*duration)) {
+		go utils.PerformXInvocations(&testing.T{}, 1, offset)
+		time.Sleep(time.Duration(SECOND * trueFrequency))
+		offset++
+	}
+}
+
+func simulatePoisonDistribution() {
+	// We transform as follows 1) We compute total number of invocation (rate * nb of seconds) 2) We distribute them with random order
+	totalInvocations := (*nbColdStartsPerSecond) * (*duration)
+
+	// Deploy services before
+	utils.DeployService(&testing.T{}, totalInvocations, 0)
+
+	// Create sampler
+	poissonDistribution := distuv.Poisson{
+		Lambda: *lambda,
+	}
+
+	// Sample
+	wait := make([]time.Duration, totalInvocations)
+	for i := 0; i < totalInvocations; i++ {
+		wait[i] = time.Duration(poissonDistribution.Rand() * SECOND)
+	}
+
+	// Simulate
+	wg := sync.WaitGroup{}
+	wg.Add(len(wait))
+	for index, timeToWait := range wait {
+		go func(timeToWait time.Duration) {
+			time.Sleep(timeToWait)
+			utils.PerformXInvocations(&testing.T{}, 1, index)
+			wg.Done()
+		}(timeToWait)
+	}
+
+	// Wait until we are done
+	wg.Wait()
+}
