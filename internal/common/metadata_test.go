@@ -2,6 +2,7 @@ package common
 
 import (
 	"cluster_manager/api/proto"
+	"cluster_manager/utils"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -110,5 +111,24 @@ func TestEndpointMerge(t *testing.T) {
 				assert.True(t, found, "Invalid endpoint merge. Algorithm is broken.")
 			}
 		})
+	}
+}
+
+func TestAtomicMap(t *testing.T) {
+	am := utils.NewAtomicMap[string]()
+	key := "test"
+
+	am.AtomicIncrement(key)
+	am.AtomicIncrement(key)
+
+	val := am.AtomicGet(key)
+	if val != 2 {
+		t.Error("Invalid atomic increment operation.")
+	}
+
+	am.AtomicDecrement(key)
+	val = am.AtomicGet(key)
+	if val != 1 {
+		t.Error("Invalid atomic decrement operation.")
 	}
 }

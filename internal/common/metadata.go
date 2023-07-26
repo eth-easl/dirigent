@@ -126,7 +126,7 @@ func (m *FunctionMetadata) UpdateRequestMetadata(endpoint *UpstreamEndpoint) {
 	m.loadBalancingMetadata.RequestCountPerInstance.AtomicIncrement(endpoint)
 }
 
-func (m *FunctionMetadata) GetLocalQueueLength(endpoint *UpstreamEndpoint) uint64 {
+func (m *FunctionMetadata) GetLocalQueueLength(endpoint *UpstreamEndpoint) int64 {
 	return m.loadBalancingMetadata.RequestCountPerInstance.AtomicGet(endpoint)
 }
 
