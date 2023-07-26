@@ -15,7 +15,7 @@ import (
 )
 
 func main() {
-	config, err := config2.ReadControlPlaneConfiguration("config.yaml")
+	config, err := config2.ReadControlPlaneConfiguration("cmd/master_node/config.yaml")
 	if err != nil {
 		logrus.Fatal("Failed to read configuration file (error : %s)", err.Error())
 	}

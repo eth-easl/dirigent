@@ -21,7 +21,7 @@ import (
 )
 
 func main() {
-	config, err := config2.ReadWorkedNodeConfiguration("config.yaml")
+	config, err := config2.ReadWorkedNodeConfiguration("cmd/worker_node/config.yaml")
 	if err != nil {
 		logrus.Fatal("Failed to read configuration file (error : %s)", err.Error())
 	}

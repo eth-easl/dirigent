@@ -18,7 +18,7 @@ import (
 )
 
 func main() {
-	config, err := config2.ReadDataPlaneConfiguration("config.yaml")
+	config, err := config2.ReadDataPlaneConfiguration("cmd/data_plane/config.yaml")
 	if err != nil {
 		logrus.Fatal("Failed to read configuration file (error : %s)", err.Error())
 	}
