@@ -1,2 +1,0 @@
-time,service_name,container_id,get_metadata,cold_start,cold_start_pause,load_balancing,cc_throttling,proxying,other
-1690200026697138480,/faas.Executor/Execute:0,workload-205430664014088892,2,681681,50000,17,0,1909,366
