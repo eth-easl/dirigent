@@ -5,7 +5,6 @@ import (
 	"flag"
 	"github.com/sirupsen/logrus"
 	"gonum.org/v1/gonum/stat/distuv"
-	"math"
 	"sync"
 	"testing"
 	"time"
@@ -26,7 +25,12 @@ const (
 
 func main() {
 	flag.Parse()
+
+	logrus.Info("Registering services")
+	utils.DeployService(&testing.T{}, (*duration)*(*nbColdStartsPerSecond), 0)
+
 	logrus.Info("Starting sweep test")
+
 	// Manual choose the distribution
 	currentDistribution := UNIFORM_DISTRIBUTION
 
@@ -48,25 +52,27 @@ func simulateUniformDistribution() {
 	// Retrieve frequency
 	trueFrequency := 1 / float64(*nbColdStartsPerSecond)
 
-	// Register services
-	utils.DeployService(&testing.T{}, (*duration)*int(math.Ceil(trueFrequency)), 0)
-
 	// Start simulation
 	offset := 0
 	start := time.Now()
+
+	wg := sync.WaitGroup{}
 	for time.Since(start) < time.Duration(SECOND*(*duration)) {
-		go utils.PerformXInvocations(&testing.T{}, 1, offset)
+		wg.Add(1)
+		go func(offset int) {
+			utils.PerformXInvocations(&testing.T{}, 1, offset)
+			wg.Done()
+		}(offset)
 		time.Sleep(time.Duration(SECOND * trueFrequency))
 		offset++
 	}
+
+	wg.Wait()
 }
 
 func simulatePoisonDistribution() {
 	// We transform as follows 1) We compute total number of invocation (rate * nb of seconds) 2) We distribute them with random order
 	totalInvocations := (*nbColdStartsPerSecond) * (*duration)
-
-	// Deploy services before
-	utils.DeployService(&testing.T{}, totalInvocations, 0)
 
 	// Create sampler
 	poissonDistribution := distuv.Poisson{

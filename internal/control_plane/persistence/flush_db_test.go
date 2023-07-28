@@ -23,7 +23,7 @@ func TestFlushDB(t *testing.T) {
 
 func TestFlushDBServer(t *testing.T) {
 	client, err := CreateRedisClient(context.Background(), config.RedisLogin{
-		Address:  "10.0.1.1:6379",
+		Address:  "10.10.1.1:6379",
 		Password: "",
 		Db:       0,
 	})

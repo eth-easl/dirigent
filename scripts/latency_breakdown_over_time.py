@@ -1,6 +1,8 @@
 import pandas as pd
 
-from clustered_plot import *
+import matplotlib.pyplot as plt
+import numpy as np
+
 
 rootPath = './sweep'
 load = [1,10,25]
@@ -16,15 +18,16 @@ def processQuantile(d, percentile):
     return p
 
 
-result = []
+result = [1,10,25,50,75]
 for l in load:
     cpTrace = pd.read_csv(f'{rootPath}/cold_start_trace_{l}.csv')
     proxyTrace = pd.read_csv(f'{rootPath}/proxy_trace_{l}.csv')
 
+
+
     data = pd.merge(proxyTrace, cpTrace, on=['container_id', 'service_name'], how='inner')
     data = data[data['success'] == True]  # keep only successful invocations
     data = data[data['cold_start'] > 0]  # keep only cold starts
-
 
     data = data.drop(columns=['time_x', 'time_y', 'success', 'service_name', 'container_id'])
     data = data.rename(columns={"other_x": "other_cp", "other_y": "other_worker_node"})
@@ -34,34 +37,19 @@ for l in load:
                              data['cni'] + data['iptables'] + data['other_worker_node'])
     data = data.drop(columns=['cold_start'])
 
-    p50 = data.quantile(0.5)
-    p95 = data.quantile(0.95)
+    data = data.to_numpy()
+    data = np.sum(data, axis=1)
 
-    dataToPlot = processQuantile(p50, 0.5)
-    dataToPlot = pd.concat([dataToPlot, processQuantile(p95, 0.95)])
-    dataToPlot = dataToPlot / 1000  # μs -> ms
+    y = data
+    x = np.linspace(0, 60, data.shape[0])
 
-    result.append(dataToPlot)
+    plt.plot(x, y, label=l)
 
-plotClusteredStackedBarchart(result,
-                             title='Sweep',
-                             clusterLabels=[
-                                 '1',
-                                 '10',
-                                 '25',
-                                 '50',
-                                 '75',
-                                 '400 cold start',
-                                 '800 cold start',
-                             ],
-                             clusterLabelPosition=(-0.335, 1.1),
-                             categoryLabelPosition=(-0.25, 0.65))
-
-plt.title(f'Cold start latency breakdown')
-plt.xlabel('Percentile')
+plt.legend(loc="upper left")
+plt.title(f'Sweep test')
+plt.xlabel('Seconds')
 plt.xticks(rotation=0)
 plt.ylabel('Latency [ms]')
 plt.grid()
 plt.tight_layout()
-
-plt.savefig(f"{rootPath}/breakdown.png")
+plt.savefig(f"{rootPath}/breakdown_over_time.png")

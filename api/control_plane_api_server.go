@@ -388,10 +388,13 @@ func (c *CpApiServer) ReconstructState(ctx context.Context) error {
 		return err
 	}
 
-	err = c.reconstructServiceState(ctx)
-	if err != nil {
-		return err
-	}
+	// TODO: Fix issue francois costa
+	//err = c.reconstructServiceState(ctx)
+	//if err != nil {
+	//return err
+	//}
+
+	return nil
 
 	return c.reconstructEndpointsState(ctx)
 }

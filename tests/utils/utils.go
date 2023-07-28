@@ -17,8 +17,8 @@ import (
 
 const (
 	deployedFunctionName string = "/faas.Executor/Execute"
-	controlPlaneAddress  string = "10.0.1.2"
-	dataPlaneAddress     string = "10.0.1.2"
+	controlPlaneAddress  string = "10.10.1.2"
+	dataPlaneAddress     string = "10.10.1.3"
 )
 
 func DeployService(t *testing.T, nbDeploys, offset int) {
@@ -47,7 +47,7 @@ func DeployService(t *testing.T, nbDeploys, offset int) {
 
 		if err != nil || !resp.Success {
 			t.Error("Failed to deploy service")
-			panic("Failed to deploy service")
+			logrus.Error("Failed to deploy service")
 		}
 	}
 }
