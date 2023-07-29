@@ -4,8 +4,8 @@ import matplotlib.pyplot as plt
 import numpy as np
 
 
-rootPath = './sweep'
-load = [1,10,25]
+rootPath = './francois'
+load = [1,10,25,50]
 
 
 def processQuantile(d, percentile):

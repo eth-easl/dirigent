@@ -3,7 +3,7 @@ import pandas as pd
 from clustered_plot import *
 
 rootPath = './francois'
-load = [800,801]
+load = [1,10,25,50]
 
 
 def processQuantile(d, percentile):

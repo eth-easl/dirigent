@@ -1,2 +1,0 @@
-time,service_name,container_id,success,image_fetch,container_create,container_start,cni,iptables,other
-1690550989554626402,/faas.Executor/Execute&0,workload-6109966454509652157,true,1,11086,114474,33164,2658,48
