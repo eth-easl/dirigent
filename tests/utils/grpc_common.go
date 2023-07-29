@@ -26,7 +26,7 @@ func (s *TestServer) Execute(_ context.Context, _ *proto.FaasRequest) (*proto.Fa
 }
 
 func FireInvocation(client proto.ExecutorClient) error {
-	executionCxt, cancelExecution := context.WithTimeout(context.Background(), grpc_helpers.GRPCFunctionTimeout)
+	executionCxt, cancelExecution := context.WithTimeout(context.Background(), utils.GRPCFunctionTimeout)
 	defer cancelExecution()
 
 	start := time.Now()
@@ -47,7 +47,7 @@ func UpdateEndpointList(t *testing.T, host string, port string, endpoints []*pro
 		logrus.Fatal("Failed to establish gRPC connection with the data plane")
 	}
 
-	executionCxt, cancelExecution := context.WithTimeout(context.Background(), grpc_helpers.GRPCFunctionTimeout)
+	executionCxt, cancelExecution := context.WithTimeout(context.Background(), utils.GRPCFunctionTimeout)
 	defer cancelExecution()
 
 	// TODO: make this not be static and random

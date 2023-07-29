@@ -27,7 +27,7 @@ func DeployService(t *testing.T, nbDeploys, offset int) {
 
 	cpApi := common.InitializeControlPlaneConnection(controlPlaneAddress, utils.DefaultControlPlanePort, -1, -1)
 
-	ctx, cancel := context.WithTimeout(context.Background(), common.GRPCFunctionTimeout)
+	ctx, cancel := context.WithTimeout(context.Background(), utils.GRPCFunctionTimeout)
 	defer cancel()
 
 	autoscalingConfig := autoscaling.NewDefaultAutoscalingMetadata()

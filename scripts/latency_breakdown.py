@@ -2,8 +2,8 @@ import pandas as pd
 
 from clustered_plot import *
 
-rootPath = './sweep'
-load = [1,10,25]
+rootPath = './francois'
+load = [800,801]
 
 
 def processQuantile(d, percentile):
