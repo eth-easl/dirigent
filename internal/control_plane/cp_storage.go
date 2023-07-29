@@ -6,17 +6,12 @@ import (
 	"cluster_manager/internal/control_plane/persistence"
 	"cluster_manager/internal/data_plane/function_metadata"
 	"cluster_manager/pkg/tracing"
+	"cluster_manager/pkg/utils"
 	"context"
 	"fmt"
+	"github.com/sirupsen/logrus"
 	"sync"
 	"sync/atomic"
-	"time"
-
-	"github.com/sirupsen/logrus"
-)
-
-const (
-	WorkerNodeTrafficTimeout = 10 * time.Second
 )
 
 type NodeInfoStorage struct {
@@ -147,7 +142,7 @@ func (ss *ServiceInfoStorage) doUpscaling(toCreateCount int, nodeList *NodeInfoS
 			requested := placement2.CreateResourceMap(1, 1)
 			node := placementPolicy(ss.PlacementPolicy, nodeList, requested)
 
-			ctx, cancel := context.WithTimeout(context.Background(), WorkerNodeTrafficTimeout)
+			ctx, cancel := context.WithTimeout(context.Background(), utils.WorkerNodeTrafficTimeout)
 			defer cancel()
 
 			resp, err := node.GetAPI().CreateSandbox(ctx, ss.ServiceInfo)
@@ -160,6 +155,9 @@ func (ss *ServiceInfoStorage) doUpscaling(toCreateCount int, nodeList *NodeInfoS
 				}
 			} else {
 				logrus.Errorf("Returned response is nil, can't write to ColdStartTracingChannel")
+				if err != nil {
+					logrus.Errorf("Associated error is %s", err.Error())
+				}
 			}
 
 			if err != nil || !resp.Success {
@@ -235,7 +233,7 @@ func (ss *ServiceInfoStorage) doDownscaling(toEvict map[*Endpoint]struct{}, urls
 		go func() {
 			defer barrier.Done()
 
-			ctx, cancel := context.WithTimeout(context.Background(), WorkerNodeTrafficTimeout)
+			ctx, cancel := context.WithTimeout(context.Background(), utils.WorkerNodeTrafficTimeout)
 			defer cancel()
 
 			resp, err := victim.Node.GetAPI().DeleteSandbox(ctx, &proto.SandboxID{

@@ -16,11 +16,6 @@ import (
 	"k8s.io/apimachinery/pkg/util/wait"
 )
 
-const (
-	GRPCConnectionTimeout = 5 * time.Second
-	GRPCFunctionTimeout   = time.Minute
-)
-
 func CreateGRPCServer(host, port string, serverSpecific func(sr grpc.ServiceRegistrar), options ...grpc.ServerOption) {
 	lis, err := net.Listen(utils.TCP, net.JoinHostPort(host, port))
 	if err != nil {
@@ -39,7 +34,7 @@ func CreateGRPCServer(host, port string, serverSpecific func(sr grpc.ServiceRegi
 }
 
 func dialConnection(ctx context.Context, endpoint string, additionalOptions ...grpc.DialOption) (*grpc.ClientConn, error) {
-	dialContext, cancelDialing := context.WithTimeout(ctx, GRPCConnectionTimeout)
+	dialContext, cancelDialing := context.WithTimeout(ctx, utils.GRPCConnectionTimeout)
 	defer cancelDialing()
 
 	var dialOptions []grpc.DialOption
@@ -82,7 +77,7 @@ func EstablishGRPCConnectionPoll(host, port string, dialOptions ...grpc.DialOpti
 
 	_ = wait.PollUntilContextCancel(context.Background(), 5*time.Second, false,
 		func(ctx context.Context) (done bool, err error) {
-			establishContext, end := context.WithTimeout(ctx, 30*time.Second)
+			establishContext, end := context.WithTimeout(ctx, utils.GRPCFunctionTimeout)
 			defer end()
 
 			c, err := dialConnection(
