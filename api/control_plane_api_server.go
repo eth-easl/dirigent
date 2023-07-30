@@ -12,6 +12,7 @@ import (
 	"cluster_manager/pkg/utils"
 	"context"
 	"encoding/json"
+	"errors"
 	"strconv"
 	"sync"
 	"time"
@@ -35,7 +36,7 @@ type CpApiServer struct {
 	PlacementPolicy  control_plane.PlacementPolicy
 	PersistenceLayer persistence.RedisClient
 
-	// TODO: Improve the synchronization mechanisme here Francois Costa
+	// TODO: Improve the synchronization mechanism here Francois Costa
 	lock sync.Mutex
 }
 
@@ -222,6 +223,9 @@ func (c *CpApiServer) disconnectRegisteredWorker(wn *control_plane.WorkerNode) e
 		}
 	}
 
+	c.WorkerEndpointsLock.Lock()
+	defer c.WorkerEndpointsLock.Unlock()
+
 	delete(c.WorkerEndpoints, wn.Name)
 
 	return nil
@@ -252,6 +256,14 @@ func (c *CpApiServer) updateWorkerNodeInformation(workerNode *control_plane.Work
 }
 
 func (c *CpApiServer) RegisterService(ctx context.Context, serviceInfo *proto.ServiceInfo) (*proto.ActionStatus, error) {
+	c.lock.Lock() // TODO: François maybe set a readlock here
+	_, ok := c.SIStorage[serviceInfo.Name]
+	if ok {
+		logrus.Errorf("Service with name %s is already registered", serviceInfo.Name)
+		return &proto.ActionStatus{Success: false}, errors.New("service is already registered")
+	}
+	c.lock.Unlock()
+
 	err := c.PersistenceLayer.StoreServiceInformation(ctx, serviceInfo)
 	if err != nil {
 		logrus.Errorf("Failed to store information to persistence layer (error : %s)", err.Error())

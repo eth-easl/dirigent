@@ -55,7 +55,7 @@ type FunctionMetadata struct {
 	metrics        ScalingMetric
 	coldStartDelay time.Duration
 
-	sendMetricsTriggered bool
+	autoscalingTriggered bool
 }
 
 type ScalingMetric struct {
@@ -91,6 +91,7 @@ func (m *FunctionMetadata) GetColdStartDelay() time.Duration {
 // TODO: Should we lock it or maybe try to find a better synchronization primitive?
 var upstreamEndpointsLock sync.Mutex
 
+// TODO: This lock is really strange. It locks only reads...... Investigate this
 func (m *FunctionMetadata) GetUpstreamEndpoints() []*UpstreamEndpoint {
 	upstreamEndpointsLock.Lock()
 	defer upstreamEndpointsLock.Unlock()
@@ -265,11 +266,11 @@ func (m *FunctionMetadata) TryWarmStart(cp *proto.CpiInterfaceClient) (chan stru
 		m.queue.PushBack(waitChannel)
 
 		// trigger autoscaling
-		if !m.sendMetricsTriggered {
-			m.sendMetricsTriggered = true
+		if !m.autoscalingTriggered {
+			m.autoscalingTriggered = true
 			m.metrics.timestamp = time.Now()
 
-			go m.sendMetricsLoop(cp)
+			go m.sendMetricsToAutoscaler(cp)
 		}
 
 		return waitChannel, time.Since(start)
@@ -278,7 +279,7 @@ func (m *FunctionMetadata) TryWarmStart(cp *proto.CpiInterfaceClient) (chan stru
 	}
 }
 
-func (m *FunctionMetadata) sendMetricsLoop(cp *proto.CpiInterfaceClient) {
+func (m *FunctionMetadata) sendMetricsToAutoscaler(cp *proto.CpiInterfaceClient) {
 	timer := time.NewTicker(m.metrics.timeWindowSize)
 
 	logrus.Debug("Started metrics loop")
@@ -304,7 +305,7 @@ func (m *FunctionMetadata) sendMetricsLoop(cp *proto.CpiInterfaceClient) {
 
 		toBreak := inflightRequests == 0
 		if toBreak {
-			m.sendMetricsTriggered = false
+			m.autoscalingTriggered = false
 		}
 
 		m.Unlock()
