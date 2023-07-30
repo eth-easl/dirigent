@@ -7,7 +7,7 @@ function RestartWorkers() {
         RemoteExec $1 "tmux kill-session -t worker"
         RemoteExec $1 "tmux new -s worker -d"
 
-        CMD=$"cd ~/cluster_manager; git fetch origin;git reset --hard origin/sweep_test_10; cd ~/cluster_manager/cmd/worker_node; sudo /usr/local/go/bin/go run main.go --configPath config_cluster.yaml"
+        CMD=$"cd ~/cluster_manager; git fetch origin;git reset --hard origin/measurement_merge_11; cd ~/cluster_manager/cmd/worker_node; sudo /usr/local/go/bin/go run main.go --configPath config_cluster.yaml"
 
         RemoteExec $1 "tmux send -t worker \"$CMD\" ENTER"
     }
@@ -34,5 +34,5 @@ function StopWorkers() {
 }
 
 
-#StopWorkers $@
-RestartWorkers $@
+StopWorkers $@
+#RestartWorkers $@
