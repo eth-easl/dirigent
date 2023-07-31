@@ -10,7 +10,7 @@ import (
 )
 
 type PFStateController struct {
-	sync.Mutex
+	EndpointLock sync.Mutex
 
 	AutoscalingRunning  int32
 	DesiredStateChannel *chan int

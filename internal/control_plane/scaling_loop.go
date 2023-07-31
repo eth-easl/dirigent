@@ -51,8 +51,8 @@ func (ss *ServiceInfoStorage) GetAllURLs() []string {
 }
 
 func (ss *ServiceInfoStorage) ReconstructEndpointsFromDatabase(endpoint *Endpoint) {
-	ss.Controller.Lock()
-	defer ss.Controller.Unlock()
+	ss.Controller.EndpointLock.Lock()
+	defer ss.Controller.EndpointLock.Unlock()
 
 	endpoints := make([]*Endpoint, 0)
 	endpoints = append(endpoints, endpoint)
@@ -64,7 +64,7 @@ func (ss *ServiceInfoStorage) ScalingControllerLoop(nodeList *NodeInfoStorage, d
 	for {
 		select {
 		case desiredCount := <-*ss.Controller.DesiredStateChannel:
-			ss.Controller.Lock()
+			ss.Controller.EndpointLock.Lock()
 
 			swapped := false
 			var actualScale int
@@ -99,14 +99,14 @@ func (ss *ServiceInfoStorage) ScalingControllerLoop(nodeList *NodeInfoStorage, d
 				go ss.doDownscaling(toEvict, ss.prepareUrlList(), dpiClients)
 			}
 
-			ss.Controller.Unlock() // for all cases (>, ==, <)
+			ss.Controller.EndpointLock.Unlock() // for all cases (>, ==, <)
 		}
 	}
 }
 
 func (ss *ServiceInfoStorage) RemoveEndpoint(endpointToEvict *Endpoint, dpiClients map[string]*function_metadata.DataPlaneConnectionInfo) error {
 
-	ss.Controller.Lock()
+	ss.Controller.EndpointLock.Lock()
 
 	ss.Controller.Endpoints = ss.excludeSingleEndpoint(ss.Controller.Endpoints, endpointToEvict)
 	atomic.AddInt64(&ss.Controller.ScalingMetadata.ActualScale, -1)
@@ -116,7 +116,7 @@ func (ss *ServiceInfoStorage) RemoveEndpoint(endpointToEvict *Endpoint, dpiClien
 		return err
 	}
 
-	ss.Controller.Unlock()
+	ss.Controller.EndpointLock.Unlock()
 
 	ss.updateEndpoints(dpiClients, ss.prepareUrlList())
 
@@ -163,9 +163,7 @@ func (ss *ServiceInfoStorage) doUpscaling(toCreateCount int, nodeList *NodeInfoS
 			if err != nil || !resp.Success {
 				logrus.Warn("Failed to start a sandbox on worker node ", node.Name)
 
-				ss.Controller.Lock()
 				atomic.AddInt64(&ss.Controller.ScalingMetadata.ActualScale, -1)
-				ss.Controller.Unlock()
 
 				return
 			}
@@ -199,7 +197,7 @@ func (ss *ServiceInfoStorage) doUpscaling(toCreateCount int, nodeList *NodeInfoS
 
 	logrus.Debug("All sandboxes have been created. Updating endpoints.")
 
-	ss.Controller.Lock()
+	ss.Controller.EndpointLock.Lock()
 	// no need for 'endpointMutex' as the barrer has already been passed
 	ss.Controller.Endpoints = append(ss.Controller.Endpoints, finalEndpoint...)
 	urls := ss.prepareUrlList()
@@ -210,7 +208,7 @@ func (ss *ServiceInfoStorage) doUpscaling(toCreateCount int, nodeList *NodeInfoS
 		logrus.Fatal("Implement this part")
 	}
 
-	ss.Controller.Unlock()
+	ss.Controller.EndpointLock.Unlock()
 
 	logrus.Debug("Propagating endpoints.")
 	ss.updateEndpoints(dpiClients, urls)
@@ -255,7 +253,7 @@ func (ss *ServiceInfoStorage) doDownscaling(toEvict map[*Endpoint]struct{}, urls
 	// batch update of endpoints
 	barrier.Wait()
 
-	ss.Controller.Lock()
+	ss.Controller.EndpointLock.Lock()
 
 	err := ss.updatePersistenceLayer()
 	if err != nil {
@@ -263,7 +261,7 @@ func (ss *ServiceInfoStorage) doDownscaling(toEvict map[*Endpoint]struct{}, urls
 		logrus.Fatal("Implement this part")
 	}
 
-	ss.Controller.Unlock()
+	ss.Controller.EndpointLock.Unlock()
 
 	ss.updateEndpoints(dpiClients, urls)
 }
