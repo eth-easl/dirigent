@@ -3,17 +3,16 @@ package control_plane
 import (
 	"cluster_manager/internal/control_plane/autoscaling"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/sirupsen/logrus"
 )
 
-type ScalingMetric string
-
 type PFStateController struct {
 	sync.Mutex
 
-	AutoscalingRunning  bool
+	AutoscalingRunning  int32
 	DesiredStateChannel *chan int
 
 	ScalingMetadata autoscaling.AutoscalingMetadata
@@ -23,11 +22,7 @@ type PFStateController struct {
 }
 
 func (as *PFStateController) Start() {
-	as.Lock()
-	defer as.Unlock()
-
-	if !as.AutoscalingRunning {
-		as.AutoscalingRunning = true
+	if atomic.CompareAndSwapInt32(&as.AutoscalingRunning, 0, 1) {
 		go as.ScalingLoop()
 	}
 }
@@ -45,15 +40,9 @@ func (as *PFStateController) ScalingLoop() {
 
 		*as.DesiredStateChannel <- desiredScale
 
-		if isScaleFromZero {
-			isScaleFromZero = false
-		}
-
+		isScaleFromZero = false
 		if desiredScale == 0 {
-			as.Lock()
-			as.AutoscalingRunning = false
-			as.Unlock()
-
+			atomic.StoreInt32(&as.AutoscalingRunning, 0)
 			logrus.Debug("Existed scaling loop")
 
 			break
