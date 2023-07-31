@@ -203,7 +203,7 @@ func (driver *RedisClient) UpdateEndpoints(ctx context.Context, serviceName stri
 	return driver.storeEndpoints(ctx, serviceName, endpoints)
 }
 
-func (driver *RedisClient) DeleteEndoint(ctx context.Context, serviceName string, workerNodeName string) error {
+func (driver *RedisClient) DeleteEndpoint(ctx context.Context, serviceName string, workerNodeName string) error {
 	key := fmt.Sprintf("%s:%s:%s", endpointPrefix, serviceName, workerNodeName)
 
 	return driver.deleteEndpoint(ctx, key)

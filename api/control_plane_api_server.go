@@ -28,16 +28,14 @@ type CpApiServer struct {
 
 	NIStorage control_plane.NodeInfoStorage
 	SIStorage map[string]*control_plane.ServiceInfoStorage
+	sisLock   sync.RWMutex
 
 	WorkerEndpoints     map[string]map[*control_plane.Endpoint]string
-	WorkerEndpointsLock *sync.Mutex // TODO: Better synchronization mechanism
+	WorkerEndpointsLock *sync.Mutex // TODO: Better synchronization mechanism --> maybe sync.Map
 
 	ColdStartTracing *tracing.TracingService[tracing.ColdStartLogEntry] `json:"-"`
 	PlacementPolicy  control_plane.PlacementPolicy
 	PersistenceLayer persistence.RedisClient
-
-	// TODO: Improve the synchronization mechanism here Francois Costa
-	lock sync.Mutex
 }
 
 func CreateNewCpApiServer(client persistence.RedisClient, outputFile string, placementPolicy control_plane.PlacementPolicy) *CpApiServer {
@@ -212,7 +210,7 @@ func (c *CpApiServer) disconnectRegisteredWorker(wn *control_plane.WorkerNode) e
 	delete(c.NIStorage.NodeInfo, wn.Name)
 
 	for endpoint, serviceName := range c.WorkerEndpoints[wn.Name] {
-		err := c.PersistenceLayer.DeleteEndoint(context.Background(), serviceName, endpoint.Node.Name)
+		err := c.PersistenceLayer.DeleteEndpoint(context.Background(), serviceName, endpoint.Node.Name)
 		if err != nil {
 			return err
 		}
@@ -256,13 +254,13 @@ func (c *CpApiServer) updateWorkerNodeInformation(workerNode *control_plane.Work
 }
 
 func (c *CpApiServer) RegisterService(ctx context.Context, serviceInfo *proto.ServiceInfo) (*proto.ActionStatus, error) {
-	c.lock.Lock() // TODO: François maybe set a readlock here
+	c.sisLock.RLock() // TODO: François maybe set a readlock here
 	_, ok := c.SIStorage[serviceInfo.Name]
 	if ok {
 		logrus.Errorf("Service with name %s is already registered", serviceInfo.Name)
 		return &proto.ActionStatus{Success: false}, errors.New("service is already registered")
 	}
-	c.lock.Unlock()
+	c.sisLock.RUnlock()
 
 	err := c.PersistenceLayer.StoreServiceInformation(ctx, serviceInfo)
 	if err != nil {
@@ -305,9 +303,9 @@ func (c *CpApiServer) connectToRegisteredService(ctx context.Context, serviceInf
 		WorkerEndpointsLock:     c.WorkerEndpointsLock,
 	}
 
-	c.lock.Lock()
+	c.sisLock.Lock()
 	c.SIStorage[serviceInfo.Name] = service
-	c.lock.Unlock()
+	c.sisLock.Unlock()
 
 	go service.ScalingControllerLoop(&c.NIStorage, c.DataPlaneConnections)
 
