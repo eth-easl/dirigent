@@ -89,14 +89,7 @@ func (m *FunctionMetadata) GetColdStartDelay() time.Duration {
 	return m.coldStartDelay
 }
 
-// TODO: Should we lock it or maybe try to find a better synchronization primitive?
-var upstreamEndpointsLock sync.Mutex
-
-// TODO: This lock is really strange. It locks only reads...... Investigate this
 func (m *FunctionMetadata) GetUpstreamEndpoints() []*UpstreamEndpoint {
-	upstreamEndpointsLock.Lock()
-	defer upstreamEndpointsLock.Unlock()
-
 	return m.upstreamEndpoints
 }
 
