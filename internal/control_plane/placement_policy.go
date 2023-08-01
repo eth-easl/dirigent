@@ -1,54 +1,90 @@
 package control_plane
 
 import (
-	"cluster_manager/internal/control_plane/k8s_placement"
+	"cluster_manager/internal/control_plane/placement_policy"
 	_map "cluster_manager/pkg/map"
 	"github.com/sirupsen/logrus"
 	"math/rand"
 	"sort"
 )
 
-type PlacementPolicy = int
+type PolicyType = int
+type PlacementPolicy interface {
+	Place(*NodeInfoStorage, *placement_policy.ResourceMap) *WorkerNode
+}
 
-const (
-	PLACEMENT_RANDOM PlacementPolicy = iota
-	PLACEMENT_ROUND_ROBIN
-	PLACEMENT_KUBERNETES
-)
+func NewRandomPolicy() PlacementPolicy {
+	return randomPolicy{}
+}
 
-func placementPolicy(placementPolicy PlacementPolicy, storage *NodeInfoStorage, requested *k8s_placement.ResourceMap) *WorkerNode {
-	storage.Lock()
-	defer storage.Unlock()
+type randomPolicy struct {
+}
 
-	switch placementPolicy {
-	case PLACEMENT_RANDOM:
-		return randomPolicy(storage, requested)
-	case PLACEMENT_ROUND_ROBIN:
-		return roundRobinPolicy(storage, requested)
-	case PLACEMENT_KUBERNETES:
-		return kubernetesPolicy(storage, requested)
-	default:
-		return kubernetesPolicy(storage, requested)
+func NewRoundRobinPolicy() PlacementPolicy {
+	return roundRobinPolicy{
+		schedulingCounterRoundRobin: 0,
 	}
 }
 
+type roundRobinPolicy struct {
+	schedulingCounterRoundRobin int
+}
+
+func NewKubernetesPolicy() PlacementPolicy {
+	return roundRobinPolicy{
+		schedulingCounterRoundRobin: 0,
+	}
+}
+
+type kubernetesPolicy struct {
+}
+
+func ApplyPlacementPolicy(placementPolicy PlacementPolicy, storage *NodeInfoStorage, requested *placement_policy.ResourceMap) *WorkerNode {
+	storage.Lock()
+	defer storage.Unlock()
+
+	return placementPolicy.Place(storage, requested)
+}
+
 func filterMachines(storage *NodeInfoStorage) *NodeInfoStorage {
-	return storage // TODO: Implement this function
+	var resultingNodes *NodeInfoStorage
+
+	// TOOD: Improve this François Costa
+	tmpResouceMap := placement_policy.ResourceMap{}
+	tmpResouceMap.SetCPUCores(1)
+	tmpResouceMap.SetMemory(1)
+
+	storage.Lock()
+	defer storage.Unlock()
+
+	// Model implementation - kubernetes/pkg/scheduler/framework/plugins/noderesources/fit.go:fitsRequest:256
+	for key, value := range storage.NodeInfo {
+		isMemoryBigEnough := value.Memory >= tmpResouceMap.GetMemory()
+		isCpuBigEnough := value.CpuCores >= tmpResouceMap.GetCPUCores()
+
+		if !isMemoryBigEnough || !isCpuBigEnough {
+			continue
+		}
+
+		resultingNodes.NodeInfo[key] = value
+	}
+
+	return resultingNodes
 }
 
-func getInstalledResources(machine *WorkerNode) *k8s_placement.ResourceMap {
-	return k8s_placement.CreateResourceMap(machine.CpuCores, machine.Memory)
+func getInstalledResources(machine *WorkerNode) *placement_policy.ResourceMap {
+	return placement_policy.CreateResourceMap(machine.CpuCores, machine.Memory)
 }
 
-func getRequestedResources(machine *WorkerNode, request *k8s_placement.ResourceMap) *k8s_placement.ResourceMap {
-	currentUsage := k8s_placement.CreateResourceMap(machine.CpuUsage*machine.CpuCores, machine.MemoryUsage*machine.Memory)
-	return k8s_placement.SumResources(currentUsage, request)
+func getRequestedResources(machine *WorkerNode, request *placement_policy.ResourceMap) *placement_policy.ResourceMap {
+	currentUsage := placement_policy.CreateResourceMap(machine.CpuUsage*machine.CpuCores, machine.MemoryUsage*machine.Memory)
+	return placement_policy.SumResources(currentUsage, request)
 }
 
-func prioritizeNodes(storage *NodeInfoStorage, request *k8s_placement.ResourceMap) map[string]int {
+func prioritizeNodes(storage *NodeInfoStorage, request *placement_policy.ResourceMap) map[string]int {
 	scores := make(map[string]int)
 
-	filterAlgorithms := k8s_placement.CreateScoringPipeline()
+	filterAlgorithms := placement_policy.CreateScoringPipeline()
 
 	for _, alg := range filterAlgorithms {
 		for key, machine := range storage.NodeInfo {
@@ -93,15 +129,7 @@ func selectOneMachine(storage *NodeInfoStorage, scores map[string]int) *WorkerNo
 	return selected
 }
 
-func kubernetesPolicy(storage *NodeInfoStorage, requested *k8s_placement.ResourceMap) *WorkerNode {
-	filteredStorage := filterMachines(storage)
-
-	scores := prioritizeNodes(filteredStorage, requested)
-
-	return selectOneMachine(filteredStorage, scores)
-}
-
-func randomPolicy(storage *NodeInfoStorage, requested *k8s_placement.ResourceMap) *WorkerNode {
+func (policy randomPolicy) Place(storage *NodeInfoStorage, requested *placement_policy.ResourceMap) *WorkerNode {
 	nbNodes := getNumberNodes(storage)
 
 	index := rand.Intn(nbNodes)
@@ -109,16 +137,21 @@ func randomPolicy(storage *NodeInfoStorage, requested *k8s_placement.ResourceMap
 	return nodeFromIndex(storage, index)
 }
 
-// TODO: Refactor this with side effect handling.
-var schedulingCounterRoundRobin int = 0
-
-func roundRobinPolicy(storage *NodeInfoStorage, requested *k8s_placement.ResourceMap) *WorkerNode {
+func (policy roundRobinPolicy) Place(storage *NodeInfoStorage, requested *placement_policy.ResourceMap) *WorkerNode {
 	nbNodes := getNumberNodes(storage)
 
-	index := schedulingCounterRoundRobin % nbNodes
-	schedulingCounterRoundRobin = (schedulingCounterRoundRobin + 1) % nbNodes
+	index := policy.schedulingCounterRoundRobin % nbNodes
+	policy.schedulingCounterRoundRobin = (policy.schedulingCounterRoundRobin + 1) % nbNodes
 
 	return nodeFromIndex(storage, index)
+}
+
+func (policy kubernetesPolicy) Place(storage *NodeInfoStorage, requested *placement_policy.ResourceMap) *WorkerNode {
+	filteredStorage := filterMachines(storage)
+
+	scores := prioritizeNodes(filteredStorage, requested)
+
+	return selectOneMachine(filteredStorage, scores)
 }
 
 func getNumberNodes(storage *NodeInfoStorage) int {
@@ -133,7 +166,7 @@ func nodeFromIndex(storage *NodeInfoStorage, index int) *WorkerNode {
 	return storage.NodeInfo[nodeName]
 }
 
-func evictionPolicy(endpoint []*Endpoint) (*Endpoint, []*Endpoint) {
+func EvictionPolicy(endpoint []*Endpoint) (*Endpoint, []*Endpoint) {
 	if len(endpoint) == 0 {
 		return nil, []*Endpoint{}
 	}

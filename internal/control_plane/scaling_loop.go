@@ -2,8 +2,8 @@ package control_plane
 
 import (
 	"cluster_manager/api/proto"
-	placement2 "cluster_manager/internal/control_plane/k8s_placement"
 	"cluster_manager/internal/control_plane/persistence"
+	placement2 "cluster_manager/internal/control_plane/placement_policy"
 	"cluster_manager/internal/data_plane/function_metadata"
 	"cluster_manager/pkg/tracing"
 	"cluster_manager/pkg/utils"
@@ -81,7 +81,7 @@ func (ss *ServiceInfoStorage) ScalingControllerLoop(nodeList *NodeInfoStorage, d
 				toEvict := make(map[*Endpoint]struct{})
 
 				for i := 0; i < actualScale-desiredCount; i++ {
-					endpoint, newState := evictionPolicy(currentState)
+					endpoint, newState := EvictionPolicy(currentState)
 
 					if _, ok := toEvict[endpoint]; ok {
 						logrus.Warn("Endpoint repetition - this is a bug.")
@@ -140,7 +140,7 @@ func (ss *ServiceInfoStorage) doUpscaling(toCreateCount int, nodeList *NodeInfoS
 
 			// TODO : @Lazar, We need to ask some resources
 			requested := placement2.CreateResourceMap(1, 1)
-			node := placementPolicy(ss.PlacementPolicy, nodeList, requested)
+			node := ApplyPlacementPolicy(ss.PlacementPolicy, nodeList, requested)
 
 			ctx, cancel := context.WithTimeout(context.Background(), utils.WorkerNodeTrafficTimeout)
 			defer cancel()

@@ -72,13 +72,13 @@ func main() {
 func parsePlacementPolicy(controlPlaneConfig config.ControlPlaneConfig) control_plane.PlacementPolicy {
 	switch controlPlaneConfig.PlacementPolicy {
 	case "random":
-		return control_plane.PLACEMENT_RANDOM
+		return control_plane.NewRandomPolicy()
 	case "round-robin":
-		return control_plane.PLACEMENT_ROUND_ROBIN
+		return control_plane.NewRoundRobinPolicy()
 	case "kubernetes":
-		return control_plane.PLACEMENT_KUBERNETES
+		return control_plane.NewKubernetesPolicy()
 	default:
 		logrus.Error("Failed to parse placement, default policy is random")
-		return control_plane.PLACEMENT_RANDOM
+		return control_plane.NewRandomPolicy()
 	}
 }

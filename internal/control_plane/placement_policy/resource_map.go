@@ -1,4 +1,4 @@
-package k8s_placement
+package placement_policy
 
 import "github.com/sirupsen/logrus"
 

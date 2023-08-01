@@ -1,7 +1,7 @@
 package control_plane
 
 import (
-	placement2 "cluster_manager/internal/control_plane/k8s_placement"
+	placement2 "cluster_manager/internal/control_plane/placement_policy"
 	_map "cluster_manager/pkg/map"
 	"sort"
 	"testing"
@@ -10,7 +10,7 @@ import (
 )
 
 func TestRandomPolicy(t *testing.T) {
-	policy := PLACEMENT_RANDOM
+	policy := NewRandomPolicy()
 	storage := &NodeInfoStorage{
 		NodeInfo: make(map[string]*WorkerNode),
 	}
@@ -21,14 +21,14 @@ func TestRandomPolicy(t *testing.T) {
 	requested := &placement2.ResourceMap{}
 
 	for i := 0; i < 100; i++ {
-		currentStorage := placementPolicy(policy, storage, requested)
+		currentStorage := policy.Place(storage, requested)
 		assert.NotNil(t, currentStorage)
 		assert.True(t, currentStorage == storage.NodeInfo["w1"] || currentStorage == storage.NodeInfo["w2"])
 	}
 }
 
 func TestRoundRobin(t *testing.T) {
-	policy := PLACEMENT_ROUND_ROBIN
+	policy := NewKubernetesPolicy()
 	storage := &NodeInfoStorage{
 		NodeInfo: make(map[string]*WorkerNode),
 	}
@@ -44,17 +44,17 @@ func TestRoundRobin(t *testing.T) {
 
 	for i := 0; i < 100; i++ {
 		{
-			currentStorage := placementPolicy(policy, storage, requested)
+			currentStorage := policy.Place(storage, requested)
 			assert.NotNil(t, currentStorage)
 			assert.True(t, currentStorage == storage.NodeInfo[nodes[0]])
 		}
 		{
-			currentStorage := placementPolicy(policy, storage, requested)
+			currentStorage := policy.Place(storage, requested)
 			assert.NotNil(t, currentStorage)
 			assert.True(t, currentStorage == storage.NodeInfo[nodes[1]])
 		}
 		{
-			currentStorage := placementPolicy(policy, storage, requested)
+			currentStorage := policy.Place(storage, requested)
 			assert.NotNil(t, currentStorage)
 			assert.True(t, currentStorage == storage.NodeInfo[nodes[2]])
 		}
