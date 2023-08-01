@@ -3,6 +3,7 @@ package function_metadata
 import (
 	"cluster_manager/api/proto"
 	"cluster_manager/pkg/atomic_map"
+	_map "cluster_manager/pkg/map"
 	"container/list"
 	"context"
 	"errors"
@@ -139,38 +140,6 @@ func (m *FunctionMetadata) DecrementLocalQueueLength(endpoint *UpstreamEndpoint)
 	m.loadBalancingMetadata.FAInstanceQueueLength.AtomicDecrement(endpoint)
 }
 
-func difference(a, b []string) []string {
-	mb := make(map[string]struct{}, len(b))
-	for _, x := range b {
-		mb[x] = struct{}{}
-	}
-
-	var diff []string
-
-	for _, x := range a {
-		if _, found := mb[x]; !found {
-			diff = append(diff, x)
-		}
-	}
-
-	return diff
-}
-
-func extractField[T any](m []T, extractor func(T) string) ([]string, map[string]T) {
-	var res []string
-
-	mm := make(map[string]T)
-
-	for i := 0; i < len(m); i++ {
-		val := extractor(m[i])
-
-		res = append(res, val)
-		mm[val] = m[i]
-	}
-
-	return res, mm
-}
-
 func createThrottlerChannel(capacity uint) RequestThrottler {
 	ccChannel := make(chan struct{}, capacity)
 
@@ -182,11 +151,11 @@ func createThrottlerChannel(capacity uint) RequestThrottler {
 }
 
 func (m *FunctionMetadata) updateEndpointList(data []*proto.EndpointInfo) {
-	oldURLs, mmOld := extractField[*UpstreamEndpoint](m.upstreamEndpoints, func(info *UpstreamEndpoint) string { return info.URL })
-	newURLs, mmNew := extractField[*proto.EndpointInfo](data, func(info *proto.EndpointInfo) string { return info.URL })
+	oldURLs, mmOld := _map.ExtractField[*UpstreamEndpoint](m.upstreamEndpoints, func(info *UpstreamEndpoint) string { return info.URL })
+	newURLs, mmNew := _map.ExtractField[*proto.EndpointInfo](data, func(info *proto.EndpointInfo) string { return info.URL })
 
-	toAdd := difference(newURLs, oldURLs)
-	toRemove := difference(oldURLs, newURLs)
+	toAdd := _map.Difference(newURLs, oldURLs)
+	toRemove := _map.Difference(oldURLs, newURLs)
 
 	for i := 0; i < len(toAdd); i++ {
 		m.upstreamEndpoints = append(m.upstreamEndpoints, &UpstreamEndpoint{
