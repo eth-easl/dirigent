@@ -6,8 +6,8 @@ import (
 	"cluster_manager/internal/control_plane/autoscaling"
 	"cluster_manager/internal/control_plane/persistence"
 	"cluster_manager/internal/data_plane/function_metadata"
-	"cluster_manager/pkg/atomic_map"
 	"cluster_manager/pkg/grpc_helpers"
+	_map "cluster_manager/pkg/map"
 	"cluster_manager/pkg/tracing"
 	"cluster_manager/pkg/utils"
 	"context"
@@ -27,7 +27,7 @@ type CpApiServer struct {
 	DataPlaneConnections map[string]*function_metadata.DataPlaneConnectionInfo
 
 	NIStorage control_plane.NodeInfoStorage
-	SIStorage atomic_map.AtomicMap[string, *control_plane.ServiceInfoStorage]
+	SIStorage map[string]*control_plane.ServiceInfoStorage
 	sisLock   sync.RWMutex
 
 	WorkerEndpoints     map[string]map[*control_plane.Endpoint]string
@@ -43,7 +43,7 @@ func CreateNewCpApiServer(client persistence.RedisClient, outputFile string, pla
 		NIStorage: control_plane.NodeInfoStorage{
 			NodeInfo: make(map[string]*control_plane.WorkerNode),
 		},
-		SIStorage:            atomic_map.NewAtomicMap[string, *control_plane.ServiceInfoStorage](),
+		SIStorage:            make(map[string]*control_plane.ServiceInfoStorage),
 		DataPlaneConnections: make(map[string]*function_metadata.DataPlaneConnectionInfo),
 		ColdStartTracing:     tracing.NewColdStartTracingService(outputFile),
 		PlacementPolicy:      placementPolicy,
@@ -59,7 +59,7 @@ func (c *CpApiServer) CheckPeriodicallyWorkerNodes() {
 
 		for _, workerNode := range c.NIStorage.NodeInfo {
 			if time.Since(workerNode.LastHeartbeat) > 3*utils.HeartbeatInterval {
-				// Trigger a node deregistation
+				// Triger a node deregistation
 				c.deregisterNode(workerNode)
 			}
 		}
@@ -70,7 +70,7 @@ func (c *CpApiServer) CheckPeriodicallyWorkerNodes() {
 }
 
 func (c *CpApiServer) OnMetricsReceive(_ context.Context, metric *proto.AutoscalingMetric) (*proto.ActionStatus, error) {
-	storage, ok := c.SIStorage.Get(metric.ServiceName)
+	storage, ok := c.SIStorage[metric.ServiceName]
 	if !ok {
 		logrus.Warn("SIStorage does not exist for '", metric.ServiceName, "'")
 		return &proto.ActionStatus{Success: false}, nil
@@ -85,7 +85,7 @@ func (c *CpApiServer) OnMetricsReceive(_ context.Context, metric *proto.Autoscal
 }
 
 func (c *CpApiServer) ListServices(_ context.Context, _ *emptypb.Empty) (*proto.ServiceList, error) {
-	return &proto.ServiceList{Service: c.SIStorage.Keys()}, nil
+	return &proto.ServiceList{Service: _map.Keys(c.SIStorage)}, nil
 }
 
 func (c *CpApiServer) RegisterNode(ctx context.Context, in *proto.NodeInfo) (*proto.ActionStatus, error) {
@@ -215,12 +215,7 @@ func (c *CpApiServer) disconnectRegisteredWorker(wn *control_plane.WorkerNode) e
 			return err
 		}
 
-		val, found := c.SIStorage.Get(serviceName)
-		if !found {
-			errors.New("key not found in map")
-		}
-
-		err = val.RemoveEndpoint(endpoint, c.DataPlaneConnections)
+		err = c.SIStorage[serviceName].RemoveEndpoint(endpoint, c.DataPlaneConnections)
 		if err != nil {
 			return err
 		}
@@ -259,12 +254,10 @@ func (c *CpApiServer) updateWorkerNodeInformation(workerNode *control_plane.Work
 }
 
 func (c *CpApiServer) RegisterService(ctx context.Context, serviceInfo *proto.ServiceInfo) (*proto.ActionStatus, error) {
-	c.sisLock.RLock()
-
-	_, ok := c.SIStorage.Get(serviceInfo.Name)
+	c.sisLock.RLock() // TODO: François maybe set a readlock here
+	_, ok := c.SIStorage[serviceInfo.Name]
 	if ok {
 		c.sisLock.RUnlock()
-
 		logrus.Errorf("Service with name %s is already registered", serviceInfo.Name)
 		return &proto.ActionStatus{Success: false}, errors.New("service is already registered")
 	}
@@ -306,41 +299,38 @@ func (c *CpApiServer) connectToRegisteredService(ctx context.Context, serviceInf
 		},
 		ColdStartTracingChannel: &c.ColdStartTracing.InputChannel,
 		PlacementPolicy:         c.PlacementPolicy,
-		PersistenceLayer:        c.PersistenceLayer,
+		PertistenceLayer:        c.PersistenceLayer,
 		WorkerEndpoints:         c.WorkerEndpoints,
 		WorkerEndpointsLock:     c.WorkerEndpointsLock,
 	}
 
-	c.SIStorage.Set(serviceInfo.Name, service)
+	c.sisLock.Lock()
+	c.SIStorage[serviceInfo.Name] = service
+	c.sisLock.Unlock()
 
 	go service.ScalingControllerLoop(&c.NIStorage, c.DataPlaneConnections)
 
 	return nil
 }
 
-func (c *CpApiServer) processDataplaneRequest(ctx context.Context, in *proto.DataplaneInfo) (proto.DataplaneInformation, error) {
+func (c *CpApiServer) RegisterDataplane(ctx context.Context, in *proto.DataplaneInfo) (*proto.ActionStatus, error) {
+	logrus.Trace("Revieved a control plane registration")
+
 	ipAddress, ok := grpc_helpers.GetIPAddressFromGRPCCall(ctx)
 	if !ok {
 		logrus.Debug("Failed to extract IP address from data plane registration request")
-		return proto.DataplaneInformation{}, errors.New("Failed to extract IP address from data plane registration request")
+		return &proto.ActionStatus{Success: false}, nil
 	}
 
-	return proto.DataplaneInformation{
+	apiPort := strconv.Itoa(int(in.APIPort))
+	proxyPort := strconv.Itoa(int(in.ProxyPort))
+	dataplaneInfo := proto.DataplaneInformation{
 		Address:   ipAddress,
-		ApiPort:   strconv.Itoa(int(in.APIPort)),
-		ProxyPort: strconv.Itoa(int(in.ProxyPort)),
-	}, nil
-}
-
-func (c *CpApiServer) RegisterDataplane(ctx context.Context, in *proto.DataplaneInfo) (*proto.ActionStatus, error) {
-	logrus.Trace("Received a control plane registration")
-
-	dataplaneInfo, err := c.processDataplaneRequest(ctx, in)
-	if err != nil {
-		return &proto.ActionStatus{Success: false}, err
+		ApiPort:   apiPort,
+		ProxyPort: proxyPort,
 	}
 
-	err = c.PersistenceLayer.StoreDataPlaneInformation(ctx, &dataplaneInfo)
+	err := c.PersistenceLayer.StoreDataPlaneInformation(ctx, &dataplaneInfo)
 	if err != nil {
 		logrus.Errorf("Failed to store information to persistence layer (error : %s)", err.Error())
 		return &proto.ActionStatus{Success: false}, err
@@ -370,14 +360,23 @@ func (c *CpApiServer) registerDataplane(iface proto.DpiInterfaceClient, ip, apiP
 }
 
 func (c *CpApiServer) DeregisterDataplane(ctx context.Context, in *proto.DataplaneInfo) (*proto.ActionStatus, error) {
-	logrus.Trace("Received a data plane deregistration")
+	logrus.Trace("Recieved a data plane deregistration")
 
-	dataplaneInfo, err := c.processDataplaneRequest(ctx, in)
-	if err != nil {
-		return &proto.ActionStatus{Success: false}, err
+	ipAddress, ok := grpc_helpers.GetIPAddressFromGRPCCall(ctx)
+	if !ok {
+		logrus.Debug("Failed to extract IP address from data plane registration request")
+		return &proto.ActionStatus{Success: false}, nil
 	}
 
-	err = c.PersistenceLayer.DeleteDataPlaneInformation(ctx, &dataplaneInfo)
+	apiPort := strconv.Itoa(int(in.APIPort))
+	proxyPort := strconv.Itoa(int(in.ProxyPort))
+	dataplaneInfo := proto.DataplaneInformation{
+		Address:   ipAddress,
+		ApiPort:   apiPort,
+		ProxyPort: proxyPort,
+	}
+
+	err := c.PersistenceLayer.DeleteDataPlaneInformation(ctx, &dataplaneInfo)
 	if err != nil {
 		logrus.Errorf("Failed to store information to persistence layer (error : %s)", err.Error())
 		return &proto.ActionStatus{Success: false}, err
@@ -473,13 +472,7 @@ func (c *CpApiServer) reconstructEndpointsState(ctx context.Context) error {
 			Node:      c.NIStorage.NodeInfo[endpoint.NodeName],
 			HostPort:  endpoint.HostPort,
 		}
-
-		val, found := c.SIStorage.Get(services[i])
-		if !found {
-			return errors.New("element not found in map")
-		}
-
-		val.ReconstructEndpointsFromDatabase(controlPlaneEndpoint)
+		c.SIStorage[services[i]].ReconstructEndpointsFromDatabase(controlPlaneEndpoint)
 	}
 
 	return nil
