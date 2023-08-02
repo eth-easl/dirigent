@@ -3,11 +3,12 @@ package main
 import (
 	"cluster_manager/tests/utils"
 	"flag"
-	"github.com/sirupsen/logrus"
-	"gonum.org/v1/gonum/stat/distuv"
 	"sync"
 	"testing"
 	"time"
+
+	"github.com/sirupsen/logrus"
+	"gonum.org/v1/gonum/stat/distuv"
 )
 
 var (
@@ -59,10 +60,12 @@ func simulateUniformDistribution() {
 	wg := sync.WaitGroup{}
 	for time.Since(start) < time.Duration(SECOND*(*duration)) {
 		wg.Add(1)
+
 		go func(offset int) {
 			utils.PerformXInvocations(&testing.T{}, 1, offset)
 			wg.Done()
 		}(offset)
+
 		time.Sleep(time.Duration(SECOND * trueFrequency))
 		offset++
 	}
@@ -88,6 +91,7 @@ func simulatePoisonDistribution() {
 	// Simulate
 	wg := sync.WaitGroup{}
 	wg.Add(len(wait))
+
 	for index, timeToWait := range wait {
 		go func(timeToWait time.Duration) {
 			time.Sleep(timeToWait)

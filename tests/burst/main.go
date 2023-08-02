@@ -3,8 +3,9 @@ package main
 import (
 	"cluster_manager/tests/utils"
 	"flag"
-	"github.com/sirupsen/logrus"
 	"testing"
+
+	"github.com/sirupsen/logrus"
 )
 
 var (

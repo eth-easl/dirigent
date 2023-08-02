@@ -6,15 +6,15 @@ import (
 	"sync/atomic"
 )
 
-type AtomicMap[T any] struct {
+type AtomicMapCounter[K any] struct {
 	m sync.Map
 }
 
-func NewAtomicMap[T any]() AtomicMap[T] {
-	return AtomicMap[T]{}
+func NewAtomicMapCounter[K any]() AtomicMapCounter[K] {
+	return AtomicMapCounter[K]{}
 }
 
-func (c *AtomicMap[T]) AtomicGet(key T) int64 {
+func (c *AtomicMapCounter[K]) Get(key K) int64 {
 	count, ok := c.m.Load(key)
 	if ok {
 		val, ok := count.(*int64)
@@ -28,7 +28,7 @@ func (c *AtomicMap[T]) AtomicGet(key T) int64 {
 	return 0
 }
 
-func (c *AtomicMap[T]) AtomicAdd(key T, value int64) int64 {
+func (c *AtomicMapCounter[K]) AtomicAdd(key K, value int64) int64 {
 	count, loaded := c.m.LoadOrStore(key, &value)
 	if loaded {
 		val, ok := count.(*int64)
@@ -47,14 +47,14 @@ func (c *AtomicMap[T]) AtomicAdd(key T, value int64) int64 {
 	return *val
 }
 
-func (c *AtomicMap[T]) AtomicIncrement(key T) {
+func (c *AtomicMapCounter[K]) AtomicIncrement(key K) {
 	c.AtomicAdd(key, 1)
 }
 
-func (c *AtomicMap[T]) AtomicDecrement(key T) {
+func (c *AtomicMapCounter[K]) AtomicDecrement(key K) {
 	c.AtomicAdd(key, -1)
 }
 
-func (c *AtomicMap[T]) AtomicDelete(key T) {
+func (c *AtomicMapCounter[K]) Delete(key K) {
 	c.m.Delete(key)
 }

@@ -3,9 +3,10 @@ package control_plane
 import (
 	"cluster_manager/internal/control_plane/placement_policy"
 	_map "cluster_manager/pkg/map"
-	"github.com/sirupsen/logrus"
 	"math/rand"
 	"sort"
+
+	"github.com/sirupsen/logrus"
 )
 
 type PolicyType = int
@@ -49,7 +50,7 @@ func ApplyPlacementPolicy(placementPolicy PlacementPolicy, storage *NodeInfoStor
 func filterMachines(storage *NodeInfoStorage) *NodeInfoStorage {
 	var resultingNodes *NodeInfoStorage
 
-	// TOOD: Improve this François Costa
+	// TODO: Improve this François Costa
 	tmpResouceMap := placement_policy.ResourceMap{}
 	tmpResouceMap.SetCPUCores(1)
 	tmpResouceMap.SetMemory(1)

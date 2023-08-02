@@ -1,9 +1,10 @@
 package function_metadata
 
 import (
-	"github.com/sirupsen/logrus"
 	"sync"
 	"time"
+
+	"github.com/sirupsen/logrus"
 )
 
 type Deployments struct {

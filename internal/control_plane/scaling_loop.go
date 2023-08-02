@@ -9,9 +9,10 @@ import (
 	"cluster_manager/pkg/utils"
 	"context"
 	"fmt"
-	"github.com/sirupsen/logrus"
 	"sync"
 	"sync/atomic"
+
+	"github.com/sirupsen/logrus"
 )
 
 type NodeInfoStorage struct {
@@ -67,6 +68,7 @@ func (ss *ServiceInfoStorage) ScalingControllerLoop(nodeList *NodeInfoStorage, d
 			ss.Controller.EndpointLock.Lock()
 
 			swapped := false
+
 			var actualScale int
 
 			for !swapped {
@@ -105,7 +107,6 @@ func (ss *ServiceInfoStorage) ScalingControllerLoop(nodeList *NodeInfoStorage, d
 }
 
 func (ss *ServiceInfoStorage) RemoveEndpoint(endpointToEvict *Endpoint, dpiClients map[string]*function_metadata.DataPlaneConnectionInfo) error {
-
 	ss.Controller.EndpointLock.Lock()
 
 	ss.Controller.Endpoints = ss.excludeSingleEndpoint(ss.Controller.Endpoints, endpointToEvict)
@@ -309,12 +310,13 @@ func (ss *ServiceInfoStorage) excludeEndpoints(total []*Endpoint, toExclude map[
 }
 
 func (ss *ServiceInfoStorage) excludeSingleEndpoint(total []*Endpoint, toExclude *Endpoint) []*Endpoint {
-	var result []*Endpoint
+	result := make([]*Endpoint, 0, len(total))
 
 	for _, endpoint := range total {
 		if endpoint == toExclude {
 			continue
 		}
+
 		result = append(result, endpoint)
 	}
 

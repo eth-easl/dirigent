@@ -11,11 +11,12 @@ import (
 	"cluster_manager/pkg/utils"
 	"context"
 	"flag"
-	"github.com/sirupsen/logrus"
 	"os/signal"
 	"path"
 	"syscall"
 	"time"
+
+	"github.com/sirupsen/logrus"
 
 	"google.golang.org/grpc"
 )
@@ -44,7 +45,9 @@ func main() {
 	cpApiServer := api.CreateNewCpApiServer(redisClient, path.Join(config.TraceOutputFolder, "cold_start_trace.csv"), parsePlacementPolicy(config))
 
 	start := time.Now()
+
 	cpApiServer.ReconstructState(context.Background())
+
 	elapsed := time.Since(start)
 	logrus.Infof("Took %s seconds to reconstruct", elapsed)
 

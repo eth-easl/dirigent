@@ -8,10 +8,11 @@ import (
 	"cluster_manager/pkg/config"
 	"cluster_manager/pkg/grpc_helpers"
 	"context"
-	"github.com/sirupsen/logrus"
-	"google.golang.org/protobuf/types/known/emptypb"
 	"path"
 	"strconv"
+
+	"github.com/sirupsen/logrus"
+	"google.golang.org/protobuf/types/known/emptypb"
 )
 
 type Dataplane struct {

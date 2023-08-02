@@ -8,6 +8,9 @@ import (
 	"cluster_manager/pkg/utils"
 	"context"
 	"fmt"
+	"os"
+	"time"
+
 	"github.com/containerd/containerd"
 	"github.com/containerd/containerd/namespaces"
 	"github.com/containerd/go-cni"
@@ -15,8 +18,6 @@ import (
 	"github.com/sirupsen/logrus"
 	"google.golang.org/protobuf/types/known/durationpb"
 	"k8s.io/apimachinery/pkg/util/wait"
-	"os"
-	"time"
 )
 
 const (
@@ -38,6 +39,7 @@ type WorkerNode struct {
 func NewWorkerNode(config config.WorkerNodeConfig, containerdClient *containerd.Client) *WorkerNode {
 	cniClient := sandbox.GetCNIClient(config.CNIConfigPath)
 	ipt, err := sandbox.NewIptablesUtil()
+
 	if err != nil {
 		logrus.Fatal("Error while accessing iptables - ", err)
 	}
@@ -118,7 +120,7 @@ func (w *WorkerNode) CreateSandbox(grpcCtx context.Context, in *proto.ServiceInf
 }
 
 func (w *WorkerNode) DeleteSandbox(grpcCtx context.Context, in *proto.SandboxID) (*proto.ActionStatus, error) {
-	logrus.Debug("Delete sandbox with ID = '", in.ID, "'")
+	logrus.Debug("RemoveKey sandbox with ID = '", in.ID, "'")
 
 	ctx := namespaces.WithNamespace(grpcCtx, "cm")
 	metadata := w.SandboxManager.DeleteSandbox(in.ID)
@@ -218,7 +220,6 @@ func (w *WorkerNode) sendInstructionToControlPlane(config config.WorkerNodeConfi
 }
 
 func (w *WorkerNode) SetupHeartbeatLoop(cpApi *proto.CpiInterfaceClient) {
-
 	for {
 		// Quit (if required) or Send
 		select {

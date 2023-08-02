@@ -11,11 +11,12 @@ import (
 	"cluster_manager/pkg/utils"
 	"context"
 	"flag"
-	"github.com/sirupsen/logrus"
-	"google.golang.org/grpc"
 	"os/signal"
 	"strconv"
 	"syscall"
+
+	"github.com/sirupsen/logrus"
+	"google.golang.org/grpc"
 )
 
 var (

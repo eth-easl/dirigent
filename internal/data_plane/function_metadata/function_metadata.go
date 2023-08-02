@@ -36,8 +36,8 @@ type UpstreamEndpoint struct {
 type LoadBalancingMetadata struct {
 	RoundRobinCounter           uint32
 	KubernetesRoundRobinCounter uint32
-	RequestCountPerInstance     atomic_map.AtomicMap[*UpstreamEndpoint]
-	FAInstanceQueueLength       atomic_map.AtomicMap[*UpstreamEndpoint]
+	RequestCountPerInstance     atomic_map.AtomicMapCounter[*UpstreamEndpoint]
+	FAInstanceQueueLength       atomic_map.AtomicMapCounter[*UpstreamEndpoint]
 }
 
 type FunctionMetadata struct {
@@ -79,8 +79,8 @@ func NewFunctionMetadata(name string) *FunctionMetadata {
 		loadBalancingMetadata: LoadBalancingMetadata{
 			RoundRobinCounter:           0,
 			KubernetesRoundRobinCounter: 0,
-			RequestCountPerInstance:     atomic_map.NewAtomicMap[*UpstreamEndpoint](),
-			FAInstanceQueueLength:       atomic_map.NewAtomicMap[*UpstreamEndpoint](),
+			RequestCountPerInstance:     atomic_map.NewAtomicMapCounter[*UpstreamEndpoint](),
+			FAInstanceQueueLength:       atomic_map.NewAtomicMapCounter[*UpstreamEndpoint](),
 		},
 	}
 }
@@ -113,7 +113,7 @@ func (m *FunctionMetadata) IncrementKubernetesRoundRobinCounter() {
 	atomic.AddUint32(&m.loadBalancingMetadata.KubernetesRoundRobinCounter, 1)
 }
 
-func (m *FunctionMetadata) GetRequestCountPerInstance() *atomic_map.AtomicMap[*UpstreamEndpoint] {
+func (m *FunctionMetadata) GetRequestCountPerInstance() *atomic_map.AtomicMapCounter[*UpstreamEndpoint] {
 	return &m.loadBalancingMetadata.RequestCountPerInstance
 }
 
@@ -122,7 +122,7 @@ func (m *FunctionMetadata) UpdateRequestMetadata(endpoint *UpstreamEndpoint) {
 }
 
 func (m *FunctionMetadata) GetLocalQueueLength(endpoint *UpstreamEndpoint) int64 {
-	return m.loadBalancingMetadata.RequestCountPerInstance.AtomicGet(endpoint)
+	return m.loadBalancingMetadata.RequestCountPerInstance.Get(endpoint)
 }
 
 func (m *FunctionMetadata) IncrementLocalQueueLength(endpoint *UpstreamEndpoint) {

@@ -41,6 +41,7 @@ func (as *PFStateController) ScalingLoop() {
 		*as.DesiredStateChannel <- desiredScale
 
 		isScaleFromZero = false
+
 		if desiredScale == 0 {
 			atomic.StoreInt32(&as.AutoscalingRunning, 0)
 			logrus.Debug("Existed scaling loop")

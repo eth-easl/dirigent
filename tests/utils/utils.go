@@ -8,11 +8,12 @@ import (
 	"cluster_manager/tests/proto"
 	"context"
 	"fmt"
-	"github.com/sirupsen/logrus"
-	"google.golang.org/grpc"
 	"sync"
 	"testing"
 	"time"
+
+	"github.com/sirupsen/logrus"
+	"google.golang.org/grpc"
 )
 
 const (

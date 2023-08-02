@@ -3,8 +3,9 @@ package persistence
 import (
 	"cluster_manager/pkg/config"
 	"context"
-	"github.com/stretchr/testify/assert"
 	"testing"
+
+	"github.com/stretchr/testify/assert"
 )
 
 func TestFlushDB(t *testing.T) {

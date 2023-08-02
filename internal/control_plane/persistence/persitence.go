@@ -5,10 +5,11 @@ import (
 	"cluster_manager/pkg/config"
 	"context"
 	"fmt"
+	"strings"
+
 	proto2 "github.com/golang/protobuf/proto"
 	"github.com/redis/go-redis/v9"
 	"github.com/sirupsen/logrus"
-	"strings"
 )
 
 const (
@@ -72,6 +73,7 @@ func (driver *RedisClient) GetDataPlaneInformation(ctx context.Context) ([]*prot
 
 		dataPlaneInfo := &proto.DataplaneInformation{}
 		err = proto2.Unmarshal([]byte(fields["data"]), dataPlaneInfo)
+
 		if err != nil {
 			panic(err)
 		}
@@ -122,6 +124,7 @@ func (driver *RedisClient) GetWorkerNodeInformation(ctx context.Context) ([]*pro
 		}
 
 		workerNodeInfo := &proto.WorkerNodeInformation{}
+
 		err = proto2.Unmarshal([]byte(fields["data"]), workerNodeInfo)
 		if err != nil {
 			panic(err)
@@ -178,7 +181,9 @@ func (driver *RedisClient) GetServiceInformation(ctx context.Context) ([]*proto.
 		}
 
 		serviceInfo := &proto.ServiceInfo{}
+
 		err = proto2.Unmarshal([]byte(fields["data"]), serviceInfo)
+
 		if err != nil {
 			panic(err)
 		}
@@ -196,6 +201,7 @@ func (driver *RedisClient) UpdateEndpoints(ctx context.Context, serviceName stri
 
 	key := fmt.Sprintf("%s:%s:*", endpointPrefix, serviceName)
 	err := driver.deleteEndpoint(ctx, key)
+
 	if err != nil {
 		return err
 	}
@@ -251,6 +257,7 @@ func (driver *RedisClient) GetEndpoints(ctx context.Context) ([]*proto.Endpoint,
 
 		endpoint := &proto.Endpoint{}
 		err = proto2.Unmarshal([]byte(fields["data"]), endpoint)
+
 		if err != nil {
 			panic(err)
 		}
@@ -277,14 +284,20 @@ func (driver *RedisClient) scanKeys(ctx context.Context, prefix string) ([]strin
 	output := make([]string, 0)
 
 	for {
-		var keys []string
-		var err error
+		var (
+			keys []string
+			err  error
+		)
+
 		keys, cursor, err = driver.redisClient.Scan(ctx, cursor, fmt.Sprintf("%s*", prefix), 10).Result()
 		if err != nil {
 			panic(err)
 		}
+
 		n += len(keys)
+
 		output = append(output, keys...)
+
 		if cursor == 0 {
 			break
 		}

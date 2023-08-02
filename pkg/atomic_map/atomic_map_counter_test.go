@@ -16,47 +16,47 @@ type mockTypeStruct struct {
 	mockField2 string
 }
 
-func TestNewAtomicMap(t *testing.T) {
-	assert.NotNil(t, NewAtomicMap[int](), "Atomic map should not be nil")
-	assert.NotNil(t, NewAtomicMap[float64](), "Atomic map should not be nil")
-	assert.NotNil(t, NewAtomicMap[mockTypeStruct](), "Atomic map should not be nil")
-	assert.NotNil(t, NewAtomicMap[*mockTypeStruct](), "Atomic map should not be nil")
-	assert.NotNil(t, NewAtomicMap[interface{}](), "Atomic map should not be nil")
+func TestNewAtomicMapCounter(t *testing.T) {
+	assert.NotNil(t, NewAtomicMapCounter[int](), "Atomic map should not be nil")
+	assert.NotNil(t, NewAtomicMapCounter[float64](), "Atomic map should not be nil")
+	assert.NotNil(t, NewAtomicMapCounter[mockTypeStruct](), "Atomic map should not be nil")
+	assert.NotNil(t, NewAtomicMapCounter[*mockTypeStruct](), "Atomic map should not be nil")
+	assert.NotNil(t, NewAtomicMapCounter[interface{}](), "Atomic map should not be nil")
 }
 
-func TestAtomicMap_AtomicGet(t *testing.T) {
-	atomicMap := NewAtomicMap[int]()
-	assert.Zero(t, atomicMap.AtomicGet(0))
-	assert.Zero(t, atomicMap.AtomicGet(1))
-	assert.Zero(t, atomicMap.AtomicGet(2))
-	assert.Zero(t, atomicMap.AtomicGet(3))
-	assert.Zero(t, atomicMap.AtomicGet(4))
-	assert.Zero(t, atomicMap.AtomicGet(5))
+func TestNewAtomicMapCounter_AtomicGet(t *testing.T) {
+	atomicMap := NewAtomicMapCounter[int]()
+	assert.Zero(t, atomicMap.Get(0))
+	assert.Zero(t, atomicMap.Get(1))
+	assert.Zero(t, atomicMap.Get(2))
+	assert.Zero(t, atomicMap.Get(3))
+	assert.Zero(t, atomicMap.Get(4))
+	assert.Zero(t, atomicMap.Get(5))
 }
 
-func TestAtomicMap_AtomicDecrement(t *testing.T) {
-	atomicMap := NewAtomicMap[int]()
+func TestNewAtomicMapCounter_AtomicDecrement(t *testing.T) {
+	atomicMap := NewAtomicMapCounter[int]()
 	nb := int64(10000)
 
 	atomicMap.AtomicAdd(mockKey, nb)
 
 	for i := nb; i >= 0; i-- {
-		assert.Equal(t, i, atomicMap.AtomicGet(mockKey), "Values should be similar")
+		assert.Equal(t, i, atomicMap.Get(mockKey), "Values should be similar")
 		atomicMap.AtomicDecrement(mockKey)
 	}
 }
 
-func TestAtomicMap_AtomicDelete(t *testing.T) {
-	atomicMap := NewAtomicMap[int]()
+func TestNewAtomicMapCounter_AtomicDelete(t *testing.T) {
+	atomicMap := NewAtomicMapCounter[int]()
 	nb := int64(10000)
 	atomicMap.AtomicAdd(mockKey, nb)
-	assert.Equal(t, nb, atomicMap.AtomicGet(mockKey), "Values should be similar")
+	assert.Equal(t, nb, atomicMap.Get(mockKey), "Values should be similar")
 	atomicMap.AtomicAdd(mockKey, -nb)
-	assert.Equal(t, int64(0), atomicMap.AtomicGet(mockKey), "Values should be the same")
+	assert.Equal(t, int64(0), atomicMap.Get(mockKey), "Values should be the same")
 }
 
-func TestAtomicMap_MultipleThreads(t *testing.T) {
-	atomicMap := NewAtomicMap[int]()
+func TestNewAtomicMapCounter_MultipleThreads(t *testing.T) {
+	atomicMap := NewAtomicMapCounter[int]()
 
 	var wg sync.WaitGroup
 
@@ -75,11 +75,11 @@ func TestAtomicMap_MultipleThreads(t *testing.T) {
 	}
 
 	wg.Wait()
-	assert.Equal(t, int64(nbThreads*size), atomicMap.AtomicGet(mockKey), "Values should be similar")
+	assert.Equal(t, int64(nbThreads*size), atomicMap.Get(mockKey), "Values should be similar")
 }
 
-func TestAtomicMap_MultipleThreadsSecond(t *testing.T) {
-	atomicMap := NewAtomicMap[int]()
+func TestNewAtomicMapCounter_MultipleThreadsSecond(t *testing.T) {
+	atomicMap := NewAtomicMapCounter[int]()
 
 	var wg sync.WaitGroup
 
@@ -99,5 +99,5 @@ func TestAtomicMap_MultipleThreadsSecond(t *testing.T) {
 	}
 
 	wg.Wait()
-	assert.Equal(t, int64(0), atomicMap.AtomicGet(mockKey), "Values should be similar")
+	assert.Equal(t, int64(0), atomicMap.Get(mockKey), "Values should be similar")
 }

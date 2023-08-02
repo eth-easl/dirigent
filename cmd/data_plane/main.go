@@ -10,10 +10,11 @@ import (
 	"cluster_manager/pkg/logger"
 	"context"
 	"flag"
-	"github.com/sirupsen/logrus"
-	"google.golang.org/grpc"
 	"os/signal"
 	"syscall"
+
+	"github.com/sirupsen/logrus"
+	"google.golang.org/grpc"
 )
 
 var (
