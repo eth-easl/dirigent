@@ -13,25 +13,39 @@ import (
 func StartServiceRegistrationServer(cpApi *CpApiServer, registrationPort string) {
 	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodPost {
-			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+			http.Error(w, "Method not allowed.", http.StatusMethodNotAllowed)
 			return
 		} else if cpApi.DataPlaneConnections == nil || len(cpApi.DataPlaneConnections) == 0 {
-			http.Error(w, "No data plane found", http.StatusPreconditionFailed)
+			http.Error(w, "No data plane found.", http.StatusPreconditionFailed)
 			return
 		}
 
 		err := r.ParseForm()
 		if err != nil {
-			logrus.Error("Error parsing form")
+			http.Error(w, "Invalid parsing service registration request.", http.StatusBadRequest)
+			return
 		}
 
 		name := r.FormValue("name")
+		if len(name) == 0 {
+			http.Error(w, "Invalid function name.", http.StatusBadRequest)
+			return
+		}
 		image := r.FormValue("image")
+		if len(image) == 0 {
+			http.Error(w, "Invalid function image.", http.StatusBadRequest)
+			return
+		}
 
 		portForwarding := r.Form["port_forwarding"]
+		if len(portForwarding) == 0 {
+			http.Error(w, "No port forwarding specified. Function cannot communicate with the outside world.", http.StatusBadRequest)
+			return
+		}
 		guestPort, err := strconv.Atoi(portForwarding[0])
 		if err != nil {
-			w.WriteHeader(http.StatusBadRequest)
+			http.Error(w, "Invalid guest port specified.", http.StatusBadRequest)
+			return
 		}
 
 		portMapping := &proto.PortMapping{
@@ -44,14 +58,36 @@ func StartServiceRegistrationServer(cpApi *CpApiServer, registrationPort string)
 		case "udp":
 			portMapping.Protocol = proto.L4Protocol_UDP
 		default:
-			w.WriteHeader(http.StatusBadRequest)
+			http.Error(w, "Invalid port forwarding protocol.", http.StatusBadRequest)
+			return
+		}
+
+		autoscalingConfig := autoscaling.NewDefaultAutoscalingMetadata()
+
+		if len(r.FormValue("scaling_upper_bound")) != 0 {
+			upperBound, err := strconv.Atoi(r.FormValue("scaling_upper_bound"))
+			if err != nil {
+				http.Error(w, "Invalid port forwarding protocol.", http.StatusBadRequest)
+				return
+			}
+
+			autoscalingConfig.ScalingUpperBound = int32(upperBound)
+		}
+		if len(r.FormValue("scaling_lower_bound")) != 0 {
+			lowerBound, err := strconv.Atoi(r.FormValue("scaling_lower_bound"))
+			if err != nil {
+				http.Error(w, "Invalid port forwarding protocol.", http.StatusBadRequest)
+				return
+			}
+
+			autoscalingConfig.ScalingLowerBound = int32(lowerBound)
 		}
 
 		service, err := cpApi.RegisterService(r.Context(), &proto.ServiceInfo{
 			Name:              name,
 			Image:             image,
 			PortForwarding:    portMapping,
-			AutoscalingConfig: autoscaling.NewDefaultAutoscalingMetadata(),
+			AutoscalingConfig: autoscalingConfig,
 		})
 		if err != nil {
 			return
@@ -60,7 +96,8 @@ func StartServiceRegistrationServer(cpApi *CpApiServer, registrationPort string)
 		if service.Success {
 			w.WriteHeader(http.StatusOK)
 		} else {
-			w.WriteHeader(http.StatusConflict)
+			http.Error(w, "Failed to register service.", http.StatusConflict)
+			return
 		}
 
 		endpointList := ""
@@ -81,7 +118,8 @@ func StartServiceRegistrationServer(cpApi *CpApiServer, registrationPort string)
 
 		_, err = w.Write([]byte(endpointList))
 		if err != nil {
-			w.WriteHeader(http.StatusInternalServerError)
+			http.Error(w, "Error writing endpoints.", http.StatusInternalServerError)
+			return
 		}
 	})
 
