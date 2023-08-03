@@ -30,3 +30,18 @@ func TestDifference(t *testing.T) {
 	assert.Equal(t, output[0], slice1[0])
 	assert.Equal(t, output[1], slice1[2])
 }
+
+func TestDifferenceSecond(t *testing.T) {
+	s1 := []string{"a", "b", "c"}
+	s2 := []string{"b", "c", "d"}
+
+	lr := Difference(s1, s2)
+	assert.NotNil(t, lr, "s1 \\ s2 yielded a wrong result.")
+	assert.Equal(t, len(lr), 1, "s1 \\ s2 yielded a wrong result.")
+	assert.Equal(t, lr[0], "a", "s1 \\ s2 yielded a wrong result.")
+
+	rr := Difference(s2, s1)
+	assert.NotNil(t, rr, "s2 \\ s1 yielded a wrong result.")
+	assert.Len(t, rr, 1, "s2 \\ s1 yielded a wrong result.")
+	assert.Equal(t, rr[0], "d", "s2 \\ s1 yielded a wrong result.")
+}

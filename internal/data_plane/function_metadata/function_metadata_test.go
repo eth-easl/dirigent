@@ -2,26 +2,10 @@ package function_metadata
 
 import (
 	"cluster_manager/api/proto"
-	"cluster_manager/utils"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 )
-
-func TestDifference(t *testing.T) {
-	s1 := []string{"a", "b", "c"}
-	s2 := []string{"b", "c", "d"}
-
-	lr := difference(s1, s2)
-	assert.NotNil(t, lr, "s1 \\ s2 yielded a wrong result.")
-	assert.Equal(t, len(lr), 1, "s1 \\ s2 yielded a wrong result.")
-	assert.Equal(t, lr[0], "a", "s1 \\ s2 yielded a wrong result.")
-
-	rr := difference(s2, s1)
-	assert.NotNil(t, rr, "s2 \\ s1 yielded a wrong result.")
-	assert.Len(t, rr, 1, "s2 \\ s1 yielded a wrong result.")
-	assert.Equal(t, rr[0], "d", "s2 \\ s1 yielded a wrong result.")
-}
 
 func TestEndpointMerge(t *testing.T) {
 	tests := []struct {
@@ -111,24 +95,5 @@ func TestEndpointMerge(t *testing.T) {
 				assert.True(t, found, "Invalid endpoint merge. Algorithm is broken.")
 			}
 		})
-	}
-}
-
-func TestAtomicMap(t *testing.T) {
-	am := utils.NewAtomicMap[string]()
-	key := "test"
-
-	am.AtomicIncrement(key)
-	am.AtomicIncrement(key)
-
-	val := am.AtomicGet(key)
-	if val != 2 {
-		t.Error("Invalid atomic increment operation.")
-	}
-
-	am.AtomicDecrement(key)
-	val = am.AtomicGet(key)
-	if val != 1 {
-		t.Error("Invalid atomic decrement operation.")
 	}
 }
