@@ -35,10 +35,10 @@ type CpApiServer struct {
 
 	ColdStartTracing *tracing.TracingService[tracing.ColdStartLogEntry] `json:"-"`
 	PlacementPolicy  control_plane.PlacementPolicy
-	PersistenceLayer persistence.RedisClient
+	PersistenceLayer persistence.PersistenceLayer
 }
 
-func CreateNewCpApiServer(client persistence.RedisClient, outputFile string, placementPolicy control_plane.PlacementPolicy) *CpApiServer {
+func CreateNewCpApiServer(client persistence.PersistenceLayer, outputFile string, placementPolicy control_plane.PlacementPolicy) *CpApiServer {
 	return &CpApiServer{
 		NIStorage: control_plane.NodeInfoStorage{
 			NodeInfo: make(map[string]*control_plane.WorkerNode),

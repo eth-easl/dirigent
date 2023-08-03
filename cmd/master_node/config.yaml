@@ -3,6 +3,7 @@ portRegistration: "9091"
 verbosity: "trace"
 traceOutputFolder: "data"
 placementPolicy: "kubernetes"
+persistence: false
 
 redis:
   address: "127.0.0.1:6379"

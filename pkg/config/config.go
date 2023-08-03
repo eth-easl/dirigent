@@ -13,6 +13,7 @@ type ControlPlaneConfig struct {
 	Verbosity         string     `mapstructure:"verbosity"`
 	TraceOutputFolder string     `mapstructure:"traceOutputFolder"`
 	PlacementPolicy   string     `mapstructure:"placementPolicy"`
+	Persistence       bool       `mapstructure:"persistence"`
 	RedisLogin        RedisLogin `mapstructure:"redis"`
 }
 

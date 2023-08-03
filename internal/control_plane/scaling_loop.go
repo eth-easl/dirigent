@@ -28,7 +28,7 @@ type ServiceInfoStorage struct {
 	ColdStartTracingChannel *chan tracing.ColdStartLogEntry
 
 	PlacementPolicy  PlacementPolicy
-	PersistenceLayer persistence.RedisClient
+	PertistenceLayer persistence.PersistenceLayer
 
 	WorkerEndpoints     map[string]map[*Endpoint]string
 	WorkerEndpointsLock *sync.Mutex

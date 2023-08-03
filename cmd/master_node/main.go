@@ -37,12 +37,18 @@ func main() {
 
 	logger.SetupLogger(config.Verbosity)
 
-	redisClient, err := persistence.CreateRedisClient(context.Background(), config.RedisLogin)
-	if err != nil {
-		logrus.Fatalf("Failed to connect to the database (error : %s)", err.Error())
+	var persistenceLayer persistence.PersistenceLayer
+
+	if config.Persistence {
+		persistenceLayer, err = persistence.CreateRedisClient(context.Background(), config.RedisLogin)
+		if err != nil {
+			logrus.Fatalf("Failed to connect to the database (error : %s)", err.Error())
+		}
+	} else {
+		persistenceLayer = persistence.NewEmptyPeristenceLayer()
 	}
 
-	cpApiServer := api.CreateNewCpApiServer(redisClient, path.Join(config.TraceOutputFolder, "cold_start_trace.csv"), parsePlacementPolicy(config))
+	cpApiServer := api.CreateNewCpApiServer(persistenceLayer, path.Join(config.TraceOutputFolder, "cold_start_trace.csv"), parsePlacementPolicy(config))
 
 	start := time.Now()
 
