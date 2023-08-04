@@ -67,7 +67,7 @@ func StartServiceRegistrationServer(cpApi *CpApiServer, registrationPort string)
 		if len(r.FormValue("scaling_upper_bound")) != 0 {
 			upperBound, err := strconv.Atoi(r.FormValue("scaling_upper_bound"))
 			if err != nil {
-				http.Error(w, "Invalid port forwarding protocol.", http.StatusBadRequest)
+				http.Error(w, "Invalid scaling upper bound.", http.StatusBadRequest)
 				return
 			}
 
@@ -76,7 +76,7 @@ func StartServiceRegistrationServer(cpApi *CpApiServer, registrationPort string)
 		if len(r.FormValue("scaling_lower_bound")) != 0 {
 			lowerBound, err := strconv.Atoi(r.FormValue("scaling_lower_bound"))
 			if err != nil {
-				http.Error(w, "Invalid port forwarding protocol.", http.StatusBadRequest)
+				http.Error(w, "Invalid scaling lower bound.", http.StatusBadRequest)
 				return
 			}
 

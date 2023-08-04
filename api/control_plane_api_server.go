@@ -288,7 +288,7 @@ func (c *CpApiServer) connectToRegisteredService(ctx context.Context, serviceInf
 		},
 		ColdStartTracingChannel: &c.ColdStartTracing.InputChannel,
 		PlacementPolicy:         c.PlacementPolicy,
-		PertistenceLayer:        c.PersistenceLayer,
+		PersistenceLayer:        c.PersistenceLayer,
 		WorkerEndpoints:         c.WorkerEndpoints,
 		WorkerEndpointsLock:     c.WorkerEndpointsLock,
 	}

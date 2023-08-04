@@ -32,7 +32,7 @@ type ServiceInfoStorage struct {
 	ColdStartTracingChannel *chan tracing.ColdStartLogEntry
 
 	PlacementPolicy  PlacementPolicy
-	PertistenceLayer persistence.RedisClient
+	PersistenceLayer persistence.RedisClient
 
 	WorkerEndpoints     map[string]map[*Endpoint]string
 	WorkerEndpointsLock *sync.Mutex
@@ -349,5 +349,5 @@ func (ss *ServiceInfoStorage) updatePersistenceLayer() error {
 		})
 	}
 
-	return ss.PertistenceLayer.UpdateEndpoints(context.Background(), ss.ServiceInfo.Name, endpointsInformations)
+	return ss.PersistenceLayer.UpdateEndpoints(context.Background(), ss.ServiceInfo.Name, endpointsInformations)
 }
