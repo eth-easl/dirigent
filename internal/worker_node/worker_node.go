@@ -65,19 +65,19 @@ func (w *WorkerNode) CreateSandbox(grpcCtx context.Context, in *proto.ServiceInf
 	image, err, durationFetch := w.ImageManager.GetImage(ctx, w.ContainerdClient, in.Image)
 
 	if err != nil {
-		logrus.Warn("Failed fetching image - ", err)
+		logrus.Error("Failed fetching image - ", err)
 		return &proto.SandboxCreationStatus{Success: false}, err
 	}
 
 	container, err, durationContainerCreation := sandbox.CreateContainer(ctx, w.ContainerdClient, image)
 	if err != nil {
-		logrus.Warn("Failed creating a container - ", err)
+		logrus.Error("Failed creating a container - ", err)
 		return &proto.SandboxCreationStatus{Success: false}, err
 	}
 
 	task, exitChannel, ip, netNs, err, durationContainerStart, durationCNI := sandbox.StartContainer(ctx, container, w.CNIClient)
 	if err != nil {
-		logrus.Warn("Failed starting a container - ", err)
+		logrus.Error("Failed starting a container - ", err)
 		return &proto.SandboxCreationStatus{Success: false}, err
 	}
 
