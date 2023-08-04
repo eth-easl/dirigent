@@ -60,7 +60,10 @@ func (c *CpApiServer) CheckPeriodicallyWorkerNodes() {
 		for _, workerNode := range c.NIStorage.NodeInfo {
 			if time.Since(workerNode.LastHeartbeat) > 3*utils.HeartbeatInterval {
 				// Triger a node deregistation
-				c.deregisterNode(workerNode)
+				err := c.deregisterNode(workerNode)
+				if err != nil {
+					logrus.Errorf("Failed to deregister node (error : %s)", err.Error())
+				}
 			}
 		}
 		c.NIStorage.Unlock()
