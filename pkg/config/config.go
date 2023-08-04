@@ -8,13 +8,14 @@ import (
 )
 
 type ControlPlaneConfig struct {
-	Port              string     `mapstructure:"port"`
-	PortRegistration  string     `mapstructure:"portRegistration"`
-	Verbosity         string     `mapstructure:"verbosity"`
-	TraceOutputFolder string     `mapstructure:"traceOutputFolder"`
-	PlacementPolicy   string     `mapstructure:"placementPolicy"`
-	Persistence       bool       `mapstructure:"persistence"`
-	RedisLogin        RedisLogin `mapstructure:"redis"`
+	Port              string         `mapstructure:"port"`
+	PortRegistration  string         `mapstructure:"portRegistration"`
+	Verbosity         string         `mapstructure:"verbosity"`
+	TraceOutputFolder string         `mapstructure:"traceOutputFolder"`
+	PlacementPolicy   string         `mapstructure:"placementPolicy"`
+	Persistence       bool           `mapstructure:"persistence"`
+	Profiler          ProfilerConfig `mapstructure:"profiler"`
+	RedisLogin        RedisLogin     `mapstructure:"redis"`
 }
 
 type DataPlaneConfig struct {
@@ -34,6 +35,11 @@ type WorkerNodeConfig struct {
 	Verbosity        string `mapstructure:"verbosity"`
 	CRIPath          string `mapstructure:"criPath"`
 	CNIConfigPath    string `mapstructure:"cniConfigPath"`
+}
+
+type ProfilerConfig struct {
+	Enable bool `mapstructure:"enable"`
+	Mutex  bool `mapstructure:"mutex"`
 }
 
 type RedisLogin struct {

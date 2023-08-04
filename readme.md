@@ -129,6 +129,13 @@ make proto
 
 Distributed under the MIT License. See `LICENSE.txt` for more information.
 
+## Profiler
+
+Nice tutorial
+
+> https://teivah.medium.com/profiling-and-execution-tracing-in-go-a5e646970f5b
+
+
 ## Contact
 
 Your Name - [@your_twitter](https://twitter.com/your_username) - email@example.com

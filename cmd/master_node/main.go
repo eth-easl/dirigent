@@ -8,6 +8,7 @@ import (
 	"cluster_manager/pkg/config"
 	"cluster_manager/pkg/grpc_helpers"
 	"cluster_manager/pkg/logger"
+	"cluster_manager/pkg/profiler"
 	"cluster_manager/pkg/utils"
 	"context"
 	"flag"
@@ -15,6 +16,8 @@ import (
 	"path"
 	"syscall"
 	"time"
+
+	_ "net/http/pprof"
 
 	"github.com/sirupsen/logrus"
 
@@ -68,6 +71,8 @@ func main() {
 	go grpc_helpers.CreateGRPCServer(utils.DockerLocalhost, config.Port, func(sr grpc.ServiceRegistrar) {
 		proto.RegisterCpiInterfaceServer(sr, cpApiServer)
 	})
+
+	go profiler.SetupProfilerServer(config.Profiler)
 
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer stop()

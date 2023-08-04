@@ -5,6 +5,10 @@ traceOutputFolder: "data"
 placementPolicy: "kubernetes"
 persistence: true
 
+profiler:
+  enable: true
+  mutex: false
+
 redis:
   address: "10.0.1.1:6379"
   password: ""
