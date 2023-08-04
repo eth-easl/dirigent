@@ -3,7 +3,7 @@ portRegistration: "9091"
 verbosity: "trace"
 traceOutputFolder: "data"
 placementPolicy: "kubernetes"
-persistence: true
+persistence: false
 
 profiler:
   enable: true
