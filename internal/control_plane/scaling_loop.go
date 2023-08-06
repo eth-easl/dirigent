@@ -9,6 +9,7 @@ import (
 	"cluster_manager/pkg/utils"
 	"context"
 	"fmt"
+	"strconv"
 	"sync"
 	"sync/atomic"
 
@@ -22,7 +23,8 @@ type NodeInfoStorage struct {
 }
 
 type ServiceInfoStorage struct {
-	ServiceInfo *proto.ServiceInfo
+	ServiceInfo  *proto.ServiceInfo
+	ControlPlane *ControlPlane
 
 	Controller              *PFStateController
 	ColdStartTracingChannel *chan tracing.ColdStartLogEntry
@@ -276,22 +278,33 @@ func (ss *ServiceInfoStorage) addEndpoints(endpoints []*Endpoint) {
 func (ss *ServiceInfoStorage) updateEndpoints(dpiClients map[string]*function_metadata.DataPlaneConnectionInfo, endpoints []*proto.EndpointInfo) {
 	wg := &sync.WaitGroup{}
 
-	for _, conn := range dpiClients {
-		c := conn
+	wg.Add(len(dpiClients))
 
-		wg.Add(1)
+	for _, c := range dpiClients {
 
-		go func() {
+		go func(c *function_metadata.DataPlaneConnectionInfo) {
 			resp, err := c.Iface.UpdateEndpointList(context.Background(), &proto.DeploymentEndpointPatch{
 				Service:   ss.ServiceInfo,
 				Endpoints: endpoints,
 			})
 			if err != nil || !resp.Success {
 				logrus.Warn("Failed to update endpoint list in the data plane")
+
+				apiPort, _ := strconv.ParseInt(c.APIPort, 10, 64)
+				proxyPort, _ := strconv.ParseInt(c.APIPort, 10, 64)
+
+				_, err := ss.ControlPlane.DeregisterDataplane(context.Background(), &proto.DataplaneInfo{
+					APIPort:   int32(apiPort),
+					ProxyPort: int32(proxyPort),
+				})
+
+				if err != nil {
+					logrus.Errorf("Failed to deregister dataplane : (error %s)", err.Error())
+				}
 			}
 
 			wg.Done()
-		}()
+		}(c)
 	}
 
 	wg.Wait()

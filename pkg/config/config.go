@@ -16,6 +16,7 @@ type ControlPlaneConfig struct {
 	Persistence       bool           `mapstructure:"persistence"`
 	Profiler          ProfilerConfig `mapstructure:"profiler"`
 	RedisLogin        RedisLogin     `mapstructure:"redis"`
+	Reconstruct       bool           `mapstructure:"reconstruct"`
 }
 
 type DataPlaneConfig struct {

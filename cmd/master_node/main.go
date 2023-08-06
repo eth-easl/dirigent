@@ -55,7 +55,7 @@ func main() {
 
 	start := time.Now()
 
-	cpApiServer.ReconstructState(context.Background())
+	cpApiServer.ReconstructState(context.Background(), config)
 
 	elapsed := time.Since(start)
 	logrus.Infof("Took %s seconds to reconstruct", elapsed)
@@ -64,8 +64,8 @@ func main() {
 
 	go cpApiServer.CheckPeriodicallyWorkerNodes()
 
-	go cpApiServer.ColdStartTracing.StartTracingService()
-	defer close(cpApiServer.ColdStartTracing.InputChannel)
+	go cpApiServer.ControlPlane.ColdStartTracing.StartTracingService()
+	defer close(cpApiServer.ControlPlane.ColdStartTracing.InputChannel)
 
 	go api.StartServiceRegistrationServer(cpApiServer, config.PortRegistration)
 	go grpc_helpers.CreateGRPCServer(utils.DockerLocalhost, config.Port, func(sr grpc.ServiceRegistrar) {
