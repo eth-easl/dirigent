@@ -18,7 +18,11 @@ function SetupControlPlane() {
     RemoteExec $CONTROL_PLANE "tmux kill-session -t control_plane"
     RemoteExec $CONTROL_PLANE "tmux new -s control_plane -d"
 
-    ARGS="${VERBOSITY}"
+    RemoteExec $CONTROL_PLANE "docker stop \$(docker ps -aq)"
+    RemoteExec $CONTROL_PLANE "docker rm \$(docker ps -a -q)"
+    RemoteExec $CONTROL_PLANE "docker run -d --name redis-stack-server -p 6379:6379 redis/redis-stack-server:latest"
+
+    ARGS="--configPath cmd/master_node/config_cluster.yaml"
     CMD="cd ~/cluster_manager; go run cmd/master_node/main.go ${ARGS}"
     RemoteExec $CONTROL_PLANE "tmux send -t control_plane \"$CMD\" ENTER"
 }
@@ -28,14 +32,13 @@ function SetupDataPlane() {
     RemoteExec $DATA_PLANE "tmux kill-session -t data_plane"
     RemoteExec $DATA_PLANE "tmux new -s data_plane -d"
 
-    ARGS="--controlPlaneIP ${CP_IP_ADDRESS} ${VERBOSITY}"
+    ARGS="--configPath cmd/data_plane/config_cluster.yaml"
     CMD="cd ~/cluster_manager; go run cmd/data_plane/main.go ${ARGS}"
     RemoteExec $DATA_PLANE "tmux send -t data_plane \"$CMD\" ENTER"
 }
 
 function SetupWorkerNodes() {
-    CNI_CONFIG_PATH="/etc/cni/config"
-    ARGS="--controlPlaneIP ${CP_IP_ADDRESS} ${VERBOSITY} --cniConfigPath ${CNI_CONFIG_PATH}"
+    ARGS="--configPath cmd/worker_node/config_cluster.yaml"
     CMD="cd ~/cluster_manager; sudo /usr/local/go/bin/go run cmd/worker_node/main.go ${ARGS}"
 
     function internal_setup() {
@@ -43,7 +46,6 @@ function SetupWorkerNodes() {
         RemoteExec $1 "tmux kill-session -t worker_daemon"
         RemoteExec $1 "tmux new -s worker_daemon -d"
 
-        RemoteExec $1 "sudo cp ~/cluster_manager/configs/cni.conf ${CNI_CONFIG_PATH}"
         RemoteExec $1 "tmux send -t worker_daemon \"$CMD\" ENTER"
     }
 

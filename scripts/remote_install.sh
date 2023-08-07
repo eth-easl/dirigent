@@ -4,7 +4,7 @@ DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" > /dev/null 2>&1 && pwd)"
 source $DIR/common.sh
 
 function AddSshKeys() {
-    ACCESS_TOKEN="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"
+    ACCESS_TOKEN="$(cat ~/.git_token_loader)"
 
     exists=$(RemoteExec $1 'if [ -f "~/.ssh/id_rsa" ]; then echo "exists"; fi')
 
