@@ -114,6 +114,8 @@ func (ss *ServiceInfoStorage) RemoveEndpoint(endpointToEvict *Endpoint, dpiClien
 
 	err := ss.updatePersistenceLayer()
 	if err != nil {
+		ss.Controller.EndpointLock.Unlock()
+
 		return err
 	}
 
