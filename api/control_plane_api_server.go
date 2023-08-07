@@ -59,7 +59,7 @@ func (c *CpApiServer) CheckPeriodicallyWorkerNodes() {
 
 		for _, workerNode := range c.NIStorage.NodeInfo {
 			if time.Since(workerNode.LastHeartbeat) > 3*utils.HeartbeatInterval {
-				// Triger a node deregistation
+				// Trigger a node deregistation
 				c.deregisterNode(workerNode)
 			}
 		}
@@ -257,6 +257,8 @@ func (c *CpApiServer) RegisterService(ctx context.Context, serviceInfo *proto.Se
 	c.sisLock.RLock() // TODO: François maybe set a readlock here
 	_, ok := c.SIStorage[serviceInfo.Name]
 	if ok {
+		c.sisLock.RUnlock()
+
 		logrus.Errorf("Service with name %s is already registered", serviceInfo.Name)
 		return &proto.ActionStatus{Success: false}, errors.New("service is already registered")
 	}
