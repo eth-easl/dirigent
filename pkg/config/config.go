@@ -36,6 +36,7 @@ type WorkerNodeConfig struct {
 	Verbosity        string `mapstructure:"verbosity"`
 	CRIPath          string `mapstructure:"criPath"`
 	CNIConfigPath    string `mapstructure:"cniConfigPath"`
+	PrefetchImage    bool   `mapstructure:"prefetchImage"`
 }
 
 type ProfilerConfig struct {

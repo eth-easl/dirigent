@@ -4,3 +4,4 @@ port: "10010"
 verbosity: "trace"
 criPath: "/run/containerd/containerd.sock"
 cniConfigPath: "../../configs/cni.conf"
+prefetchImage: true

@@ -44,7 +44,7 @@ func NewWorkerNode(config config.WorkerNodeConfig, containerdClient *containerd.
 		logrus.Fatal("Error while accessing iptables - ", err)
 	}
 
-	return &WorkerNode{
+	workerNode := &WorkerNode{
 		ContainerdClient: containerdClient,
 		CNIClient:        cniClient,
 		IPT:              ipt,
@@ -54,6 +54,15 @@ func NewWorkerNode(config config.WorkerNodeConfig, containerdClient *containerd.
 
 		quitChannel: make(chan bool),
 	}
+
+	if config.PrefetchImage {
+		_, err, _ = workerNode.ImageManager.GetImage(context.Background(), workerNode.ContainerdClient, "docker.io/cvetkovic/empty_function:latest")
+		if err != nil {
+			logrus.Errorf("Failed to prefetch the image")
+		}
+	}
+
+	return workerNode
 }
 
 func (w *WorkerNode) CreateSandbox(grpcCtx context.Context, in *proto.ServiceInfo) (*proto.SandboxCreationStatus, error) {
