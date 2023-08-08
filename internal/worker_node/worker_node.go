@@ -174,11 +174,11 @@ func (w *WorkerNode) RegisterNodeWithControlPlane(config config.WorkerNodeConfig
 }
 
 func (w *WorkerNode) StopWorkerNode(config config.WorkerNodeConfig, cpApi *proto.CpiInterfaceClient) {
-	w.CleanRessources()
+	w.CleanResources()
 	w.DeregisterNodeFromControlPlane(config, cpApi)
 }
 
-func (w *WorkerNode) CleanRessources() {
+func (w *WorkerNode) CleanResources() {
 	keys := make([]string, 0)
 	for key, _ := range w.SandboxManager.Metadata {
 		keys = append(keys, key)
