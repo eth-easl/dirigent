@@ -13,6 +13,7 @@ import (
 	"github.com/xyproto/randomstring"
 	"log"
 	"sync"
+	"syscall"
 	"time"
 )
 
@@ -43,11 +44,8 @@ func main() {
 	}
 
 	nbInvocations := *invocations
-	rounds := 1
 
-	total := nbInvocations * rounds
-
-	fmt.Println(total)
+	fmt.Println(nbInvocations)
 
 	tasks := make([]containerd.Task, 0)
 	containers := make([]containerd.Container, 0)
@@ -55,9 +53,11 @@ func main() {
 	start := time.Now()
 
 	wg := sync.WaitGroup{}
-	wg.Add(total)
+	wg.Add(nbInvocations)
 
-	for i := 0; i < total; i++ {
+	lock := sync.Mutex{}
+
+	for i := 0; i < nbInvocations; i++ {
 		go func(i int) {
 			containerName := randomstring.HumanFriendlyEnglishString(50)
 			container, err := containerdClient.NewContainer(ctx, containerName,
@@ -74,8 +74,11 @@ func main() {
 				logrus.Error(err.Error())
 			}
 
+			lock.Lock()
 			containers = append(containers, container)
 			tasks = append(tasks, task)
+			lock.Unlock()
+
 			wg.Done()
 		}(i)
 	}
@@ -91,31 +94,59 @@ func main() {
 	logrus.Info("Starts")
 
 	start = time.Now()
-	for j := 0; j < rounds; j++ {
+
+	{
 		wg := sync.WaitGroup{}
 		wg.Add(nbInvocations)
 		for i := 0; i < nbInvocations; i++ {
-			go func(idx int) {
+			go func(i int) {
 				cniClient := sandbox.GetCNIClient("../configs/cni.conf")
-				netns := fmt.Sprintf("/proc/%v/ns/net", tasks[idx].Pid())
+				netns := fmt.Sprintf("/proc/%v/ns/net", tasks[i].Pid())
 
-				_, err = cniClient.Setup(ctx, containers[idx].ID(), netns)
+				_, err = cniClient.Setup(ctx, containers[i].ID(), netns)
 				if err != nil {
 					logrus.Error(err.Error())
 				}
 
-				defer func(id string, netns string) {
-					if err := cniClient.Remove(ctx, id, netns); err != nil {
-						logrus.Error(err.Error())
-					}
-				}(containers[idx].ID(), netns)
-
 				wg.Done()
-			}(j*nbInvocations + i)
+			}(i)
 		}
 		wg.Wait()
 	}
 
 	elapsed = time.Since(start)
 	log.Printf("Creation of the network took %s", elapsed)
+
+	fmt.Println(len(containers))
+
+	{
+		wg := sync.WaitGroup{}
+		wg.Add(nbInvocations)
+		for i := 0; i < nbInvocations; i++ {
+			go func(i int) {
+				cniClient := sandbox.GetCNIClient("../configs/cni.conf")
+				netns := fmt.Sprintf("/proc/%v/ns/net", tasks[i].Pid())
+				if err := cniClient.Remove(ctx, containers[i].ID(), netns); err != nil {
+					logrus.Error(err.Error())
+				}
+
+				if err := tasks[i].Kill(ctx, syscall.SIGKILL, containerd.WithKillAll); err != nil {
+					logrus.Error(err.Error())
+				}
+
+				if _, err := tasks[i].Delete(ctx, containerd.WithProcessKill); err != nil {
+					logrus.Error(err.Error())
+				}
+
+				if err := containers[i].Delete(ctx, containerd.WithSnapshotCleanup); err != nil {
+					logrus.Error(err.Error())
+				}
+
+				wg.Done()
+			}(i)
+		}
+		wg.Wait()
+	}
+
+	log.Println("We are done")
 }

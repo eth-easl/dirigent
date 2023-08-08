@@ -173,6 +173,24 @@ func (w *WorkerNode) RegisterNodeWithControlPlane(config config.WorkerNodeConfig
 	logrus.Info("Successfully registered the node with the control plane")
 }
 
+func (w *WorkerNode) StopWorkerNode(config config.WorkerNodeConfig, cpApi *proto.CpiInterfaceClient) {
+	w.CleanRessources()
+	w.DeregisterNodeFromControlPlane(config, cpApi)
+}
+
+func (w *WorkerNode) CleanRessources() {
+	keys := make([]string, 0)
+	for key, _ := range w.SandboxManager.Metadata {
+		keys = append(keys, key)
+	}
+
+	for _, key := range keys {
+		w.DeleteSandbox(context.Background(), &proto.SandboxID{
+			ID: key,
+		})
+	}
+}
+
 func (w *WorkerNode) DeregisterNodeFromControlPlane(config config.WorkerNodeConfig, cpApi *proto.CpiInterfaceClient) {
 	logrus.Info("Trying to deregister the node with the control plane")
 

@@ -8,7 +8,7 @@ import (
 
 type Manager struct {
 	sync.Mutex
-	metadata map[string]*Metadata
+	Metadata map[string]*Metadata
 }
 
 type Metadata struct {
@@ -23,7 +23,7 @@ type Metadata struct {
 
 func NewSandboxManager() *Manager {
 	return &Manager{
-		metadata: make(map[string]*Metadata),
+		Metadata: make(map[string]*Metadata),
 	}
 }
 
@@ -31,15 +31,15 @@ func (m *Manager) AddSandbox(key string, metadata *Metadata) {
 	m.Lock()
 	defer m.Unlock()
 
-	m.metadata[key] = metadata
+	m.Metadata[key] = metadata
 }
 
 func (m *Manager) DeleteSandbox(key string) *Metadata {
 	m.Lock()
 	defer m.Unlock()
 
-	res := m.metadata[key]
-	delete(m.metadata, key)
+	res := m.Metadata[key]
+	delete(m.Metadata, key)
 
 	return res
 }

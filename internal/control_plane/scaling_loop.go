@@ -209,8 +209,7 @@ func (ss *ServiceInfoStorage) doUpscaling(toCreateCount int, nodeList *NodeInfoS
 
 	err := ss.updatePersistenceLayer()
 	if err != nil {
-		logrus.Error(err.Error())
-		logrus.Fatal("Implement this part")
+		logrus.Errorf("Failed to update the persistence layer (error : %s)", err.Error())
 	}
 
 	ss.Controller.EndpointLock.Unlock()
@@ -262,8 +261,7 @@ func (ss *ServiceInfoStorage) doDownscaling(toEvict map[*Endpoint]struct{}, urls
 
 	err := ss.updatePersistenceLayer()
 	if err != nil {
-		logrus.Error(err.Error())
-		logrus.Fatal("Implement this part")
+		logrus.Errorf("Failed to update the persistence layer (error : %s)", err.Error())
 	}
 
 	ss.Controller.EndpointLock.Unlock()
