@@ -21,7 +21,7 @@ function SetupNode() {
     RemoteExec $1 'bash ~/cluster_manager/scripts/setup_node.sh'
     RemoteExec $1 'sudo curl -L "https://github.com/docker/compose/releases/download/1.29.2/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose'
     RemoteExec $1 'sudo chmod +x /usr/local/bin/docker-compose'
-    RemoteExec $1 'sudo apt-get install docker.io'
+    RemoteExec $1 'sudo apt-get install -y docker.io'
 }
 
 for NODE in "$@"

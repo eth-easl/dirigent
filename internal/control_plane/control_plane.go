@@ -303,7 +303,7 @@ func (c *ControlPlane) connectToRegisteredService(ctx context.Context, serviceIn
 		},
 		ColdStartTracingChannel: &c.ColdStartTracing.InputChannel,
 		PlacementPolicy:         c.PlacementPolicy,
-		PertistenceLayer:        c.PersistenceLayer,
+		PersistenceLayer:        c.PersistenceLayer,
 		WorkerEndpoints:         c.WorkerEndpoints,
 		WorkerEndpointsLock:     c.WorkerEndpointsLock,
 	}

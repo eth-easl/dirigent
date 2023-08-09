@@ -30,7 +30,7 @@ type ServiceInfoStorage struct {
 	ColdStartTracingChannel *chan tracing.ColdStartLogEntry
 
 	PlacementPolicy  PlacementPolicy
-	PertistenceLayer persistence.PersistenceLayer
+	PersistenceLayer persistence.PersistenceLayer
 
 	WorkerEndpoints     map[string]map[*Endpoint]string
 	WorkerEndpointsLock *sync.Mutex
