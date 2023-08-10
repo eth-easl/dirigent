@@ -47,9 +47,10 @@ type TracingService[T any] struct {
 
 func (ts *TracingService[K]) StartTracingService() {
 	f := CreateFileIfNotExist(ts.OutputFile)
-	defer f.Close()
 
 	_, _ = f.WriteString(ts.Header)
+
+	f.Close()
 
 	for {
 		msg, ok := <-ts.InputChannel
@@ -57,8 +58,24 @@ func (ts *TracingService[K]) StartTracingService() {
 			break
 		}
 
+		f, err := os.OpenFile(ts.OutputFile, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+		if err != nil {
+			log.Fatal(err)
+		}
+
 		ts.WriteFunction(f, msg)
+
+		if err := f.Close(); err != nil {
+			log.Fatal(err)
+		}
 	}
+}
+
+func (ts *TracingService[K]) ResetTracingService() {
+	f := CreateFileIfNotExist(ts.OutputFile)
+	defer f.Close()
+
+	_, _ = f.WriteString(ts.Header)
 }
 
 func NewColdStartTracingService(outputFile string) *TracingService[ColdStartLogEntry] {
@@ -88,6 +105,7 @@ func CreateFileIfNotExist(path string) *os.File {
 		}
 	}
 
+	os.Remove(path) // We don't want previous values
 	f, err := os.Create(path)
 	if err != nil {
 		logrus.Fatal("Unable to open output log file.")

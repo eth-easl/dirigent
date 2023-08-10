@@ -7,6 +7,7 @@ import (
 	grpc "google.golang.org/grpc"
 	codes "google.golang.org/grpc/codes"
 	status "google.golang.org/grpc/status"
+	emptypb "google.golang.org/protobuf/types/known/emptypb"
 )
 
 // This is a compile-time assertion to ensure that this generated file
@@ -21,6 +22,7 @@ type DpiInterfaceClient interface {
 	AddDeployment(ctx context.Context, in *ServiceInfo, opts ...grpc.CallOption) (*DeploymentUpdateSuccess, error)
 	UpdateEndpointList(ctx context.Context, in *DeploymentEndpointPatch, opts ...grpc.CallOption) (*DeploymentUpdateSuccess, error)
 	DeleteDeployment(ctx context.Context, in *ServiceInfo, opts ...grpc.CallOption) (*DeploymentUpdateSuccess, error)
+	ResetMeasurements(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*ActionStatus, error)
 }
 
 type dpiInterfaceClient struct {
@@ -58,6 +60,15 @@ func (c *dpiInterfaceClient) DeleteDeployment(ctx context.Context, in *ServiceIn
 	return out, nil
 }
 
+func (c *dpiInterfaceClient) ResetMeasurements(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*ActionStatus, error) {
+	out := new(ActionStatus)
+	err := c.cc.Invoke(ctx, "/data_plane.DpiInterface/ResetMeasurements", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // DpiInterfaceServer is the server API for DpiInterface service.
 // All implementations must embed UnimplementedDpiInterfaceServer
 // for forward compatibility
@@ -65,6 +76,7 @@ type DpiInterfaceServer interface {
 	AddDeployment(context.Context, *ServiceInfo) (*DeploymentUpdateSuccess, error)
 	UpdateEndpointList(context.Context, *DeploymentEndpointPatch) (*DeploymentUpdateSuccess, error)
 	DeleteDeployment(context.Context, *ServiceInfo) (*DeploymentUpdateSuccess, error)
+	ResetMeasurements(context.Context, *emptypb.Empty) (*ActionStatus, error)
 	mustEmbedUnimplementedDpiInterfaceServer()
 }
 
@@ -80,6 +92,9 @@ func (UnimplementedDpiInterfaceServer) UpdateEndpointList(context.Context, *Depl
 }
 func (UnimplementedDpiInterfaceServer) DeleteDeployment(context.Context, *ServiceInfo) (*DeploymentUpdateSuccess, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method DeleteDeployment not implemented")
+}
+func (UnimplementedDpiInterfaceServer) ResetMeasurements(context.Context, *emptypb.Empty) (*ActionStatus, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method ResetMeasurements not implemented")
 }
 func (UnimplementedDpiInterfaceServer) mustEmbedUnimplementedDpiInterfaceServer() {}
 
@@ -148,6 +163,24 @@ func _DpiInterface_DeleteDeployment_Handler(srv interface{}, ctx context.Context
 	return interceptor(ctx, in, info, handler)
 }
 
+func _DpiInterface_ResetMeasurements_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(emptypb.Empty)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(DpiInterfaceServer).ResetMeasurements(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/data_plane.DpiInterface/ResetMeasurements",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(DpiInterfaceServer).ResetMeasurements(ctx, req.(*emptypb.Empty))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // DpiInterface_ServiceDesc is the grpc.ServiceDesc for DpiInterface service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -166,6 +199,10 @@ var DpiInterface_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "DeleteDeployment",
 			Handler:    _DpiInterface_DeleteDeployment_Handler,
+		},
+		{
+			MethodName: "ResetMeasurements",
+			Handler:    _DpiInterface_ResetMeasurements_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

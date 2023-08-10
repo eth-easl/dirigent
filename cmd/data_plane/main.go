@@ -36,11 +36,14 @@ func main() {
 	cache := function_metadata.NewDeploymentList()
 	dataPlane := data_plane.NewDataplane(config, cache)
 
+	apiServer := api.NewDpApiServer(dataPlane)
+
 	go grpc_helpers.CreateGRPCServer("0.0.0.0", config.PortGRPC, func(sr grpc.ServiceRegistrar) {
-		proto.RegisterDpiInterfaceServer(sr, api.NewDpApiServer(dataPlane))
+		proto.RegisterDpiInterfaceServer(sr, apiServer)
 	})
 
 	proxyServer := dataPlane.GetProxyServer()
+	apiServer.Proxy = proxyServer
 
 	go proxyServer.Tracing.StartTracingService()
 	defer close(proxyServer.Tracing.InputChannel)

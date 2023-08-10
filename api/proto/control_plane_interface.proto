@@ -42,6 +42,8 @@ service CpiInterface {
 
   rpc DeregisterDataplane(DataplaneInfo) returns (ActionStatus);
   rpc DeregisterNode(NodeInfo) returns (ActionStatus);
+
+  rpc ResetMeasurements(google.protobuf.Empty) returns (ActionStatus);
 }
 
 message SandboxID {

@@ -63,3 +63,8 @@ func (c *CpApiServer) ReconstructState(ctx context.Context, config config2.Contr
 func (c *CpApiServer) SerializeCpApiServer(ctx context.Context) {
 	c.ControlPlane.SerializeCpApiServer(ctx)
 }
+
+func (api *CpApiServer) ResetMeasurements(ctx context.Context, in *emptypb.Empty) (*proto.ActionStatus, error) {
+	api.ControlPlane.ColdStartTracing.ResetTracingService()
+	return &proto.ActionStatus{Success: true}, nil
+}

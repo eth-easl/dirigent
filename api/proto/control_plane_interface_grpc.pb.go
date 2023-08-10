@@ -27,6 +27,7 @@ type CpiInterfaceClient interface {
 	NodeHeartbeat(ctx context.Context, in *NodeHeartbeatMessage, opts ...grpc.CallOption) (*ActionStatus, error)
 	DeregisterDataplane(ctx context.Context, in *DataplaneInfo, opts ...grpc.CallOption) (*ActionStatus, error)
 	DeregisterNode(ctx context.Context, in *NodeInfo, opts ...grpc.CallOption) (*ActionStatus, error)
+	ResetMeasurements(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*ActionStatus, error)
 }
 
 type cpiInterfaceClient struct {
@@ -109,6 +110,15 @@ func (c *cpiInterfaceClient) DeregisterNode(ctx context.Context, in *NodeInfo, o
 	return out, nil
 }
 
+func (c *cpiInterfaceClient) ResetMeasurements(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*ActionStatus, error) {
+	out := new(ActionStatus)
+	err := c.cc.Invoke(ctx, "/data_plane.CpiInterface/ResetMeasurements", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // CpiInterfaceServer is the server API for CpiInterface service.
 // All implementations must embed UnimplementedCpiInterfaceServer
 // for forward compatibility
@@ -121,6 +131,7 @@ type CpiInterfaceServer interface {
 	NodeHeartbeat(context.Context, *NodeHeartbeatMessage) (*ActionStatus, error)
 	DeregisterDataplane(context.Context, *DataplaneInfo) (*ActionStatus, error)
 	DeregisterNode(context.Context, *NodeInfo) (*ActionStatus, error)
+	ResetMeasurements(context.Context, *emptypb.Empty) (*ActionStatus, error)
 	mustEmbedUnimplementedCpiInterfaceServer()
 }
 
@@ -151,6 +162,9 @@ func (UnimplementedCpiInterfaceServer) DeregisterDataplane(context.Context, *Dat
 }
 func (UnimplementedCpiInterfaceServer) DeregisterNode(context.Context, *NodeInfo) (*ActionStatus, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method DeregisterNode not implemented")
+}
+func (UnimplementedCpiInterfaceServer) ResetMeasurements(context.Context, *emptypb.Empty) (*ActionStatus, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method ResetMeasurements not implemented")
 }
 func (UnimplementedCpiInterfaceServer) mustEmbedUnimplementedCpiInterfaceServer() {}
 
@@ -309,6 +323,24 @@ func _CpiInterface_DeregisterNode_Handler(srv interface{}, ctx context.Context, 
 	return interceptor(ctx, in, info, handler)
 }
 
+func _CpiInterface_ResetMeasurements_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(emptypb.Empty)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(CpiInterfaceServer).ResetMeasurements(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/data_plane.CpiInterface/ResetMeasurements",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(CpiInterfaceServer).ResetMeasurements(ctx, req.(*emptypb.Empty))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // CpiInterface_ServiceDesc is the grpc.ServiceDesc for CpiInterface service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -347,6 +379,10 @@ var CpiInterface_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "DeregisterNode",
 			Handler:    _CpiInterface_DeregisterNode_Handler,
+		},
+		{
+			MethodName: "ResetMeasurements",
+			Handler:    _CpiInterface_ResetMeasurements_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

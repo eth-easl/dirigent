@@ -3,13 +3,16 @@ package api
 import (
 	"cluster_manager/api/proto"
 	"cluster_manager/internal/data_plane"
+	"cluster_manager/internal/data_plane/proxy"
 	"context"
+	"google.golang.org/protobuf/types/known/emptypb"
 )
 
 type DpApiServer struct {
 	proto.UnimplementedDpiInterfaceServer
 
 	dataplane *data_plane.Dataplane
+	Proxy     *proxy.ProxyingService
 }
 
 func NewDpApiServer(dataplane *data_plane.Dataplane) *DpApiServer {
@@ -28,4 +31,9 @@ func (api *DpApiServer) UpdateEndpointList(_ context.Context, patch *proto.Deplo
 
 func (api *DpApiServer) DeleteDeployment(_ context.Context, name *proto.ServiceInfo) (*proto.DeploymentUpdateSuccess, error) {
 	return api.dataplane.DeleteDeployment(name)
+}
+
+func (api *DpApiServer) ResetMeasurements(ctx context.Context, in *emptypb.Empty) (*proto.ActionStatus, error) {
+	api.Proxy.Tracing.ResetTracingService()
+	return &proto.ActionStatus{Success: true}, nil
 }

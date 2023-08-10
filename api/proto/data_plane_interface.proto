@@ -4,6 +4,7 @@ package data_plane;
 option go_package = "github.com/eth-easl/cluster_manager/api/proto";
 
 import "common.proto";
+import "google/protobuf/empty.proto";
 
 message EndpointInfo {
   string ID = 1;
@@ -24,4 +25,6 @@ service DpiInterface {
   rpc AddDeployment(ServiceInfo) returns (DeploymentUpdateSuccess);
   rpc UpdateEndpointList(DeploymentEndpointPatch) returns (DeploymentUpdateSuccess);
   rpc DeleteDeployment(ServiceInfo) returns (DeploymentUpdateSuccess);
+
+  rpc ResetMeasurements(google.protobuf.Empty) returns (ActionStatus);
 }
