@@ -9,11 +9,12 @@ import (
 	"cluster_manager/pkg/utils"
 	"context"
 	"fmt"
+	"github.com/sirupsen/logrus"
+	"google.golang.org/protobuf/types/known/durationpb"
 	"strconv"
 	"sync"
 	"sync/atomic"
-
-	"github.com/sirupsen/logrus"
+	"time"
 )
 
 type NodeInfoStorage struct {
@@ -37,10 +38,11 @@ type ServiceInfoStorage struct {
 }
 
 type Endpoint struct {
-	SandboxID string
-	URL       string
-	Node      *WorkerNode
-	HostPort  int32
+	SandboxID       string
+	URL             string
+	Node            *WorkerNode
+	HostPort        int32
+	CreationHistory tracing.ColdStartLogEntry
 }
 
 func (ss *ServiceInfoStorage) GetAllURLs() []string {
@@ -146,30 +148,21 @@ func (ss *ServiceInfoStorage) doUpscaling(toCreateCount int, nodeList *NodeInfoS
 			// TODO : @Lazar, We need to ask some resources
 			requested := placement2.CreateResourceMap(1, 1)
 			node := ApplyPlacementPolicy(ss.PlacementPolicy, nodeList, requested)
+			if node == nil {
+				logrus.Warn("Failed to do placement. No nodes are schedulable.")
+
+				atomic.AddInt64(&ss.Controller.ScalingMetadata.ActualScale, -1)
+				return
+			}
 
 			ctx, cancel := context.WithTimeout(context.Background(), utils.WorkerNodeTrafficTimeout)
 			defer cancel()
 
 			resp, err := node.GetAPI().CreateSandbox(ctx, ss.ServiceInfo)
-			if resp != nil {
-				*ss.ColdStartTracingChannel <- tracing.ColdStartLogEntry{
-					ServiceName:      ss.ServiceInfo.Name,
-					ContainerID:      resp.ID,
-					Success:          resp.Success,
-					LatencyBreakdown: resp.LatencyBreakdown,
-				}
-			} else {
-				logrus.Errorf("Returned response is nil, can't write to ColdStartTracingChannel")
-				if err != nil {
-					logrus.Errorf("Associated error is %s", err.Error())
-				}
-			}
-
 			if err != nil || !resp.Success {
 				logrus.Warn("Failed to start a sandbox on worker node ", node.Name)
 
 				atomic.AddInt64(&ss.Controller.ScalingMetadata.ActualScale, -1)
-
 				return
 			}
 
@@ -184,6 +177,12 @@ func (ss *ServiceInfoStorage) doUpscaling(toCreateCount int, nodeList *NodeInfoS
 				URL:       fmt.Sprintf("%s:%d", node.IP, resp.PortMappings.HostPort),
 				Node:      node,
 				HostPort:  resp.PortMappings.HostPort,
+				CreationHistory: tracing.ColdStartLogEntry{
+					ServiceName:      ss.ServiceInfo.Name,
+					ContainerID:      resp.ID,
+					Success:          resp.Success,
+					LatencyBreakdown: resp.LatencyBreakdown,
+				},
 			}
 
 			// Update worker node structure
@@ -203,7 +202,7 @@ func (ss *ServiceInfoStorage) doUpscaling(toCreateCount int, nodeList *NodeInfoS
 	logrus.Debug("All sandboxes have been created. Updating endpoints.")
 
 	ss.Controller.EndpointLock.Lock()
-	// no need for 'endpointMutex' as the barrer has already been passed
+	// no need for 'endpointMutex' as the barrier has already been passed
 	ss.Controller.Endpoints = append(ss.Controller.Endpoints, finalEndpoint...)
 	urls := ss.prepareUrlList()
 
@@ -350,15 +349,34 @@ func (ss *ServiceInfoStorage) prepareUrlList() []*proto.EndpointInfo {
 }
 
 func (ss *ServiceInfoStorage) updatePersistenceLayer() error {
-	endpointsInformations := make([]*proto.Endpoint, 0)
+	mEE := make(map[*Endpoint]*proto.Endpoint)
+
+	endpointsInformation := make([]*proto.Endpoint, 0)
 	for _, endpoint := range ss.Controller.Endpoints {
-		endpointsInformations = append(endpointsInformations, &proto.Endpoint{
+		e := &proto.Endpoint{
 			SandboxID: endpoint.SandboxID,
 			URL:       endpoint.URL,
 			NodeName:  endpoint.Node.Name,
 			HostPort:  endpoint.HostPort,
-		})
+		}
+
+		endpointsInformation = append(endpointsInformation, e)
+		mEE[endpoint] = e
 	}
 
-	return ss.PersistenceLayer.UpdateEndpoints(context.Background(), ss.ServiceInfo.Name, endpointsInformations)
+	durations, err := ss.PersistenceLayer.UpdateEndpoints(context.Background(), ss.ServiceInfo.Name, endpointsInformation)
+	for _, endpoint := range ss.Controller.Endpoints {
+		duration, ok := durations[mEE[endpoint]]
+		if !ok {
+			logrus.Warn("No duration for persisting endpoint '", endpoint.SandboxID, "'.")
+
+			endpoint.CreationHistory.LatencyBreakdown.Database = durationpb.New(0 * time.Millisecond)
+		} else {
+			endpoint.CreationHistory.LatencyBreakdown.Database = durationpb.New(duration)
+		}
+
+		*ss.ColdStartTracingChannel <- endpoint.CreationHistory
+	}
+
+	return err
 }

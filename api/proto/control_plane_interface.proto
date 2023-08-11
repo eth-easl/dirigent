@@ -63,6 +63,7 @@ message SandboxCreationBreakdown {
   google.protobuf.Duration CNI = 4;
   google.protobuf.Duration ContainerStart = 5;
   google.protobuf.Duration Iptables = 6;
+  google.protobuf.Duration Database = 7;
 }
 
 service WorkerNodeInterface {

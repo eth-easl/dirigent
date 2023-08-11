@@ -3,6 +3,7 @@ package persistence
 import (
 	"cluster_manager/api/proto"
 	"context"
+	"time"
 )
 
 type PersistenceLayer interface {
@@ -15,7 +16,7 @@ type PersistenceLayer interface {
 	StoreServiceInformation(ctx context.Context, serviceInfo *proto.ServiceInfo) error
 	StoreServiceInformationProto(ctx context.Context, serviceInfo *proto.ServiceInfo) error
 	GetServiceInformation(ctx context.Context) ([]*proto.ServiceInfo, error)
-	UpdateEndpoints(ctx context.Context, serviceName string, endpoints []*proto.Endpoint) error
+	UpdateEndpoints(ctx context.Context, serviceName string, endpoints []*proto.Endpoint) (map[*proto.Endpoint]time.Duration, error)
 	DeleteEndpoint(ctx context.Context, serviceName string, workerNodeName string) error
 	GetEndpoints(ctx context.Context) ([]*proto.Endpoint, []string, error)
 	StoreSerialized(ctx context.Context, controlPlane []byte) error

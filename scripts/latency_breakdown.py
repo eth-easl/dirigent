@@ -26,11 +26,10 @@ for l in load:
     data = data[data['cold_start'] > 0]  # keep only cold starts
 
     data = data.drop(columns=['time_x', 'time_y', 'success', 'service_name', 'container_id'])
-    data = data.rename(columns={"other_x": "other_cp", "other_y": "other_worker_node"})
 
     data['control_plane'] = data['cold_start'] - \
                             (data['image_fetch'] + data['container_create'] + data['container_start'] +
-                             data['cni'] + data['iptables'] + data['other_worker_node'])
+                             data['cni'] + data['iptables'] + data['db'] + data['other_worker_node'])
     data = data.drop(columns=['cold_start'])
 
     p50 = data.quantile(0.5)

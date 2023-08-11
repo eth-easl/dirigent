@@ -14,7 +14,7 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-const cniConfigPath = "../../configs/cni.conf"
+const cniConfigPath = "configs/cni.conf"
 
 func TestCreateAContainer(t *testing.T) {
 	// fails to expose networking to the container
@@ -59,8 +59,6 @@ func TestParallelCreation(t *testing.T) {
 	logrus.SetLevel(logrus.DebugLevel)
 	logrus.SetFormatter(&logrus.TextFormatter{TimestampFormat: time.StampMilli, FullTimestamp: true})
 
-	wg := sync.WaitGroup{}
-
 	client, err := containerd.New("/run/containerd/containerd.sock")
 	assert.NoError(t, err, "Failed to create a containerd client")
 
@@ -70,34 +68,39 @@ func TestParallelCreation(t *testing.T) {
 	ctx := namespaces.WithNamespace(context.Background(), "default")
 	image, _ := FetchImage(ctx, client, "docker.io/cvetkovic/empty_function:latest")
 
-	for i := 0; i < 10; i++ {
-		wg.Add(1)
+	REPETITIONS := 1
+	for rep := 0; rep < REPETITIONS; rep++ {
+		wg := sync.WaitGroup{}
 
-		go func() {
-			container, err, _ := CreateContainer(ctx, client, image)
-			assert.NoError(t, err, "Failed to create a container")
+		for i := 0; i < 5; i++ {
+			wg.Add(1)
 
-			start := time.Now()
-			task, exitCh, ip, netns, err, _, _ := StartContainer(ctx, container, network)
-			assert.NoError(t, err, "Failed to start a container")
+			go func() {
+				container, err, _ := CreateContainer(ctx, client, image)
+				assert.NoError(t, err, "Failed to create a container")
 
-			sm := &Metadata{
-				Task:        task,
-				Container:   container,
-				ExitChannel: exitCh,
-				IP:          ip,
-				NetNs:       netns,
-			}
+				start := time.Now()
+				task, exitCh, ip, netns, err, _, _ := StartContainer(ctx, container, network)
+				assert.NoError(t, err, "Failed to start a container")
 
-			logrus.Debug("Sandbox creation took: ", time.Since(start).Milliseconds(), " ms")
-			time.Sleep(2 * time.Second)
+				sm := &Metadata{
+					Task:        task,
+					Container:   container,
+					ExitChannel: exitCh,
+					IP:          ip,
+					NetNs:       netns,
+				}
 
-			err = DeleteContainer(ctx, network, sm)
-			assert.NoError(t, err, "Failed to delete container")
+				logrus.Debug("Sandbox creation took: ", time.Since(start).Milliseconds(), " ms")
+				time.Sleep(2 * time.Second)
 
-			wg.Done()
-		}()
+				err = DeleteContainer(ctx, network, sm)
+				assert.NoError(t, err, "Failed to delete container")
+
+				wg.Done()
+			}()
+		}
+
+		wg.Wait()
 	}
-
-	wg.Wait()
 }

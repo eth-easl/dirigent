@@ -12,7 +12,7 @@ import (
 )
 
 const (
-	coldStartLogHeader = "time,service_name,container_id,success,image_fetch,container_create,container_start,cni,iptables,other\n"
+	coldStartLogHeader = "time,service_name,container_id,success,image_fetch,container_create,container_start,cni,iptables,db,other_worker_node\n"
 	proxyLogHeader     = "time,service_name,container_id,get_metadata,cold_start,cold_start_pause,load_balancing,cc_throttling,proxying,other\n"
 )
 
@@ -97,11 +97,12 @@ func CreateFileIfNotExist(path string) *os.File {
 }
 
 func coldStartWriteFunction(f *os.File, msg ColdStartLogEntry) {
+	// DB should not be included in 'other' as 'LatencyBreakdown.Total' is only the worker node part
 	other := msg.LatencyBreakdown.Total.AsDuration() - (msg.LatencyBreakdown.ImageFetch.AsDuration() +
 		msg.LatencyBreakdown.ContainerCreate.AsDuration() + msg.LatencyBreakdown.ContainerStart.AsDuration() +
 		msg.LatencyBreakdown.CNI.AsDuration() + msg.LatencyBreakdown.Iptables.AsDuration())
 
-	_, _ = f.WriteString(fmt.Sprintf("%d,%s,%s,%t,%d,%d,%d,%d,%d,%d\n",
+	_, _ = f.WriteString(fmt.Sprintf("%d,%s,%s,%t,%d,%d,%d,%d,%d,%d,%d\n",
 		time.Now().UnixNano(),
 		msg.ServiceName,
 		msg.ContainerID,
@@ -111,6 +112,7 @@ func coldStartWriteFunction(f *os.File, msg ColdStartLogEntry) {
 		msg.LatencyBreakdown.ContainerStart.AsDuration().Microseconds(),
 		msg.LatencyBreakdown.CNI.AsDuration().Microseconds(),
 		msg.LatencyBreakdown.Iptables.AsDuration().Microseconds(),
+		msg.LatencyBreakdown.Database.AsDuration().Microseconds(),
 		other.Microseconds(),
 	))
 }

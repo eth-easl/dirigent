@@ -51,17 +51,17 @@ func filterMachines(storage *NodeInfoStorage) *NodeInfoStorage {
 	var resultingNodes *NodeInfoStorage
 
 	// TODO: Improve this François Costa
-	tmpResouceMap := placement_policy.ResourceMap{}
-	tmpResouceMap.SetCPUCores(1)
-	tmpResouceMap.SetMemory(1)
+	tmpResourceMap := placement_policy.ResourceMap{}
+	tmpResourceMap.SetCPUCores(1)
+	tmpResourceMap.SetMemory(1)
 
 	storage.Lock()
 	defer storage.Unlock()
 
 	// Model implementation - kubernetes/pkg/scheduler/framework/plugins/noderesources/fit.go:fitsRequest:256
 	for key, value := range storage.NodeInfo {
-		isMemoryBigEnough := value.Memory >= tmpResouceMap.GetMemory()
-		isCpuBigEnough := value.CpuCores >= tmpResouceMap.GetCPUCores()
+		isMemoryBigEnough := value.Memory >= tmpResourceMap.GetMemory()
+		isCpuBigEnough := value.CpuCores >= tmpResourceMap.GetCPUCores()
 
 		if !isMemoryBigEnough || !isCpuBigEnough {
 			continue
@@ -138,8 +138,11 @@ func (policy randomPolicy) Place(storage *NodeInfoStorage, requested *placement_
 	return nodeFromIndex(storage, index)
 }
 
-func (policy roundRobinPolicy) Place(storage *NodeInfoStorage, requested *placement_policy.ResourceMap) *WorkerNode {
+func (policy roundRobinPolicy) Place(storage *NodeInfoStorage, _ *placement_policy.ResourceMap) *WorkerNode {
 	nbNodes := getNumberNodes(storage)
+	if nbNodes == 0 {
+		return nil
+	}
 
 	index := policy.schedulingCounterRoundRobin % nbNodes
 	policy.schedulingCounterRoundRobin = (policy.schedulingCounterRoundRobin + 1) % nbNodes

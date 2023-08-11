@@ -396,7 +396,7 @@ func (c *ControlPlane) deregisterDataplane(information *proto.DataplaneInformati
 }
 
 func (c *ControlPlane) ReconstructState(ctx context.Context, config config2.ControlPlaneConfig) error {
-	if config.Reconstruct {
+	if !config.Reconstruct {
 		return nil
 	}
 

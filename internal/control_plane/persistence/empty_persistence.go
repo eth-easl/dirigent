@@ -3,6 +3,7 @@ package persistence
 import (
 	"cluster_manager/api/proto"
 	"context"
+	"time"
 )
 
 func NewEmptyPeristenceLayer() *emptyPersistence {
@@ -47,8 +48,8 @@ func (emptyPersistence) GetServiceInformation(ctx context.Context) ([]*proto.Ser
 	return make([]*proto.ServiceInfo, 0), nil
 }
 
-func (emptyPersistence) UpdateEndpoints(ctx context.Context, serviceName string, endpoints []*proto.Endpoint) error {
-	return nil
+func (emptyPersistence) UpdateEndpoints(ctx context.Context, serviceName string, endpoints []*proto.Endpoint) (map[*proto.Endpoint]time.Duration, error) {
+	return nil, nil
 }
 
 func (emptyPersistence) DeleteEndpoint(ctx context.Context, serviceName string, workerNodeName string) error {
