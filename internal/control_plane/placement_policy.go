@@ -44,6 +44,10 @@ func ApplyPlacementPolicy(placementPolicy PlacementPolicy, storage *NodeInfoStor
 	storage.Lock()
 	defer storage.Unlock()
 
+	if noNodesInCluster(storage) {
+		return nil
+	}
+
 	return placementPolicy.Place(storage, requested)
 }
 
@@ -160,6 +164,10 @@ func (policy kubernetesPolicy) Place(storage *NodeInfoStorage, requested *placem
 
 func getNumberNodes(storage *NodeInfoStorage) int {
 	return len(_map.Keys(storage.NodeInfo))
+}
+
+func noNodesInCluster(storage *NodeInfoStorage) bool {
+	return getNumberNodes(storage) == 0
 }
 
 func nodeFromIndex(storage *NodeInfoStorage, index int) *WorkerNode {
