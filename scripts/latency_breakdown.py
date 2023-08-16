@@ -2,8 +2,8 @@ import pandas as pd
 
 from clustered_plot import *
 
-rootPath = './persistence'
-load = [1, 25, 50, 100, 200, 400, 800]
+rootPath = './francois/measures_sweep_persistence'
+load = [2,3,4,5,10,25,50,100]
 
 
 def processQuantile(d, percentile):
@@ -44,13 +44,14 @@ for l in load:
 plotClusteredStackedBarchart(result,
                              title='',
                              clusterLabels=[
-                                 '1 cold start',
+                                 '2 cold start',
+                                 '3 cold start',
+                                 '4 cold start',
+                                 '5 cold start',
+                                 '10 cold start',
                                  '25 cold start',
                                  '50 cold start',
                                  '100 cold start',
-                                 '200 cold start',
-                                 '400 cold start',
-                                 '800 cold start',
                              ],
                              clusterLabelPosition=(-0.335, 1.1),
                              categoryLabelPosition=(-0.25, 0.65))
