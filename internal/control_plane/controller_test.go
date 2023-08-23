@@ -28,7 +28,7 @@ func TestRandomPolicy(t *testing.T) {
 }
 
 func TestRoundRobin(t *testing.T) {
-	policy := NewKubernetesPolicy()
+	policy := NewRoundRobinPolicy()
 	storage := &NodeInfoStorage{
 		NodeInfo: make(map[string]*WorkerNode),
 	}
@@ -46,17 +46,17 @@ func TestRoundRobin(t *testing.T) {
 		{
 			currentStorage := policy.Place(storage, requested)
 			assert.NotNil(t, currentStorage)
-			assert.True(t, currentStorage == storage.NodeInfo[nodes[0]])
+			assert.Equal(t, currentStorage, storage.NodeInfo[nodes[0]])
 		}
 		{
 			currentStorage := policy.Place(storage, requested)
 			assert.NotNil(t, currentStorage)
-			assert.True(t, currentStorage == storage.NodeInfo[nodes[1]])
+			assert.Equal(t, currentStorage, storage.NodeInfo[nodes[1]])
 		}
 		{
 			currentStorage := policy.Place(storage, requested)
 			assert.NotNil(t, currentStorage)
-			assert.True(t, currentStorage == storage.NodeInfo[nodes[2]])
+			assert.Equal(t, currentStorage, storage.NodeInfo[nodes[2]])
 		}
 	}
 }

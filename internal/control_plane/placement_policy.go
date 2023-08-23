@@ -14,15 +14,15 @@ type PlacementPolicy interface {
 	Place(*NodeInfoStorage, *placement_policy.ResourceMap) *WorkerNode
 }
 
-func NewRandomPolicy() PlacementPolicy {
-	return randomPolicy{}
+func NewRandomPolicy() *randomPolicy {
+	return &randomPolicy{}
 }
 
 type randomPolicy struct {
 }
 
-func NewRoundRobinPolicy() PlacementPolicy {
-	return roundRobinPolicy{
+func NewRoundRobinPolicy() *roundRobinPolicy {
+	return &roundRobinPolicy{
 		schedulingCounterRoundRobin: 0,
 	}
 }
@@ -31,10 +31,8 @@ type roundRobinPolicy struct {
 	schedulingCounterRoundRobin int
 }
 
-func NewKubernetesPolicy() PlacementPolicy {
-	return roundRobinPolicy{
-		schedulingCounterRoundRobin: 0,
-	}
+func NewKubernetesPolicy() *kubernetesPolicy {
+	return &kubernetesPolicy{}
 }
 
 type kubernetesPolicy struct {
