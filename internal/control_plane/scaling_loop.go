@@ -116,7 +116,7 @@ func (ss *ServiceInfoStorage) RemoveEndpoint(endpointToEvict *Endpoint, dpiClien
 	ss.Controller.Endpoints = ss.excludeSingleEndpoint(ss.Controller.Endpoints, endpointToEvict)
 	atomic.AddInt64(&ss.Controller.ScalingMetadata.ActualScale, -1)
 
-	err := ss.updatePersistenceLayer()
+	_, err := ss.updatePersistenceLayer()
 	if err != nil {
 		ss.Controller.EndpointLock.Unlock()
 
@@ -206,12 +206,17 @@ func (ss *ServiceInfoStorage) doUpscaling(toCreateCount int, nodeList *NodeInfoS
 	ss.Controller.Endpoints = append(ss.Controller.Endpoints, finalEndpoint...)
 	urls := ss.prepareUrlList()
 
-	err := ss.updatePersistenceLayer()
+	durationDatabase, err := ss.updatePersistenceLayer()
 	if err != nil {
 		logrus.Errorf("Failed to update the persistence layer (error : %s)", err.Error())
 	}
 
 	ss.Controller.EndpointLock.Unlock()
+
+	for _, endpoint := range finalEndpoint {
+		endpoint.CreationHistory.LatencyBreakdown.Database = durationpb.New(durationDatabase)
+		*ss.ColdStartTracingChannel <- endpoint.CreationHistory
+	}
 
 	logrus.Debug("Propagating endpoints.")
 	ss.updateEndpoints(dpiClients, urls)
@@ -258,7 +263,7 @@ func (ss *ServiceInfoStorage) doDownscaling(toEvict map[*Endpoint]struct{}, urls
 
 	ss.Controller.EndpointLock.Lock()
 
-	err := ss.updatePersistenceLayer()
+	_, err := ss.updatePersistenceLayer()
 	if err != nil {
 		logrus.Errorf("Failed to update the persistence layer (error : %s)", err.Error())
 	}
@@ -348,9 +353,8 @@ func (ss *ServiceInfoStorage) prepareUrlList() []*proto.EndpointInfo {
 	return res
 }
 
-func (ss *ServiceInfoStorage) updatePersistenceLayer() error {
-	mEE := make(map[*Endpoint]*proto.Endpoint)
-
+func (ss *ServiceInfoStorage) updatePersistenceLayer() (time.Duration, error) {
+	start := time.Now()
 	endpointsInformation := make([]*proto.Endpoint, 0)
 	for _, endpoint := range ss.Controller.Endpoints {
 		e := &proto.Endpoint{
@@ -361,22 +365,8 @@ func (ss *ServiceInfoStorage) updatePersistenceLayer() error {
 		}
 
 		endpointsInformation = append(endpointsInformation, e)
-		mEE[endpoint] = e
 	}
 
-	durations, err := ss.PersistenceLayer.UpdateEndpoints(context.Background(), ss.ServiceInfo.Name, endpointsInformation)
-	for _, endpoint := range ss.Controller.Endpoints {
-		duration, ok := durations[mEE[endpoint]]
-		if !ok {
-			logrus.Warn("No duration for persisting endpoint '", endpoint.SandboxID, "'.")
-
-			endpoint.CreationHistory.LatencyBreakdown.Database = durationpb.New(0 * time.Millisecond)
-		} else {
-			endpoint.CreationHistory.LatencyBreakdown.Database = durationpb.New(duration)
-		}
-
-		*ss.ColdStartTracingChannel <- endpoint.CreationHistory
-	}
-
-	return err
+	err := ss.PersistenceLayer.UpdateEndpoints(context.Background(), ss.ServiceInfo.Name, endpointsInformation)
+	return time.Until(start), err
 }

@@ -5,12 +5,10 @@ import (
 	"cluster_manager/pkg/config"
 	"context"
 	"fmt"
-	"strings"
-	"time"
-
 	proto2 "github.com/golang/protobuf/proto"
 	"github.com/redis/go-redis/v9"
 	"github.com/sirupsen/logrus"
+	"strings"
 )
 
 const (
@@ -197,14 +195,14 @@ func (driver RedisClient) GetServiceInformation(ctx context.Context) ([]*proto.S
 	return services, nil
 }
 
-func (driver RedisClient) UpdateEndpoints(ctx context.Context, serviceName string, endpoints []*proto.Endpoint) (map[*proto.Endpoint]time.Duration, error) {
+func (driver RedisClient) UpdateEndpoints(ctx context.Context, serviceName string, endpoints []*proto.Endpoint) error {
 	logrus.Trace("store endpoints information in the database")
 
 	key := fmt.Sprintf("%s:%s:*", endpointPrefix, serviceName)
 	err := driver.deleteEndpoint(ctx, key)
 
 	if err != nil {
-		return nil, err
+		return err
 	}
 
 	return driver.storeEndpoints(ctx, serviceName, endpoints)
@@ -216,36 +214,27 @@ func (driver RedisClient) DeleteEndpoint(ctx context.Context, serviceName string
 	return driver.deleteEndpoint(ctx, key)
 }
 
-func (driver RedisClient) storeSingleEndpoint(ctx context.Context, serviceName string, info *proto.Endpoint) (time.Duration, error) {
-	start := time.Now()
-
+func (driver RedisClient) storeSingleEndpoint(ctx context.Context, serviceName string, info *proto.Endpoint) error {
 	data, err := proto2.Marshal(info)
 	if err != nil {
-		return time.Since(start), err
+		return err
 	}
 
 	key := fmt.Sprintf("%s:%s:%s", endpointPrefix, serviceName, info.NodeName)
 	err = driver.redisClient.HSet(ctx, key, "data", data).Err()
-	if err != nil {
-		driver.deleteEndpoint(ctx, serviceName)
-		return time.Since(start), err
-	}
 
-	return time.Since(start), nil
+	return driver.deleteEndpoint(ctx, serviceName)
 }
 
-func (driver RedisClient) storeEndpoints(ctx context.Context, serviceName string, endpoints []*proto.Endpoint) (map[*proto.Endpoint]time.Duration, error) {
-	durations := make(map[*proto.Endpoint]time.Duration)
+func (driver RedisClient) storeEndpoints(ctx context.Context, serviceName string, endpoints []*proto.Endpoint) error {
 	for _, endpoint := range endpoints {
-		duration, err := driver.storeSingleEndpoint(ctx, serviceName, endpoint)
+		err := driver.storeSingleEndpoint(ctx, serviceName, endpoint)
 		if err != nil {
-			return nil, err
+			return err
 		}
-
-		durations[endpoint] = duration
 	}
 
-	return durations, nil
+	return nil
 }
 
 func (driver RedisClient) deleteEndpoint(ctx context.Context, key string) error {
