@@ -2,8 +2,8 @@ port: "9090"
 portRegistration: "9091"
 verbosity: "trace"
 traceOutputFolder: "data"
-placementPolicy: "kubernetes"
-persistence: false
+placementPolicy: "random"
+persistence: true
 reconstruct: true
 
 profiler:
@@ -11,6 +11,6 @@ profiler:
   mutex: false
 
 redis:
-  address: "10.10.1.1:6379"
+  address: "10.0.1.1:6379"
   password: ""
   db: 0

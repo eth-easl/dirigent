@@ -368,5 +368,5 @@ func (ss *ServiceInfoStorage) updatePersistenceLayer() (time.Duration, error) {
 	}
 
 	err := ss.PersistenceLayer.UpdateEndpoints(context.Background(), ss.ServiceInfo.Name, endpointsInformation)
-	return time.Until(start), err
+	return time.Since(start), err
 }
