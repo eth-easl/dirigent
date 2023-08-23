@@ -50,12 +50,10 @@ func ApplyPlacementPolicy(placementPolicy PlacementPolicy, storage *NodeInfoStor
 }
 
 func filterMachines(storage *NodeInfoStorage) *NodeInfoStorage {
-	var resultingNodes *NodeInfoStorage
+	var resultingNodes NodeInfoStorage
 
 	// TODO: Improve this François Costa
-	tmpResourceMap := placement_policy.ResourceMap{}
-	tmpResourceMap.SetCPUCores(1)
-	tmpResourceMap.SetMemory(1)
+	tmpResourceMap := placement_policy.CreateResourceMap(1, 1)
 
 	storage.Lock()
 	defer storage.Unlock()
@@ -72,7 +70,7 @@ func filterMachines(storage *NodeInfoStorage) *NodeInfoStorage {
 		resultingNodes.NodeInfo[key] = value
 	}
 
-	return resultingNodes
+	return &resultingNodes
 }
 
 func getInstalledResources(machine *WorkerNode) *placement_policy.ResourceMap {
