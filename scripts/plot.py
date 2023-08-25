@@ -1,6 +1,6 @@
 import pandas as pd
 
-from clustered_plot import *
+from common import *
 
 rootPath = './francois'
 load = [800]

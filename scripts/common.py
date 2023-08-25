@@ -1,6 +1,14 @@
 import matplotlib.pyplot as plt
 import numpy as np
 
+def processQuantile(d, percentile):
+    p = d.reset_index()
+    p = p.T
+    p.columns = p.iloc[0]
+    p = p.iloc[1:, :]
+    p = p.rename(index={percentile: f"p{int(percentile * 100)}"})
+
+    return p
 
 # Taken from https://stackoverflow.com/questions/22787209/how-to-have-clusters-of-stacked-bars
 def plotClusteredStackedBarchart(dataToPlot,

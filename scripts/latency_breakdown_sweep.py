@@ -1,19 +1,9 @@
 import pandas as pd
 
-from clustered_plot import *
+from common import *
 
 rootPath = './francois'
-load = [8,16,32,50,100,200,400,800]
-
-
-def processQuantile(d, percentile):
-    p = d.reset_index()
-    p = p.T
-    p.columns = p.iloc[0]
-    p = p.iloc[1:, :]
-    p = p.rename(index={percentile: f"p{int(percentile * 100)}"})
-
-    return p
+load = [100,150,200,250,300,350,400,450]
 
 
 result = []
@@ -44,13 +34,14 @@ for l in load:
 plotClusteredStackedBarchart(result,
                              title='',
                              clusterLabels=[
-                                 '25 colds starts per second',
-                                 '50 colds starts per second',
                                  '100 colds starts per second',
                                  '150 colds starts per second',
                                  '200 colds starts per second',
                                  '250 colds starts per second',
                                  '300 colds starts per second',
+                                 '350 colds starts per second',
+                                 '400 colds starts per second',
+                                 '450 colds starts per second',
                              ],
                              clusterLabelPosition=(-0.15, 1.1),
                              categoryLabelPosition=(-0.35, 0.65))
