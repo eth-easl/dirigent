@@ -3,7 +3,7 @@ import pandas as pd
 from clustered_plot import *
 
 rootPath = './francois'
-load = [8,16,32,50,100,200,400,800]
+load = [800]
 
 
 def processQuantile(d, percentile):
@@ -63,4 +63,4 @@ plt.ylabel('Latency [ms]')
 plt.grid()
 plt.tight_layout()
 
-plt.savefig(f"{rootPath}/breakdown_burst.png",dpi=160)
+plt.savefig(f"{rootPath}/breakdown.png",dpi=160)
