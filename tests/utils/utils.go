@@ -18,8 +18,8 @@ import (
 
 const (
 	deployedFunctionName string = "/faas.Executor/Execute"
-	controlPlaneAddress  string = "10.10.1.2"
-	dataPlaneAddress     string = "10.10.1.3"
+	controlPlaneAddress  string = "10.0.1.2"
+	dataPlaneAddress     string = "10.0.1.3"
 )
 
 func DeployService(t *testing.T, nbDeploys, offset int) {

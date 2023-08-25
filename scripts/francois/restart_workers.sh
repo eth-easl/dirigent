@@ -1,13 +1,15 @@
-function RemoteExec() {
-  ssh -oStrictHostKeyChecking=no -p 22 "$1" "$2";
-}
+#!/bin/bash
+
+DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" > /dev/null 2>&1 && pwd)"
+source $DIR/common.sh
+
 
 function RestartWorkers() {
     function internal_setup() {
         RemoteExec $1 "tmux kill-session -t worker"
         RemoteExec $1 "tmux new -s worker -d"
 
-        CMD=$"cd ~/cluster_manager; git fetch origin;git reset --hard origin/dataplane_17; cd ~/cluster_manager/cmd/worker_node; sudo /usr/local/go/bin/go run main.go --configPath config_cluster.yaml"
+        CMD=$"cd ~/cluster_manager; git fetch origin;git reset --hard origin/lazar; cd ~/cluster_manager/cmd/worker_node; sudo /usr/local/go/bin/go run main.go --configPath config_cluster.yaml"
 
         RemoteExec $1 "tmux send -t worker \"$CMD\" ENTER"
     }
