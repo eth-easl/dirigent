@@ -56,7 +56,8 @@ func NewWorkerNode(config config.WorkerNodeConfig, containerdClient *containerd.
 	}
 
 	if config.PrefetchImage {
-		_, err, _ = workerNode.ImageManager.GetImage(context.Background(), workerNode.ContainerdClient, "docker.io/cvetkovic/empty_function:latest")
+		ctx := namespaces.WithNamespace(context.Background(), "default")
+		_, err, _ = workerNode.ImageManager.GetImage(ctx, workerNode.ContainerdClient, "docker.io/cvetkovic/empty_function:latest")
 		if err != nil {
 			logrus.Errorf("Failed to prefetch the image")
 		}
