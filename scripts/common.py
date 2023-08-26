@@ -1,5 +1,6 @@
 import matplotlib.pyplot as plt
 import numpy as np
+import pandas as pd
 
 def processQuantile(d, percentile):
     p = d.reset_index()
@@ -9,6 +10,35 @@ def processQuantile(d, percentile):
     p = p.rename(index={percentile: f"p{int(percentile * 100)}"})
 
     return p
+
+def getResult(load, rootPath):
+    result = []
+    for l in load:
+        cpTrace = pd.read_csv(f'{rootPath}/cold_start_trace_{l}.csv')
+        proxyTrace = pd.read_csv(f'{rootPath}/proxy_trace_{l}.csv')
+
+        data = pd.merge(proxyTrace, cpTrace, on=['container_id', 'service_name'], how='inner')
+        data = data[data['success'] == True]  # keep only successful invocations
+        data = data[data['cold_start'] > 0]  # keep only cold starts
+
+        data = data.drop(columns=['time_x', 'time_y', 'success', 'service_name', 'container_id'])
+
+        data['control_plane'] = data['cold_start'] - \
+                                (data['image_fetch'] + data['container_create'] + data['container_start'] +
+                                 data['cni'] + data['iptables'] + data['db'] + data['other_worker_node'] + data['data_plane_propagation'])
+        data = data.drop(columns=['cold_start'])
+
+        p50 = data.quantile(0.5)
+        p95 = data.quantile(0.95)
+
+        dataToPlot = processQuantile(p50, 0.5)
+        dataToPlot = pd.concat([dataToPlot, processQuantile(p95, 0.95)])
+        dataToPlot = dataToPlot / 1000  # μs -> ms
+
+        result.append(dataToPlot)
+
+    return result
+
 
 # Taken from https://stackoverflow.com/questions/22787209/how-to-have-clusters-of-stacked-bars
 def plotClusteredStackedBarchart(dataToPlot,

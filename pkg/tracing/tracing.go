@@ -12,7 +12,7 @@ import (
 )
 
 const (
-	coldStartLogHeader = "time,service_name,container_id,success,image_fetch,container_create,container_start,cni,iptables,db,other_worker_node\n"
+	coldStartLogHeader = "time,service_name,container_id,success,image_fetch,container_create,container_start,cni,iptables,db,data_plane_propagation,other_worker_node\n"
 	proxyLogHeader     = "time,service_name,container_id,get_metadata,cold_start,cold_start_pause,load_balancing,cc_throttling,proxying,other\n"
 )
 
@@ -131,6 +131,7 @@ func coldStartWriteFunction(f *os.File, msg ColdStartLogEntry) {
 		msg.LatencyBreakdown.CNI.AsDuration().Microseconds(),
 		msg.LatencyBreakdown.Iptables.AsDuration().Microseconds(),
 		msg.LatencyBreakdown.Database.AsDuration().Microseconds(),
+		msg.LatencyBreakdown.DataplanePropagation.AsDuration().Microseconds(),
 		other.Microseconds(),
 	))
 }

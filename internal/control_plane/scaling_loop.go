@@ -160,7 +160,7 @@ func (ss *ServiceInfoStorage) doUpscaling(toCreateCount int, nodeList *NodeInfoS
 
 			resp, err := node.GetAPI().CreateSandbox(ctx, ss.ServiceInfo)
 			if err != nil || !resp.Success {
-				logrus.Warn("Failed to start a sandbox on worker node ", node.Name)
+				logrus.Warnf("Failed to start a sandbox on worker node %s (error %s)", node.Name, err.Error())
 
 				atomic.AddInt64(&ss.Controller.ScalingMetadata.ActualScale, -1)
 				return
@@ -215,12 +215,18 @@ func (ss *ServiceInfoStorage) doUpscaling(toCreateCount int, nodeList *NodeInfoS
 
 	for _, endpoint := range finalEndpoint {
 		endpoint.CreationHistory.LatencyBreakdown.Database = durationpb.New(durationDatabase)
-		*ss.ColdStartTracingChannel <- endpoint.CreationHistory
 	}
 
 	logrus.Debug("Propagating endpoints.")
+	updateEndpointTimeStart := time.Now()
 	ss.updateEndpoints(dpiClients, urls)
+	durationUpdateEndpoints := time.Since(updateEndpointTimeStart)
 	logrus.Debug("Endpoints updated.")
+
+	for _, endpoint := range finalEndpoint {
+		endpoint.CreationHistory.LatencyBreakdown.DataplanePropagation = durationpb.New(durationUpdateEndpoints)
+		*ss.ColdStartTracingChannel <- endpoint.CreationHistory
+	}
 }
 
 func (ss *ServiceInfoStorage) doDownscaling(toEvict map[*Endpoint]struct{}, urls []*proto.EndpointInfo, dpiClients map[string]*function_metadata.DataPlaneConnectionInfo) {
