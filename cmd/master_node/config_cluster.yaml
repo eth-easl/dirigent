@@ -4,7 +4,8 @@ verbosity: "trace"
 traceOutputFolder: "data"
 placementPolicy: "random"
 persistence: true
-reconstruct: true
+reconstruct: false
+
 
 profiler:
   enable: true
@@ -14,3 +15,4 @@ redis:
   address: "10.0.1.1:6379"
   password: ""
   db: 0
+  fullPersistence: true

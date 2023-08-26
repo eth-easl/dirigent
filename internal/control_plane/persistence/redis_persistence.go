@@ -23,12 +23,30 @@ type RedisClient struct {
 	redisClient *redis.Client
 }
 
-func CreateRedisClient(ctx context.Context, redisLogin config.RedisLogin) (RedisClient, error) {
+func CreateRedisClient(ctx context.Context, redisLogin config.RedisConf) (RedisClient, error) {
 	redisClient := redis.NewClient(&redis.Options{
 		Addr:     redisLogin.Address,
 		Password: redisLogin.Password,
 		DB:       redisLogin.Db,
 	})
+
+	if redisLogin.FullPersistence {
+		if err := redisClient.ConfigSet(ctx, "appendonly", "yes").Err(); err != nil {
+			return RedisClient{}, err
+		}
+
+		if err := redisClient.ConfigSet(ctx, "appendfsync", "always").Err(); err != nil {
+			return RedisClient{}, err
+		}
+	} else {
+		if err := redisClient.ConfigSet(ctx, "appendonly", "no").Err(); err != nil {
+			return RedisClient{}, err
+		}
+
+		if err := redisClient.ConfigSet(ctx, "appendfsync", "everysec").Err(); err != nil {
+			return RedisClient{}, err
+		}
+	}
 
 	return RedisClient{redisClient: redisClient}, redisClient.Ping(ctx).Err()
 }

@@ -9,7 +9,7 @@ import (
 )
 
 func TestFlushDB(t *testing.T) {
-	client, err := CreateRedisClient(context.Background(), config.RedisLogin{
+	client, err := CreateRedisClient(context.Background(), config.RedisConf{
 		Address:  "127.0.0.1:6379",
 		Password: "",
 		Db:       0,
@@ -23,7 +23,7 @@ func TestFlushDB(t *testing.T) {
 }
 
 func TestFlushDBServer(t *testing.T) {
-	client, err := CreateRedisClient(context.Background(), config.RedisLogin{
+	client, err := CreateRedisClient(context.Background(), config.RedisConf{
 		Address:  "10.0.1.1:6379",
 		Password: "",
 		Db:       0,

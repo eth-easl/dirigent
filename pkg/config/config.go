@@ -15,7 +15,7 @@ type ControlPlaneConfig struct {
 	PlacementPolicy   string         `mapstructure:"placementPolicy"`
 	Persistence       bool           `mapstructure:"persistence"`
 	Profiler          ProfilerConfig `mapstructure:"profiler"`
-	RedisLogin        RedisLogin     `mapstructure:"redis"`
+	RedisConf         RedisConf      `mapstructure:"redis"`
 	Reconstruct       bool           `mapstructure:"reconstruct"`
 }
 
@@ -44,10 +44,11 @@ type ProfilerConfig struct {
 	Mutex  bool `mapstructure:"mutex"`
 }
 
-type RedisLogin struct {
-	Address  string `mapstructure:"address"`
-	Password string `mapstructure:"password"`
-	Db       int    `mapstructure:"db"`
+type RedisConf struct {
+	Address         string `mapstructure:"address"`
+	Password        string `mapstructure:"password"`
+	Db              int    `mapstructure:"db"`
+	FullPersistence bool   `mapstructure:"fullPersistence"`
 }
 
 func parseConfigPath(configPath string) (string, string, string) {

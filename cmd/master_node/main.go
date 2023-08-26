@@ -43,7 +43,7 @@ func main() {
 	var persistenceLayer persistence.PersistenceLayer
 
 	if config.Persistence {
-		persistenceLayer, err = persistence.CreateRedisClient(context.Background(), config.RedisLogin)
+		persistenceLayer, err = persistence.CreateRedisClient(context.Background(), config.RedisConf)
 		if err != nil {
 			logrus.Fatalf("Failed to connect to the database (error : %s)", err.Error())
 		}
