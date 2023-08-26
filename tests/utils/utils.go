@@ -53,6 +53,40 @@ func DeployService(t *testing.T, nbDeploys, offset int) {
 	}
 }
 
+func DeployServiceTime(t *testing.T, nbDeploys, offset int) time.Duration {
+	logrus.SetLevel(logrus.DebugLevel)
+	logrus.SetFormatter(&logrus.TextFormatter{TimestampFormat: time.StampMilli, FullTimestamp: true})
+
+	cpApi := common.InitializeControlPlaneConnection(controlPlaneAddress, utils.DefaultControlPlanePort, -1, -1)
+
+	ctx, cancel := context.WithTimeout(context.Background(), utils.GRPCFunctionTimeout)
+	defer cancel()
+
+	autoscalingConfig := autoscaling.NewDefaultAutoscalingMetadata()
+	autoscalingConfig.ScalingUpperBound = 1
+	//autoscalingConfig.ScalingLowerBound = 1
+
+	start := time.Now()
+	for i := 0; i < nbDeploys; i++ {
+		resp, err := cpApi.RegisterService(ctx, &proto2.ServiceInfo{
+			Name:  fmt.Sprintf("%s&%d", deployedFunctionName, i+offset),
+			Image: "docker.io/cvetkovic/empty_function:latest",
+			PortForwarding: &proto2.PortMapping{
+				GuestPort: 80,
+				Protocol:  proto2.L4Protocol_TCP,
+			},
+			AutoscalingConfig: autoscalingConfig,
+		})
+
+		if err != nil || !resp.Success {
+			t.Error("Failed to deploy service")
+			logrus.Error("Failed to deploy service")
+		}
+	}
+
+	return time.Since(start)
+}
+
 func PerformXInvocations(t *testing.T, nbInvocations, offset int) {
 	wg := sync.WaitGroup{}
 	wg.Add(nbInvocations)

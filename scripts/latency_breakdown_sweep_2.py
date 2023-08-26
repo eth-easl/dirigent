@@ -20,7 +20,7 @@ plotClusteredStackedBarchart(getResult(load, rootPath),
                              clusterLabelPosition=(-0.15, 1.1),
                              categoryLabelPosition=(-0.35, 0.65))
 
-plt.title(f'Cold start latency breakdown burst')
+plt.title(f'Cold start latency breakdown sweep')
 plt.xlabel('Percentile')
 plt.xticks(rotation=0)
 plt.ylabel('Latency [ms]')

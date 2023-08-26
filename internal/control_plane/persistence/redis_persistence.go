@@ -31,6 +31,7 @@ func CreateRedisClient(ctx context.Context, redisLogin config.RedisConf) (RedisC
 	})
 
 	if redisLogin.FullPersistence {
+		logrus.Warn("Modifications")
 		if err := redisClient.ConfigSet(ctx, "appendonly", "yes").Err(); err != nil {
 			return RedisClient{}, err
 		}
