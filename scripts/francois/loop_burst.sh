@@ -6,8 +6,8 @@ source $DIR/common.sh
 
 function RunMeasure() {
       function Burst() {
-        RemoteExec $DATAPLANE "cd ~/cluster_manager/cmd/cleaner; sudo /usr/local/go/bin/go run cleaner.go"
-        RemoteExec $DATAPLANE "cd ~/cluster_manager/tests/burst; sudo /usr/local/go/bin/go run main.go --invocations $1"
+        RemoteExec $DATAPLANE "cd ~/cluster_manager/tools/cleaner; sudo /usr/local/go/bin/go run cleaner.go"
+        RemoteExec $DATAPLANE "cd ~/cluster_manager/tools/burst; sudo /usr/local/go/bin/go run main.go --invocations $1"
 
         scp $DATAPLANE:~/cluster_manager/cmd/data_plane/data/proxy_trace.csv proxy_trace_$1.csv
         scp $CONTROLPLANE:~/cluster_manager/cmd/master_node/data/cold_start_trace.csv cold_start_trace_$1.csv

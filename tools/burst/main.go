@@ -1,7 +1,7 @@
 package main
 
 import (
-	"cluster_manager/tools/utils"
+	"cluster_manager/tools/shared"
 	"flag"
 	"testing"
 
@@ -20,11 +20,11 @@ func main() {
 	flag.Parse()
 
 	logrus.Info("Registering services")
-	utils.DeployService(&testing.T{}, *invocations, 0)
+	shared.DeployService(&testing.T{}, *invocations, 0)
 
 	logrus.Info("Starting burst test")
 
-	utils.PerformXInvocations(&testing.T{}, *invocations, 0)
+	shared.PerformXInvocations(&testing.T{}, *invocations, 0)
 
 	logrus.Info("End burst test")
 }

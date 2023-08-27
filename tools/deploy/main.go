@@ -1,7 +1,7 @@
 package main
 
 import (
-	"cluster_manager/tools/utils"
+	"cluster_manager/tools/shared"
 	"encoding/json"
 	"flag"
 	"fmt"
@@ -32,7 +32,7 @@ func main() {
 		for i := 0; i < nbTests; i++ {
 			logrus.Infof("Iteration : %d", i)
 
-			duration := utils.DeployServiceTime(&testing.T{}, value, offset)
+			duration := shared.DeployServiceTime(&testing.T{}, value, offset)
 			offset += value
 			measure += float64(duration) / 1e3
 		}

@@ -253,7 +253,11 @@ func (ss *ServiceInfoStorage) doDownscaling(toEvict map[*Endpoint]struct{}, urls
 				HostPort: victim.HostPort,
 			})
 			if err != nil || !resp.Success {
-				logrus.Warn("Failed to delete a sandbox with ID '", victim.SandboxID, "' on worker node '", victim.Node.Name, "'")
+				errText := ""
+				if err != nil {
+					errText = err.Error()
+				}
+				logrus.Warnf("Failed to delete a sandbox with ID %s on worker node %s. (error : %s)", victim.SandboxID, victim.Node.Name, errText)
 				return
 			}
 

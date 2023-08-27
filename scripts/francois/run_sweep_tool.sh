@@ -6,7 +6,7 @@ source $DIR/common.sh
 
 function RunMeasure() {
       function Run() {
-          RemoteExec $DATAPLANE "cd ~/cluster_manager/cmd/cleaner; sudo /usr/local/go/bin/go run cleaner.go"
+          RemoteExec $DATAPLANE "cd ~/cluster_manager/tools/cleaner; sudo /usr/local/go/bin/go run cleaner.go"
           RemoteExec $DATAPLANE "cd loader; sudo /usr/local/go/bin/go run cmd/loader.go  --config config_$1_sweep.json --verbosity trace"
 
           scp $DATAPLANE:~/cluster_manager/cmd/data_plane/data/proxy_trace.csv proxy_trace_$1.csv

@@ -1,4 +1,4 @@
-package utils
+package shared
 
 import (
 	protoApi "cluster_manager/api/proto"

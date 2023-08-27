@@ -1,4 +1,4 @@
-package utils
+package shared
 
 import (
 	proto2 "cluster_manager/api/proto"
@@ -17,16 +17,16 @@ import (
 )
 
 const (
-	deployedFunctionName string = "/faas.Executor/Execute"
-	controlPlaneAddress  string = "10.0.1.2"
-	dataPlaneAddress     string = "10.0.1.3"
+	DeployedFunctionName string = "/faas.Executor/Execute"
+	ControlPlaneAddress  string = "10.0.1.2"
+	DataPlaneAddress     string = "10.0.1.3"
 )
 
 func DeployService(t *testing.T, nbDeploys, offset int) {
 	logrus.SetLevel(logrus.DebugLevel)
 	logrus.SetFormatter(&logrus.TextFormatter{TimestampFormat: time.StampMilli, FullTimestamp: true})
 
-	cpApi := common.InitializeControlPlaneConnection(controlPlaneAddress, utils.DefaultControlPlanePort, -1, -1)
+	cpApi := common.InitializeControlPlaneConnection(ControlPlaneAddress, utils.DefaultControlPlanePort, -1, -1)
 
 	ctx, cancel := context.WithTimeout(context.Background(), utils.GRPCFunctionTimeout)
 	defer cancel()
@@ -37,7 +37,7 @@ func DeployService(t *testing.T, nbDeploys, offset int) {
 
 	for i := 0; i < nbDeploys; i++ {
 		resp, err := cpApi.RegisterService(ctx, &proto2.ServiceInfo{
-			Name:  fmt.Sprintf("%s&%d", deployedFunctionName, i+offset),
+			Name:  fmt.Sprintf("%s&%d", DeployedFunctionName, i+offset),
 			Image: "docker.io/cvetkovic/empty_function:latest",
 			PortForwarding: &proto2.PortMapping{
 				GuestPort: 80,
@@ -57,7 +57,7 @@ func DeployServiceTime(t *testing.T, nbDeploys, offset int) time.Duration {
 	logrus.SetLevel(logrus.DebugLevel)
 	logrus.SetFormatter(&logrus.TextFormatter{TimestampFormat: time.StampMilli, FullTimestamp: true})
 
-	cpApi := common.InitializeControlPlaneConnection(controlPlaneAddress, utils.DefaultControlPlanePort, -1, -1)
+	cpApi := common.InitializeControlPlaneConnection(ControlPlaneAddress, utils.DefaultControlPlanePort, -1, -1)
 
 	ctx, cancel := context.WithTimeout(context.Background(), utils.GRPCFunctionTimeout)
 	defer cancel()
@@ -69,7 +69,7 @@ func DeployServiceTime(t *testing.T, nbDeploys, offset int) time.Duration {
 	start := time.Now()
 	for i := 0; i < nbDeploys; i++ {
 		resp, err := cpApi.RegisterService(ctx, &proto2.ServiceInfo{
-			Name:  fmt.Sprintf("%s&%d", deployedFunctionName, i+offset),
+			Name:  fmt.Sprintf("%s&%d", DeployedFunctionName, i+offset),
 			Image: "docker.io/cvetkovic/empty_function:latest",
 			PortForwarding: &proto2.PortMapping{
 				GuestPort: 80,
@@ -93,7 +93,7 @@ func PerformXInvocations(t *testing.T, nbInvocations, offset int) {
 
 	for i := 0; i < nbInvocations; i++ {
 		go func(i int) {
-			conn := common.EstablishGRPCConnectionPoll(dataPlaneAddress, "8080", grpc.WithAuthority(fmt.Sprintf("%s&%d", deployedFunctionName, i+offset)))
+			conn := common.EstablishGRPCConnectionPoll(DataPlaneAddress, "8080", grpc.WithAuthority(fmt.Sprintf("%s&%d", DeployedFunctionName, i+offset)))
 			if conn == nil {
 				logrus.Fatal("Failed to establish gRPC connection with the data plane")
 			}

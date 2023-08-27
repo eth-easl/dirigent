@@ -3,23 +3,18 @@ package main
 import (
 	common "cluster_manager/pkg/grpc_helpers"
 	"cluster_manager/pkg/utils"
+	"cluster_manager/tools/shared"
 	"context"
 	"github.com/sirupsen/logrus"
 	"google.golang.org/protobuf/types/known/emptypb"
 	"time"
 )
 
-const (
-	deployedFunctionName string = "/faas.Executor/Execute"
-	controlPlaneAddress  string = "10.0.1.2"
-	dataPlaneAddress     string = "10.0.1.3"
-)
-
 func Clean() {
 	logrus.SetLevel(logrus.DebugLevel)
 	logrus.SetFormatter(&logrus.TextFormatter{TimestampFormat: time.StampMilli, FullTimestamp: true})
 
-	cpApi := common.InitializeControlPlaneConnection(controlPlaneAddress, utils.DefaultControlPlanePort, -1, -1)
+	cpApi := common.InitializeControlPlaneConnection(shared.ControlPlaneAddress, utils.DefaultControlPlanePort, -1, -1)
 
 	ctx, cancel := context.WithTimeout(context.Background(), utils.GRPCFunctionTimeout)
 	defer cancel()

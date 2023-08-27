@@ -405,19 +405,19 @@ func (c *ControlPlane) ReconstructState(ctx context.Context, config config2.Cont
 		return nil
 	}
 
-	go c.reconstructDataplaneState(ctx)
-
-	err := c.reconstructWorkersState(ctx)
-	if err != nil {
+	if err := c.reconstructDataplaneState(ctx); err != nil {
 		return err
 	}
 
-	err = c.reconstructServiceState(ctx)
-	if err != nil {
+	if err := c.reconstructWorkersState(ctx); err != nil {
 		return err
 	}
 
-	return c.reconstructEndpointsState(ctx)
+	if err := c.reconstructServiceState(ctx); err != nil {
+		return err
+	}
+
+	return nil
 }
 
 func (c *ControlPlane) reconstructDataplaneState(ctx context.Context) error {

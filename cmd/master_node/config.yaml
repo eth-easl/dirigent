@@ -4,7 +4,7 @@ verbosity: "trace"
 traceOutputFolder: "data"
 placementPolicy: "kubernetes"
 persistence: true
-reconstruct: false
+reconstruct: true
 
 profiler:
   enable: true
