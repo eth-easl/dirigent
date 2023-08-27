@@ -169,19 +169,6 @@ func (driver RedisClient) StoreServiceInformation(ctx context.Context, serviceIn
 	return driver.redisClient.HSet(ctx, key, "data", data).Err()
 }
 
-func (driver RedisClient) StoreServiceInformationProto(ctx context.Context, serviceInfo *proto.ServiceInfo) error {
-	logrus.Trace("store service information in the database")
-
-	data, err := proto2.Marshal(serviceInfo)
-	if err != nil {
-		return err
-	}
-
-	key := fmt.Sprintf("%s:%s", servicePrefix, data)
-
-	return driver.redisClient.HSet(ctx, key, "data", data).Err()
-}
-
 func (driver RedisClient) GetServiceInformation(ctx context.Context) ([]*proto.ServiceInfo, error) {
 	logrus.Trace("get services information from the database")
 

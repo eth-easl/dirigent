@@ -2,7 +2,6 @@ package control_plane
 
 import (
 	"cluster_manager/api/proto"
-	"cluster_manager/internal/control_plane/autoscaling"
 	"cluster_manager/internal/control_plane/persistence"
 	"cluster_manager/internal/data_plane/function_metadata"
 	"cluster_manager/pkg/atomic_map"
@@ -304,15 +303,9 @@ func (c *ControlPlane) connectToRegisteredService(ctx context.Context, serviceIn
 	scalingChannel := make(chan int)
 
 	service := &ServiceInfoStorage{
-		ServiceInfo:  serviceInfo,
-		ControlPlane: c,
-		Controller: &PFStateController{
-			DesiredStateChannel: &scalingChannel,
-			Period:              2 * time.Second, // TODO: hardcoded autoscaling period for now
-			ScalingMetadata: autoscaling.AutoscalingMetadata{
-				AutoscalingConfig: serviceInfo.AutoscalingConfig,
-			},
-		},
+		ServiceInfo:             serviceInfo,
+		ControlPlane:            c,
+		Controller:              NewPerFunctionStateController(&scalingChannel, serviceInfo),
 		ColdStartTracingChannel: &c.ColdStartTracing.InputChannel,
 		PlacementPolicy:         c.PlacementPolicy,
 		PersistenceLayer:        c.PersistenceLayer,

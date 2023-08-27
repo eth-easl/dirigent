@@ -180,20 +180,6 @@ func (mr *MockPersistenceLayerMockRecorder) StoreServiceInformation(ctx, service
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "StoreServiceInformation", reflect.TypeOf((*MockPersistenceLayer)(nil).StoreServiceInformation), ctx, serviceInfo)
 }
 
-// StoreServiceInformationProto mocks base method.
-func (m *MockPersistenceLayer) StoreServiceInformationProto(ctx context.Context, serviceInfo *proto.ServiceInfo) error {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "StoreServiceInformationProto", ctx, serviceInfo)
-	ret0, _ := ret[0].(error)
-	return ret0
-}
-
-// StoreServiceInformationProto indicates an expected call of StoreServiceInformationProto.
-func (mr *MockPersistenceLayerMockRecorder) StoreServiceInformationProto(ctx, serviceInfo interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "StoreServiceInformationProto", reflect.TypeOf((*MockPersistenceLayer)(nil).StoreServiceInformationProto), ctx, serviceInfo)
-}
-
 // StoreWorkerNodeInformation mocks base method.
 func (m *MockPersistenceLayer) StoreWorkerNodeInformation(ctx context.Context, workerNodeInfo *proto.WorkerNodeInformation) error {
 	m.ctrl.T.Helper()

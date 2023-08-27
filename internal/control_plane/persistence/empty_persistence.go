@@ -39,10 +39,6 @@ func (emptyPersistence) StoreServiceInformation(ctx context.Context, serviceInfo
 	return nil
 }
 
-func (emptyPersistence) StoreServiceInformationProto(ctx context.Context, serviceInfo *proto.ServiceInfo) error {
-	return nil
-}
-
 func (emptyPersistence) GetServiceInformation(ctx context.Context) ([]*proto.ServiceInfo, error) {
 	return make([]*proto.ServiceInfo, 0), nil
 }

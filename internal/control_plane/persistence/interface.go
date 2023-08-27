@@ -13,7 +13,6 @@ type PersistenceLayer interface {
 	DeleteWorkerNodeInformation(ctx context.Context, workerNodeInfo *proto.WorkerNodeInformation) error
 	GetWorkerNodeInformation(ctx context.Context) ([]*proto.WorkerNodeInformation, error)
 	StoreServiceInformation(ctx context.Context, serviceInfo *proto.ServiceInfo) error
-	StoreServiceInformationProto(ctx context.Context, serviceInfo *proto.ServiceInfo) error
 	GetServiceInformation(ctx context.Context) ([]*proto.ServiceInfo, error)
 	UpdateEndpoints(ctx context.Context, serviceName string, endpoints []*proto.Endpoint) error
 	DeleteEndpoint(ctx context.Context, serviceName string, workerNodeName string) error

@@ -1,6 +1,7 @@
 package control_plane
 
 import (
+	"cluster_manager/api/proto"
 	"cluster_manager/internal/control_plane/autoscaling"
 	"sync"
 	"sync/atomic"
@@ -21,10 +22,23 @@ type PFStateController struct {
 	Period time.Duration
 }
 
-func (as *PFStateController) Start() {
+func NewPerFunctionStateController(scalingChannel *chan int, serviceInfo *proto.ServiceInfo) *PFStateController {
+	return &PFStateController{
+		DesiredStateChannel: scalingChannel,
+		Period:              2 * time.Second, // TODO: hardcoded autoscaling period for now
+		ScalingMetadata: autoscaling.AutoscalingMetadata{
+			AutoscalingConfig: serviceInfo.AutoscalingConfig,
+		},
+	}
+}
+
+func (as *PFStateController) Start() bool {
 	if atomic.CompareAndSwapInt32(&as.AutoscalingRunning, 0, 1) {
 		go as.ScalingLoop()
+		return true
 	}
+
+	return false
 }
 
 func (as *PFStateController) ScalingLoop() {
