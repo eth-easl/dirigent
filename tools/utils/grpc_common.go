@@ -4,7 +4,7 @@ import (
 	protoApi "cluster_manager/api/proto"
 	"cluster_manager/pkg/grpc_helpers"
 	"cluster_manager/pkg/utils"
-	"cluster_manager/tests/proto"
+	"cluster_manager/tools/proto"
 	"context"
 	"fmt"
 	"testing"

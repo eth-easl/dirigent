@@ -42,6 +42,10 @@ func (c *AtomicMap[K, V]) RemoveKey(key K) {
 	c.Delete(key)
 }
 
+func (c *AtomicMap[K, V]) Len() int {
+	return len(c.Keys())
+}
+
 func (c *AtomicMap[K, V]) Keys() []K {
 	output := make([]K, 0)
 

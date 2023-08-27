@@ -51,6 +51,18 @@ func NewControlPlane(client persistence.PersistenceLayer, outputFile string, pla
 	}
 }
 
+func (c *ControlPlane) GetNumberConnectedWorkers() int {
+	return len(c.NIStorage.NodeInfo)
+}
+
+func (c *ControlPlane) GetNumberDataplanes() int {
+	return len(c.DataPlaneConnections)
+}
+
+func (c *ControlPlane) GetNumberServices() int {
+	return c.SIStorage.Len()
+}
+
 func (c *ControlPlane) CheckPeriodicallyWorkerNodes() {
 	for {
 		c.NIStorage.Lock()
@@ -407,12 +419,10 @@ func (c *ControlPlane) ReconstructState(ctx context.Context, config config2.Cont
 		return err
 	}
 
-	// TODO: Fix issue francois costa
-	// TODO: Not even sure if there is an issue
-	//err = c.reconstructServiceState(ctx)
-	//if err != nil {
-	//return err
-	//}
+	err = c.reconstructServiceState(ctx)
+	if err != nil {
+		return err
+	}
 
 	return c.reconstructEndpointsState(ctx)
 }

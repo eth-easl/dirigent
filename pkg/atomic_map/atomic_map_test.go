@@ -56,6 +56,17 @@ func TestAtomicMap_AtomicRange(t *testing.T) {
 	assert.Len(t, keys, 3, "Map should have 3 keys")
 }
 
+func TestAtomicMap_AtomicLenn(t *testing.T) {
+	atomicMap := NewAtomicMap[string, string]()
+	atomicMap.Set("france", "paris")
+	atomicMap.Set("switzerland", "bern")
+	atomicMap.Set("germany", "berlin")
+	atomicMap.Set("italy", "roma")
+	atomicMap.Set("spain", "madrid")
+
+	assert.Equal(t, atomicMap.Len(), 5, "Map should have a length of 5")
+}
+
 func TestAtomicMap_MultipleThreads(t *testing.T) {
 	atomicMap := NewAtomicMap[string, int]()
 
