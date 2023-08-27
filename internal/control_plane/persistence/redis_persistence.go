@@ -164,7 +164,7 @@ func (driver RedisClient) StoreServiceInformation(ctx context.Context, serviceIn
 		return err
 	}
 
-	key := fmt.Sprintf("%s:%s", servicePrefix, data)
+	key := fmt.Sprintf("%s:%s", servicePrefix, serviceInfo.Name)
 
 	return driver.redisClient.HSet(ctx, key, "data", data).Err()
 }
