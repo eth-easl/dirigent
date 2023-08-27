@@ -9,7 +9,6 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-type PolicyType = int
 type PlacementPolicy interface {
 	Place(*NodeInfoStorage, *placement_policy.ResourceMap) *WorkerNode
 }
@@ -32,10 +31,14 @@ type roundRobinPolicy struct {
 }
 
 func NewKubernetesPolicy() *kubernetesPolicy {
-	return &kubernetesPolicy{}
+	return &kubernetesPolicy{
+		// TODO: Make it dynamic in the future
+		resourceMap: placement_policy.CreateResourceMap(1, 1),
+	}
 }
 
 type kubernetesPolicy struct {
+	resourceMap *placement_policy.ResourceMap
 }
 
 func ApplyPlacementPolicy(placementPolicy PlacementPolicy, storage *NodeInfoStorage, requested *placement_policy.ResourceMap) *WorkerNode {
@@ -49,19 +52,16 @@ func ApplyPlacementPolicy(placementPolicy PlacementPolicy, storage *NodeInfoStor
 	return placementPolicy.Place(storage, requested)
 }
 
-func filterMachines(storage *NodeInfoStorage) *NodeInfoStorage {
+func filterMachines(storage *NodeInfoStorage, resourceMap *placement_policy.ResourceMap) *NodeInfoStorage {
 	var resultingNodes NodeInfoStorage
-
-	// TODO: Improve this François Costa
-	tmpResourceMap := placement_policy.CreateResourceMap(1, 1)
 
 	storage.Lock()
 	defer storage.Unlock()
 
 	// Model implementation - kubernetes/pkg/scheduler/framework/plugins/noderesources/fit.go:fitsRequest:256
 	for key, value := range storage.NodeInfo {
-		isMemoryBigEnough := value.Memory >= tmpResourceMap.GetMemory()
-		isCpuBigEnough := value.CpuCores >= tmpResourceMap.GetCPUCores()
+		isMemoryBigEnough := value.Memory >= resourceMap.GetMemory()
+		isCpuBigEnough := value.CpuCores >= resourceMap.GetCPUCores()
 
 		if !isMemoryBigEnough || !isCpuBigEnough {
 			continue
@@ -130,7 +130,7 @@ func selectOneMachine(storage *NodeInfoStorage, scores map[string]int) *WorkerNo
 	return selected
 }
 
-func (policy randomPolicy) Place(storage *NodeInfoStorage, requested *placement_policy.ResourceMap) *WorkerNode {
+func (policy *randomPolicy) Place(storage *NodeInfoStorage, requested *placement_policy.ResourceMap) *WorkerNode {
 	nbNodes := getNumberNodes(storage)
 
 	index := rand.Intn(nbNodes)
@@ -138,7 +138,7 @@ func (policy randomPolicy) Place(storage *NodeInfoStorage, requested *placement_
 	return nodeFromIndex(storage, index)
 }
 
-func (policy roundRobinPolicy) Place(storage *NodeInfoStorage, _ *placement_policy.ResourceMap) *WorkerNode {
+func (policy *roundRobinPolicy) Place(storage *NodeInfoStorage, _ *placement_policy.ResourceMap) *WorkerNode {
 	nbNodes := getNumberNodes(storage)
 	if nbNodes == 0 {
 		return nil
@@ -150,8 +150,8 @@ func (policy roundRobinPolicy) Place(storage *NodeInfoStorage, _ *placement_poli
 	return nodeFromIndex(storage, index)
 }
 
-func (policy kubernetesPolicy) Place(storage *NodeInfoStorage, requested *placement_policy.ResourceMap) *WorkerNode {
-	filteredStorage := filterMachines(storage)
+func (policy *kubernetesPolicy) Place(storage *NodeInfoStorage, requested *placement_policy.ResourceMap) *WorkerNode {
+	filteredStorage := filterMachines(storage, policy.resourceMap)
 
 	scores := prioritizeNodes(filteredStorage, requested)
 
