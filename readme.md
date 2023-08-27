@@ -188,7 +188,7 @@ Ana Klimovic - aklimovic@ethz.ch
 ## For developpers
 
 
-## Generate proto files
+### Generate proto files
 
 First you have to install the protobuf compiler
 
@@ -202,14 +202,27 @@ Then you can compile the proto types using the following command
 make proto
 ```
 
-## Run the tests
+### Generate mock tests
+
+First you have to install the mockgen library
 
 ```bash
-go test -v ./...
+make install_mockgen
 ```
 
+Then you can create the files with the following command
 
-## Linter
+```bash
+make generate_mock_files
+```
+
+### Run the tests
+
+```bash
+sudo go test -v ./...
+```
+
+### Linter
 
 ```bash
 golangci-lint run --fix
@@ -221,7 +234,7 @@ or with verbose
 golangci-lint run -v --timeout 5m0s
 ```
 
-## Profiler
+### Profiler
 
 Nice tutorial that explains how to use it
 
