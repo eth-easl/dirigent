@@ -116,13 +116,6 @@ func (ss *ServiceInfoStorage) RemoveEndpoint(endpointToEvict *Endpoint, dpiClien
 	ss.Controller.Endpoints = ss.excludeSingleEndpoint(ss.Controller.Endpoints, endpointToEvict)
 	atomic.AddInt64(&ss.Controller.ScalingMetadata.ActualScale, -1)
 
-	_, err := ss.updatePersistenceLayer()
-	if err != nil {
-		ss.Controller.EndpointLock.Unlock()
-
-		return err
-	}
-
 	ss.Controller.EndpointLock.Unlock()
 
 	ss.updateEndpoints(dpiClients, ss.prepareUrlList())
@@ -206,16 +199,7 @@ func (ss *ServiceInfoStorage) doUpscaling(toCreateCount int, nodeList *NodeInfoS
 	ss.Controller.Endpoints = append(ss.Controller.Endpoints, finalEndpoint...)
 	urls := ss.prepareUrlList()
 
-	durationDatabase, err := ss.updatePersistenceLayer()
-	if err != nil {
-		logrus.Errorf("Failed to update the persistence layer (error : %s)", err.Error())
-	}
-
 	ss.Controller.EndpointLock.Unlock()
-
-	for _, endpoint := range finalEndpoint {
-		endpoint.CreationHistory.LatencyBreakdown.Database = durationpb.New(durationDatabase)
-	}
 
 	logrus.Debug("Propagating endpoints.")
 	updateEndpointTimeStart := time.Now()
@@ -270,15 +254,6 @@ func (ss *ServiceInfoStorage) doDownscaling(toEvict map[*Endpoint]struct{}, urls
 
 	// batch update of endpoints
 	barrier.Wait()
-
-	ss.Controller.EndpointLock.Lock()
-
-	_, err := ss.updatePersistenceLayer()
-	if err != nil {
-		logrus.Errorf("Failed to update the persistence layer (error : %s)", err.Error())
-	}
-
-	ss.Controller.EndpointLock.Unlock()
 
 	ss.updateEndpoints(dpiClients, urls)
 }
@@ -361,22 +336,4 @@ func (ss *ServiceInfoStorage) prepareUrlList() []*proto.EndpointInfo {
 	}
 
 	return res
-}
-
-func (ss *ServiceInfoStorage) updatePersistenceLayer() (time.Duration, error) {
-	start := time.Now()
-	endpointsInformation := make([]*proto.Endpoint, 0)
-	for _, endpoint := range ss.Controller.Endpoints {
-		e := &proto.Endpoint{
-			SandboxID: endpoint.SandboxID,
-			URL:       endpoint.URL,
-			NodeName:  endpoint.Node.Name,
-			HostPort:  endpoint.HostPort,
-		}
-
-		endpointsInformation = append(endpointsInformation, e)
-	}
-
-	err := ss.PersistenceLayer.UpdateEndpoints(context.Background(), ss.ServiceInfo.Name, endpointsInformation)
-	return time.Since(start), err
 }

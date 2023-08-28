@@ -8,7 +8,6 @@ import (
 	proto2 "github.com/golang/protobuf/proto"
 	"github.com/redis/go-redis/v9"
 	"github.com/sirupsen/logrus"
-	"strings"
 )
 
 const (
@@ -199,85 +198,6 @@ func (driver RedisClient) GetServiceInformation(ctx context.Context) ([]*proto.S
 	logrus.Tracef("Found %d service(s) in the database", len(services))
 
 	return services, nil
-}
-
-func (driver RedisClient) UpdateEndpoints(ctx context.Context, serviceName string, endpoints []*proto.Endpoint) error {
-	logrus.Trace("store endpoints information in the database")
-
-	key := fmt.Sprintf("%s:%s:*", endpointPrefix, serviceName)
-	err := driver.deleteEndpoint(ctx, key)
-
-	if err != nil {
-		return err
-	}
-
-	return driver.storeEndpoints(ctx, serviceName, endpoints)
-}
-
-func (driver RedisClient) DeleteEndpoint(ctx context.Context, serviceName string, workerNodeName string) error {
-	key := fmt.Sprintf("%s:%s:%s", endpointPrefix, serviceName, workerNodeName)
-
-	return driver.deleteEndpoint(ctx, key)
-}
-
-func (driver RedisClient) storeSingleEndpoint(ctx context.Context, serviceName string, info *proto.Endpoint) error {
-	data, err := proto2.Marshal(info)
-	if err != nil {
-		return err
-	}
-
-	key := fmt.Sprintf("%s:%s:%s", endpointPrefix, serviceName, info.NodeName)
-	err = driver.redisClient.HSet(ctx, key, "data", data).Err()
-
-	return driver.deleteEndpoint(ctx, serviceName)
-}
-
-func (driver RedisClient) storeEndpoints(ctx context.Context, serviceName string, endpoints []*proto.Endpoint) error {
-	for _, endpoint := range endpoints {
-		err := driver.storeSingleEndpoint(ctx, serviceName, endpoint)
-		if err != nil {
-			return err
-		}
-	}
-
-	return nil
-}
-
-func (driver RedisClient) deleteEndpoint(ctx context.Context, key string) error {
-	return driver.redisClient.Del(ctx, key).Err()
-}
-
-func (driver RedisClient) GetEndpoints(ctx context.Context) ([]*proto.Endpoint, []string, error) {
-	logrus.Trace("get endpoints information from the database")
-
-	keys, err := driver.scanKeys(ctx, endpointPrefix)
-	if err != nil {
-		return nil, nil, err
-	}
-
-	endpoints := make([]*proto.Endpoint, 0)
-	services := make([]string, 0)
-
-	for _, key := range keys {
-		fields, err := driver.redisClient.HGetAll(ctx, key).Result()
-		if err != nil {
-			return nil, nil, err
-		}
-
-		endpoint := &proto.Endpoint{}
-		err = proto2.Unmarshal([]byte(fields["data"]), endpoint)
-
-		if err != nil {
-			panic(err)
-		}
-
-		endpoints = append(endpoints, endpoint)
-		services = append(services, strings.Split(key, ":")[1])
-	}
-
-	logrus.Tracef("Found %d endpoint(s) in the database", len(endpoints))
-
-	return endpoints, services, nil
 }
 
 func (driver RedisClient) StoreSerialized(ctx context.Context, controlPlane []byte) error {

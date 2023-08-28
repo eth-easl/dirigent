@@ -14,8 +14,5 @@ type PersistenceLayer interface {
 	GetWorkerNodeInformation(ctx context.Context) ([]*proto.WorkerNodeInformation, error)
 	StoreServiceInformation(ctx context.Context, serviceInfo *proto.ServiceInfo) error
 	GetServiceInformation(ctx context.Context) ([]*proto.ServiceInfo, error)
-	UpdateEndpoints(ctx context.Context, serviceName string, endpoints []*proto.Endpoint) error
-	DeleteEndpoint(ctx context.Context, serviceName string, workerNodeName string) error
-	GetEndpoints(ctx context.Context) ([]*proto.Endpoint, []string, error)
 	StoreSerialized(ctx context.Context, controlPlane []byte) error
 }

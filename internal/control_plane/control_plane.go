@@ -470,7 +470,8 @@ func (c *ControlPlane) reconstructServiceState(ctx context.Context) error {
 }
 
 func (c *ControlPlane) reconstructEndpointsState(ctx context.Context) error {
-	endpoints, services, err := c.PersistenceLayer.GetEndpoints(ctx)
+	// TODO: Rewrite this function
+	/*endpoints, services, err := c.PersistenceLayer.GetEndpoints(ctx)
 	if err != nil {
 		return err
 	}
@@ -489,7 +490,7 @@ func (c *ControlPlane) reconstructEndpointsState(ctx context.Context) error {
 		}
 
 		val.ReconstructEndpointsFromDatabase(controlPlaneEndpoint)
-	}
+	}*/
 
 	return nil
 }
