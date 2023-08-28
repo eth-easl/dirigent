@@ -20,7 +20,7 @@ import (
 )
 
 type ControlPlane struct {
-	DataPlaneConnections map[string]*function_metadata.DataPlaneConnectionInfo // TODO: Check if we need an atomic map here
+	DataPlaneConnections map[string]*function_metadata.DataPlaneConnectionInfo // TODO: Use an atomic map here
 	dataplaneMutex       sync.Mutex
 
 	NIStorage NodeInfoStorage
@@ -51,10 +51,16 @@ func NewControlPlane(client persistence.PersistenceLayer, outputFile string, pla
 }
 
 func (c *ControlPlane) GetNumberConnectedWorkers() int {
+	c.NIStorage.Lock()
+	defer c.NIStorage.Unlock()
+
 	return len(c.NIStorage.NodeInfo)
 }
 
 func (c *ControlPlane) GetNumberDataplanes() int {
+	c.dataplaneMutex.Lock()
+	defer c.dataplaneMutex.Unlock()
+
 	return len(c.DataPlaneConnections)
 }
 
@@ -219,29 +225,10 @@ func (c *ControlPlane) deregisterNode(wn *WorkerNode) error {
 }
 
 func (c *ControlPlane) disconnectRegisteredWorker(wn *WorkerNode) error {
+	c.NIStorage.Lock()
+	defer c.NIStorage.Unlock()
+
 	delete(c.NIStorage.NodeInfo, wn.Name)
-
-	for endpoint, serviceName := range c.WorkerEndpoints[wn.Name] {
-		err := c.PersistenceLayer.DeleteEndpoint(context.Background(), serviceName, endpoint.Node.Name)
-		if err != nil {
-			return err
-		}
-
-		val, found := c.SIStorage.Get(serviceName)
-		if !found {
-			errors.New("key not found in map")
-		}
-
-		err = val.RemoveEndpoint(endpoint, c.DataPlaneConnections)
-		if err != nil {
-			return err
-		}
-	}
-
-	c.WorkerEndpointsLock.Lock()
-	defer c.WorkerEndpointsLock.Unlock()
-
-	delete(c.WorkerEndpoints, wn.Name)
 
 	return nil
 }
@@ -283,6 +270,7 @@ func (c *ControlPlane) RegisterService(ctx context.Context, serviceInfo *proto.S
 		return &proto.ActionStatus{Success: false}, err
 	}
 
+	c.dataplaneMutex.Lock()
 	for _, conn := range c.DataPlaneConnections {
 		resp, err := conn.Iface.AddDeployment(ctx, serviceInfo)
 		if err != nil || !resp.Success {
@@ -290,6 +278,7 @@ func (c *ControlPlane) RegisterService(ctx context.Context, serviceInfo *proto.S
 			return &proto.ActionStatus{Success: false}, err
 		}
 	}
+	c.dataplaneMutex.Unlock()
 
 	err = c.connectToRegisteredService(ctx, serviceInfo)
 	if err != nil {
@@ -366,6 +355,9 @@ func (c *ControlPlane) connectToRegisteredDataplane(information *proto.Dataplane
 }
 
 func (c *ControlPlane) registerDataplane(iface proto.DpiInterfaceClient, ip, apiPort, proxyPort string) {
+	c.dataplaneMutex.Lock()
+	defer c.dataplaneMutex.Unlock()
+
 	c.DataPlaneConnections[ip] = &function_metadata.DataPlaneConnectionInfo{
 		Iface:     iface,
 		IP:        ip,
@@ -378,7 +370,7 @@ func (c *ControlPlane) DeregisterDataplane(ctx context.Context, in *proto.Datapl
 	logrus.Trace("Received a data plane deregistration")
 
 	c.dataplaneMutex.Lock()
-	c.dataplaneMutex.Unlock()
+	defer c.dataplaneMutex.Unlock()
 
 	dataplaneInfo, err := c.processDataplaneRequest(ctx, in)
 	if err != nil {
@@ -397,6 +389,9 @@ func (c *ControlPlane) DeregisterDataplane(ctx context.Context, in *proto.Datapl
 }
 
 func (c *ControlPlane) deregisterDataplane(information *proto.DataplaneInformation) {
+	c.dataplaneMutex.Lock()
+	defer c.dataplaneMutex.Unlock()
+
 	delete(c.DataPlaneConnections, information.Address)
 }
 

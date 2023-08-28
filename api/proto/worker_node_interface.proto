@@ -1,0 +1,34 @@
+syntax = "proto3";
+package data_plane;
+
+option go_package = "github.com/eth-easl/cluster_manager/api/proto";
+
+import "common.proto";
+import "google/protobuf/duration.proto";
+
+message SandboxID {
+  string ID = 1;
+  int32 HostPort = 2;
+}
+
+message SandboxCreationStatus {
+  bool Success = 1;
+  string ID = 2;
+  PortMapping PortMappings = 3;
+  SandboxCreationBreakdown LatencyBreakdown = 5;
+}
+
+message SandboxCreationBreakdown {
+  google.protobuf.Duration Total = 1;
+  google.protobuf.Duration ImageFetch = 2;
+  google.protobuf.Duration ContainerCreate = 3;
+  google.protobuf.Duration CNI = 4;
+  google.protobuf.Duration ContainerStart = 5;
+  google.protobuf.Duration Iptables = 6;
+  google.protobuf.Duration DataplanePropagation = 7;
+}
+
+service WorkerNodeInterface {
+  rpc CreateSandbox(ServiceInfo) returns (SandboxCreationStatus);
+  rpc DeleteSandbox(SandboxID) returns (ActionStatus);
+}

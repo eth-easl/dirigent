@@ -5,7 +5,7 @@ import (
 	"cluster_manager/internal/control_plane/autoscaling"
 	common "cluster_manager/pkg/grpc_helpers"
 	"cluster_manager/pkg/utils"
-	"cluster_manager/tools/proto"
+	"cluster_manager/tests/proto"
 	"context"
 	"fmt"
 	"sync"

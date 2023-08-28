@@ -1,7 +1,7 @@
 package main
 
 import (
-	"cluster_manager/tools/shared"
+	"cluster_manager/tests/shared"
 	"flag"
 	"sync"
 	"testing"

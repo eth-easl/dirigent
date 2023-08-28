@@ -3,7 +3,7 @@ package main
 import (
 	common "cluster_manager/pkg/grpc_helpers"
 	"cluster_manager/pkg/utils"
-	"cluster_manager/tools/shared"
+	"cluster_manager/tests/shared"
 	"context"
 	"github.com/sirupsen/logrus"
 	"google.golang.org/protobuf/types/known/emptypb"
