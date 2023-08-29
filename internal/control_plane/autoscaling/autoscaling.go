@@ -2,6 +2,7 @@ package autoscaling
 
 import (
 	"cluster_manager/api/proto"
+	"github.com/cznic/mathutil"
 	"math"
 	"time"
 
@@ -56,13 +57,7 @@ func (s *AutoscalingMetadata) KnativeScaling(isScaleFromZero bool) int {
 
 	desiredScale, _ := s.internalScaleAlgorithm(s.cachedScalingMetric)
 
-	if desiredScale > int(s.AutoscalingConfig.ScalingUpperBound) {
-		desiredScale = int(s.AutoscalingConfig.ScalingUpperBound)
-	} else if desiredScale < int(s.AutoscalingConfig.ScalingLowerBound) {
-		desiredScale = int(s.AutoscalingConfig.ScalingLowerBound)
-	}
-
-	return desiredScale
+	return mathutil.Clamp(desiredScale, int(s.AutoscalingConfig.ScalingLowerBound), int(s.AutoscalingConfig.ScalingUpperBound))
 }
 
 func (s *AutoscalingMetadata) internalScaleAlgorithm(scalingMetric float64) (int, float64) {
