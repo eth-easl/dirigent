@@ -1,13 +1,9 @@
 package shared
 
 import (
-	protoApi "cluster_manager/api/proto"
-	"cluster_manager/pkg/grpc_helpers"
 	"cluster_manager/pkg/utils"
 	"cluster_manager/tests/proto"
 	"context"
-	"fmt"
-	"testing"
 	"time"
 
 	"github.com/sirupsen/logrus"
@@ -39,33 +35,4 @@ func FireInvocation(client proto.ExecutorClient) error {
 	logrus.Info("Request completed - took ", time.Since(start).Microseconds(), " μs")
 
 	return err
-}
-
-func UpdateEndpointList(t *testing.T, host string, port string, endpoints []*protoApi.EndpointInfo) {
-	conn := grpc_helpers.EstablishGRPCConnectionPoll(host, port)
-	if conn == nil {
-		logrus.Fatal("Failed to establish gRPC connection with the data plane")
-	}
-
-	executionCxt, cancelExecution := context.WithTimeout(context.Background(), utils.GRPCFunctionTimeout)
-	defer cancelExecution()
-
-	// TODO: make this not be static and random
-	resp, err := protoApi.NewDpiInterfaceClient(conn).UpdateEndpointList(executionCxt, &protoApi.DeploymentEndpointPatch{
-		Service: &protoApi.ServiceInfo{
-			Name:  "/faas.Executor/Execute",
-			Image: utils.TestDockerImageName,
-			PortForwarding: &protoApi.PortMapping{
-				GuestPort: 80,
-				Protocol:  protoApi.L4Protocol_TCP,
-			},
-		},
-		Endpoints: endpoints,
-	})
-
-	if !resp.Success {
-		t.Error("Update endpoint list call did not succeed.")
-	} else if err != nil {
-		t.Error(fmt.Sprintf("Failed to update endpoint list - %s", err))
-	}
 }
