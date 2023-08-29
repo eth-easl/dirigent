@@ -15,7 +15,7 @@ func StartServiceRegistrationServer(cpApi *CpApiServer, registrationPort string)
 		if r.Method != http.MethodPost {
 			http.Error(w, "Method not allowed.", http.StatusMethodNotAllowed)
 			return
-		} else if cpApi.ControlPlane.DataPlaneConnections == nil || len(cpApi.ControlPlane.DataPlaneConnections) == 0 {
+		} else if cpApi.ControlPlane.DataPlaneConnections.Len() == 0 {
 			http.Error(w, "No data plane found.", http.StatusPreconditionFailed)
 			return
 		}
@@ -103,8 +103,8 @@ func StartServiceRegistrationServer(cpApi *CpApiServer, registrationPort string)
 		endpointList := ""
 
 		cnt := 0
-		for _, conn := range cpApi.ControlPlane.DataPlaneConnections {
-			setDelimiter := cnt != len(cpApi.ControlPlane.DataPlaneConnections)-1
+		for _, conn := range cpApi.ControlPlane.DataPlaneConnections.Values() {
+			setDelimiter := cnt != cpApi.ControlPlane.DataPlaneConnections.Len()-1
 			delimiter := ""
 
 			if setDelimiter {
