@@ -291,6 +291,11 @@ func (c *ControlPlane) RegisterDataplane(ctx context.Context, in *proto.Dataplan
 		return &proto.ActionStatus{Success: false}, err
 	}
 
+	if found := c.DataPlaneConnections.Find(dataplaneInfo.Address); found {
+		logrus.Infof("Dataplane with ip %s already registered - request ignored", dataplaneInfo.Address)
+		return &proto.ActionStatus{Success: true}, err
+	}
+
 	err = c.PersistenceLayer.StoreDataPlaneInformation(ctx, &dataplaneInfo)
 	if err != nil {
 		logrus.Errorf("Failed to store information to persistence layer (error : %s)", err.Error())
