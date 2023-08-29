@@ -34,6 +34,11 @@ func (c *AtomicMap[K, V]) Get(key K) (V, bool) {
 	return val, true
 }
 
+func (c *AtomicMap[K, V]) GetUnsafe(key K) V {
+	val, _ := c.Get(key)
+	return val
+}
+
 func (c *AtomicMap[K, V]) Set(key K, value V) {
 	c.Store(key, value)
 }
@@ -61,4 +66,45 @@ func (c *AtomicMap[K, V]) Keys() []K {
 	})
 
 	return output
+}
+
+func (c *AtomicMap[K, V]) Values() []V {
+	output := make([]V, 0)
+
+	c.Range(func(k, v interface{}) bool {
+		value, ok := v.(V)
+		if !ok {
+			logrus.Fatal("error in sync.map")
+		}
+
+		output = append(output, value)
+
+		return true
+	})
+
+	return output
+}
+
+func (c *AtomicMap[K, V]) KeyValues() ([]K, []V) {
+	outputKey := make([]K, 0)
+	outputValue := make([]V, 0)
+
+	c.Range(func(k, v interface{}) bool {
+		key, ok := k.(K)
+		if !ok {
+			logrus.Fatal("error in sync.map")
+		}
+
+		value, ok := v.(V)
+		if !ok {
+			logrus.Fatal("error in sync.map")
+		}
+
+		outputKey = append(outputKey, key)
+		outputValue = append(outputValue, value)
+
+		return true
+	})
+
+	return outputKey, outputValue
 }

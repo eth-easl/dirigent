@@ -181,7 +181,7 @@ func (w *WorkerNode) StopWorkerNode(config config.WorkerNodeConfig, cpApi *proto
 
 func (w *WorkerNode) CleanResources() {
 	keys := make([]string, 0)
-	for key, _ := range w.SandboxManager.Metadata {
+	for _, key := range w.SandboxManager.Metadata.Keys() {
 		keys = append(keys, key)
 	}
 

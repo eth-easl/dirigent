@@ -2,7 +2,7 @@ package control_plane
 
 import (
 	placement2 "cluster_manager/internal/control_plane/placement_policy"
-	_map "cluster_manager/pkg/map"
+	"cluster_manager/pkg/atomic_map"
 	"sort"
 	"testing"
 
@@ -11,52 +11,48 @@ import (
 
 func TestRandomPolicy(t *testing.T) {
 	policy := NewRandomPolicy()
-	storage := &NodeInfoStorage{
-		NodeInfo: make(map[string]*WorkerNode),
-	}
+	storage := atomic_map.NewAtomicMap[string, *WorkerNode]()
 
-	storage.NodeInfo["w1"] = &WorkerNode{}
-	storage.NodeInfo["w2"] = &WorkerNode{}
+	storage.Set("w1", &WorkerNode{})
+	storage.Set("w2", &WorkerNode{})
 
 	requested := &placement2.ResourceMap{}
 
 	for i := 0; i < 100; i++ {
-		currentStorage := policy.Place(storage, requested)
+		currentStorage := policy.Place(&storage, requested)
 		assert.NotNil(t, currentStorage)
-		assert.True(t, currentStorage == storage.NodeInfo["w1"] || currentStorage == storage.NodeInfo["w2"])
+		assert.True(t, currentStorage == storage.GetUnsafe("w1") || currentStorage == storage.GetUnsafe("w2"))
 	}
 }
 
 func TestRoundRobin(t *testing.T) {
 	policy := NewRoundRobinPolicy()
-	storage := &NodeInfoStorage{
-		NodeInfo: make(map[string]*WorkerNode),
-	}
+	storage := atomic_map.NewAtomicMap[string, *WorkerNode]()
 
 	requested := &placement2.ResourceMap{}
 
-	storage.NodeInfo["w1"] = &WorkerNode{}
-	storage.NodeInfo["w2"] = &WorkerNode{}
-	storage.NodeInfo["w3"] = &WorkerNode{}
+	storage.Set("w1", &WorkerNode{})
+	storage.Set("w2", &WorkerNode{})
+	storage.Set("w3", &WorkerNode{})
 
-	nodes := sort.StringSlice(_map.Keys(storage.NodeInfo))
+	nodes := sort.StringSlice(storage.Keys())
 	nodes.Sort()
 
 	for i := 0; i < 100; i++ {
 		{
-			currentStorage := policy.Place(storage, requested)
+			currentStorage := policy.Place(&storage, requested)
 			assert.NotNil(t, currentStorage)
-			assert.Equal(t, currentStorage, storage.NodeInfo[nodes[0]])
+			assert.Equal(t, currentStorage, storage.GetUnsafe(nodes[0]))
 		}
 		{
-			currentStorage := policy.Place(storage, requested)
+			currentStorage := policy.Place(&storage, requested)
 			assert.NotNil(t, currentStorage)
-			assert.Equal(t, currentStorage, storage.NodeInfo[nodes[1]])
+			assert.Equal(t, currentStorage, storage.GetUnsafe(nodes[1]))
 		}
 		{
-			currentStorage := policy.Place(storage, requested)
+			currentStorage := policy.Place(&storage, requested)
 			assert.NotNil(t, currentStorage)
-			assert.Equal(t, currentStorage, storage.NodeInfo[nodes[2]])
+			assert.Equal(t, currentStorage, storage.GetUnsafe(nodes[2]))
 		}
 	}
 }

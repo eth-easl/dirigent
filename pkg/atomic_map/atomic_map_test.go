@@ -26,6 +26,14 @@ func TestAtomicMap_AtomicGet(t *testing.T) {
 	assert.False(t, atomicMap.Find(""))
 }
 
+func TestAtomicMap_CopyOnGet(t *testing.T) {
+	atomicMap := NewAtomicMap[string, string]()
+	atomicMap.Set("france", "paris")
+	paris := atomicMap.GetUnsafe("france")
+	atomicMap.Set("france", "paris2")
+	assert.Equal(t, paris, "paris", "Values should be equal")
+}
+
 func TestAtomicMap_AtomicAdd(t *testing.T) {
 	atomicMap := NewAtomicMap[string, string]()
 	atomicMap.Set("france", "paris")
@@ -46,6 +54,14 @@ func TestAtomicMap_AtomicDelete(t *testing.T) {
 	assert.False(t, ok, "Value should not be present in the map")
 }
 
+func TestAtomicMap_AvailableAfterDelete(t *testing.T) {
+	atomicMap := NewAtomicMap[string, string]()
+	atomicMap.Set("france", "paris")
+	paris := atomicMap.GetUnsafe("france")
+	atomicMap.RemoveKey("france")
+	assert.Equal(t, paris, "paris", "Values should be equal")
+}
+
 func TestAtomicMap_AtomicRange(t *testing.T) {
 	atomicMap := NewAtomicMap[string, string]()
 	atomicMap.Set("france", "paris")
@@ -54,6 +70,13 @@ func TestAtomicMap_AtomicRange(t *testing.T) {
 
 	keys := atomicMap.Keys()
 	assert.Len(t, keys, 3, "Map should have 3 keys")
+
+	values := atomicMap.Values()
+	assert.Len(t, values, 3, "Map should have 3 entries")
+
+	keys, values = atomicMap.KeyValues()
+	assert.Len(t, keys, 3, "Map should have 3 keys")
+	assert.Len(t, values, 3, "Map should have 3 entries")
 }
 
 func TestAtomicMap_AtomicLenn(t *testing.T) {

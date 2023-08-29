@@ -5,6 +5,7 @@ import (
 	"cluster_manager/internal/control_plane/persistence"
 	placement2 "cluster_manager/internal/control_plane/placement_policy"
 	"cluster_manager/internal/data_plane/function_metadata"
+	"cluster_manager/pkg/atomic_map"
 	"cluster_manager/pkg/tracing"
 	"cluster_manager/pkg/utils"
 	"context"
@@ -33,8 +34,7 @@ type ServiceInfoStorage struct {
 	PlacementPolicy  PlacementPolicy
 	PersistenceLayer persistence.PersistenceLayer
 
-	WorkerEndpoints     map[string]map[*Endpoint]string
-	WorkerEndpointsLock *sync.Mutex
+	WorkerEndpoints *atomic_map.AtomicMap[string, atomic_map.AtomicMap[*Endpoint, string]]
 }
 
 type Endpoint struct {
@@ -65,7 +65,7 @@ func (ss *ServiceInfoStorage) ReconstructEndpointsFromDatabase(endpoint *Endpoin
 	ss.addEndpoints(endpoints)
 }
 
-func (ss *ServiceInfoStorage) ScalingControllerLoop(nodeList *NodeInfoStorage, dpiClients map[string]*function_metadata.DataPlaneConnectionInfo) {
+func (ss *ServiceInfoStorage) ScalingControllerLoop(nodeList *atomic_map.AtomicMap[string, *WorkerNode], dpiClients *atomic_map.AtomicMap[string, *function_metadata.DataPlaneConnectionInfo]) {
 	for {
 		select {
 		case desiredCount := <-*ss.Controller.DesiredStateChannel:
@@ -110,7 +110,7 @@ func (ss *ServiceInfoStorage) ScalingControllerLoop(nodeList *NodeInfoStorage, d
 	}
 }
 
-func (ss *ServiceInfoStorage) RemoveEndpoint(endpointToEvict *Endpoint, dpiClients map[string]*function_metadata.DataPlaneConnectionInfo) error {
+func (ss *ServiceInfoStorage) RemoveEndpoint(endpointToEvict *Endpoint, dpiClients *atomic_map.AtomicMap[string, *function_metadata.DataPlaneConnectionInfo]) error {
 	ss.Controller.EndpointLock.Lock()
 
 	ss.Controller.Endpoints = ss.excludeSingleEndpoint(ss.Controller.Endpoints, endpointToEvict)
@@ -123,7 +123,7 @@ func (ss *ServiceInfoStorage) RemoveEndpoint(endpointToEvict *Endpoint, dpiClien
 	return nil
 }
 
-func (ss *ServiceInfoStorage) doUpscaling(toCreateCount int, nodeList *NodeInfoStorage, dpiClients map[string]*function_metadata.DataPlaneConnectionInfo) {
+func (ss *ServiceInfoStorage) doUpscaling(toCreateCount int, nodeList *atomic_map.AtomicMap[string, *WorkerNode], dpiClients *atomic_map.AtomicMap[string, *function_metadata.DataPlaneConnectionInfo]) {
 	wg := sync.WaitGroup{}
 
 	var finalEndpoint []*Endpoint
@@ -179,9 +179,12 @@ func (ss *ServiceInfoStorage) doUpscaling(toCreateCount int, nodeList *NodeInfoS
 			}
 
 			// Update worker node structure
-			ss.WorkerEndpointsLock.Lock()
-			ss.WorkerEndpoints[node.Name][newEndpoint] = ss.ServiceInfo.Name
-			ss.WorkerEndpointsLock.Unlock()
+			workerEndpointMap, present := ss.WorkerEndpoints.Get(node.Name)
+			if !present {
+				logrus.Fatal("Endpoint not present in database")
+			}
+
+			workerEndpointMap.Set(newEndpoint, ss.ServiceInfo.Name)
 
 			finalEndpoint = append(finalEndpoint, newEndpoint)
 
@@ -213,7 +216,7 @@ func (ss *ServiceInfoStorage) doUpscaling(toCreateCount int, nodeList *NodeInfoS
 	}
 }
 
-func (ss *ServiceInfoStorage) doDownscaling(toEvict map[*Endpoint]struct{}, urls []*proto.EndpointInfo, dpiClients map[string]*function_metadata.DataPlaneConnectionInfo) {
+func (ss *ServiceInfoStorage) doDownscaling(toEvict map[*Endpoint]struct{}, urls []*proto.EndpointInfo, dpiClients *atomic_map.AtomicMap[string, *function_metadata.DataPlaneConnectionInfo]) {
 	barrier := sync.WaitGroup{}
 
 	barrier.Add(len(toEvict))
@@ -246,9 +249,7 @@ func (ss *ServiceInfoStorage) doDownscaling(toEvict map[*Endpoint]struct{}, urls
 			}
 
 			// Update worker node structure
-			ss.WorkerEndpointsLock.Lock()
-			delete(ss.WorkerEndpoints[key.Node.Name], key)
-			ss.WorkerEndpointsLock.Unlock()
+			ss.WorkerEndpoints.Delete(key.Node.Name)
 		}()
 	}
 
@@ -262,13 +263,12 @@ func (ss *ServiceInfoStorage) addEndpoints(endpoints []*Endpoint) {
 	ss.Controller.Endpoints = append(ss.Controller.Endpoints, endpoints...)
 }
 
-func (ss *ServiceInfoStorage) updateEndpoints(dpiClients map[string]*function_metadata.DataPlaneConnectionInfo, endpoints []*proto.EndpointInfo) {
+func (ss *ServiceInfoStorage) updateEndpoints(dpiClients *atomic_map.AtomicMap[string, *function_metadata.DataPlaneConnectionInfo], endpoints []*proto.EndpointInfo) {
 	wg := &sync.WaitGroup{}
 
-	wg.Add(len(dpiClients))
+	wg.Add(dpiClients.Len())
 
-	for _, c := range dpiClients {
-
+	for _, c := range dpiClients.Values() {
 		go func(c *function_metadata.DataPlaneConnectionInfo) {
 			resp, err := c.Iface.UpdateEndpointList(context.Background(), &proto.DeploymentEndpointPatch{
 				Service:   ss.ServiceInfo,

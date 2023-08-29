@@ -1,14 +1,12 @@
 package sandbox
 
 import (
-	"sync"
-
+	"cluster_manager/pkg/atomic_map"
 	"github.com/containerd/containerd"
 )
 
 type Manager struct {
-	sync.Mutex
-	Metadata map[string]*Metadata
+	Metadata atomic_map.AtomicMap[string, *Metadata]
 }
 
 type Metadata struct {
@@ -23,23 +21,21 @@ type Metadata struct {
 
 func NewSandboxManager() *Manager {
 	return &Manager{
-		Metadata: make(map[string]*Metadata),
+		Metadata: atomic_map.NewAtomicMap[string, *Metadata](),
 	}
 }
 
 func (m *Manager) AddSandbox(key string, metadata *Metadata) {
-	m.Lock()
-	defer m.Unlock()
-
-	m.Metadata[key] = metadata
+	m.Metadata.Set(key, metadata)
 }
 
 func (m *Manager) DeleteSandbox(key string) *Metadata {
-	m.Lock()
-	defer m.Unlock()
+	res, ok := m.Metadata.Get(key)
+	if !ok {
+		panic("value not present in map")
+	}
 
-	res := m.Metadata[key]
-	delete(m.Metadata, key)
+	m.Metadata.Delete(key)
 
 	return res
 }

@@ -42,15 +42,13 @@ func TestCreationControlPlane(t *testing.T) {
 		return make([]*proto.DataplaneInformation, 0), nil
 	}).Times(1)
 
-	persistenceLayer.EXPECT().GetEndpoints(gomock.Any()).DoAndReturn(func(_ context.Context) ([]*proto.Endpoint, []string, error) {
-		return make([]*proto.Endpoint, 0), make([]string, 0), nil
-	}).Times(1)
-
 	controlPlane := NewControlPlane(persistenceLayer, "", NewRandomPolicy())
 
 	start := time.Now()
-	controlPlane.ReconstructState(context.Background(), mockConfig)
+	err := controlPlane.ReconstructState(context.Background(), mockConfig)
 	elapsed := time.Since(start)
+
+	assert.NoError(t, err, "reconstructing control plane state failed")
 
 	assert.Zero(t, controlPlane.GetNumberConnectedWorkers(), "Number of connected workers should be 0")
 	assert.Zero(t, controlPlane.GetNumberDataplanes(), "Number of connected dataplanes should be 0")
