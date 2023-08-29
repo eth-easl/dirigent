@@ -55,7 +55,10 @@ func main() {
 
 	start := time.Now()
 
-	cpApiServer.ReconstructState(context.Background(), config)
+	err = cpApiServer.ReconstructState(context.Background(), config)
+	if err != nil {
+		logrus.Fatalf("Failed to reconstruct state (error : %s)", err.Error())
+	}
 
 	elapsed := time.Since(start)
 	logrus.Infof("Took %s seconds to reconstruct", elapsed)

@@ -55,6 +55,7 @@ func (ss *ServiceInfoStorage) GetAllURLs() []string {
 	return res
 }
 
+// TODO: Change name & update dataplane information afterwards
 func (ss *ServiceInfoStorage) ReconstructEndpointsFromDatabase(endpoint *Endpoint) {
 	ss.Controller.EndpointLock.Lock()
 	defer ss.Controller.EndpointLock.Unlock()

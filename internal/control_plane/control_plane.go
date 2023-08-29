@@ -413,27 +413,32 @@ func (c *ControlPlane) reconstructServiceState(ctx context.Context) error {
 }
 
 func (c *ControlPlane) reconstructEndpointsState(ctx context.Context) error {
-	// TODO: Rewrite this function
-	/*endpoints, services, err := c.PersistenceLayer.GetEndpoints(ctx)
-	if err != nil {
-		return err
+	endpoints := make([]*proto.Endpoint, 0)
+
+	for _, workerNode := range c.NIStorage.Values() {
+		list, err := workerNode.GetAPI().ListEndpoints(ctx, &emptypb.Empty{})
+		if err != nil {
+			return err
+		}
+
+		endpoints = append(endpoints, list.Endpoint...)
 	}
 
-	for i, endpoint := range endpoints {
+	for _, endpoint := range endpoints {
 		controlPlaneEndpoint := &Endpoint{
 			SandboxID: endpoint.SandboxID,
 			URL:       endpoint.URL,
-			Node:      c.NIStorage.NodeInfo[endpoint.NodeName],
+			Node:      c.NIStorage.GetUnsafe(endpoint.NodeName),
 			HostPort:  endpoint.HostPort,
 		}
 
-		val, found := c.SIStorage.Get(services[i])
+		val, found := c.SIStorage.Get(endpoint.ServiceName)
 		if !found {
 			return errors.New("element not found in map")
 		}
 
 		val.ReconstructEndpointsFromDatabase(controlPlaneEndpoint)
-	}*/
+	}
 
 	return nil
 }

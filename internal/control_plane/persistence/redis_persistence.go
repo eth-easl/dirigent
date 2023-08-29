@@ -17,10 +17,10 @@ const (
 )
 
 type RedisClient struct {
-	redisClient *redis.Client
+	redisClient redis.Client
 }
 
-func CreateRedisClient(ctx context.Context, redisLogin config.RedisConf) (RedisClient, error) {
+func CreateRedisClient(ctx context.Context, redisLogin config.RedisConf) (*RedisClient, error) {
 	redisClient := redis.NewClient(&redis.Options{
 		Addr:     redisLogin.Address,
 		Password: redisLogin.Password,
@@ -30,23 +30,23 @@ func CreateRedisClient(ctx context.Context, redisLogin config.RedisConf) (RedisC
 	if redisLogin.FullPersistence {
 		logrus.Warn("Modifications")
 		if err := redisClient.ConfigSet(ctx, "appendonly", "yes").Err(); err != nil {
-			return RedisClient{}, err
+			return &RedisClient{}, err
 		}
 
 		if err := redisClient.ConfigSet(ctx, "appendfsync", "always").Err(); err != nil {
-			return RedisClient{}, err
+			return &RedisClient{}, err
 		}
 	} else {
 		if err := redisClient.ConfigSet(ctx, "appendonly", "no").Err(); err != nil {
-			return RedisClient{}, err
+			return &RedisClient{}, err
 		}
 
 		if err := redisClient.ConfigSet(ctx, "appendfsync", "everysec").Err(); err != nil {
-			return RedisClient{}, err
+			return &RedisClient{}, err
 		}
 	}
 
-	return RedisClient{redisClient: redisClient}, redisClient.Ping(ctx).Err()
+	return &RedisClient{redisClient: *redisClient}, redisClient.Ping(ctx).Err()
 }
 
 func (driver *RedisClient) StoreDataPlaneInformation(ctx context.Context, dataplaneInfo *proto.DataplaneInformation) error {

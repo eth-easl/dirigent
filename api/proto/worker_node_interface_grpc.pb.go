@@ -11,6 +11,7 @@ import (
 	grpc "google.golang.org/grpc"
 	codes "google.golang.org/grpc/codes"
 	status "google.golang.org/grpc/status"
+	emptypb "google.golang.org/protobuf/types/known/emptypb"
 )
 
 // This is a compile-time assertion to ensure that this generated file
@@ -21,6 +22,7 @@ const _ = grpc.SupportPackageIsVersion7
 const (
 	WorkerNodeInterface_CreateSandbox_FullMethodName = "/data_plane.WorkerNodeInterface/CreateSandbox"
 	WorkerNodeInterface_DeleteSandbox_FullMethodName = "/data_plane.WorkerNodeInterface/DeleteSandbox"
+	WorkerNodeInterface_ListEndpoints_FullMethodName = "/data_plane.WorkerNodeInterface/ListEndpoints"
 )
 
 // WorkerNodeInterfaceClient is the client API for WorkerNodeInterface service.
@@ -29,6 +31,7 @@ const (
 type WorkerNodeInterfaceClient interface {
 	CreateSandbox(ctx context.Context, in *ServiceInfo, opts ...grpc.CallOption) (*SandboxCreationStatus, error)
 	DeleteSandbox(ctx context.Context, in *SandboxID, opts ...grpc.CallOption) (*ActionStatus, error)
+	ListEndpoints(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*EndpointsList, error)
 }
 
 type workerNodeInterfaceClient struct {
@@ -57,12 +60,22 @@ func (c *workerNodeInterfaceClient) DeleteSandbox(ctx context.Context, in *Sandb
 	return out, nil
 }
 
+func (c *workerNodeInterfaceClient) ListEndpoints(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*EndpointsList, error) {
+	out := new(EndpointsList)
+	err := c.cc.Invoke(ctx, WorkerNodeInterface_ListEndpoints_FullMethodName, in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // WorkerNodeInterfaceServer is the server API for WorkerNodeInterface service.
 // All implementations must embed UnimplementedWorkerNodeInterfaceServer
 // for forward compatibility
 type WorkerNodeInterfaceServer interface {
 	CreateSandbox(context.Context, *ServiceInfo) (*SandboxCreationStatus, error)
 	DeleteSandbox(context.Context, *SandboxID) (*ActionStatus, error)
+	ListEndpoints(context.Context, *emptypb.Empty) (*EndpointsList, error)
 	mustEmbedUnimplementedWorkerNodeInterfaceServer()
 }
 
@@ -75,6 +88,9 @@ func (UnimplementedWorkerNodeInterfaceServer) CreateSandbox(context.Context, *Se
 }
 func (UnimplementedWorkerNodeInterfaceServer) DeleteSandbox(context.Context, *SandboxID) (*ActionStatus, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method DeleteSandbox not implemented")
+}
+func (UnimplementedWorkerNodeInterfaceServer) ListEndpoints(context.Context, *emptypb.Empty) (*EndpointsList, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method ListEndpoints not implemented")
 }
 func (UnimplementedWorkerNodeInterfaceServer) mustEmbedUnimplementedWorkerNodeInterfaceServer() {}
 
@@ -125,6 +141,24 @@ func _WorkerNodeInterface_DeleteSandbox_Handler(srv interface{}, ctx context.Con
 	return interceptor(ctx, in, info, handler)
 }
 
+func _WorkerNodeInterface_ListEndpoints_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(emptypb.Empty)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(WorkerNodeInterfaceServer).ListEndpoints(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: WorkerNodeInterface_ListEndpoints_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(WorkerNodeInterfaceServer).ListEndpoints(ctx, req.(*emptypb.Empty))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // WorkerNodeInterface_ServiceDesc is the grpc.ServiceDesc for WorkerNodeInterface service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -139,6 +173,10 @@ var WorkerNodeInterface_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "DeleteSandbox",
 			Handler:    _WorkerNodeInterface_DeleteSandbox_Handler,
+		},
+		{
+			MethodName: "ListEndpoints",
+			Handler:    _WorkerNodeInterface_ListEndpoints_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

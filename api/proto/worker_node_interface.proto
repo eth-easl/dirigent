@@ -4,6 +4,7 @@ package data_plane;
 option go_package = "github.com/eth-easl/cluster_manager/api/proto";
 
 import "common.proto";
+import "google/protobuf/empty.proto";
 import "google/protobuf/duration.proto";
 
 message SandboxID {
@@ -28,7 +29,13 @@ message SandboxCreationBreakdown {
   google.protobuf.Duration DataplanePropagation = 7;
 }
 
+message EndpointsList {
+  repeated Endpoint endpoint = 1;
+}
+
 service WorkerNodeInterface {
   rpc CreateSandbox(ServiceInfo) returns (SandboxCreationStatus);
   rpc DeleteSandbox(SandboxID) returns (ActionStatus);
+
+  rpc ListEndpoints(google.protobuf.Empty) returns (EndpointsList);
 }

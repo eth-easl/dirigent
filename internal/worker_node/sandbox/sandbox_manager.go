@@ -1,12 +1,15 @@
 package sandbox
 
 import (
+	"cluster_manager/api/proto"
 	"cluster_manager/pkg/atomic_map"
 	"github.com/containerd/containerd"
 )
 
 type Manager struct {
 	Metadata atomic_map.AtomicMap[string, *Metadata]
+
+	nodeName string
 }
 
 type Metadata struct {
@@ -17,11 +20,13 @@ type Metadata struct {
 	IP          string
 	GuestPort   int
 	NetNs       string
+	SeriveName  string
 }
 
-func NewSandboxManager() *Manager {
+func NewSandboxManager(nodeName string) *Manager {
 	return &Manager{
 		Metadata: atomic_map.NewAtomicMap[string, *Metadata](),
+		nodeName: nodeName,
 	}
 }
 
@@ -38,4 +43,21 @@ func (m *Manager) DeleteSandbox(key string) *Metadata {
 	m.Metadata.Delete(key)
 
 	return res
+}
+
+func (m *Manager) ListEndpoints() (*proto.EndpointsList, error) {
+	list := &proto.EndpointsList{}
+
+	keys, values := m.Metadata.KeyValues()
+	for i := 0; i < len(keys); i++ {
+		list.Endpoint = append(list.Endpoint, &proto.Endpoint{
+			SandboxID:   keys[i],
+			URL:         values[i].IP,
+			NodeName:    m.nodeName,
+			ServiceName: values[i].SeriveName,
+			HostPort:    int32(values[i].HostPort),
+		})
+	}
+
+	return list, nil
 }

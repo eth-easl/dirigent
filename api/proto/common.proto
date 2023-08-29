@@ -61,5 +61,6 @@ message Endpoint {
   string SandboxID = 1;
   string URL = 2;
   string NodeName = 3;
-  int32 HostPort = 4;
+  string ServiceName = 4;
+  int32 HostPort = 5;
 }

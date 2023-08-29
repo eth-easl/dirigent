@@ -6,16 +6,21 @@ import (
 	"testing"
 )
 
-func TestSimpleAddDelete(t *testing.T) {
-	manager := NewSandboxManager()
+const (
+	mockHost string = "mockHost"
+	mockkey  string = "mockKey"
+)
 
-	manager.AddSandbox("test", &Metadata{})
-	manager.DeleteSandbox("test")
+func TestSimpleAddDelete(t *testing.T) {
+	manager := NewSandboxManager(mockHost)
+
+	manager.AddSandbox(mockkey, &Metadata{})
+	manager.DeleteSandbox(mockkey)
 }
 
 func TestSandboxManager(t *testing.T) {
 	i := 0
-	manager := NewSandboxManager()
+	manager := NewSandboxManager(mockHost)
 
 	for ; i <= 1000; i++ {
 		manager.AddSandbox(strconv.Itoa(i), &Metadata{})

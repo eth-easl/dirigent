@@ -8,6 +8,8 @@ import (
 	"cluster_manager/pkg/utils"
 	"context"
 	"fmt"
+	"google.golang.org/grpc"
+	"google.golang.org/protobuf/types/known/emptypb"
 	"os"
 	"time"
 
@@ -44,13 +46,18 @@ func NewWorkerNode(config config.WorkerNodeConfig, containerdClient *containerd.
 		logrus.Fatal("Error while accessing iptables - ", err)
 	}
 
+	hostName, err := os.Hostname()
+	if err != nil {
+		logrus.Warn("Error fetching host name.")
+	}
+
 	workerNode := &WorkerNode{
 		ContainerdClient: containerdClient,
 		CNIClient:        cniClient,
 		IPT:              ipt,
 
 		ImageManager:   sandbox.NewImageManager(),
-		SandboxManager: sandbox.NewSandboxManager(),
+		SandboxManager: sandbox.NewSandboxManager(hostName),
 
 		quitChannel: make(chan bool),
 	}
@@ -99,6 +106,7 @@ func (w *WorkerNode) CreateSandbox(grpcCtx context.Context, in *proto.ServiceInf
 		IP:          ip,
 		GuestPort:   int(in.PortForwarding.GuestPort),
 		NetNs:       netNs,
+		SeriveName:  in.Name,
 	}
 	w.SandboxManager.AddSandbox(container.ID(), metadata)
 
@@ -161,6 +169,10 @@ func (w *WorkerNode) DeleteSandbox(grpcCtx context.Context, in *proto.SandboxID)
 	logrus.Debug("Sandbox deletion took ", time.Since(start).Microseconds(), " μs")
 
 	return &proto.ActionStatus{Success: true}, nil
+}
+
+func (w *WorkerNode) ListEndpoints(grpcCtx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*proto.EndpointsList, error) {
+	return w.SandboxManager.ListEndpoints()
 }
 
 func (w *WorkerNode) RegisterNodeWithControlPlane(config config.WorkerNodeConfig, cpApi *proto.CpiInterfaceClient) {
