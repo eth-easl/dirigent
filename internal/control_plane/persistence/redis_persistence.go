@@ -14,8 +14,6 @@ const (
 	dataplanePrefix string = "dataplane"
 	workerPrefix    string = "worker"
 	servicePrefix   string = "service"
-	endpointPrefix  string = "endpoint"
-	controlPlaneKey string = "controlPlane"
 )
 
 type RedisClient struct {
@@ -51,7 +49,7 @@ func CreateRedisClient(ctx context.Context, redisLogin config.RedisConf) (RedisC
 	return RedisClient{redisClient: redisClient}, redisClient.Ping(ctx).Err()
 }
 
-func (driver RedisClient) StoreDataPlaneInformation(ctx context.Context, dataplaneInfo *proto.DataplaneInformation) error {
+func (driver *RedisClient) StoreDataPlaneInformation(ctx context.Context, dataplaneInfo *proto.DataplaneInformation) error {
 	logrus.Trace("store dataplane information in the database")
 
 	data, err := proto2.Marshal(dataplaneInfo)
@@ -64,7 +62,7 @@ func (driver RedisClient) StoreDataPlaneInformation(ctx context.Context, datapla
 	return driver.redisClient.HSet(ctx, key, "data", data).Err()
 }
 
-func (driver RedisClient) DeleteDataPlaneInformation(ctx context.Context, dataplaneInfo *proto.DataplaneInformation) error {
+func (driver *RedisClient) DeleteDataPlaneInformation(ctx context.Context, dataplaneInfo *proto.DataplaneInformation) error {
 	logrus.Trace("delete dataplane information in the database")
 
 	key := fmt.Sprintf("%s:%s", dataplanePrefix, dataplaneInfo.Address)
@@ -72,7 +70,7 @@ func (driver RedisClient) DeleteDataPlaneInformation(ctx context.Context, datapl
 	return driver.redisClient.Del(ctx, key).Err()
 }
 
-func (driver RedisClient) GetDataPlaneInformation(ctx context.Context) ([]*proto.DataplaneInformation, error) {
+func (driver *RedisClient) GetDataPlaneInformation(ctx context.Context) ([]*proto.DataplaneInformation, error) {
 	logrus.Trace("get dataplane information from the database")
 
 	keys, err := driver.scanKeys(ctx, dataplanePrefix)
@@ -103,7 +101,7 @@ func (driver RedisClient) GetDataPlaneInformation(ctx context.Context) ([]*proto
 	return dataPlanes, nil
 }
 
-func (driver RedisClient) StoreWorkerNodeInformation(ctx context.Context, workerNodeInfo *proto.WorkerNodeInformation) error {
+func (driver *RedisClient) StoreWorkerNodeInformation(ctx context.Context, workerNodeInfo *proto.WorkerNodeInformation) error {
 	logrus.Trace("store worker node information in the database")
 
 	data, err := proto2.Marshal(workerNodeInfo)
@@ -116,7 +114,7 @@ func (driver RedisClient) StoreWorkerNodeInformation(ctx context.Context, worker
 	return driver.redisClient.HSet(ctx, key, "data", data).Err()
 }
 
-func (driver RedisClient) DeleteWorkerNodeInformation(ctx context.Context, workerNodeInfo *proto.WorkerNodeInformation) error {
+func (driver *RedisClient) DeleteWorkerNodeInformation(ctx context.Context, workerNodeInfo *proto.WorkerNodeInformation) error {
 	logrus.Trace("delete worker node information in the database")
 
 	key := fmt.Sprintf("%s:%s", workerPrefix, workerNodeInfo.Name)
@@ -124,7 +122,7 @@ func (driver RedisClient) DeleteWorkerNodeInformation(ctx context.Context, worke
 	return driver.redisClient.Del(ctx, key, "data").Err()
 }
 
-func (driver RedisClient) GetWorkerNodeInformation(ctx context.Context) ([]*proto.WorkerNodeInformation, error) {
+func (driver *RedisClient) GetWorkerNodeInformation(ctx context.Context) ([]*proto.WorkerNodeInformation, error) {
 	logrus.Trace("get workers information from the database")
 
 	keys, err := driver.scanKeys(ctx, workerPrefix)
@@ -155,7 +153,7 @@ func (driver RedisClient) GetWorkerNodeInformation(ctx context.Context) ([]*prot
 	return workers, nil
 }
 
-func (driver RedisClient) StoreServiceInformation(ctx context.Context, serviceInfo *proto.ServiceInfo) error {
+func (driver *RedisClient) StoreServiceInformation(ctx context.Context, serviceInfo *proto.ServiceInfo) error {
 	logrus.Trace("store service information in the database")
 
 	data, err := proto2.Marshal(serviceInfo)
@@ -168,7 +166,7 @@ func (driver RedisClient) StoreServiceInformation(ctx context.Context, serviceIn
 	return driver.redisClient.HSet(ctx, key, "data", data).Err()
 }
 
-func (driver RedisClient) GetServiceInformation(ctx context.Context) ([]*proto.ServiceInfo, error) {
+func (driver *RedisClient) GetServiceInformation(ctx context.Context) ([]*proto.ServiceInfo, error) {
 	logrus.Trace("get services information from the database")
 
 	keys, err := driver.scanKeys(ctx, servicePrefix)
@@ -200,11 +198,7 @@ func (driver RedisClient) GetServiceInformation(ctx context.Context) ([]*proto.S
 	return services, nil
 }
 
-func (driver RedisClient) StoreSerialized(ctx context.Context, controlPlane []byte) error {
-	return driver.redisClient.HSet(ctx, controlPlaneKey, "data", controlPlane).Err()
-}
-
-func (driver RedisClient) scanKeys(ctx context.Context, prefix string) ([]string, error) {
+func (driver *RedisClient) scanKeys(ctx context.Context, prefix string) ([]string, error) {
 	var (
 		cursor uint64
 		n      int

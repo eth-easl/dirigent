@@ -60,8 +60,6 @@ func main() {
 	elapsed := time.Since(start)
 	logrus.Infof("Took %s seconds to reconstruct", elapsed)
 
-	defer cpApiServer.SerializeCpApiServer(context.Background())
-
 	go cpApiServer.CheckPeriodicallyWorkerNodes()
 
 	go cpApiServer.ControlPlane.ColdStartTracing.StartTracingService()
