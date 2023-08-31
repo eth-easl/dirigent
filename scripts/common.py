@@ -25,7 +25,7 @@ def getResult(load, rootPath):
 
         data['control_plane'] = data['cold_start'] - \
                                 (data['image_fetch'] + data['container_create'] + data['container_start'] +
-                                 data['cni'] + data['iptables'] + data['db'] + data['other_worker_node'] + data['data_plane_propagation'])
+                                 data['cni'] + data['iptables'] + data['other_worker_node'] + data['data_plane_propagation'])
         data = data.drop(columns=['cold_start'])
 
         p50 = data.quantile(0.5)
