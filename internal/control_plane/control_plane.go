@@ -451,6 +451,8 @@ func (c *ControlPlane) reconstructEndpointsState(ctx context.Context, dpiClients
 		endpoints = append(endpoints, list.Endpoint...)
 	}
 
+	logrus.Tracef("Found %d endpoints", len(endpoints))
+
 	for _, endpoint := range endpoints {
 		controlPlaneEndpoint := &Endpoint{
 			SandboxID: endpoint.SandboxID,
