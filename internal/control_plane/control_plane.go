@@ -233,16 +233,9 @@ func (c *ControlPlane) RegisterService(ctx context.Context, serviceInfo *proto.S
 		return &proto.ActionStatus{Success: false}, err
 	}
 
-	for _, conn := range c.DataPlaneConnections.Values() {
-		resp, err := conn.Iface.AddDeployment(ctx, serviceInfo)
-		if err != nil || !resp.Success {
-			logrus.Warn("Failed to propagate service registration to the data plane")
-			return &proto.ActionStatus{Success: false}, err
-		}
-	}
-
 	err = c.connectToRegisteredService(ctx, serviceInfo)
 	if err != nil {
+		logrus.Warnf("Failed to connect registered service (error : %s)")
 		return &proto.ActionStatus{Success: false}, err
 	}
 
@@ -250,6 +243,14 @@ func (c *ControlPlane) RegisterService(ctx context.Context, serviceInfo *proto.S
 }
 
 func (c *ControlPlane) connectToRegisteredService(ctx context.Context, serviceInfo *proto.ServiceInfo) error {
+	for _, conn := range c.DataPlaneConnections.Values() {
+		resp, err := conn.Iface.AddDeployment(ctx, serviceInfo)
+		if err != nil || !resp.Success {
+
+			return err
+		}
+	}
+
 	scalingChannel := make(chan int)
 
 	service := &ServiceInfoStorage{
