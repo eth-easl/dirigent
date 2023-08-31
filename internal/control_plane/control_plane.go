@@ -359,7 +359,7 @@ func (c *ControlPlane) ReconstructState(ctx context.Context, config config2.Cont
 			return err
 		}
 		duration := time.Since(start)
-		logrus.Info("Data planes reconstruction took : %d", duration)
+		logrus.Info("Data planes reconstruction took : %s", duration)
 	}
 	{
 		start := time.Now()
@@ -367,7 +367,7 @@ func (c *ControlPlane) ReconstructState(ctx context.Context, config config2.Cont
 			return err
 		}
 		duration := time.Since(start)
-		logrus.Info("Worker nodes reconstruction took : %d", duration)
+		logrus.Info("Worker nodes reconstruction took : %s", duration)
 	}
 	{
 		start := time.Now()
@@ -375,7 +375,7 @@ func (c *ControlPlane) ReconstructState(ctx context.Context, config config2.Cont
 			return err
 		}
 		duration := time.Since(start)
-		logrus.Info("Services reconstruction took : %d", duration)
+		logrus.Info("Services reconstruction took : %s", duration)
 	}
 	{
 		start := time.Now()
@@ -383,7 +383,7 @@ func (c *ControlPlane) ReconstructState(ctx context.Context, config config2.Cont
 			return err
 		}
 		duration := time.Since(start)
-		logrus.Info("Endpoints reconstruction took : %d", duration)
+		logrus.Info("Endpoints reconstruction took : %s", duration)
 	}
 
 	return nil
