@@ -73,7 +73,7 @@ func NewWorkerNode(config config.WorkerNodeConfig, containerdClient *containerd.
 	return workerNode
 }
 
-func (w *WorkerNode) CreateSandbox(grpcCtx context.Context, in *proto.ServiceInfo) (*proto.SandboxCreationStatus, error) {
+func (w *WorkerNode) CreateSandbox(grpcCtx context.Context, in *proto.ServiceInfo, opts ...grpc.CallOption) (*proto.SandboxCreationStatus, error) {
 	logrus.Debug("Create sandbox for service = '", in.Name, "'")
 
 	start := time.Now()
@@ -137,7 +137,7 @@ func (w *WorkerNode) CreateSandbox(grpcCtx context.Context, in *proto.ServiceInf
 	}, nil
 }
 
-func (w *WorkerNode) DeleteSandbox(grpcCtx context.Context, in *proto.SandboxID) (*proto.ActionStatus, error) {
+func (w *WorkerNode) DeleteSandbox(grpcCtx context.Context, in *proto.SandboxID, opts ...grpc.CallOption) (*proto.ActionStatus, error) {
 	logrus.Debug("RemoveKey sandbox with ID = '", in.ID, "'")
 
 	ctx := namespaces.WithNamespace(grpcCtx, "cm")
