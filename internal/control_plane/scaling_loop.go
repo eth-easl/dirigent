@@ -55,15 +55,14 @@ func (ss *ServiceInfoStorage) GetAllURLs() []string {
 	return res
 }
 
-// TODO: Change name & update dataplane information afterwards
-func (ss *ServiceInfoStorage) ReconstructEndpointsFromDatabase(endpoint *Endpoint) {
+func (ss *ServiceInfoStorage) reconstructEndpointInController(endpoint *Endpoint, dpiClients *atomic_map.AtomicMap[string, *function_metadata.DataPlaneConnectionInfo]) {
 	ss.Controller.EndpointLock.Lock()
 	defer ss.Controller.EndpointLock.Unlock()
 
-	endpoints := make([]*Endpoint, 0)
-	endpoints = append(endpoints, endpoint)
+	ss.Controller.Endpoints = append(ss.Controller.Endpoints, endpoint)
+	atomic.AddInt64(&ss.Controller.ScalingMetadata.ActualScale, 1)
 
-	ss.addEndpoints(endpoints)
+	ss.updateEndpoints(dpiClients, ss.prepareUrlList())
 }
 
 func (ss *ServiceInfoStorage) ScalingControllerLoop(nodeList *atomic_map.AtomicMap[string, *WorkerNode], dpiClients *atomic_map.AtomicMap[string, *function_metadata.DataPlaneConnectionInfo]) {
@@ -258,10 +257,6 @@ func (ss *ServiceInfoStorage) doDownscaling(toEvict map[*Endpoint]struct{}, urls
 	barrier.Wait()
 
 	ss.updateEndpoints(dpiClients, urls)
-}
-
-func (ss *ServiceInfoStorage) addEndpoints(endpoints []*Endpoint) {
-	ss.Controller.Endpoints = append(ss.Controller.Endpoints, endpoints...)
 }
 
 func (ss *ServiceInfoStorage) updateEndpoints(dpiClients *atomic_map.AtomicMap[string, *function_metadata.DataPlaneConnectionInfo], endpoints []*proto.EndpointInfo) {

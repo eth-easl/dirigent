@@ -365,7 +365,7 @@ func (c *ControlPlane) ReconstructState(ctx context.Context, config config2.Cont
 		return err
 	}
 
-	return nil
+	return c.reconstructEndpointsState(ctx, &c.DataPlaneConnections)
 }
 
 func (c *ControlPlane) reconstructDataplaneState(ctx context.Context) error {
@@ -417,7 +417,7 @@ func (c *ControlPlane) reconstructServiceState(ctx context.Context) error {
 	return nil
 }
 
-func (c *ControlPlane) reconstructEndpointsState(ctx context.Context) error {
+func (c *ControlPlane) reconstructEndpointsState(ctx context.Context, dpiClients *atomic_map.AtomicMap[string, *function_metadata.DataPlaneConnectionInfo]) error {
 	endpoints := make([]*proto.Endpoint, 0)
 
 	for _, workerNode := range c.NIStorage.Values() {
@@ -442,7 +442,7 @@ func (c *ControlPlane) reconstructEndpointsState(ctx context.Context) error {
 			return errors.New("element not found in map")
 		}
 
-		val.ReconstructEndpointsFromDatabase(controlPlaneEndpoint)
+		val.reconstructEndpointInController(controlPlaneEndpoint, dpiClients)
 	}
 
 	return nil
