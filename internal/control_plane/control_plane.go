@@ -353,19 +353,40 @@ func (c *ControlPlane) ReconstructState(ctx context.Context, config config2.Cont
 		return nil
 	}
 
-	if err := c.reconstructDataplaneState(ctx); err != nil {
-		return err
+	{
+		start := time.Now()
+		if err := c.reconstructDataplaneState(ctx); err != nil {
+			return err
+		}
+		duration := time.Since(start)
+		logrus.Info("Data planes reconstruction took : %d", duration)
+	}
+	{
+		start := time.Now()
+		if err := c.reconstructWorkersState(ctx); err != nil {
+			return err
+		}
+		duration := time.Since(start)
+		logrus.Info("Worker nodes reconstruction took : %d", duration)
+	}
+	{
+		start := time.Now()
+		if err := c.reconstructServiceState(ctx); err != nil {
+			return err
+		}
+		duration := time.Since(start)
+		logrus.Info("Services reconstruction took : %d", duration)
+	}
+	{
+		start := time.Now()
+		if err := c.reconstructEndpointsState(ctx, &c.DataPlaneConnections); err != nil {
+			return err
+		}
+		duration := time.Since(start)
+		logrus.Info("Endpoints reconstruction took : %d", duration)
 	}
 
-	if err := c.reconstructWorkersState(ctx); err != nil {
-		return err
-	}
-
-	if err := c.reconstructServiceState(ctx); err != nil {
-		return err
-	}
-
-	return c.reconstructEndpointsState(ctx, &c.DataPlaneConnections)
+	return nil
 }
 
 func (c *ControlPlane) reconstructDataplaneState(ctx context.Context) error {
