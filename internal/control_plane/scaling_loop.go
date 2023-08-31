@@ -249,7 +249,12 @@ func (ss *ServiceInfoStorage) doDownscaling(toEvict map[*Endpoint]struct{}, urls
 			}
 
 			// Update worker node structure
-			ss.WorkerEndpoints.Delete(key.Node.Name)
+			worker, present := ss.WorkerEndpoints.Get(key.Node.Name)
+			if !present {
+				logrus.Fatal("Endpoint not present in the map")
+			}
+
+			worker.Delete(ss.ServiceInfo.Name)
 		}()
 	}
 

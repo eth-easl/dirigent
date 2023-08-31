@@ -8,7 +8,6 @@ import (
 	"cluster_manager/pkg/utils"
 	"context"
 	"fmt"
-	"google.golang.org/grpc"
 	"google.golang.org/protobuf/types/known/emptypb"
 	"os"
 	"time"
@@ -73,7 +72,7 @@ func NewWorkerNode(config config.WorkerNodeConfig, containerdClient *containerd.
 	return workerNode
 }
 
-func (w *WorkerNode) CreateSandbox(grpcCtx context.Context, in *proto.ServiceInfo, opts ...grpc.CallOption) (*proto.SandboxCreationStatus, error) {
+func (w *WorkerNode) CreateSandbox(grpcCtx context.Context, in *proto.ServiceInfo) (*proto.SandboxCreationStatus, error) {
 	logrus.Debug("Create sandbox for service = '", in.Name, "'")
 
 	start := time.Now()
@@ -137,7 +136,7 @@ func (w *WorkerNode) CreateSandbox(grpcCtx context.Context, in *proto.ServiceInf
 	}, nil
 }
 
-func (w *WorkerNode) DeleteSandbox(grpcCtx context.Context, in *proto.SandboxID, opts ...grpc.CallOption) (*proto.ActionStatus, error) {
+func (w *WorkerNode) DeleteSandbox(grpcCtx context.Context, in *proto.SandboxID) (*proto.ActionStatus, error) {
 	logrus.Debug("RemoveKey sandbox with ID = '", in.ID, "'")
 
 	ctx := namespaces.WithNamespace(grpcCtx, "cm")
@@ -171,7 +170,7 @@ func (w *WorkerNode) DeleteSandbox(grpcCtx context.Context, in *proto.SandboxID,
 	return &proto.ActionStatus{Success: true}, nil
 }
 
-func (w *WorkerNode) ListEndpoints(grpcCtx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*proto.EndpointsList, error) {
+func (w *WorkerNode) ListEndpoints(grpcCtx context.Context, in *emptypb.Empty) (*proto.EndpointsList, error) {
 	return w.SandboxManager.ListEndpoints()
 }
 
