@@ -17,7 +17,7 @@ const (
 )
 
 type RedisClient struct {
-	redisClient redis.Client
+	RedisClient redis.Client
 }
 
 func CreateRedisClient(ctx context.Context, redisLogin config.RedisConf) (*RedisClient, error) {
@@ -46,7 +46,7 @@ func CreateRedisClient(ctx context.Context, redisLogin config.RedisConf) (*Redis
 		}
 	}
 
-	return &RedisClient{redisClient: *redisClient}, redisClient.Ping(ctx).Err()
+	return &RedisClient{RedisClient: *redisClient}, redisClient.Ping(ctx).Err()
 }
 
 func (driver *RedisClient) StoreDataPlaneInformation(ctx context.Context, dataplaneInfo *proto.DataplaneInformation) error {
@@ -59,7 +59,7 @@ func (driver *RedisClient) StoreDataPlaneInformation(ctx context.Context, datapl
 
 	key := fmt.Sprintf("%s:%s", dataplanePrefix, dataplaneInfo.Address)
 
-	return driver.redisClient.HSet(ctx, key, "data", data).Err()
+	return driver.RedisClient.HSet(ctx, key, "data", data).Err()
 }
 
 func (driver *RedisClient) DeleteDataPlaneInformation(ctx context.Context, dataplaneInfo *proto.DataplaneInformation) error {
@@ -67,7 +67,7 @@ func (driver *RedisClient) DeleteDataPlaneInformation(ctx context.Context, datap
 
 	key := fmt.Sprintf("%s:%s", dataplanePrefix, dataplaneInfo.Address)
 
-	return driver.redisClient.Del(ctx, key).Err()
+	return driver.RedisClient.Del(ctx, key).Err()
 }
 
 func (driver *RedisClient) GetDataPlaneInformation(ctx context.Context) ([]*proto.DataplaneInformation, error) {
@@ -81,7 +81,7 @@ func (driver *RedisClient) GetDataPlaneInformation(ctx context.Context) ([]*prot
 	dataPlanes := make([]*proto.DataplaneInformation, 0)
 
 	for _, key := range keys {
-		fields, err := driver.redisClient.HGetAll(ctx, key).Result()
+		fields, err := driver.RedisClient.HGetAll(ctx, key).Result()
 		if err != nil {
 			return nil, err
 		}
@@ -111,7 +111,7 @@ func (driver *RedisClient) StoreWorkerNodeInformation(ctx context.Context, worke
 
 	key := fmt.Sprintf("%s:%s", workerPrefix, workerNodeInfo.Name)
 
-	return driver.redisClient.HSet(ctx, key, "data", data).Err()
+	return driver.RedisClient.HSet(ctx, key, "data", data).Err()
 }
 
 func (driver *RedisClient) DeleteWorkerNodeInformation(ctx context.Context, workerNodeInfo *proto.WorkerNodeInformation) error {
@@ -119,7 +119,7 @@ func (driver *RedisClient) DeleteWorkerNodeInformation(ctx context.Context, work
 
 	key := fmt.Sprintf("%s:%s", workerPrefix, workerNodeInfo.Name)
 
-	return driver.redisClient.Del(ctx, key, "data").Err()
+	return driver.RedisClient.Del(ctx, key, "data").Err()
 }
 
 func (driver *RedisClient) GetWorkerNodeInformation(ctx context.Context) ([]*proto.WorkerNodeInformation, error) {
@@ -133,7 +133,7 @@ func (driver *RedisClient) GetWorkerNodeInformation(ctx context.Context) ([]*pro
 	workers := make([]*proto.WorkerNodeInformation, 0)
 
 	for _, key := range keys {
-		fields, err := driver.redisClient.HGetAll(ctx, key).Result()
+		fields, err := driver.RedisClient.HGetAll(ctx, key).Result()
 		if err != nil {
 			return nil, err
 		}
@@ -163,7 +163,7 @@ func (driver *RedisClient) StoreServiceInformation(ctx context.Context, serviceI
 
 	key := fmt.Sprintf("%s:%s", servicePrefix, serviceInfo.Name)
 
-	return driver.redisClient.HSet(ctx, key, "data", data).Err()
+	return driver.RedisClient.HSet(ctx, key, "data", data).Err()
 }
 
 func (driver *RedisClient) GetServiceInformation(ctx context.Context) ([]*proto.ServiceInfo, error) {
@@ -177,7 +177,7 @@ func (driver *RedisClient) GetServiceInformation(ctx context.Context) ([]*proto.
 	services := make([]*proto.ServiceInfo, 0)
 
 	for _, key := range keys {
-		fields, err := driver.redisClient.HGetAll(ctx, key).Result()
+		fields, err := driver.RedisClient.HGetAll(ctx, key).Result()
 		if err != nil {
 			return nil, err
 		}
@@ -212,7 +212,7 @@ func (driver *RedisClient) scanKeys(ctx context.Context, prefix string) ([]strin
 			err  error
 		)
 
-		keys, cursor, err = driver.redisClient.Scan(ctx, cursor, fmt.Sprintf("%s*", prefix), 10).Result()
+		keys, cursor, err = driver.RedisClient.Scan(ctx, cursor, fmt.Sprintf("%s*", prefix), 10).Result()
 		if err != nil {
 			panic(err)
 		}
