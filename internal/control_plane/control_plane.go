@@ -244,9 +244,8 @@ func (c *ControlPlane) RegisterService(ctx context.Context, serviceInfo *proto.S
 
 func (c *ControlPlane) connectToRegisteredService(ctx context.Context, serviceInfo *proto.ServiceInfo) error {
 	for _, conn := range c.DataPlaneConnections.Values() {
-		resp, err := conn.Iface.AddDeployment(ctx, serviceInfo)
-		if err != nil || !resp.Success {
-
+		_, err := conn.Iface.AddDeployment(ctx, serviceInfo)
+		if err != nil {
 			return err
 		}
 	}
