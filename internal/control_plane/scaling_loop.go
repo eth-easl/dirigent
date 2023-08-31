@@ -181,7 +181,7 @@ func (ss *ServiceInfoStorage) doUpscaling(toCreateCount int, nodeList *atomic_ma
 			// Update worker node structure
 			workerEndpointMap, present := ss.WorkerEndpoints.Get(node.Name)
 			if !present {
-				logrus.Fatal("Endpoint not present in database")
+				logrus.Fatal("Endpoint not present in the map")
 			}
 
 			workerEndpointMap.Set(newEndpoint, ss.ServiceInfo.Name)
