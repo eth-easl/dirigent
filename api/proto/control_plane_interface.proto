@@ -37,7 +37,7 @@ enum FailureType {
 message Failure {
   FailureType Type = 1;
   string ServiceName = 2;
-  string ContainerID = 3;
+  string SandboxID = 3;
 }
 
 service CpiInterface {

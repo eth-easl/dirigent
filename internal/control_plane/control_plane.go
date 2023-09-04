@@ -10,12 +10,12 @@ import (
 	"cluster_manager/pkg/tracing"
 	"cluster_manager/pkg/utils"
 	"context"
-	"encoding/json"
 	"errors"
 	"github.com/sirupsen/logrus"
 	"google.golang.org/protobuf/types/known/emptypb"
 	"strconv"
 	"sync"
+	"sync/atomic"
 	"time"
 )
 
@@ -274,7 +274,7 @@ func (c *ControlPlane) processDataplaneRequest(ctx context.Context, in *proto.Da
 	ipAddress, ok := grpc_helpers.GetIPAddressFromGRPCCall(ctx)
 	if !ok {
 		logrus.Debug("Failed to extract IP address from data plane registration request")
-		return proto.DataplaneInformation{}, errors.New("Failed to extract IP address from data plane registration request")
+		return proto.DataplaneInformation{}, errors.New("failed to extract IP address from data plane registration request")
 	}
 
 	return proto.DataplaneInformation{
@@ -472,28 +472,42 @@ func (c *ControlPlane) reconstructEndpointsState(ctx context.Context, dpiClients
 	return nil
 }
 
-func (c *ControlPlane) SerializeCpApiServer(ctx context.Context) {
-	serialized, err := json.Marshal(*c)
-	if err != nil {
-		logrus.Errorf("Failed to serialize control plane on failure : %s", err.Error())
-		return
-	}
-
-	err = c.PersistenceLayer.StoreSerialized(ctx, serialized)
-	if err != nil {
-		logrus.Errorf("Failed to save control plane on failure : %s", err.Error())
-		return
-	}
-
-	logrus.Info("Stored the control plane in the persistence layer with success")
-}
-
-func (c *ControlPlane) HandleFailure(in *proto.Failure) {
+func (c *ControlPlane) HandleFailure(in *proto.Failure) bool {
 	switch in.Type {
 	case proto.FailureType_CONTAINER_FAILURE:
-		// reduce the actual scale by one and propagate endpoint removal
-		//serviceName := in.ServiceName
-		//containerID := in.ContainerID
+		// RECOVERY ACTION: reduce the actual scale by one and propagate endpoint removal
+		serviceName := in.ServiceName
+		sandboxID := in.SandboxID
 
+		if ss, ok := c.SIStorage.Get(serviceName); ok {
+			logrus.Warn("Control plane notified of failure of '", sandboxID, "'. Decrementing actual scale and removing endpoint.")
+
+			ss.Controller.EndpointLock.Lock()
+			defer ss.Controller.EndpointLock.Unlock()
+
+			endpoint := searchEndpointByContainerName(ss.Controller.Endpoints, sandboxID)
+			if endpoint == nil {
+				return false
+			}
+
+			atomic.AddInt64(&ss.Controller.ScalingMetadata.ActualScale, -1)
+			ss.Controller.Endpoints = ss.excludeEndpoints(ss.Controller.Endpoints, map[*Endpoint]struct{}{endpoint: {}})
+
+			ss.updateEndpoints(&c.DataPlaneConnections, ss.prepareUrlList())
+		} else {
+			return false
+		}
 	}
+
+	return false
+}
+
+func searchEndpointByContainerName(endpoints []*Endpoint, cid string) *Endpoint {
+	for _, e := range endpoints {
+		if e.SandboxID == cid {
+			return e
+		}
+	}
+
+	return nil
 }
