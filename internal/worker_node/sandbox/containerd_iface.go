@@ -1,6 +1,7 @@
 package sandbox
 
 import (
+	"cluster_manager/api/proto"
 	"context"
 	"fmt"
 	"log"
@@ -100,6 +101,33 @@ func StartContainer(ctx context.Context, container containerd.Container, network
 	return task, statusChannel, ip, netns, nil, time.Since(start) - durationCNI, durationCNI
 }
 
+func ListenOnExitChannel(cpApi proto.CpiInterfaceClient, metadata *Metadata) {
+	status := <-metadata.ExitChannel
+	logrus.Debug("Container ", metadata.Container.ID(), " exited with status ", status.ExitCode())
+
+	_, _ = metadata.Task.Delete(context.Background(), containerd.WithProcessKill)
+	_ = metadata.Container.Delete(context.Background(), containerd.WithSnapshotCleanup)
+
+	switch status.ExitCode() {
+	case 137: // SIGKILL signal -- sent by 'Task.Kill' from 'DeleteContainer'
+		logrus.Debug("Container killed by SIGKILL.")
+		metadata.SignalKillBySystem.Done()
+	default: // termination not caused by a signal
+		if cpApi == nil {
+			return // for tests
+		}
+
+		_, err := cpApi.ReportFailure(context.Background(), &proto.Failure{
+			Type:        proto.FailureType_CONTAINER_FAILURE,
+			ServiceName: metadata.ServiceName,
+			ContainerID: metadata.Container.ID(),
+		})
+		if err != nil {
+			logrus.Warn("Failed to report container failure to the control plane for '" + metadata.ServiceName + "'.")
+		}
+	}
+}
+
 func DeleteContainer(ctx context.Context, network cni.CNI, metadata *Metadata) error {
 	if err := network.Remove(ctx, metadata.Container.ID(), metadata.NetNs); err != nil {
 		return err
@@ -110,16 +138,7 @@ func DeleteContainer(ctx context.Context, network cni.CNI, metadata *Metadata) e
 		return err
 	}
 
-	status := <-metadata.ExitChannel
-	logrus.Debug("Container ", metadata.Container.ID(), " exited with status ", status.ExitCode())
-
-	if _, err := metadata.Task.Delete(ctx, containerd.WithProcessKill); err != nil {
-		return err
-	}
-
-	if err := metadata.Container.Delete(ctx, containerd.WithSnapshotCleanup); err != nil {
-		return err
-	}
+	metadata.SignalKillBySystem.Wait()
 
 	return nil
 }

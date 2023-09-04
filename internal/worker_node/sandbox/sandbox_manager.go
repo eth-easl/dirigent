@@ -4,6 +4,7 @@ import (
 	"cluster_manager/api/proto"
 	"cluster_manager/pkg/atomic_map"
 	"github.com/containerd/containerd"
+	"sync"
 )
 
 type Manager struct {
@@ -13,6 +14,8 @@ type Manager struct {
 }
 
 type Metadata struct {
+	ServiceName string
+
 	Task        containerd.Task
 	Container   containerd.Container
 	ExitChannel <-chan containerd.ExitStatus
@@ -20,7 +23,8 @@ type Metadata struct {
 	IP          string
 	GuestPort   int
 	NetNs       string
-	SeriveName  string
+
+	SignalKillBySystem sync.WaitGroup
 }
 
 func NewSandboxManager(nodeName string) *Manager {
@@ -54,7 +58,7 @@ func (m *Manager) ListEndpoints() (*proto.EndpointsList, error) {
 			SandboxID:   keys[i],
 			URL:         values[i].IP,
 			NodeName:    m.nodeName,
-			ServiceName: values[i].SeriveName,
+			ServiceName: values[i].ServiceName,
 			HostPort:    int32(values[i].HostPort),
 		})
 	}

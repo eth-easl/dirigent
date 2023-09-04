@@ -4,6 +4,7 @@ import (
 	"context"
 	"math/rand"
 	"sync"
+	"syscall"
 	"testing"
 	"time"
 
@@ -17,6 +18,8 @@ import (
 const cniConfigPath = "../../../configs/cni.conf"
 
 func TestCreateAContainer(t *testing.T) {
+	logrus.SetLevel(logrus.TraceLevel)
+
 	// fails to expose networking to the container
 	rand.Seed(time.Now().UnixNano())
 
@@ -50,6 +53,9 @@ func TestCreateAContainer(t *testing.T) {
 		IP:          ip,
 		NetNs:       netns,
 	}
+
+	sm.SignalKillBySystem.Add(1)
+	go ListenOnExitChannel(nil, sm)
 
 	err = DeleteContainer(ctx, network, sm)
 	assert.NoError(t, err, "Failed to delete container")
@@ -103,4 +109,53 @@ func TestParallelCreation(t *testing.T) {
 
 		wg.Wait()
 	}
+}
+
+func TestContainerFailureHandlerTriggering(t *testing.T) {
+	logrus.SetLevel(logrus.TraceLevel)
+
+	// fails to expose networking to the container
+	rand.Seed(time.Now().UnixNano())
+
+	client, err := containerd.New("/run/containerd/containerd.sock")
+	assert.NoError(t, err, "Failed to create a containerd client")
+
+	network, err := cni.New(cni.WithConfFile(cniConfigPath))
+	assert.NoError(t, err, "Failed to open cni configuration")
+
+	ctx := namespaces.WithNamespace(context.Background(), "default")
+
+	start := time.Now()
+	image, _ := FetchImage(ctx, client, "docker.io/cvetkovic/empty_function:latest")
+
+	logrus.Info("Image fetching - ", time.Since(start).Microseconds(), "μs")
+
+	start = time.Now()
+	container, err, _ := CreateContainer(ctx, client, image)
+	assert.NoError(t, err, "Failed to create container")
+	logrus.Info("Create container - ", time.Since(start).Microseconds(), "μs")
+
+	start = time.Now()
+	task, exitCh, ip, netns, err, _, _ := StartContainer(ctx, container, network)
+	assert.NoError(t, err, "Failed to start container")
+	logrus.Info("Start container - ", time.Since(start).Microseconds(), "μs")
+
+	sm := &Metadata{
+		Task:        task,
+		Container:   container,
+		ExitChannel: exitCh,
+		IP:          ip,
+		NetNs:       netns,
+	}
+
+	sm.SignalKillBySystem.Add(1)
+	go ListenOnExitChannel(nil, sm)
+
+	// wait until 'ListenOnExitChannel' is ready
+	time.Sleep(3 * time.Second)
+
+	task.Kill(ctx, syscall.SIGTERM, containerd.WithKillAll)
+
+	// fault handler otherwise won't be called
+	time.Sleep(3 * time.Second)
 }

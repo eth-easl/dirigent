@@ -30,6 +30,16 @@ message DataplaneInfo {
   int32 ProxyPort = 2;
 }
 
+enum FailureType {
+  CONTAINER_FAILURE = 0;
+}
+
+message Failure {
+  FailureType Type = 1;
+  string ServiceName = 2;
+  string ContainerID = 3;
+}
+
 service CpiInterface {
   rpc OnMetricsReceive(AutoscalingMetric) returns (ActionStatus);
   rpc ListServices(google.protobuf.Empty) returns (ServiceList);
@@ -38,6 +48,8 @@ service CpiInterface {
   rpc RegisterService(ServiceInfo) returns (ActionStatus);
   rpc RegisterNode(NodeInfo) returns (ActionStatus);
   rpc NodeHeartbeat(NodeHeartbeatMessage) returns (ActionStatus);
+
+  rpc ReportFailure(Failure) returns (ActionStatus);
 
   rpc DeregisterDataplane(DataplaneInfo) returns (ActionStatus);
   rpc DeregisterNode(NodeInfo) returns (ActionStatus);

@@ -25,6 +25,7 @@ type CpiInterfaceClient interface {
 	RegisterService(ctx context.Context, in *ServiceInfo, opts ...grpc.CallOption) (*ActionStatus, error)
 	RegisterNode(ctx context.Context, in *NodeInfo, opts ...grpc.CallOption) (*ActionStatus, error)
 	NodeHeartbeat(ctx context.Context, in *NodeHeartbeatMessage, opts ...grpc.CallOption) (*ActionStatus, error)
+	ReportFailure(ctx context.Context, in *Failure, opts ...grpc.CallOption) (*ActionStatus, error)
 	DeregisterDataplane(ctx context.Context, in *DataplaneInfo, opts ...grpc.CallOption) (*ActionStatus, error)
 	DeregisterNode(ctx context.Context, in *NodeInfo, opts ...grpc.CallOption) (*ActionStatus, error)
 	ResetMeasurements(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*ActionStatus, error)
@@ -92,6 +93,15 @@ func (c *cpiInterfaceClient) NodeHeartbeat(ctx context.Context, in *NodeHeartbea
 	return out, nil
 }
 
+func (c *cpiInterfaceClient) ReportFailure(ctx context.Context, in *Failure, opts ...grpc.CallOption) (*ActionStatus, error) {
+	out := new(ActionStatus)
+	err := c.cc.Invoke(ctx, "/data_plane.CpiInterface/ReportFailure", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 func (c *cpiInterfaceClient) DeregisterDataplane(ctx context.Context, in *DataplaneInfo, opts ...grpc.CallOption) (*ActionStatus, error) {
 	out := new(ActionStatus)
 	err := c.cc.Invoke(ctx, "/data_plane.CpiInterface/DeregisterDataplane", in, out, opts...)
@@ -129,6 +139,7 @@ type CpiInterfaceServer interface {
 	RegisterService(context.Context, *ServiceInfo) (*ActionStatus, error)
 	RegisterNode(context.Context, *NodeInfo) (*ActionStatus, error)
 	NodeHeartbeat(context.Context, *NodeHeartbeatMessage) (*ActionStatus, error)
+	ReportFailure(context.Context, *Failure) (*ActionStatus, error)
 	DeregisterDataplane(context.Context, *DataplaneInfo) (*ActionStatus, error)
 	DeregisterNode(context.Context, *NodeInfo) (*ActionStatus, error)
 	ResetMeasurements(context.Context, *emptypb.Empty) (*ActionStatus, error)
@@ -156,6 +167,9 @@ func (UnimplementedCpiInterfaceServer) RegisterNode(context.Context, *NodeInfo) 
 }
 func (UnimplementedCpiInterfaceServer) NodeHeartbeat(context.Context, *NodeHeartbeatMessage) (*ActionStatus, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method NodeHeartbeat not implemented")
+}
+func (UnimplementedCpiInterfaceServer) ReportFailure(context.Context, *Failure) (*ActionStatus, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method ReportFailure not implemented")
 }
 func (UnimplementedCpiInterfaceServer) DeregisterDataplane(context.Context, *DataplaneInfo) (*ActionStatus, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method DeregisterDataplane not implemented")
@@ -287,6 +301,24 @@ func _CpiInterface_NodeHeartbeat_Handler(srv interface{}, ctx context.Context, d
 	return interceptor(ctx, in, info, handler)
 }
 
+func _CpiInterface_ReportFailure_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(Failure)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(CpiInterfaceServer).ReportFailure(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/data_plane.CpiInterface/ReportFailure",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(CpiInterfaceServer).ReportFailure(ctx, req.(*Failure))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 func _CpiInterface_DeregisterDataplane_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(DataplaneInfo)
 	if err := dec(in); err != nil {
@@ -371,6 +403,10 @@ var CpiInterface_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "NodeHeartbeat",
 			Handler:    _CpiInterface_NodeHeartbeat_Handler,
+		},
+		{
+			MethodName: "ReportFailure",
+			Handler:    _CpiInterface_ReportFailure_Handler,
 		},
 		{
 			MethodName: "DeregisterDataplane",

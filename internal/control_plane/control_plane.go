@@ -10,6 +10,7 @@ import (
 	"cluster_manager/pkg/tracing"
 	"cluster_manager/pkg/utils"
 	"context"
+	"encoding/json"
 	"errors"
 	"github.com/sirupsen/logrus"
 	"google.golang.org/protobuf/types/known/emptypb"
@@ -469,4 +470,30 @@ func (c *ControlPlane) reconstructEndpointsState(ctx context.Context, dpiClients
 	}
 
 	return nil
+}
+
+func (c *ControlPlane) SerializeCpApiServer(ctx context.Context) {
+	serialized, err := json.Marshal(*c)
+	if err != nil {
+		logrus.Errorf("Failed to serialize control plane on failure : %s", err.Error())
+		return
+	}
+
+	err = c.PersistenceLayer.StoreSerialized(ctx, serialized)
+	if err != nil {
+		logrus.Errorf("Failed to save control plane on failure : %s", err.Error())
+		return
+	}
+
+	logrus.Info("Stored the control plane in the persistence layer with success")
+}
+
+func (c *ControlPlane) HandleFailure(in *proto.Failure) {
+	switch in.Type {
+	case proto.FailureType_CONTAINER_FAILURE:
+		// reduce the actual scale by one and propagate endpoint removal
+		//serviceName := in.ServiceName
+		//containerID := in.ContainerID
+
+	}
 }

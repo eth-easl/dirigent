@@ -28,28 +28,28 @@ func main() {
 
 	logrus.Debugf("Configuration path is : %s", *configPath)
 
-	config, err := config.ReadWorkedNodeConfiguration(*configPath)
+	cfg, err := config.ReadWorkedNodeConfiguration(*configPath)
 	if err != nil {
 		logrus.Fatalf("Failed to read configuration file (error : %s)", err.Error())
 	}
 
-	logger.SetupLogger(config.Verbosity)
+	logger.SetupLogger(cfg.Verbosity)
 
-	containerdClient := sandbox.GetContainerdClient(config.CRIPath)
+	containerdClient := sandbox.GetContainerdClient(cfg.CRIPath)
 	defer containerdClient.Close()
 
-	cpApi := grpc_helpers.InitializeControlPlaneConnection(config.ControlPlaneIp, config.ControlPlanePort, -1, -1)
+	cpApi := grpc_helpers.InitializeControlPlaneConnection(cfg.ControlPlaneIp, cfg.ControlPlanePort, -1, -1)
 
-	workerNode := worker_node.NewWorkerNode(config, containerdClient)
+	workerNode := worker_node.NewWorkerNode(cpApi, cfg, containerdClient)
 
-	workerNode.RegisterNodeWithControlPlane(config, &cpApi)
-	defer workerNode.DeregisterNodeFromControlPlane(config, &cpApi)
+	workerNode.RegisterNodeWithControlPlane(cfg, &cpApi)
+	defer workerNode.DeregisterNodeFromControlPlane(cfg, &cpApi)
 
 	go workerNode.SetupHeartbeatLoop(&cpApi)
 
 	logrus.Info("Starting API handlers")
 
-	go grpc_helpers.CreateGRPCServer(utils.DockerLocalhost, strconv.Itoa(config.Port), func(sr grpc.ServiceRegistrar) {
+	go grpc_helpers.CreateGRPCServer(utils.DockerLocalhost, strconv.Itoa(cfg.Port), func(sr grpc.ServiceRegistrar) {
 		proto.RegisterWorkerNodeInterfaceServer(sr, api.NewWorkerNodeApi(workerNode))
 	})
 

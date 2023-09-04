@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"google.golang.org/protobuf/types/known/emptypb"
 	"os"
+	"sync"
 	"time"
 
 	"github.com/containerd/containerd"
@@ -22,11 +23,13 @@ import (
 )
 
 const (
-	REGISTER_ACTION = iota
-	DEREGISTER_ACTION
+	RegisterAction = iota
+	DeregisterAction
 )
 
 type WorkerNode struct {
+	cpApi proto.CpiInterfaceClient
+
 	ContainerdClient *containerd.Client
 	CNIClient        cni.CNI
 	IPT              *iptables.IPTables
@@ -37,7 +40,7 @@ type WorkerNode struct {
 	quitChannel chan bool
 }
 
-func NewWorkerNode(config config.WorkerNodeConfig, containerdClient *containerd.Client) *WorkerNode {
+func NewWorkerNode(cpApi proto.CpiInterfaceClient, config config.WorkerNodeConfig, containerdClient *containerd.Client) *WorkerNode {
 	cniClient := sandbox.GetCNIClient(config.CNIConfigPath)
 	ipt, err := sandbox.NewIptablesUtil()
 
@@ -51,6 +54,8 @@ func NewWorkerNode(config config.WorkerNodeConfig, containerdClient *containerd.
 	}
 
 	workerNode := &WorkerNode{
+		cpApi: cpApi,
+
 		ContainerdClient: containerdClient,
 		CNIClient:        cniClient,
 		IPT:              ipt,
@@ -63,6 +68,7 @@ func NewWorkerNode(config config.WorkerNodeConfig, containerdClient *containerd.
 
 	if config.PrefetchImage {
 		ctx := namespaces.WithNamespace(context.Background(), "default")
+		// TODO: remove hardcoded the image
 		_, err, _ = workerNode.ImageManager.GetImage(ctx, workerNode.ContainerdClient, "docker.io/cvetkovic/empty_function:latest")
 		if err != nil {
 			logrus.Errorf("Failed to prefetch the image")
@@ -98,6 +104,8 @@ func (w *WorkerNode) CreateSandbox(grpcCtx context.Context, in *proto.ServiceInf
 	}
 
 	metadata := &sandbox.Metadata{
+		ServiceName: in.Name,
+
 		Task:        task,
 		Container:   container,
 		ExitChannel: exitChannel,
@@ -105,8 +113,12 @@ func (w *WorkerNode) CreateSandbox(grpcCtx context.Context, in *proto.ServiceInf
 		IP:          ip,
 		GuestPort:   int(in.PortForwarding.GuestPort),
 		NetNs:       netNs,
-		SeriveName:  in.Name,
+
+		SignalKillBySystem: sync.WaitGroup{},
 	}
+	metadata.SignalKillBySystem.Add(1)
+	go sandbox.ListenOnExitChannel(w.cpApi, metadata)
+
 	w.SandboxManager.AddSandbox(container.ID(), metadata)
 
 	logrus.Debug("Sandbox creation took ", time.Since(start).Microseconds(), " μs (", container.ID(), ")")
@@ -177,7 +189,7 @@ func (w *WorkerNode) ListEndpoints(grpcCtx context.Context, in *emptypb.Empty) (
 func (w *WorkerNode) RegisterNodeWithControlPlane(config config.WorkerNodeConfig, cpApi *proto.CpiInterfaceClient) {
 	logrus.Info("Trying to register the node with the control plane")
 
-	err := w.sendInstructionToControlPlane(config, cpApi, REGISTER_ACTION)
+	err := w.sendInstructionToControlPlane(config, cpApi, RegisterAction)
 	if err != nil {
 		logrus.Fatal("Failed to register from the control plane")
 	}
@@ -197,9 +209,12 @@ func (w *WorkerNode) CleanResources() {
 	}
 
 	for _, key := range keys {
-		w.DeleteSandbox(context.Background(), &proto.SandboxID{
+		_, err := w.DeleteSandbox(context.Background(), &proto.SandboxID{
 			ID: key,
 		})
+		if err != nil {
+			logrus.Warn("Failed to clean resource (sandbox) - ", key)
+		}
 	}
 }
 
@@ -208,7 +223,7 @@ func (w *WorkerNode) DeregisterNodeFromControlPlane(config config.WorkerNodeConf
 
 	w.quitChannel <- true
 
-	err := w.sendInstructionToControlPlane(config, cpApi, DEREGISTER_ACTION)
+	err := w.sendInstructionToControlPlane(config, cpApi, DeregisterAction)
 	if err != nil {
 		logrus.Fatal("Failed to deregister from the control plane")
 	}
@@ -237,9 +252,9 @@ func (w *WorkerNode) sendInstructionToControlPlane(config config.WorkerNodeConfi
 
 			var resp *proto.ActionStatus
 
-			if action == REGISTER_ACTION {
+			if action == RegisterAction {
 				resp, err = (*cpi).RegisterNode(context.Background(), nodeInfo)
-			} else if action == DEREGISTER_ACTION {
+			} else if action == DeregisterAction {
 				resp, err = (*cpi).DeregisterNode(context.Background(), nodeInfo)
 			}
 
