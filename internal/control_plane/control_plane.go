@@ -235,7 +235,7 @@ func (c *ControlPlane) RegisterService(ctx context.Context, serviceInfo *proto.S
 
 	err = c.connectToRegisteredService(ctx, serviceInfo)
 	if err != nil {
-		logrus.Warnf("Failed to connect registered service (error : %s)")
+		logrus.Warnf("Failed to connect registered service (error : %s)", err.Error())
 		return &proto.ActionStatus{Success: false}, err
 	}
 
