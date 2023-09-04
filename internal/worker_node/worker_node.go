@@ -289,7 +289,7 @@ func (w *WorkerNode) SetupHeartbeatLoop(cpApi *proto.CpiInterfaceClient) {
 }
 
 func (w *WorkerNode) getWorkerStatistics() (*proto.NodeHeartbeatMessage, error) {
-	harwareUsage := hardware.GetHardwareUsage()
+	hardwareUsage := hardware.GetHardwareUsage()
 
 	hostname, err := os.Hostname()
 	if err != nil {
@@ -298,8 +298,8 @@ func (w *WorkerNode) getWorkerStatistics() (*proto.NodeHeartbeatMessage, error) 
 
 	return &proto.NodeHeartbeatMessage{
 		NodeID:      hostname,
-		CpuUsage:    harwareUsage.CpuUsage,
-		MemoryUsage: harwareUsage.MemoryUsage,
+		CpuUsage:    hardwareUsage.CpuUsage,
+		MemoryUsage: hardwareUsage.MemoryUsage,
 	}, nil
 }
 

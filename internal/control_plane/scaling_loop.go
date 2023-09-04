@@ -110,19 +110,6 @@ func (ss *ServiceInfoStorage) ScalingControllerLoop(nodeList *atomic_map.AtomicM
 	}
 }
 
-func (ss *ServiceInfoStorage) RemoveEndpoint(endpointToEvict *Endpoint, dpiClients *atomic_map.AtomicMap[string, *function_metadata.DataPlaneConnectionInfo]) error {
-	ss.Controller.EndpointLock.Lock()
-
-	ss.Controller.Endpoints = ss.excludeSingleEndpoint(ss.Controller.Endpoints, endpointToEvict)
-	atomic.AddInt64(&ss.Controller.ScalingMetadata.ActualScale, -1)
-
-	ss.Controller.EndpointLock.Unlock()
-
-	ss.updateEndpoints(dpiClients, ss.prepareUrlList())
-
-	return nil
-}
-
 func (ss *ServiceInfoStorage) doUpscaling(toCreateCount int, nodeList *atomic_map.AtomicMap[string, *WorkerNode], dpiClients *atomic_map.AtomicMap[string, *function_metadata.DataPlaneConnectionInfo]) {
 	wg := sync.WaitGroup{}
 
@@ -229,6 +216,7 @@ func (ss *ServiceInfoStorage) doDownscaling(toEvict map[*Endpoint]struct{}, urls
 			continue // why this happens?
 		}
 
+		k := key
 		go func() {
 			defer barrier.Done()
 
@@ -249,11 +237,10 @@ func (ss *ServiceInfoStorage) doDownscaling(toEvict map[*Endpoint]struct{}, urls
 			}
 
 			// Update worker node structure
-			worker, present := ss.WorkerEndpoints.Get(key.Node.Name)
+			worker, present := ss.WorkerEndpoints.Get(k.Node.Name)
 			if !present {
 				logrus.Fatal("Endpoint not present in the map")
 			}
-
 			worker.Delete(ss.ServiceInfo.Name)
 		}()
 	}

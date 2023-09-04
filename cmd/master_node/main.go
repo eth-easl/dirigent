@@ -33,17 +33,17 @@ func main() {
 
 	logrus.Debugf("Configuration path is : %s", *configPath)
 
-	config, err := config.ReadControlPlaneConfiguration(*configPath)
+	cfg, err := config.ReadControlPlaneConfiguration(*configPath)
 	if err != nil {
 		logrus.Fatalf("Failed to read configuration file (error : %s)", err.Error())
 	}
 
-	logger.SetupLogger(config.Verbosity)
+	logger.SetupLogger(cfg.Verbosity)
 
 	var persistenceLayer persistence.PersistenceLayer
 
-	if config.Persistence {
-		persistenceLayer, err = persistence.CreateRedisClient(context.Background(), config.RedisConf)
+	if cfg.Persistence {
+		persistenceLayer, err = persistence.CreateRedisClient(context.Background(), cfg.RedisConf)
 		if err != nil {
 			logrus.Fatalf("Failed to connect to the database (error : %s)", err.Error())
 		}
@@ -51,29 +51,29 @@ func main() {
 		persistenceLayer = persistence.NewEmptyPeristenceLayer()
 	}
 
-	cpApiServer := api.CreateNewCpApiServer(persistenceLayer, path.Join(config.TraceOutputFolder, "cold_start_trace.csv"), parsePlacementPolicy(config))
+	cpApiServer := api.CreateNewCpApiServer(persistenceLayer, path.Join(cfg.TraceOutputFolder, "cold_start_trace.csv"), parsePlacementPolicy(cfg))
 
 	start := time.Now()
 
-	err = cpApiServer.ReconstructState(context.Background(), config)
+	err = cpApiServer.ReconstructState(context.Background(), cfg)
 	if err != nil {
 		logrus.Fatalf("Failed to reconstruct state (error : %s)", err.Error())
 	}
 
 	elapsed := time.Since(start)
-	logrus.Infof("Took %s seconds to reconstruct", elapsed)
+	logrus.Infof("Took %s to reconstruct", elapsed)
 
 	go cpApiServer.CheckPeriodicallyWorkerNodes()
 
 	go cpApiServer.ControlPlane.ColdStartTracing.StartTracingService()
 	defer close(cpApiServer.ControlPlane.ColdStartTracing.InputChannel)
 
-	go api.StartServiceRegistrationServer(cpApiServer, config.PortRegistration)
-	go grpc_helpers.CreateGRPCServer(utils.DockerLocalhost, config.Port, func(sr grpc.ServiceRegistrar) {
+	go api.StartServiceRegistrationServer(cpApiServer, cfg.PortRegistration)
+	go grpc_helpers.CreateGRPCServer(utils.DockerLocalhost, cfg.Port, func(sr grpc.ServiceRegistrar) {
 		proto.RegisterCpiInterfaceServer(sr, cpApiServer)
 	})
 
-	go profiler.SetupProfilerServer(config.Profiler)
+	go profiler.SetupProfilerServer(cfg.Profiler)
 
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer stop()

@@ -57,11 +57,35 @@ func (c *ControlPlane) GetNumberServices() int {
 	return c.SIStorage.Len()
 }
 
+func (c *ControlPlane) handleNodeFailure(wn *WorkerNode) {
+	c.SIStorage.Range(func(key, value any) bool {
+		ss := value.(*ServiceInfoStorage)
+
+		toRemove, ok := ss.WorkerEndpoints.Get(wn.Name)
+		if !ok {
+			logrus.Error("Could not handle failure for node '", wn.Name, "'")
+			return false
+		}
+
+		var cIDs []string
+		for _, v := range toRemove.Keys() {
+			cIDs = append(cIDs, v.SandboxID)
+		}
+
+		removeEndpoints(ss, &c.DataPlaneConnections, cIDs)
+
+		return true
+	})
+}
+
 func (c *ControlPlane) CheckPeriodicallyWorkerNodes() {
 	for {
 		for _, workerNode := range c.NIStorage.Values() {
 			if time.Since(workerNode.LastHeartbeat) > 3*utils.HeartbeatInterval {
-				// Triger a node deregistation
+				// Propagate endpoint removal from the data planes
+				c.handleNodeFailure(workerNode)
+
+				// Trigger a node deregistration
 				err := c.deregisterNode(workerNode)
 				if err != nil {
 					logrus.Errorf("Failed to deregister node (error : %s)", err.Error())
@@ -303,27 +327,14 @@ func (c *ControlPlane) RegisterDataplane(ctx context.Context, in *proto.Dataplan
 		return &proto.ActionStatus{Success: false}, err
 	}
 
-	c.connectToRegisteredDataplane(&dataplaneInfo)
+	c.DataPlaneConnections.Set(dataplaneInfo.Address, &function_metadata.DataPlaneConnectionInfo{
+		Iface:     grpc_helpers.InitializeDataPlaneConnection(dataplaneInfo.Address, dataplaneInfo.ApiPort),
+		IP:        dataplaneInfo.Address,
+		APIPort:   dataplaneInfo.ApiPort,
+		ProxyPort: dataplaneInfo.ProxyPort,
+	})
 
 	return &proto.ActionStatus{Success: true}, nil
-}
-
-func (c *ControlPlane) connectToRegisteredDataplane(information *proto.DataplaneInformation) {
-	c.registerDataplane(
-		grpc_helpers.InitializeDataPlaneConnection(information.Address, information.ApiPort),
-		information.Address,
-		information.ApiPort,
-		information.ProxyPort,
-	)
-}
-
-func (c *ControlPlane) registerDataplane(iface proto.DpiInterfaceClient, ip, apiPort, proxyPort string) {
-	c.DataPlaneConnections.Set(ip, &function_metadata.DataPlaneConnectionInfo{
-		Iface:     iface,
-		IP:        ip,
-		APIPort:   apiPort,
-		ProxyPort: proxyPort,
-	})
 }
 
 func (c *ControlPlane) DeregisterDataplane(ctx context.Context, in *proto.DataplaneInfo) (*proto.ActionStatus, error) {
@@ -396,8 +407,13 @@ func (c *ControlPlane) reconstructDataplaneState(ctx context.Context) error {
 		return err
 	}
 
-	for _, dataplane := range dataplanesValues {
-		c.connectToRegisteredDataplane(dataplane)
+	for _, dataplaneInfo := range dataplanesValues {
+		c.DataPlaneConnections.Set(dataplaneInfo.Address, &function_metadata.DataPlaneConnectionInfo{
+			Iface:     grpc_helpers.InitializeDataPlaneConnection(dataplaneInfo.Address, dataplaneInfo.ApiPort),
+			IP:        dataplaneInfo.Address,
+			APIPort:   dataplaneInfo.ApiPort,
+			ProxyPort: dataplaneInfo.ProxyPort,
+		})
 	}
 
 	return nil
@@ -472,6 +488,26 @@ func (c *ControlPlane) reconstructEndpointsState(ctx context.Context, dpiClients
 	return nil
 }
 
+func removeEndpoints(ss *ServiceInfoStorage, dpConns *atomic_map.AtomicMap[string, *function_metadata.DataPlaneConnectionInfo], endpoints []string) {
+	ss.Controller.EndpointLock.Lock()
+	defer ss.Controller.EndpointLock.Unlock()
+
+	toRemove := make(map[*Endpoint]struct{})
+	for _, cid := range endpoints {
+		endpoint := searchEndpointByContainerName(ss.Controller.Endpoints, cid)
+		if endpoint == nil {
+			logrus.Warn("Endpoint requested to remove not found - ", endpoint.SandboxID)
+		}
+
+		toRemove[endpoint] = struct{}{}
+	}
+
+	atomic.AddInt64(&ss.Controller.ScalingMetadata.ActualScale, -int64(len(toRemove)))
+	ss.Controller.Endpoints = ss.excludeEndpoints(ss.Controller.Endpoints, toRemove)
+
+	ss.updateEndpoints(dpConns, ss.prepareUrlList())
+}
+
 func (c *ControlPlane) HandleFailure(in *proto.Failure) bool {
 	switch in.Type {
 	case proto.FailureType_CONTAINER_FAILURE:
@@ -480,6 +516,8 @@ func (c *ControlPlane) HandleFailure(in *proto.Failure) bool {
 		sandboxID := in.SandboxID
 
 		if ss, ok := c.SIStorage.Get(serviceName); ok {
+			removeEndpoints(ss, &c.DataPlaneConnections, []string{sandboxID})
+
 			logrus.Warn("Control plane notified of failure of '", sandboxID, "'. Decrementing actual scale and removing endpoint.")
 
 			ss.Controller.EndpointLock.Lock()
@@ -494,8 +532,8 @@ func (c *ControlPlane) HandleFailure(in *proto.Failure) bool {
 			ss.Controller.Endpoints = ss.excludeEndpoints(ss.Controller.Endpoints, map[*Endpoint]struct{}{endpoint: {}})
 
 			ss.updateEndpoints(&c.DataPlaneConnections, ss.prepareUrlList())
-		} else {
-			return false
+
+			return true
 		}
 	}
 

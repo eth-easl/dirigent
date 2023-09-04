@@ -26,19 +26,19 @@ func main() {
 
 	logrus.Debugf("Configuration path is : %s", *configPath)
 
-	config, err := config.ReadDataPlaneConfiguration(*configPath)
+	cfg, err := config.ReadDataPlaneConfiguration(*configPath)
 	if err != nil {
 		logrus.Fatalf("Failed to read configuration file (error : %s)", err.Error())
 	}
 
-	logger.SetupLogger(config.Verbosity)
+	logger.SetupLogger(cfg.Verbosity)
 
 	cache := function_metadata.NewDeploymentList()
-	dataPlane := data_plane.NewDataplane(config, cache)
+	dataPlane := data_plane.NewDataplane(cfg, cache)
 
 	apiServer := api.NewDpApiServer(dataPlane)
 
-	go grpc_helpers.CreateGRPCServer("0.0.0.0", config.PortGRPC, func(sr grpc.ServiceRegistrar) {
+	go grpc_helpers.CreateGRPCServer("0.0.0.0", cfg.PortGRPC, func(sr grpc.ServiceRegistrar) {
 		proto.RegisterDpiInterfaceServer(sr, apiServer)
 	})
 
