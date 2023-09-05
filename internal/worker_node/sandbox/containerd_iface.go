@@ -16,6 +16,10 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
+const (
+	SIGKILL uint32 = 137
+)
+
 func GetContainerdClient(containerdSocket string) *containerd.Client {
 	client, err := containerd.New(containerdSocket)
 	if err != nil {
@@ -109,12 +113,13 @@ func ListenOnExitChannel(cpApi proto.CpiInterfaceClient, metadata *Metadata) {
 	_ = metadata.Container.Delete(context.Background(), containerd.WithSnapshotCleanup)
 
 	switch status.ExitCode() {
-	case 137: // SIGKILL signal -- sent by 'Task.Kill' from 'DeleteContainer'
+	case SIGKILL: // sent by 'Task.Kill' from 'DeleteContainer'
 		logrus.Debug("Container killed by SIGKILL.")
 		metadata.SignalKillBySystem.Done()
 	default: // termination not caused by a signal
 		if cpApi == nil {
-			return // for tests
+			// TODO: in tests create fake cpAPI
+			return // for tests as cpApi is null
 		}
 
 		_, err := cpApi.ReportFailure(context.Background(), &proto.Failure{

@@ -69,31 +69,31 @@ func TestCreationControlPlaneWith5Services(t *testing.T) {
 
 	persistenceLayer.EXPECT().GetServiceInformation(gomock.Any()).DoAndReturn(func(_ context.Context) ([]*proto.ServiceInfo, error) {
 		return []*proto.ServiceInfo{
-			&proto.ServiceInfo{
+			{
 				Name:              "1",
 				Image:             "",
 				PortForwarding:    nil,
 				AutoscalingConfig: nil,
 			},
-			&proto.ServiceInfo{
+			{
 				Name:              "2",
 				Image:             "",
 				PortForwarding:    nil,
 				AutoscalingConfig: nil,
 			},
-			&proto.ServiceInfo{
+			{
 				Name:              "3",
 				Image:             "",
 				PortForwarding:    nil,
 				AutoscalingConfig: nil,
 			},
-			&proto.ServiceInfo{
+			{
 				Name:              "4",
 				Image:             "",
 				PortForwarding:    nil,
 				AutoscalingConfig: nil,
 			},
-			&proto.ServiceInfo{
+			{
 				Name:              "5",
 				Image:             "",
 				PortForwarding:    nil,
@@ -119,4 +119,17 @@ func TestCreationControlPlaneWith5Services(t *testing.T) {
 	assert.Equal(t, 5, controlPlane.GetNumberServices(), "Number of registered services should be 0")
 
 	logrus.Infof("Took %s seconds to reconstruct", elapsed)
+}
+
+func TestEndpointSearchByContainerName(t *testing.T) {
+	endpoints := []*Endpoint{
+		{SandboxID: "a"},
+		{SandboxID: "b"},
+		{SandboxID: "c"},
+	}
+
+	if searchEndpointByContainerName(endpoints, "b") == nil ||
+		searchEndpointByContainerName(endpoints, "d") != nil {
+		t.Error("Search failed.")
+	}
 }
