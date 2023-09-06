@@ -55,7 +55,7 @@ func TestCreateAContainer(t *testing.T) {
 	}
 
 	sm.SignalKillBySystem.Add(1)
-	go ListenOnExitChannel(nil, sm)
+	go WatchExitChannel(nil, sm)
 
 	err = DeleteContainer(ctx, network, sm)
 	assert.NoError(t, err, "Failed to delete container")
@@ -149,9 +149,9 @@ func TestContainerFailureHandlerTriggering(t *testing.T) {
 	}
 
 	sm.SignalKillBySystem.Add(1)
-	go ListenOnExitChannel(nil, sm)
+	go WatchExitChannel(nil, sm)
 
-	// wait until 'ListenOnExitChannel' is ready
+	// wait until 'WatchExitChannel' is ready
 	time.Sleep(3 * time.Second)
 
 	task.Kill(ctx, syscall.SIGTERM, containerd.WithKillAll)

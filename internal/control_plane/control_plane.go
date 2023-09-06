@@ -496,7 +496,7 @@ func removeEndpoints(ss *ServiceInfoStorage, dpConns *atomic_map.AtomicMap[strin
 	for _, cid := range endpoints {
 		endpoint := searchEndpointByContainerName(ss.Controller.Endpoints, cid)
 		if endpoint == nil {
-			logrus.Warn("Endpoint requested to remove not found - ", endpoint.SandboxID)
+			logrus.Warn("Endpoint requested to remove not found - ", cid)
 		}
 
 		toRemove[endpoint] = struct{}{}

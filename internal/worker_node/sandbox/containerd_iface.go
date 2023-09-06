@@ -105,20 +105,15 @@ func StartContainer(ctx context.Context, container containerd.Container, network
 	return task, statusChannel, ip, netns, nil, time.Since(start) - durationCNI, durationCNI
 }
 
-func ListenOnExitChannel(cpApi proto.CpiInterfaceClient, metadata *Metadata) {
-	status := <-metadata.ExitChannel
-	logrus.Debug("Container ", metadata.Container.ID(), " exited with status ", status.ExitCode())
+func WatchExitChannel(cpApi proto.CpiInterfaceClient, metadata *Metadata) {
+	exitCode := <-metadata.ExitStatusChannel
 
-	_, _ = metadata.Task.Delete(context.Background(), containerd.WithProcessKill)
-	_ = metadata.Container.Delete(context.Background(), containerd.WithSnapshotCleanup)
-
-	switch status.ExitCode() {
+	switch exitCode {
 	case SIGKILL: // sent by 'Task.Kill' from 'DeleteContainer'
-		logrus.Debug("Container killed by SIGKILL.")
-		metadata.SignalKillBySystem.Done()
+		logrus.Debug("Sandbox '", metadata.Container.ID(), "' terminated by the control plane with exit code ", exitCode)
 	default: // termination not caused by a signal
 		if cpApi == nil {
-			// TODO: in tests create fake cpAPI
+			// TODO: in tests create fake cpApi
 			return // for tests as cpApi is null
 		}
 
@@ -130,10 +125,13 @@ func ListenOnExitChannel(cpApi proto.CpiInterfaceClient, metadata *Metadata) {
 		if err != nil {
 			logrus.Warn("Failed to report container failure to the control plane for '" + metadata.ServiceName + "'.")
 		}
+
+		logrus.Debug("Control plane has been notified of failure of sandbox '", metadata.Container.ID(), "' (exit code: ", exitCode, ")")
 	}
 }
 
 func DeleteContainer(ctx context.Context, network cni.CNI, metadata *Metadata) error {
+	// TODO: what happens with CNI and container metadata if the container fails -- memory leak
 	if err := network.Remove(ctx, metadata.Container.ID(), metadata.NetNs); err != nil {
 		return err
 	}
@@ -143,7 +141,17 @@ func DeleteContainer(ctx context.Context, network cni.CNI, metadata *Metadata) e
 		return err
 	}
 
-	metadata.SignalKillBySystem.Wait()
+	// containerd detection failure is useless as wait on exit channel needs to be called after KILL,
+	// otherwise it is useless
+	exitStatus, err := metadata.Task.Delete(ctx, containerd.WithProcessKill)
+	if err != nil {
+		return err
+	}
+	logrus.Debug("Sandbox terminated by SIGKILL (status code :", exitStatus.ExitCode(), ")")
+
+	if err := metadata.Container.Delete(ctx, containerd.WithSnapshotCleanup); err != nil {
+		return err
+	}
 
 	return nil
 }

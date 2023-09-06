@@ -6,8 +6,10 @@ require (
 	github.com/containerd/containerd v1.5.7
 	github.com/containerd/go-cni v1.1.9
 	github.com/coreos/go-iptables v0.6.0
+	github.com/cznic/mathutil v0.0.0-20181122101859-297441e03548
 	github.com/docker/docker v23.0.3+incompatible
 	github.com/docker/go-connections v0.4.0
+	github.com/fearful-symmetry/garlic v0.3.0
 	github.com/golang/protobuf v1.5.3
 	github.com/pbnjay/memory v0.0.0-20210728143218-7b4eea64cf58
 	github.com/redis/go-redis/v9 v9.0.5
@@ -33,7 +35,6 @@ require (
 	github.com/containerd/ttrpc v1.0.2 // indirect
 	github.com/containerd/typeurl v1.0.2 // indirect
 	github.com/containernetworking/cni v1.1.2 // indirect
-	github.com/cznic/mathutil v0.0.0-20181122101859-297441e03548 // indirect
 	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/dgryski/go-rendezvous v0.0.0-20200823014737-9f7001d12a5f // indirect
 	github.com/docker/go-events v0.0.0-20190806004212-e31b211e4f1c // indirect
@@ -48,6 +49,7 @@ require (
 	github.com/hashicorp/hcl v1.0.0 // indirect
 	github.com/klauspost/compress v1.16.0 // indirect
 	github.com/magiconair/properties v1.8.7 // indirect
+	github.com/mdlayher/netlink v0.0.0-20180912140650-18e318c2e5d1 // indirect
 	github.com/mitchellh/mapstructure v1.5.0 // indirect
 	github.com/moby/locker v1.0.1 // indirect
 	github.com/moby/sys/mountinfo v0.6.2 // indirect

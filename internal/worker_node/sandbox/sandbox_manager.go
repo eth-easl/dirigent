@@ -4,7 +4,6 @@ import (
 	"cluster_manager/api/proto"
 	"cluster_manager/pkg/atomic_map"
 	"github.com/containerd/containerd"
-	"sync"
 )
 
 type Manager struct {
@@ -24,7 +23,7 @@ type Metadata struct {
 	GuestPort   int
 	NetNs       string
 
-	SignalKillBySystem sync.WaitGroup
+	ExitStatusChannel chan uint32
 }
 
 func NewSandboxManager(nodeName string) *Manager {

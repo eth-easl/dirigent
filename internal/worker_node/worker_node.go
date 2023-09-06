@@ -10,7 +10,6 @@ import (
 	"fmt"
 	"google.golang.org/protobuf/types/known/emptypb"
 	"os"
-	"sync"
 	"time"
 
 	"github.com/containerd/containerd"
@@ -36,6 +35,7 @@ type WorkerNode struct {
 
 	ImageManager   *sandbox.ImageManager
 	SandboxManager *sandbox.Manager
+	ProcessMonitor *ProcessMonitor
 
 	quitChannel chan bool
 }
@@ -62,6 +62,7 @@ func NewWorkerNode(cpApi proto.CpiInterfaceClient, config config.WorkerNodeConfi
 
 		ImageManager:   sandbox.NewImageManager(),
 		SandboxManager: sandbox.NewSandboxManager(hostName),
+		ProcessMonitor: NewProcessMonitor(),
 
 		quitChannel: make(chan bool),
 	}
@@ -114,11 +115,10 @@ func (w *WorkerNode) CreateSandbox(grpcCtx context.Context, in *proto.ServiceInf
 		GuestPort:   int(in.PortForwarding.GuestPort),
 		NetNs:       netNs,
 
-		SignalKillBySystem: sync.WaitGroup{},
+		ExitStatusChannel: make(chan uint32),
 	}
-	metadata.SignalKillBySystem.Add(1)
-	go sandbox.ListenOnExitChannel(w.cpApi, metadata)
 
+	w.ProcessMonitor.AddChannel(task.Pid(), metadata.ExitStatusChannel)
 	w.SandboxManager.AddSandbox(container.ID(), metadata)
 
 	logrus.Debug("Sandbox creation took ", time.Since(start).Microseconds(), " μs (", container.ID(), ")")
@@ -132,6 +132,8 @@ func (w *WorkerNode) CreateSandbox(grpcCtx context.Context, in *proto.ServiceInf
 	logrus.Debug("IP tables configuration (add rule(s)) took ", durationIptables.Microseconds(), " μs")
 
 	in.PortForwarding.HostPort = int32(metadata.HostPort)
+
+	go sandbox.WatchExitChannel(w.cpApi, metadata)
 
 	return &proto.SandboxCreationStatus{
 		Success:      true,
@@ -166,11 +168,7 @@ func (w *WorkerNode) DeleteSandbox(grpcCtx context.Context, in *proto.SandboxID)
 	logrus.Debug("IP tables configuration (remove rule(s)) took ", time.Since(start).Microseconds(), " μs")
 
 	start = time.Now()
-	err := sandbox.DeleteContainer(
-		ctx,
-		w.CNIClient,
-		metadata,
-	)
+	err := sandbox.DeleteContainer(ctx, w.CNIClient, metadata)
 
 	if err != nil {
 		logrus.Warn(err)
@@ -182,7 +180,7 @@ func (w *WorkerNode) DeleteSandbox(grpcCtx context.Context, in *proto.SandboxID)
 	return &proto.ActionStatus{Success: true}, nil
 }
 
-func (w *WorkerNode) ListEndpoints(grpcCtx context.Context, in *emptypb.Empty) (*proto.EndpointsList, error) {
+func (w *WorkerNode) ListEndpoints(_ context.Context, _ *emptypb.Empty) (*proto.EndpointsList, error) {
 	return w.SandboxManager.ListEndpoints()
 }
 
