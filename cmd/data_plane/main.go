@@ -42,7 +42,11 @@ func main() {
 		proto.RegisterDpiInterfaceServer(sr, apiServer)
 	})
 
-	proxyServer := dataPlane.GetProxyServer()
+	proxyServer, err := dataPlane.GetProxyServer()
+	if err != nil {
+		logrus.Fatalf("Failed to start proxy server (error : %s)", err.Error())
+	}
+
 	apiServer.Proxy = proxyServer
 
 	go proxyServer.Tracing.StartTracingService()

@@ -49,26 +49,32 @@ func (d *Dataplane) DeleteDeployment(name *proto.ServiceInfo) (*proto.Deployment
 	return &proto.DeploymentUpdateSuccess{Success: d.deployements.DeleteDeployment(name.GetName())}, nil
 }
 
-func (d *Dataplane) GetProxyServer() *proxy.ProxyingService {
+func (d *Dataplane) GetProxyServer() (*proxy.ProxyingService, error) {
 	var dpConnection proto.CpiInterfaceClient
 
 	grpcPort, _ := strconv.Atoi(d.config.PortGRPC)
 	proxyPort, _ := strconv.Atoi(d.config.PortProxy)
 
-	dpConnection = grpc_helpers.InitializeControlPlaneConnection(d.config.ControlPlaneIp, d.config.ControlPlanePort, int32(grpcPort), int32(proxyPort))
+	dpConnection, err := grpc_helpers.InitializeControlPlaneConnection(d.config.ControlPlaneIp, d.config.ControlPlanePort, int32(grpcPort), int32(proxyPort))
+	if err != nil {
+		return nil, err
+	}
 
 	d.syncDeploymentCache(&dpConnection, d.deployements)
 
 	loadBalancingPolicy := d.parseLoadBalancingPolicy(d.config)
 
-	return proxy.NewProxyingService("0.0.0.0", d.config.PortProxy, d.deployements, &dpConnection, path.Join(d.config.TraceOutputFolder, "proxy_trace.csv"), loadBalancingPolicy)
+	return proxy.NewProxyingService("0.0.0.0", d.config.PortProxy, d.deployements, &dpConnection, path.Join(d.config.TraceOutputFolder, "proxy_trace.csv"), loadBalancingPolicy), nil
 }
 
 func (d *Dataplane) DeregisterControlPlaneConnection() {
 	grpcPort, _ := strconv.Atoi(d.config.PortGRPC)
 	proxyPort, _ := strconv.Atoi(d.config.PortProxy)
 
-	grpc_helpers.DeregisterControlPlaneConnection(d.config.ControlPlaneIp, d.config.ControlPlanePort, int32(grpcPort), int32(proxyPort))
+	_, err := grpc_helpers.DeregisterControlPlaneConnection(d.config.ControlPlaneIp, d.config.ControlPlanePort, int32(grpcPort), int32(proxyPort))
+	if err != nil {
+		logrus.Errorf("Failed to deregister from control plane (error : %s)", err.Error())
+	}
 }
 
 func (d *Dataplane) parseLoadBalancingPolicy(dataPlaneConfig config.DataPlaneConfig) load_balancing.LoadBalancingPolicy {

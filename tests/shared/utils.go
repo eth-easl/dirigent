@@ -26,7 +26,10 @@ func DeployService(t *testing.T, nbDeploys, offset int) {
 	logrus.SetLevel(logrus.DebugLevel)
 	logrus.SetFormatter(&logrus.TextFormatter{TimestampFormat: time.StampMilli, FullTimestamp: true})
 
-	cpApi := common.InitializeControlPlaneConnection(ControlPlaneAddress, utils.DefaultControlPlanePort, -1, -1)
+	cpApi, err := common.InitializeControlPlaneConnection(ControlPlaneAddress, utils.DefaultControlPlanePort, -1, -1)
+	if err != nil {
+		logrus.Fatalf("Failed to start control plane connection (error %s)", err.Error())
+	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), utils.GRPCFunctionTimeout)
 	defer cancel()
@@ -57,7 +60,10 @@ func DeployServiceTime(t *testing.T, nbDeploys, offset int) time.Duration {
 	logrus.SetLevel(logrus.DebugLevel)
 	logrus.SetFormatter(&logrus.TextFormatter{TimestampFormat: time.StampMilli, FullTimestamp: true})
 
-	cpApi := common.InitializeControlPlaneConnection(ControlPlaneAddress, utils.DefaultControlPlanePort, -1, -1)
+	cpApi, err := common.InitializeControlPlaneConnection(ControlPlaneAddress, utils.DefaultControlPlanePort, -1, -1)
+	if err != nil {
+		logrus.Fatalf("Failed to start control plane connection (error %s)", err.Error())
+	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), utils.GRPCFunctionTimeout)
 	defer cancel()

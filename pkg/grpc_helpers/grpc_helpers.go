@@ -4,6 +4,7 @@ import (
 	"cluster_manager/api/proto"
 	"cluster_manager/pkg/utils"
 	"context"
+	"errors"
 	"fmt"
 	"net"
 	"time"
@@ -98,7 +99,7 @@ func EstablishGRPCConnectionPoll(host, port string, dialOptions ...grpc.DialOpti
 	return conn
 }
 
-func InitializeControlPlaneConnection(host string, port string, dataplanePort, proxyPort int32) proto.CpiInterfaceClient {
+func InitializeControlPlaneConnection(host string, port string, dataplanePort, proxyPort int32) (proto.CpiInterfaceClient, error) {
 	conn := EstablishGRPCConnectionPoll(host, port)
 	if conn == nil {
 		logrus.Fatal("Failed to establish connection with the control plane")
@@ -120,13 +121,13 @@ func InitializeControlPlaneConnection(host string, port string, dataplanePort, p
 		}
 	}
 
-	return dpiClient
+	return dpiClient, nil
 }
 
-func DeregisterControlPlaneConnection(host string, port string, dataplanePort, proxyPort int32) proto.CpiInterfaceClient {
+func DeregisterControlPlaneConnection(host string, port string, dataplanePort, proxyPort int32) (proto.CpiInterfaceClient, error) {
 	conn := EstablishGRPCConnectionPoll(host, port)
 	if conn == nil {
-		logrus.Fatal("Failed to establish connection with the control plane")
+		return nil, errors.New("Failed to establish connection with the control plane")
 	}
 
 	logrus.Info("Successfully established connection with the control plane")
@@ -145,29 +146,29 @@ func DeregisterControlPlaneConnection(host string, port string, dataplanePort, p
 		}
 	}
 
-	return dpiClient
+	return dpiClient, nil
 }
 
-func InitializeWorkerNodeConnection(host, port string) proto.WorkerNodeInterfaceClient {
+func InitializeWorkerNodeConnection(host, port string) (proto.WorkerNodeInterfaceClient, error) {
 	conn := EstablishGRPCConnectionPoll(host, port)
 	if conn == nil {
-		logrus.Fatal("Failed to establish connection with the worker node")
+		return nil, errors.New("Failed to establish connection with the worker node")
 	}
 
 	logrus.Info("Successfully established connection with the worker node")
 
-	return proto.NewWorkerNodeInterfaceClient(conn)
+	return proto.NewWorkerNodeInterfaceClient(conn), nil
 }
 
-func InitializeDataPlaneConnection(host string, port string) proto.DpiInterfaceClient {
+func InitializeDataPlaneConnection(host string, port string) (proto.DpiInterfaceClient, error) {
 	conn := EstablishGRPCConnectionPoll(host, port)
 	if conn == nil {
-		logrus.Fatal("Failed to establish connection with the data plane")
+		return nil, errors.New("Failed to establish connection with the data plane")
 	}
 
 	logrus.Info("Successfully established connection with the data plane")
 
-	return proto.NewDpiInterfaceClient(conn)
+	return proto.NewDpiInterfaceClient(conn), nil
 }
 
 func GetIPAddressFromGRPCCall(ctx context.Context) (string, bool) {

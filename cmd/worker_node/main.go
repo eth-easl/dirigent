@@ -38,7 +38,10 @@ func main() {
 	containerdClient := sandbox.GetContainerdClient(cfg.CRIPath)
 	defer containerdClient.Close()
 
-	cpApi := grpc_helpers.InitializeControlPlaneConnection(cfg.ControlPlaneIp, cfg.ControlPlanePort, -1, -1)
+	cpApi, err := grpc_helpers.InitializeControlPlaneConnection(cfg.ControlPlaneIp, cfg.ControlPlanePort, -1, -1)
+	if err != nil {
+		logrus.Fatalf("Failed to initialize control plane connection (error : %s)", err.Error())
+	}
 
 	workerNode := worker_node.NewWorkerNode(cpApi, cfg, containerdClient)
 

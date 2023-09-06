@@ -23,7 +23,7 @@ type WorkerNode struct {
 
 func (w *WorkerNode) GetAPI() proto.WorkerNodeInterfaceClient {
 	if w.api == nil {
-		w.api = grpc_helpers.InitializeWorkerNodeConnection(w.IP, w.Port)
+		w.api, _ = grpc_helpers.InitializeWorkerNodeConnection(w.IP, w.Port)
 	}
 
 	return w.api
