@@ -23,7 +23,7 @@ for boolean, weight_count in weight_counts.items():
     p = ax.bar(species, weight_count, width, label=boolean, bottom=bottom)
     bottom += weight_count
 
-ax.set_title("Reconstruction time in milliseconds without endpoints")
-ax.legend(loc="upper left")
+ax.set_ylabel('Latency in milliseconds', fontsize=20)
+ax.legend(loc="upper left",fontsize=15)
 
-plt.savefig("reconstruction_no_endpoints.png")
+plt.savefig("reconstruction_no_endpoints.png",dpi = 1000)

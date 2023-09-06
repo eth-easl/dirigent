@@ -23,10 +23,9 @@ for attribute, measurement in data.items():
     multiplier += 1
 
 # Add some text for labels, title and custom x-axis tick labels, etc.
-ax.set_ylabel('Latency in milliseconds')
-ax.set_title('Time to register x services')
+ax.set_ylabel('Latency in milliseconds', fontsize=20)
 ax.set_xticks(x + width, sizes)
-ax.legend(loc='upper left')
+ax.legend(loc='upper left',fontsize=15)
 
-plt.savefig("registration_benchmark.jpg")
+plt.savefig("registration_benchmark.jpg", dpi = 1000)
 plt.show()
