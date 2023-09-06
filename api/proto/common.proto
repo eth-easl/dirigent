@@ -25,6 +25,7 @@ message AutoscalingConfiguration {
   int32 StableWindowWidthSeconds = 8;
   int32 PanicWindowWidthSeconds = 9;
   int32 ScalingPeriodSeconds = 10;
+  int32 ScalingMethod = 11;
 }
 
 message ServiceInfo {

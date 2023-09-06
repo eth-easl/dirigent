@@ -9,7 +9,7 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-type AveragingMethod int64
+type AveragingMethod = int32
 
 const (
 	Arithmetic AveragingMethod = iota
@@ -20,7 +20,6 @@ type AutoscalingMetadata struct {
 	ActualScale int64
 
 	AutoscalingConfig *proto.AutoscalingConfiguration
-	ScalingMethod     AveragingMethod
 
 	InPanicMode             bool
 	StartPanickingTimestamp time.Time
@@ -43,6 +42,7 @@ func NewDefaultAutoscalingMetadata() *proto.AutoscalingConfiguration {
 		StableWindowWidthSeconds:             6,
 		PanicWindowWidthSeconds:              2,
 		ScalingPeriodSeconds:                 2,
+		ScalingMethod:                        Arithmetic,
 	}
 }
 
@@ -150,7 +150,7 @@ func (s *AutoscalingMetadata) windowAverage(observedStableValue float64) (float6
 
 	var smoothingCoefficientStable, smoothingCoefficientPanic, multiplierStable, multiplierPanic float64
 
-	if s.ScalingMethod == Exponential {
+	if s.AutoscalingConfig.ScalingMethod == Exponential {
 		multiplierStable = smoothingCoefficientStable
 		multiplierPanic = smoothingCoefficientPanic
 	}
@@ -172,7 +172,7 @@ func (s *AutoscalingMetadata) windowAverage(observedStableValue float64) (float6
 		// sum values of buckets, starting at most recent measurement
 		// most recent one has the highest weight
 		value := s.scalingMetrics[currentWindowIndex]
-		if s.ScalingMethod == Exponential {
+		if s.AutoscalingConfig.ScalingMethod == Exponential {
 			value = value * multiplierStable
 			multiplierStable = (1 - smoothingCoefficientStable) * multiplierStable
 		}
@@ -185,7 +185,7 @@ func (s *AutoscalingMetadata) windowAverage(observedStableValue float64) (float6
 		}
 	}
 
-	if s.ScalingMethod == Arithmetic {
+	if s.AutoscalingConfig.ScalingMethod == Arithmetic {
 		// divide by the number of buckets we summed over to get the average
 		avgStable = avgStable / float64(windowLength)
 	}
@@ -197,7 +197,7 @@ func (s *AutoscalingMetadata) windowAverage(observedStableValue float64) (float6
 	for i := 0; i < windowLength; i++ {
 		// sum values of buckets, starting at most recent measurement
 		value := s.scalingMetrics[currentWindowIndex]
-		if s.ScalingMethod == Exponential {
+		if s.AutoscalingConfig.ScalingMethod == Exponential {
 			value = value * multiplierPanic
 			multiplierPanic = (1 - smoothingCoefficientPanic) * multiplierPanic
 		}
@@ -215,7 +215,7 @@ func (s *AutoscalingMetadata) windowAverage(observedStableValue float64) (float6
 		s.windowHead = 0 // move windowHead back to 0 if it exceeds the maximum number of buckets
 	}
 
-	if s.ScalingMethod == Arithmetic {
+	if s.AutoscalingConfig.ScalingMethod == Arithmetic {
 		// divide by the number of buckets we summed over to get the average
 		avgPanic = avgPanic / float64(windowLength)
 	}
