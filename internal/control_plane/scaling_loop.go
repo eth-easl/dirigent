@@ -35,6 +35,8 @@ type ServiceInfoStorage struct {
 	PersistenceLayer persistence.PersistenceLayer
 
 	WorkerEndpoints *atomic_map.AtomicMap[string, *atomic_map.AtomicMap[*Endpoint, string]]
+
+	StartTime time.Time
 }
 
 type Endpoint struct {
@@ -82,7 +84,7 @@ func (ss *ServiceInfoStorage) ScalingControllerLoop(nodeList *atomic_map.AtomicM
 
 			if actualScale < desiredCount {
 				go ss.doUpscaling(desiredCount-actualScale, nodeList, dpiClients)
-			} else if actualScale > desiredCount {
+			} else if !ss.isDownScalingDisabled() && actualScale > desiredCount {
 				currentState := ss.Controller.Endpoints
 				toEvict := make(map[*Endpoint]struct{})
 
@@ -231,8 +233,7 @@ func (ss *ServiceInfoStorage) doDownscaling(toEvict map[*Endpoint]struct{}, urls
 			continue // why this happens?
 		}
 
-		k := key
-		go func() {
+		go func(key *Endpoint) {
 			defer barrier.Done()
 
 			ctx, cancel := context.WithTimeout(context.Background(), utils.WorkerNodeTrafficTimeout)
@@ -251,8 +252,8 @@ func (ss *ServiceInfoStorage) doDownscaling(toEvict map[*Endpoint]struct{}, urls
 				return
 			}
 
-			ss.removeEndpointFromWNStruct(k)
-		}()
+			ss.removeEndpointFromWNStruct(key)
+		}(key)
 	}
 
 	// batch update of endpoints
@@ -295,7 +296,7 @@ func (ss *ServiceInfoStorage) updateEndpoints(dpiClients *atomic_map.AtomicMap[s
 	wg.Wait()
 }
 
-func (ss *ServiceInfoStorage) subtractEndpoints(total []*Endpoint, toExclude map[*Endpoint]struct{}) []*Endpoint {
+func (ss *ServiceInfoStorage) excludeEndpoints(total []*Endpoint, toExclude map[*Endpoint]struct{}) []*Endpoint {
 	var result []*Endpoint
 
 	for _, endpoint := range total {
@@ -334,4 +335,8 @@ func (ss *ServiceInfoStorage) prepareUrlList() []*proto.EndpointInfo {
 	}
 
 	return res
+}
+
+func (ss *ServiceInfoStorage) isDownScalingDisabled() bool {
+	return time.Since(ss.StartTime) < 5*time.Second // TODO: Remove hardcoded part
 }

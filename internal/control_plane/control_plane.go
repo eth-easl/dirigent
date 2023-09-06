@@ -24,7 +24,6 @@ type ControlPlane struct {
 
 	NIStorage *atomic_map.AtomicMap[string, *WorkerNode]
 	SIStorage *atomic_map.AtomicMap[string, *ServiceInfoStorage]
-	sisLock   sync.RWMutex
 
 	WorkerEndpoints *atomic_map.AtomicMap[string, *atomic_map.AtomicMap[*Endpoint, string]]
 
@@ -277,7 +276,7 @@ func (c *ControlPlane) RegisterService(ctx context.Context, serviceInfo *proto.S
 		return &proto.ActionStatus{Success: false}, err
 	}
 
-	err = c.connectToRegisteredService(ctx, serviceInfo)
+	err = c.connectToRegisteredService(ctx, serviceInfo, false)
 	if err != nil {
 		logrus.Warnf("Failed to connect registered service (error : %s)", err.Error())
 		return &proto.ActionStatus{Success: false}, err
@@ -286,12 +285,17 @@ func (c *ControlPlane) RegisterService(ctx context.Context, serviceInfo *proto.S
 	return &proto.ActionStatus{Success: true}, nil
 }
 
-func (c *ControlPlane) connectToRegisteredService(ctx context.Context, serviceInfo *proto.ServiceInfo) error {
+func (c *ControlPlane) connectToRegisteredService(ctx context.Context, serviceInfo *proto.ServiceInfo, reconstructFromPersistence bool) error {
 	for _, conn := range c.DataPlaneConnections.Values() {
 		_, err := conn.Iface.AddDeployment(ctx, serviceInfo)
 		if err != nil {
 			return err
 		}
+	}
+
+	startTime := time.Time{}
+	if reconstructFromPersistence {
+		startTime = time.Now()
 	}
 
 	scalingChannel := make(chan int)
@@ -304,6 +308,7 @@ func (c *ControlPlane) connectToRegisteredService(ctx context.Context, serviceIn
 		PlacementPolicy:         c.PlacementPolicy,
 		PersistenceLayer:        c.PersistenceLayer,
 		WorkerEndpoints:         c.WorkerEndpoints,
+		StartTime:               startTime,
 	}
 
 	c.SIStorage.Set(serviceInfo.Name, service)
@@ -465,7 +470,7 @@ func (c *ControlPlane) reconstructServiceState(ctx context.Context) error {
 	}
 
 	for _, service := range services {
-		err := c.connectToRegisteredService(ctx, service)
+		err := c.connectToRegisteredService(ctx, service, true)
 		if err != nil {
 			return err
 		}
