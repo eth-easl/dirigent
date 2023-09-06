@@ -7,9 +7,13 @@ import (
 	"cluster_manager/internal/data_plane/proxy/load_balancing"
 	"cluster_manager/pkg/config"
 	"cluster_manager/pkg/grpc_helpers"
+	"cluster_manager/pkg/utils"
 	"context"
+	"errors"
+	"k8s.io/apimachinery/pkg/util/wait"
 	"path"
 	"strconv"
+	"time"
 
 	"github.com/sirupsen/logrus"
 	"google.golang.org/protobuf/types/known/emptypb"
@@ -24,6 +28,40 @@ func NewDataplane(config config.DataPlaneConfig, deployements *function_metadata
 	return &Dataplane{
 		config:       config,
 		deployements: deployements,
+	}
+}
+
+func (d *Dataplane) SetupHeartbeatLoop() {
+	for {
+		// Send
+		d.sendHeartbeatLoop()
+
+		// Wait
+		time.Sleep(utils.HeartbeatInterval)
+	}
+}
+
+func (d *Dataplane) sendHeartbeatLoop() {
+	pollContext, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	pollErr := wait.PollUntilContextCancel(pollContext, 5*time.Second, false,
+		func(ctx context.Context) (done bool, err error) {
+			grpcPort, _ := strconv.Atoi(d.config.PortGRPC)
+			proxyPort, _ := strconv.Atoi(d.config.PortProxy)
+
+			_, err = grpc_helpers.InitializeControlPlaneConnection(d.config.ControlPlaneIp, d.config.ControlPlanePort, int32(grpcPort), int32(proxyPort))
+			if err != nil {
+				return false, err
+			}
+
+			return true, nil
+		},
+	)
+	if pollErr != nil {
+		logrus.Errorf("Failed to send a heartbeat to the control plane : %s", pollErr)
+	} else {
+		logrus.Debug("Sent heartbeat to the control plane")
 	}
 }
 
@@ -60,7 +98,10 @@ func (d *Dataplane) GetProxyServer() (*proxy.ProxyingService, error) {
 		return nil, err
 	}
 
-	d.syncDeploymentCache(&dpConnection, d.deployements)
+	err = d.syncDeploymentCache(&dpConnection, d.deployements)
+	if err != nil {
+		return nil, err
+	}
 
 	loadBalancingPolicy := d.parseLoadBalancingPolicy(d.config)
 
@@ -93,13 +134,15 @@ func (d *Dataplane) parseLoadBalancingPolicy(dataPlaneConfig config.DataPlaneCon
 	}
 }
 
-func (d *Dataplane) syncDeploymentCache(cpApi *proto.CpiInterfaceClient, deployments *function_metadata.Deployments) {
+func (d *Dataplane) syncDeploymentCache(cpApi *proto.CpiInterfaceClient, deployments *function_metadata.Deployments) error {
 	resp, err := (*cpApi).ListServices(context.Background(), &emptypb.Empty{})
 	if err != nil {
-		logrus.Fatal("Initial deployment cache synchronization failed.")
+		return errors.New("initial deployment cache synchronization failed")
 	}
 
 	for i := 0; i < len(resp.Service); i++ {
 		deployments.AddDeployment(resp.Service[i])
 	}
+
+	return nil
 }

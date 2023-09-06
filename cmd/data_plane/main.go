@@ -52,6 +52,7 @@ func main() {
 	go proxyServer.Tracing.StartTracingService()
 	defer close(proxyServer.Tracing.InputChannel)
 
+	go dataPlane.SetupHeartbeatLoop()
 	go proxyServer.StartProxyServer()
 
 	defer dataPlane.DeregisterControlPlaneConnection()

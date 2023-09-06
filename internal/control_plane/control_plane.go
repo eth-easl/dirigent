@@ -336,7 +336,7 @@ func (c *ControlPlane) RegisterDataplane(ctx context.Context, in *proto.Dataplan
 	}
 
 	if found := c.DataPlaneConnections.Find(dataplaneInfo.Address); found {
-		logrus.Infof("Dataplane with ip %s already registered - request ignored", dataplaneInfo.Address)
+		logrus.Debugf("Dataplane with ip %s already registered - request ignored", dataplaneInfo.Address)
 		return &proto.ActionStatus{Success: true}, err
 	}
 
