@@ -54,7 +54,6 @@ func TestCreateAContainer(t *testing.T) {
 		NetNs:       netns,
 	}
 
-	sm.SignalKillBySystem.Add(1)
 	go WatchExitChannel(nil, sm)
 
 	err = DeleteContainer(ctx, network, sm)
@@ -116,6 +115,7 @@ func TestContainerFailureHandlerTriggering(t *testing.T) {
 
 	// fails to expose networking to the container
 	rand.Seed(time.Now().UnixNano())
+	pm := NewProcessMonitor()
 
 	client, err := containerd.New("/run/containerd/containerd.sock")
 	assert.NoError(t, err, "Failed to create a containerd client")
@@ -146,16 +146,18 @@ func TestContainerFailureHandlerTriggering(t *testing.T) {
 		ExitChannel: exitCh,
 		IP:          ip,
 		NetNs:       netns,
-	}
 
-	sm.SignalKillBySystem.Add(1)
+		ExitStatusChannel: make(chan uint32),
+	}
+	pm.AddChannel(task.Pid(), sm.ExitStatusChannel)
+
 	go WatchExitChannel(nil, sm)
 
 	// wait until 'WatchExitChannel' is ready
 	time.Sleep(3 * time.Second)
 
-	task.Kill(ctx, syscall.SIGTERM, containerd.WithKillAll)
+	task.Kill(ctx, syscall.SIGKILL, containerd.WithKillAll)
 
 	// fault handler otherwise won't be called
-	time.Sleep(3 * time.Second)
+	time.Sleep(5 * time.Second)
 }

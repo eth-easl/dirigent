@@ -1,4 +1,4 @@
-package worker_node
+package sandbox
 
 import (
 	"github.com/fearful-symmetry/garlic"

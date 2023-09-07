@@ -35,7 +35,7 @@ type WorkerNode struct {
 
 	ImageManager   *sandbox.ImageManager
 	SandboxManager *sandbox.Manager
-	ProcessMonitor *ProcessMonitor
+	ProcessMonitor *sandbox.ProcessMonitor
 
 	quitChannel chan bool
 }
@@ -62,7 +62,7 @@ func NewWorkerNode(cpApi proto.CpiInterfaceClient, config config.WorkerNodeConfi
 
 		ImageManager:   sandbox.NewImageManager(),
 		SandboxManager: sandbox.NewSandboxManager(hostName),
-		ProcessMonitor: NewProcessMonitor(),
+		ProcessMonitor: sandbox.NewProcessMonitor(),
 
 		quitChannel: make(chan bool),
 	}
