@@ -9,7 +9,7 @@ import (
 )
 
 type ImageManager struct {
-	imageCache atomic_map.AtomicMap[string, containerd.Image]
+	imageCache *atomic_map.AtomicMap[string, containerd.Image]
 }
 
 func NewImageManager() *ImageManager {

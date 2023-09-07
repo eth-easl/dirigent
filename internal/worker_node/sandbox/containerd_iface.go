@@ -118,9 +118,9 @@ func WatchExitChannel(cpApi proto.CpiInterfaceClient, metadata *Metadata) {
 		}
 
 		_, err := cpApi.ReportFailure(context.Background(), &proto.Failure{
-			Type:        proto.FailureType_CONTAINER_FAILURE,
+			Type:        proto.FailureType_SANDBOX_FAILURE,
 			ServiceName: metadata.ServiceName,
-			SandboxID:   metadata.Container.ID(),
+			SandboxIDs:  []string{metadata.Container.ID()},
 		})
 		if err != nil {
 			logrus.Warn("Failed to report container failure to the control plane for '" + metadata.ServiceName + "'.")

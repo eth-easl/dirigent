@@ -10,8 +10,8 @@ type AtomicMap[K, V any] struct {
 	sync.Map
 }
 
-func NewAtomicMap[K, V any]() AtomicMap[K, V] {
-	return AtomicMap[K, V]{}
+func NewAtomicMap[K, V any]() *AtomicMap[K, V] {
+	return &AtomicMap[K, V]{}
 }
 
 func (c *AtomicMap[K, V]) Find(key K) bool {

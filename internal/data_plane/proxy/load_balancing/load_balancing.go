@@ -175,7 +175,7 @@ func kubernetesRoundRobinLoadBalancing(metadata *function_metadata.FunctionMetad
 func kubernetesNativeLoadBalancing(metadata *function_metadata.FunctionMetadata) *function_metadata.UpstreamEndpoint {
 	containerConcurrency := metadata.GetSandboxParallelism()
 
-	if containerConcurrency == function_metadata.UNLIMITED_CONCURENCY {
+	if containerConcurrency == function_metadata.UnlimitedConcurrency {
 		return bestOfTwoRandoms(metadata)
 	} else if containerConcurrency <= 3 {
 		return kubernetesFirstAvailableLoadBalancing(metadata)

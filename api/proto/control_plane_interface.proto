@@ -31,13 +31,15 @@ message DataplaneInfo {
 }
 
 enum FailureType {
-  CONTAINER_FAILURE = 0;
+  SANDBOX_FAILURE = 0;
+  SANDBOX_DAEMON_FAILURE = 1;
+  WORKER_NODE_FAILURE = 2;
 }
 
 message Failure {
   FailureType Type = 1;
   string ServiceName = 2;
-  string SandboxID = 3;
+  repeated string SandboxIDs = 3;
 }
 
 service CpiInterface {

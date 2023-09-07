@@ -10,8 +10,8 @@ type AtomicMapCounter[K any] struct {
 	m sync.Map
 }
 
-func NewAtomicMapCounter[K any]() AtomicMapCounter[K] {
-	return AtomicMapCounter[K]{}
+func NewAtomicMapCounter[K any]() *AtomicMapCounter[K] {
+	return &AtomicMapCounter[K]{}
 }
 
 func (c *AtomicMapCounter[K]) Get(key K) int64 {

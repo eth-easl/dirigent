@@ -28,7 +28,7 @@ type Metadata struct {
 
 func NewSandboxManager(nodeName string) *Manager {
 	return &Manager{
-		Metadata: atomic_map.NewAtomicMap[string, *Metadata](),
+		Metadata: *atomic_map.NewAtomicMap[string, *Metadata](),
 		nodeName: nodeName,
 	}
 }

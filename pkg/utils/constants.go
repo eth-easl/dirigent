@@ -20,10 +20,11 @@ const (
 
 	TestDockerImageName string = "docker.io/cvetkovic/empty_function:latest"
 
-	HeartbeatInterval = 5 * time.Second
+	TolerateHeartbeatMisses = 3
+	HeartbeatInterval       = 5 * time.Second
 
 	WorkerNodeTrafficTimeout = 25000 * time.Second
 
 	GRPCConnectionTimeout = 5 * time.Second
-	GRPCFunctionTimeout   = 25000 * time.Minute
+	GRPCFunctionTimeout   = 15 * time.Minute // AWS Lambda
 )

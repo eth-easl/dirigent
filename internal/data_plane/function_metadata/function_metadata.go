@@ -15,7 +15,7 @@ import (
 )
 
 const (
-	UNLIMITED_CONCURENCY uint = 0
+	UnlimitedConcurrency uint = 0
 )
 
 type DataPlaneConnectionInfo struct {
@@ -36,8 +36,8 @@ type UpstreamEndpoint struct {
 type LoadBalancingMetadata struct {
 	RoundRobinCounter           uint32
 	KubernetesRoundRobinCounter uint32
-	RequestCountPerInstance     atomic_map.AtomicMapCounter[*UpstreamEndpoint]
-	FAInstanceQueueLength       atomic_map.AtomicMapCounter[*UpstreamEndpoint]
+	RequestCountPerInstance     *atomic_map.AtomicMapCounter[*UpstreamEndpoint]
+	FAInstanceQueueLength       *atomic_map.AtomicMapCounter[*UpstreamEndpoint]
 }
 
 type FunctionMetadata struct {
@@ -114,7 +114,7 @@ func (m *FunctionMetadata) IncrementKubernetesRoundRobinCounter() {
 }
 
 func (m *FunctionMetadata) GetRequestCountPerInstance() *atomic_map.AtomicMapCounter[*UpstreamEndpoint] {
-	return &m.loadBalancingMetadata.RequestCountPerInstance
+	return m.loadBalancingMetadata.RequestCountPerInstance
 }
 
 func (m *FunctionMetadata) UpdateRequestMetadata(endpoint *UpstreamEndpoint) {
@@ -185,7 +185,7 @@ func (m *FunctionMetadata) SetUpstreamURLs(endpoints []*proto.EndpointInfo) erro
 
 			signal, ok := dequeue.Value.(chan struct{})
 			if !ok {
-				return errors.New("Failed to convert dequeue into channel")
+				return errors.New("failed to convert dequeue into channel")
 			}
 
 			signal <- struct{}{}

@@ -66,5 +66,5 @@ func (c *CpApiServer) ResetMeasurements(_ context.Context, _ *emptypb.Empty) (*p
 }
 
 func (c *CpApiServer) ReportFailure(_ context.Context, in *proto.Failure) (*proto.ActionStatus, error) {
-	return &proto.ActionStatus{Success: c.ControlPlane.HandleFailure(in)}, nil
+	return &proto.ActionStatus{Success: c.ControlPlane.HandleFailure([]*proto.Failure{in})}, nil
 }

@@ -3,6 +3,7 @@ package control_plane
 import (
 	"cluster_manager/api/proto"
 	mock_persistence "cluster_manager/mock"
+	"cluster_manager/pkg/atomic_map"
 	"cluster_manager/pkg/config"
 	"context"
 	"github.com/sirupsen/logrus"
@@ -131,5 +132,76 @@ func TestEndpointSearchByContainerName(t *testing.T) {
 	if searchEndpointByContainerName(endpoints, "b") == nil ||
 		searchEndpointByContainerName(endpoints, "d") != nil {
 		t.Error("Search failed.")
+	}
+}
+
+func TestHandleNodeFailure(t *testing.T) {
+	wn1 := &WorkerNode{Name: "node1"}
+	wn2 := &WorkerNode{Name: "node2"}
+
+	wep1 := atomic_map.NewAtomicMap[string, *atomic_map.AtomicMap[*Endpoint, string]]()
+	ss1 := &ServiceInfoStorage{ServiceInfo: &proto.ServiceInfo{Name: "service1"}, WorkerEndpoints: wep1}
+
+	wep2 := atomic_map.NewAtomicMap[string, *atomic_map.AtomicMap[*Endpoint, string]]()
+	ss2 := &ServiceInfoStorage{ServiceInfo: &proto.ServiceInfo{Name: "service2"}, WorkerEndpoints: wep2}
+
+	wep1.Set(wn1.Name, atomic_map.NewAtomicMap[*Endpoint, string]())
+	d, _ := wep1.Get(wn1.Name)
+	d.Set(&Endpoint{SandboxID: "sandbox1", Node: wn1}, ss1.ServiceInfo.Name)
+	d.Set(&Endpoint{SandboxID: "sandbox2", Node: wn1}, ss1.ServiceInfo.Name)
+
+	wep1.Set(wn2.Name, atomic_map.NewAtomicMap[*Endpoint, string]())
+	d, _ = wep1.Get(wn2.Name)
+	d.Set(&Endpoint{SandboxID: "sandbox3", Node: wn2}, ss2.ServiceInfo.Name)
+
+	wep2.Set(wn1.Name, atomic_map.NewAtomicMap[*Endpoint, string]())
+	d, _ = wep2.Get(wn1.Name)
+	d.Set(&Endpoint{SandboxID: "sandbox4", Node: wn1}, ss1.ServiceInfo.Name)
+
+	cp := NewControlPlane(nil, "", nil)
+	cp.SIStorage.Set(ss1.ServiceInfo.Name, ss1)
+	cp.SIStorage.Set(ss2.ServiceInfo.Name, ss2)
+
+	// node1: sandbox1, sandbox2, sandbox4
+	// node2: sandbox3
+
+	failuresWn1 := cp.createWorkerNodeFailureEvents(wn1)
+	failuresWn2 := cp.createWorkerNodeFailureEvents(wn2)
+
+	if len(failuresWn1) != 2 ||
+		(len(failuresWn1[0].SandboxIDs)+len(failuresWn1[1].SandboxIDs) != 3) {
+		t.Error("Invalid number of failures on worker node 1")
+	}
+
+	if len(failuresWn2) != 1 || len(failuresWn2[0].SandboxIDs) != 1 {
+		t.Error("Invalid number of failures on worker node 2")
+	}
+
+	wn1S := make(map[string]struct{})
+	if len(failuresWn1[0].SandboxIDs) == 1 {
+		wn1S[failuresWn1[0].SandboxIDs[0]] = struct{}{}
+		wn1S[failuresWn1[1].SandboxIDs[0]] = struct{}{}
+		wn1S[failuresWn1[1].SandboxIDs[1]] = struct{}{}
+	} else {
+		wn1S[failuresWn1[0].SandboxIDs[0]] = struct{}{}
+		wn1S[failuresWn1[0].SandboxIDs[1]] = struct{}{}
+		wn1S[failuresWn1[1].SandboxIDs[0]] = struct{}{}
+	}
+	wn2S1 := failuresWn2[0].SandboxIDs[0]
+
+	if _, ok := wn1S["sandbox1"]; !ok {
+		t.Error("Unexpected failure on worker node 1")
+	}
+
+	if _, ok := wn1S["sandbox2"]; !ok {
+		t.Error("Unexpected failure on worker node 1")
+	}
+
+	if _, ok := wn1S["sandbox4"]; !ok {
+		t.Error("Unexpected failure on worker node 1")
+	}
+
+	if wn2S1 != "sandbox3" {
+		t.Error("Unexpected failure on worker node 2")
 	}
 }

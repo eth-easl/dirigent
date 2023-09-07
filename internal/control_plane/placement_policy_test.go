@@ -19,7 +19,7 @@ func TestRandomPolicy(t *testing.T) {
 	requested := &placement2.ResourceMap{}
 
 	for i := 0; i < 100; i++ {
-		currentStorage := policy.Place(&storage, requested)
+		currentStorage := policy.Place(storage, requested)
 		assert.NotNil(t, currentStorage)
 		assert.True(t, currentStorage == storage.GetUnsafe("w1") || currentStorage == storage.GetUnsafe("w2"))
 	}
@@ -40,17 +40,17 @@ func TestRoundRobin(t *testing.T) {
 
 	for i := 0; i < 100; i++ {
 		{
-			currentStorage := policy.Place(&storage, requested)
+			currentStorage := policy.Place(storage, requested)
 			assert.NotNil(t, currentStorage)
 			assert.Equal(t, currentStorage, storage.GetUnsafe(nodes[0]))
 		}
 		{
-			currentStorage := policy.Place(&storage, requested)
+			currentStorage := policy.Place(storage, requested)
 			assert.NotNil(t, currentStorage)
 			assert.Equal(t, currentStorage, storage.GetUnsafe(nodes[1]))
 		}
 		{
-			currentStorage := policy.Place(&storage, requested)
+			currentStorage := policy.Place(storage, requested)
 			assert.NotNil(t, currentStorage)
 			assert.Equal(t, currentStorage, storage.GetUnsafe(nodes[2]))
 		}

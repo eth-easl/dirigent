@@ -20,13 +20,13 @@ import (
 )
 
 type ControlPlane struct {
-	DataPlaneConnections atomic_map.AtomicMap[string, *function_metadata.DataPlaneConnectionInfo]
+	DataPlaneConnections *atomic_map.AtomicMap[string, *function_metadata.DataPlaneConnectionInfo]
 
-	NIStorage atomic_map.AtomicMap[string, *WorkerNode]
-	SIStorage atomic_map.AtomicMap[string, *ServiceInfoStorage]
+	NIStorage *atomic_map.AtomicMap[string, *WorkerNode]
+	SIStorage *atomic_map.AtomicMap[string, *ServiceInfoStorage]
 	sisLock   sync.RWMutex
 
-	WorkerEndpoints atomic_map.AtomicMap[string, atomic_map.AtomicMap[*Endpoint, string]]
+	WorkerEndpoints *atomic_map.AtomicMap[string, *atomic_map.AtomicMap[*Endpoint, string]]
 
 	ColdStartTracing *tracing.TracingService[tracing.ColdStartLogEntry] `json:"-"`
 	PlacementPolicy  PlacementPolicy
@@ -41,7 +41,7 @@ func NewControlPlane(client persistence.PersistenceLayer, outputFile string, pla
 		ColdStartTracing:     tracing.NewColdStartTracingService(outputFile),
 		PlacementPolicy:      placementPolicy,
 		PersistenceLayer:     client,
-		WorkerEndpoints:      atomic_map.NewAtomicMap[string, atomic_map.AtomicMap[*Endpoint, string]](),
+		WorkerEndpoints:      atomic_map.NewAtomicMap[string, *atomic_map.AtomicMap[*Endpoint, string]](),
 	}
 }
 
@@ -57,31 +57,49 @@ func (c *ControlPlane) GetNumberServices() int {
 	return c.SIStorage.Len()
 }
 
-func (c *ControlPlane) handleNodeFailure(wn *WorkerNode) {
+func filterServicesOnWorkerNode(ss *ServiceInfoStorage, wn *WorkerNode) []string {
+	toRemove, ok := ss.WorkerEndpoints.Get(wn.Name)
+	if !ok {
+		return []string{}
+	}
+
+	var cIDs []string
+	for _, v := range toRemove.Keys() {
+		cIDs = append(cIDs, v.SandboxID)
+	}
+
+	return cIDs
+}
+
+func (c *ControlPlane) createWorkerNodeFailureEvents(wn *WorkerNode) []*proto.Failure {
+	var failures []*proto.Failure
 	c.SIStorage.Range(func(key, value any) bool {
 		ss := value.(*ServiceInfoStorage)
 
-		toRemove, ok := ss.WorkerEndpoints.Get(wn.Name)
-		if !ok {
-			logrus.Error("Could not handle failure for node '", wn.Name, "'")
-			return false
+		failureMetadata := &proto.Failure{
+			Type:        proto.FailureType_WORKER_NODE_FAILURE,
+			ServiceName: ss.ServiceInfo.Name,
+			SandboxIDs:  filterServicesOnWorkerNode(ss, wn),
 		}
 
-		var cIDs []string
-		for _, v := range toRemove.Keys() {
-			cIDs = append(cIDs, v.SandboxID)
+		if len(failureMetadata.SandboxIDs) > 0 {
+			failures = append(failures, failureMetadata)
 		}
-
-		removeEndpoints(ss, &c.DataPlaneConnections, cIDs)
 
 		return true
 	})
+
+	return failures
+}
+
+func (c *ControlPlane) handleNodeFailure(wn *WorkerNode) {
+	c.HandleFailure(c.createWorkerNodeFailureEvents(wn))
 }
 
 func (c *ControlPlane) CheckPeriodicallyWorkerNodes() {
 	for {
 		for _, workerNode := range c.NIStorage.Values() {
-			if time.Since(workerNode.LastHeartbeat) > 3*utils.HeartbeatInterval {
+			if time.Since(workerNode.LastHeartbeat) > utils.TolerateHeartbeatMisses*utils.HeartbeatInterval {
 				// Propagate endpoint removal from the data planes
 				c.handleNodeFailure(workerNode)
 
@@ -92,7 +110,8 @@ func (c *ControlPlane) CheckPeriodicallyWorkerNodes() {
 				}
 			}
 		}
-		time.Sleep(5 * time.Second)
+
+		time.Sleep(utils.HeartbeatInterval)
 	}
 }
 
@@ -284,12 +303,12 @@ func (c *ControlPlane) connectToRegisteredService(ctx context.Context, serviceIn
 		ColdStartTracingChannel: &c.ColdStartTracing.InputChannel,
 		PlacementPolicy:         c.PlacementPolicy,
 		PersistenceLayer:        c.PersistenceLayer,
-		WorkerEndpoints:         &c.WorkerEndpoints,
+		WorkerEndpoints:         c.WorkerEndpoints,
 	}
 
 	c.SIStorage.Set(serviceInfo.Name, service)
 
-	go service.ScalingControllerLoop(&c.NIStorage, &c.DataPlaneConnections)
+	go service.ScalingControllerLoop(c.NIStorage, c.DataPlaneConnections)
 
 	return nil
 }
@@ -391,7 +410,7 @@ func (c *ControlPlane) ReconstructState(ctx context.Context, config config2.Cont
 	}
 	{
 		start := time.Now()
-		if err := c.reconstructEndpointsState(ctx, &c.DataPlaneConnections); err != nil {
+		if err := c.reconstructEndpointsState(ctx, c.DataPlaneConnections); err != nil {
 			return err
 		}
 		duration := time.Since(start)
@@ -402,12 +421,12 @@ func (c *ControlPlane) ReconstructState(ctx context.Context, config config2.Cont
 }
 
 func (c *ControlPlane) reconstructDataplaneState(ctx context.Context) error {
-	dataplanesValues, err := c.PersistenceLayer.GetDataPlaneInformation(ctx)
+	dataPlaneValues, err := c.PersistenceLayer.GetDataPlaneInformation(ctx)
 	if err != nil {
 		return err
 	}
 
-	for _, dataplaneInfo := range dataplanesValues {
+	for _, dataplaneInfo := range dataPlaneValues {
 		c.DataPlaneConnections.Set(dataplaneInfo.Address, &function_metadata.DataPlaneConnectionInfo{
 			Iface:     grpc_helpers.InitializeDataPlaneConnection(dataplaneInfo.Address, dataplaneInfo.ApiPort),
 			IP:        dataplaneInfo.Address,
@@ -496,48 +515,38 @@ func removeEndpoints(ss *ServiceInfoStorage, dpConns *atomic_map.AtomicMap[strin
 	for _, cid := range endpoints {
 		endpoint := searchEndpointByContainerName(ss.Controller.Endpoints, cid)
 		if endpoint == nil {
-			logrus.Warn("Endpoint requested to remove not found - ", cid)
+			logrus.Warn("Endpoint ", cid, " not found for removal.")
+			continue
 		}
 
 		toRemove[endpoint] = struct{}{}
+		ss.removeEndpointFromWNStruct(endpoint)
+
+		logrus.Warn("Control plane notified of failure of '", endpoint.SandboxID, "'. Decrementing actual scale and removing the endpoint.")
 	}
 
 	atomic.AddInt64(&ss.Controller.ScalingMetadata.ActualScale, -int64(len(toRemove)))
-	ss.Controller.Endpoints = ss.excludeEndpoints(ss.Controller.Endpoints, toRemove)
+	ss.Controller.Endpoints = ss.subtractEndpoints(ss.Controller.Endpoints, toRemove)
 
 	ss.updateEndpoints(dpConns, ss.prepareUrlList())
 }
 
-func (c *ControlPlane) HandleFailure(in *proto.Failure) bool {
-	switch in.Type {
-	case proto.FailureType_CONTAINER_FAILURE:
-		// RECOVERY ACTION: reduce the actual scale by one and propagate endpoint removal
-		serviceName := in.ServiceName
-		sandboxID := in.SandboxID
+func (c *ControlPlane) HandleFailure(failures []*proto.Failure) bool {
+	for _, failure := range failures {
+		switch failure.Type {
+		case proto.FailureType_SANDBOX_FAILURE, proto.FailureType_WORKER_NODE_FAILURE:
+			// RECOVERY ACTION: reduce the actual scale by one and propagate endpoint removal
+			serviceName := failure.ServiceName
+			sandboxIDs := failure.SandboxIDs
 
-		if ss, ok := c.SIStorage.Get(serviceName); ok {
-			removeEndpoints(ss, &c.DataPlaneConnections, []string{sandboxID})
-
-			logrus.Warn("Control plane notified of failure of '", sandboxID, "'. Decrementing actual scale and removing endpoint.")
-
-			ss.Controller.EndpointLock.Lock()
-			defer ss.Controller.EndpointLock.Unlock()
-
-			endpoint := searchEndpointByContainerName(ss.Controller.Endpoints, sandboxID)
-			if endpoint == nil {
-				return false
+			// TODO: all endpoints removals can be batched into a single call
+			if ss, ok := c.SIStorage.Get(serviceName); ok {
+				removeEndpoints(ss, c.DataPlaneConnections, sandboxIDs)
 			}
-
-			atomic.AddInt64(&ss.Controller.ScalingMetadata.ActualScale, -1)
-			ss.Controller.Endpoints = ss.excludeEndpoints(ss.Controller.Endpoints, map[*Endpoint]struct{}{endpoint: {}})
-
-			ss.updateEndpoints(&c.DataPlaneConnections, ss.prepareUrlList())
-
-			return true
 		}
 	}
 
-	return false
+	return true
 }
 
 func searchEndpointByContainerName(endpoints []*Endpoint, cid string) *Endpoint {

@@ -34,7 +34,7 @@ type ServiceInfoStorage struct {
 	PlacementPolicy  PlacementPolicy
 	PersistenceLayer persistence.PersistenceLayer
 
-	WorkerEndpoints *atomic_map.AtomicMap[string, atomic_map.AtomicMap[*Endpoint, string]]
+	WorkerEndpoints *atomic_map.AtomicMap[string, *atomic_map.AtomicMap[*Endpoint, string]]
 }
 
 type Endpoint struct {
@@ -100,7 +100,7 @@ func (ss *ServiceInfoStorage) ScalingControllerLoop(nodeList *atomic_map.AtomicM
 					logrus.Warn("downscaling reference error")
 				}
 
-				ss.Controller.Endpoints = ss.excludeEndpoints(ss.Controller.Endpoints, toEvict)
+				ss.Controller.Endpoints = ss.subtractEndpoints(ss.Controller.Endpoints, toEvict)
 
 				go ss.doDownscaling(toEvict, ss.prepareUrlList(), dpiClients)
 			}
@@ -203,6 +203,15 @@ func (ss *ServiceInfoStorage) doUpscaling(toCreateCount int, nodeList *atomic_ma
 	}
 }
 
+func (ss *ServiceInfoStorage) removeEndpointFromWNStruct(e *Endpoint) {
+	// Update worker node structure
+	worker, present := ss.WorkerEndpoints.Get(e.Node.Name)
+	if !present {
+		logrus.Fatal("Endpoint not present in the map")
+	}
+	worker.Delete(e)
+}
+
 func (ss *ServiceInfoStorage) doDownscaling(toEvict map[*Endpoint]struct{}, urls []*proto.EndpointInfo, dpiClients *atomic_map.AtomicMap[string, *function_metadata.DataPlaneConnectionInfo]) {
 	barrier := sync.WaitGroup{}
 
@@ -236,12 +245,7 @@ func (ss *ServiceInfoStorage) doDownscaling(toEvict map[*Endpoint]struct{}, urls
 				return
 			}
 
-			// Update worker node structure
-			worker, present := ss.WorkerEndpoints.Get(k.Node.Name)
-			if !present {
-				logrus.Fatal("Endpoint not present in the map")
-			}
-			worker.Delete(ss.ServiceInfo.Name)
+			ss.removeEndpointFromWNStruct(k)
 		}()
 	}
 
@@ -285,7 +289,7 @@ func (ss *ServiceInfoStorage) updateEndpoints(dpiClients *atomic_map.AtomicMap[s
 	wg.Wait()
 }
 
-func (ss *ServiceInfoStorage) excludeEndpoints(total []*Endpoint, toExclude map[*Endpoint]struct{}) []*Endpoint {
+func (ss *ServiceInfoStorage) subtractEndpoints(total []*Endpoint, toExclude map[*Endpoint]struct{}) []*Endpoint {
 	var result []*Endpoint
 
 	for _, endpoint := range total {

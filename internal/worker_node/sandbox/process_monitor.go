@@ -65,7 +65,6 @@ func (pm *ProcessMonitor) internalEventHandler() {
 
 			ch, ok := pm.NotifyChannels[PID]
 			if ok {
-				logrus.Debug("pid: ", PID, eData)
 				ch <- extractExitCode(&eData)
 			}
 		}
