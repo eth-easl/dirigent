@@ -172,9 +172,9 @@ func (m *FunctionMetadata) SetUpstreamURLs(endpoints []*proto.EndpointInfo) erro
 	m.Lock()
 	defer m.Unlock()
 
-	logrus.Debug("Updated endpoint list for ", m.identifier)
 	m.updateEndpointList(endpoints)
 	atomic.StoreInt32(&m.upstreamEndpointsCount, int32(len(m.upstreamEndpoints)))
+	logrus.Debug("Updated endpoint list for ", m.identifier, "(count: ", int32(len(m.upstreamEndpoints)), ")")
 
 	if len(m.upstreamEndpoints) > 0 {
 		dequeueCnt := 0

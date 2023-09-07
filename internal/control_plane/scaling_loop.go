@@ -185,11 +185,17 @@ func (ss *ServiceInfoStorage) doUpscaling(toCreateCount int, nodeList *atomic_ma
 	logrus.Debug("All sandboxes have been created. Updating endpoints.")
 
 	ss.Controller.EndpointLock.Lock()
+	oldEndpointCount := len(ss.Controller.Endpoints)
 	// no need for 'endpointMutex' as the barrier has already been passed
 	ss.Controller.Endpoints = append(ss.Controller.Endpoints, finalEndpoint...)
 	urls := ss.prepareUrlList()
 
 	ss.Controller.EndpointLock.Unlock()
+
+	if oldEndpointCount == len(finalEndpoint) {
+		// no new updates
+		return
+	}
 
 	logrus.Debug("Propagating endpoints.")
 	updateEndpointTimeStart := time.Now()
