@@ -14,7 +14,6 @@ import (
 	"github.com/sirupsen/logrus"
 	"google.golang.org/protobuf/types/known/emptypb"
 	"strconv"
-	"sync"
 	"sync/atomic"
 	"time"
 )
@@ -351,8 +350,13 @@ func (c *ControlPlane) RegisterDataplane(ctx context.Context, in *proto.Dataplan
 		return &proto.ActionStatus{Success: false}, err
 	}
 
+	conn, err := grpc_helpers.InitializeDataPlaneConnection(dataplaneInfo.Address, dataplaneInfo.ApiPort)
+	if err != nil {
+		return nil, err
+	}
+
 	c.DataPlaneConnections.Set(dataplaneInfo.Address, &function_metadata.DataPlaneConnectionInfo{
-		Iface:     grpc_helpers.InitializeDataPlaneConnection(dataplaneInfo.Address, dataplaneInfo.ApiPort),
+		Iface:     conn,
 		IP:        dataplaneInfo.Address,
 		APIPort:   dataplaneInfo.ApiPort,
 		ProxyPort: dataplaneInfo.ProxyPort,
@@ -432,8 +436,9 @@ func (c *ControlPlane) reconstructDataplaneState(ctx context.Context) error {
 	}
 
 	for _, dataplaneInfo := range dataPlaneValues {
+		conn, _ := grpc_helpers.InitializeDataPlaneConnection(dataplaneInfo.Address, dataplaneInfo.ApiPort)
 		c.DataPlaneConnections.Set(dataplaneInfo.Address, &function_metadata.DataPlaneConnectionInfo{
-			Iface:     grpc_helpers.InitializeDataPlaneConnection(dataplaneInfo.Address, dataplaneInfo.ApiPort),
+			Iface:     conn,
 			IP:        dataplaneInfo.Address,
 			APIPort:   dataplaneInfo.ApiPort,
 			ProxyPort: dataplaneInfo.ProxyPort,
@@ -531,7 +536,7 @@ func removeEndpoints(ss *ServiceInfoStorage, dpConns *atomic_map.AtomicMap[strin
 	}
 
 	atomic.AddInt64(&ss.Controller.ScalingMetadata.ActualScale, -int64(len(toRemove)))
-	ss.Controller.Endpoints = ss.subtractEndpoints(ss.Controller.Endpoints, toRemove)
+	ss.Controller.Endpoints = ss.excludeEndpoints(ss.Controller.Endpoints, toRemove)
 
 	ss.updateEndpoints(dpConns, ss.prepareUrlList())
 }

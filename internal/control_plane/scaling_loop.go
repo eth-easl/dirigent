@@ -102,7 +102,7 @@ func (ss *ServiceInfoStorage) ScalingControllerLoop(nodeList *atomic_map.AtomicM
 					logrus.Warn("downscaling reference error")
 				}
 
-				ss.Controller.Endpoints = ss.subtractEndpoints(ss.Controller.Endpoints, toEvict)
+				ss.Controller.Endpoints = ss.excludeEndpoints(ss.Controller.Endpoints, toEvict)
 
 				go ss.doDownscaling(toEvict, ss.prepareUrlList(), dpiClients)
 			}
