@@ -75,6 +75,7 @@ func (pm *ProcessMonitor) internalEventHandler() {
 func extractExitCode(data *garlic.EventData) uint32 {
 	switch (*data).(type) {
 	case garlic.Exit:
+		// Value of 128 -- https://tldp.org/LDP/abs/html/exitcodes.html
 		return (*data).(garlic.Exit).ExitCode + 128
 	default:
 		logrus.Error("Garlic return wrong type of event.")

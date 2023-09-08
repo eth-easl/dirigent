@@ -213,7 +213,7 @@ func (ss *ServiceInfoStorage) removeEndpointFromWNStruct(e *Endpoint) {
 	// Update worker node structure
 	worker, present := ss.WorkerEndpoints.Get(e.Node.Name)
 	if !present {
-		logrus.Fatal("Endpoint not present in the map")
+		logrus.Error("Endpoint not present in the map.")
 	}
 	worker.Delete(e)
 }
