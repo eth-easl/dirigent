@@ -338,5 +338,5 @@ func (ss *ServiceInfoStorage) prepareUrlList() []*proto.EndpointInfo {
 }
 
 func (ss *ServiceInfoStorage) isDownScalingDisabled() bool {
-	return time.Since(ss.StartTime) < 5*time.Second // TODO: Remove hardcoded part
+	return time.Since(ss.StartTime) < time.Duration(ss.Controller.ScalingMetadata.AutoscalingConfig.StableWindowWidthSeconds)*time.Second // TODO: Remove hardcoded part
 }
