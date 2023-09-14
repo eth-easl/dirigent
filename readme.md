@@ -87,7 +87,15 @@ Once the configuration stage is complete, we can start the programs.
 
 #### Clone the code
 
-First we need to install a copy of a master node on one machine, a dataplane on another machine, a copy of redis on a third machine and finally copy the code base on several other machines for the workers.
+First we need to install a copy of a master node on one machine, a dataplane on another machine, a copy of redis on a third machine and finally copy the code base on several other machines for the workers. You can simply call the script remote_install.sh with the ssh address of the computers. Before calling the script you have to make sure you have a github token on the following path which can install ssh keys.
+
+```bash
+ACCESS_TOKEN="$(cat ~/.git_token_loader)"
+```
+
+```bash
+./remote_install.sh ip1 ip2 ...
+```
 
 #### Setup configuration file
 
