@@ -1,4 +1,4 @@
-package sandbox
+package managers
 
 import (
 	"cluster_manager/api/proto"
@@ -6,7 +6,7 @@ import (
 	"github.com/containerd/containerd"
 )
 
-type Manager struct {
+type SandboxManager struct {
 	Metadata atomic_map.AtomicMap[string, *Metadata]
 
 	nodeName string
@@ -26,18 +26,18 @@ type Metadata struct {
 	ExitStatusChannel chan uint32
 }
 
-func NewSandboxManager(nodeName string) *Manager {
-	return &Manager{
+func NewSandboxManager(nodeName string) *SandboxManager {
+	return &SandboxManager{
 		Metadata: *atomic_map.NewAtomicMap[string, *Metadata](),
 		nodeName: nodeName,
 	}
 }
 
-func (m *Manager) AddSandbox(key string, metadata *Metadata) {
+func (m *SandboxManager) AddSandbox(key string, metadata *Metadata) {
 	m.Metadata.Set(key, metadata)
 }
 
-func (m *Manager) DeleteSandbox(key string) *Metadata {
+func (m *SandboxManager) DeleteSandbox(key string) *Metadata {
 	res, ok := m.Metadata.Get(key)
 	if !ok {
 		panic("value not present in map")
@@ -48,9 +48,10 @@ func (m *Manager) DeleteSandbox(key string) *Metadata {
 	return res
 }
 
-func (m *Manager) ListEndpoints() (*proto.EndpointsList, error) {
+func (m *SandboxManager) ListEndpoints() (*proto.EndpointsList, error) {
 	list := &proto.EndpointsList{}
 
+	// TODO: check for consistency with containerd client list
 	keys, values := m.Metadata.KeyValues()
 	for i := 0; i < len(keys); i++ {
 		list.Endpoint = append(list.Endpoint, &proto.Endpoint{

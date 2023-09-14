@@ -4,7 +4,6 @@ import (
 	"cluster_manager/api"
 	"cluster_manager/api/proto"
 	"cluster_manager/internal/worker_node"
-	"cluster_manager/internal/worker_node/sandbox"
 	"cluster_manager/pkg/config"
 	"cluster_manager/pkg/grpc_helpers"
 	"cluster_manager/pkg/logger"
@@ -35,15 +34,12 @@ func main() {
 
 	logger.SetupLogger(cfg.Verbosity)
 
-	containerdClient := sandbox.GetContainerdClient(cfg.CRIPath)
-	defer containerdClient.Close()
-
 	cpApi, err := grpc_helpers.InitializeControlPlaneConnection(cfg.ControlPlaneIp, cfg.ControlPlanePort, -1, -1)
 	if err != nil {
 		logrus.Fatalf("Failed to initialize control plane connection (error : %s)", err.Error())
 	}
 
-	workerNode := worker_node.NewWorkerNode(cpApi, cfg, containerdClient)
+	workerNode := worker_node.NewWorkerNode(cpApi, cfg)
 
 	workerNode.RegisterNodeWithControlPlane(cfg, &cpApi)
 	defer workerNode.DeregisterNodeFromControlPlane(cfg, &cpApi)

@@ -1,4 +1,4 @@
-package sandbox
+package managers
 
 import (
 	"github.com/stretchr/testify/assert"

@@ -2,6 +2,7 @@ package sandbox
 
 import (
 	"cluster_manager/api/proto"
+	"cluster_manager/internal/worker_node/managers"
 	"context"
 	"fmt"
 	"log"
@@ -105,7 +106,7 @@ func StartContainer(ctx context.Context, container containerd.Container, network
 	return task, statusChannel, ip, netns, nil, time.Since(start) - durationCNI, durationCNI
 }
 
-func WatchExitChannel(cpApi proto.CpiInterfaceClient, metadata *Metadata) {
+func WatchExitChannel(cpApi proto.CpiInterfaceClient, metadata *managers.Metadata) {
 	exitCode := <-metadata.ExitStatusChannel
 
 	switch exitCode {
@@ -130,7 +131,7 @@ func WatchExitChannel(cpApi proto.CpiInterfaceClient, metadata *Metadata) {
 	}
 }
 
-func DeleteContainer(ctx context.Context, network cni.CNI, metadata *Metadata) error {
+func DeleteContainer(ctx context.Context, network cni.CNI, metadata *managers.Metadata) error {
 	// TODO: what happens with CNI and container metadata if the container fails -- memory leak
 	if err := network.Remove(ctx, metadata.Container.ID(), metadata.NetNs); err != nil {
 		return err

@@ -20,13 +20,13 @@ func NewWorkerNodeApi(workerNode *worker_node.WorkerNode) *WnApiServer {
 }
 
 func (w *WnApiServer) CreateSandbox(grpcCtx context.Context, in *proto.ServiceInfo) (*proto.SandboxCreationStatus, error) {
-	return w.workerNode.CreateSandbox(grpcCtx, in)
+	return w.workerNode.SandboxRuntime.CreateSandbox(grpcCtx, in)
 }
 
 func (w *WnApiServer) DeleteSandbox(grpcCtx context.Context, in *proto.SandboxID) (*proto.ActionStatus, error) {
-	return w.workerNode.DeleteSandbox(grpcCtx, in)
+	return w.workerNode.SandboxRuntime.DeleteSandbox(grpcCtx, in)
 }
 
 func (w *WnApiServer) ListEndpoints(grpcCtx context.Context, in *emptypb.Empty) (*proto.EndpointsList, error) {
-	return w.workerNode.ListEndpoints(grpcCtx, in)
+	return w.workerNode.SandboxRuntime.ListEndpoints(grpcCtx, in)
 }

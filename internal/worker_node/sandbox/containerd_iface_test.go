@@ -1,6 +1,7 @@
 package sandbox
 
 import (
+	"cluster_manager/internal/worker_node/managers"
 	"context"
 	"math/rand"
 	"sync"
@@ -46,7 +47,7 @@ func TestCreateAContainer(t *testing.T) {
 	assert.NoError(t, err, "Failed to start container")
 	logrus.Info("Start container - ", time.Since(start).Microseconds(), "μs")
 
-	sm := &Metadata{
+	sm := &managers.Metadata{
 		Task:        task,
 		Container:   container,
 		ExitChannel: exitCh,
@@ -88,7 +89,7 @@ func TestParallelCreation(t *testing.T) {
 				task, exitCh, ip, netns, err, _, _ := StartContainer(ctx, container, network)
 				assert.NoError(t, err, "Failed to start a container")
 
-				sm := &Metadata{
+				sm := &managers.Metadata{
 					Task:        task,
 					Container:   container,
 					ExitChannel: exitCh,
@@ -115,7 +116,7 @@ func TestContainerFailureHandlerTriggering(t *testing.T) {
 
 	// fails to expose networking to the container
 	rand.Seed(time.Now().UnixNano())
-	pm := NewProcessMonitor()
+	pm := managers.NewProcessMonitor()
 
 	client, err := containerd.New("/run/containerd/containerd.sock")
 	assert.NoError(t, err, "Failed to create a containerd client")
@@ -140,7 +141,7 @@ func TestContainerFailureHandlerTriggering(t *testing.T) {
 	assert.NoError(t, err, "Failed to start container")
 	logrus.Info("Start container - ", time.Since(start).Microseconds(), "μs")
 
-	sm := &Metadata{
+	sm := &managers.Metadata{
 		Task:        task,
 		Container:   container,
 		ExitChannel: exitCh,

@@ -8,7 +8,6 @@ import (
 	"strconv"
 	"sync"
 
-	"github.com/docker/docker/api/types/container"
 	"github.com/docker/go-connections/nat"
 )
 
@@ -81,16 +80,4 @@ func createPortMappings(r *proto.PortMapping) (nat.PortMap, nat.PortSet, error) 
 	guest[common] = struct{}{}
 
 	return host, guest, nil
-}
-
-func CreateSandboxConfig(image string, portMaps *proto.PortMapping) (*container.HostConfig, *container.Config, error) {
-	hostMapping, guestMapping, err := createPortMappings(portMaps)
-	if err != nil {
-		return nil, nil, err
-	}
-
-	hostConfig := &container.HostConfig{PortBindings: hostMapping}
-	containerConfig := &container.Config{Image: image, ExposedPorts: guestMapping}
-
-	return hostConfig, containerConfig, nil
 }
