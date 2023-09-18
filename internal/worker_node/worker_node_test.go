@@ -1,7 +1,7 @@
 package worker_node
 
 import (
-	"cluster_manager/internal/worker_node/sandbox"
+	"cluster_manager/internal/worker_node/sandbox/containerd"
 	"cluster_manager/pkg/config"
 	"github.com/stretchr/testify/assert"
 	"go.uber.org/mock/gomock"
@@ -22,7 +22,7 @@ func TestCreationWorkerNode(t *testing.T) {
 		PrefetchImage:    false,
 	}
 
-	containerdClient := sandbox.GetContainerdClient(mockConfig.CRIPath)
+	containerdClient := containerd.GetContainerdClient(mockConfig.CRIPath)
 	defer containerdClient.Close()
 
 	assert.NotNil(t, NewWorkerNode(nil, mockConfig, containerdClient), "Created worker not should not be nil")

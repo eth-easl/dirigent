@@ -4,6 +4,7 @@ import (
 	"cluster_manager/api/proto"
 	"cluster_manager/internal/worker_node/managers"
 	"cluster_manager/internal/worker_node/sandbox"
+	"cluster_manager/internal/worker_node/sandbox/containerd"
 	"cluster_manager/pkg/config"
 	"cluster_manager/pkg/hardware"
 	"cluster_manager/pkg/utils"
@@ -25,7 +26,7 @@ type WorkerNode struct {
 	cpApi          proto.CpiInterfaceClient
 	SandboxRuntime sandbox.SandboxRuntime
 
-	ImageManager   *sandbox.ImageManager
+	ImageManager   *containerd.ImageManager
 	SandboxManager *managers.SandboxManager
 	ProcessMonitor *managers.ProcessMonitor
 
@@ -38,13 +39,13 @@ func NewWorkerNode(cpApi proto.CpiInterfaceClient, config config.WorkerNodeConfi
 		logrus.Warn("Error fetching host name.")
 	}
 
-	imageManager := sandbox.NewImageManager()
+	imageManager := containerd.NewImageManager()
 	sandboxManager := managers.NewSandboxManager(hostName)
 	processMonitor := managers.NewProcessMonitor()
 
 	workerNode := &WorkerNode{
 		cpApi:          cpApi,
-		SandboxRuntime: sandbox.NewContainerdRuntime(cpApi, config, imageManager, sandboxManager, processMonitor),
+		SandboxRuntime: containerd.NewContainerdRuntime(cpApi, config, imageManager, sandboxManager, processMonitor),
 
 		ImageManager:   imageManager,
 		SandboxManager: sandboxManager,
