@@ -25,5 +25,5 @@ func TestCreationWorkerNode(t *testing.T) {
 	containerdClient := containerd.GetContainerdClient(mockConfig.CRIPath)
 	defer containerdClient.Close()
 
-	assert.NotNil(t, NewWorkerNode(nil, mockConfig, containerdClient), "Created worker not should not be nil")
+	assert.NotNil(t, NewWorkerNode(nil, mockConfig), "Created worker not should not be nil")
 }
