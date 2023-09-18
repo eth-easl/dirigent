@@ -140,7 +140,7 @@ func (ss *ServiceInfoStorage) doUpscaling(toCreateCount int, nodeList *atomic_ma
 			ctx, cancel := context.WithTimeout(context.Background(), utils.WorkerNodeTrafficTimeout)
 			defer cancel()
 
-			resp, err := node.GetAPI().CreateSandbox(ctx, ss.ServiceInfo)
+			resp, err := node.CreateSandbox(ctx, ss.ServiceInfo)
 			if err != nil || !resp.Success {
 				logrus.Warnf("Failed to start a sandbox on worker node %s (error %s)", node.Name, err.Error())
 
@@ -239,7 +239,7 @@ func (ss *ServiceInfoStorage) doDownscaling(toEvict map[*Endpoint]struct{}, urls
 			ctx, cancel := context.WithTimeout(context.Background(), utils.WorkerNodeTrafficTimeout)
 			defer cancel()
 
-			resp, err := victim.Node.GetAPI().DeleteSandbox(ctx, &proto.SandboxID{
+			resp, err := victim.Node.DeleteSandbox(ctx, &proto.SandboxID{
 				ID:       victim.SandboxID,
 				HostPort: victim.HostPort,
 			})

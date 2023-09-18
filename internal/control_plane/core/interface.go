@@ -3,6 +3,7 @@ package core
 import (
 	"cluster_manager/api/proto"
 	"context"
+	"google.golang.org/grpc"
 	"google.golang.org/protobuf/types/known/emptypb"
 )
 
@@ -15,4 +16,11 @@ type DataPlaneInterface interface {
 	GetIP() string
 	GetApiPort() string
 	GetProxyPort() string
+}
+
+type WorkerNodeInterface interface {
+	GetApi() proto.WorkerNodeInterfaceClient
+	CreateSandbox(context.Context, *proto.ServiceInfo, ...grpc.CallOption) (*proto.SandboxCreationStatus, error)
+	DeleteSandbox(context.Context, *proto.SandboxID, ...grpc.CallOption) (*proto.ActionStatus, error)
+	ListEndpoints(context.Context, *emptypb.Empty, ...grpc.CallOption) (*proto.EndpointsList, error)
 }

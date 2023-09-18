@@ -10,6 +10,7 @@ import (
 	reflect "reflect"
 
 	gomock "github.com/golang/mock/gomock"
+	grpc "google.golang.org/grpc"
 	emptypb "google.golang.org/protobuf/types/known/emptypb"
 )
 
@@ -150,4 +151,101 @@ func (m *MockDataPlaneInterface) UpdateEndpointList(arg0 context.Context, arg1 *
 func (mr *MockDataPlaneInterfaceMockRecorder) UpdateEndpointList(arg0, arg1 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateEndpointList", reflect.TypeOf((*MockDataPlaneInterface)(nil).UpdateEndpointList), arg0, arg1)
+}
+
+// MockWorkerNodeInterface is a mock of WorkerNodeInterface interface.
+type MockWorkerNodeInterface struct {
+	ctrl     *gomock.Controller
+	recorder *MockWorkerNodeInterfaceMockRecorder
+}
+
+// MockWorkerNodeInterfaceMockRecorder is the mock recorder for MockWorkerNodeInterface.
+type MockWorkerNodeInterfaceMockRecorder struct {
+	mock *MockWorkerNodeInterface
+}
+
+// NewMockWorkerNodeInterface creates a new mock instance.
+func NewMockWorkerNodeInterface(ctrl *gomock.Controller) *MockWorkerNodeInterface {
+	mock := &MockWorkerNodeInterface{ctrl: ctrl}
+	mock.recorder = &MockWorkerNodeInterfaceMockRecorder{mock}
+	return mock
+}
+
+// EXPECT returns an object that allows the caller to indicate expected use.
+func (m *MockWorkerNodeInterface) EXPECT() *MockWorkerNodeInterfaceMockRecorder {
+	return m.recorder
+}
+
+// CreateSandbox mocks base method.
+func (m *MockWorkerNodeInterface) CreateSandbox(arg0 context.Context, arg1 *proto.ServiceInfo, arg2 ...grpc.CallOption) (*proto.SandboxCreationStatus, error) {
+	m.ctrl.T.Helper()
+	varargs := []interface{}{arg0, arg1}
+	for _, a := range arg2 {
+		varargs = append(varargs, a)
+	}
+	ret := m.ctrl.Call(m, "CreateSandbox", varargs...)
+	ret0, _ := ret[0].(*proto.SandboxCreationStatus)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// CreateSandbox indicates an expected call of CreateSandbox.
+func (mr *MockWorkerNodeInterfaceMockRecorder) CreateSandbox(arg0, arg1 interface{}, arg2 ...interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	varargs := append([]interface{}{arg0, arg1}, arg2...)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateSandbox", reflect.TypeOf((*MockWorkerNodeInterface)(nil).CreateSandbox), varargs...)
+}
+
+// DeleteSandbox mocks base method.
+func (m *MockWorkerNodeInterface) DeleteSandbox(arg0 context.Context, arg1 *proto.SandboxID, arg2 ...grpc.CallOption) (*proto.ActionStatus, error) {
+	m.ctrl.T.Helper()
+	varargs := []interface{}{arg0, arg1}
+	for _, a := range arg2 {
+		varargs = append(varargs, a)
+	}
+	ret := m.ctrl.Call(m, "DeleteSandbox", varargs...)
+	ret0, _ := ret[0].(*proto.ActionStatus)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// DeleteSandbox indicates an expected call of DeleteSandbox.
+func (mr *MockWorkerNodeInterfaceMockRecorder) DeleteSandbox(arg0, arg1 interface{}, arg2 ...interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	varargs := append([]interface{}{arg0, arg1}, arg2...)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteSandbox", reflect.TypeOf((*MockWorkerNodeInterface)(nil).DeleteSandbox), varargs...)
+}
+
+// GetApi mocks base method.
+func (m *MockWorkerNodeInterface) GetApi() proto.WorkerNodeInterfaceClient {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetApi")
+	ret0, _ := ret[0].(proto.WorkerNodeInterfaceClient)
+	return ret0
+}
+
+// GetApi indicates an expected call of GetApi.
+func (mr *MockWorkerNodeInterfaceMockRecorder) GetApi() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetApi", reflect.TypeOf((*MockWorkerNodeInterface)(nil).GetApi))
+}
+
+// ListEndpoints mocks base method.
+func (m *MockWorkerNodeInterface) ListEndpoints(arg0 context.Context, arg1 *emptypb.Empty, arg2 ...grpc.CallOption) (*proto.EndpointsList, error) {
+	m.ctrl.T.Helper()
+	varargs := []interface{}{arg0, arg1}
+	for _, a := range arg2 {
+		varargs = append(varargs, a)
+	}
+	ret := m.ctrl.Call(m, "ListEndpoints", varargs...)
+	ret0, _ := ret[0].(*proto.EndpointsList)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// ListEndpoints indicates an expected call of ListEndpoints.
+func (mr *MockWorkerNodeInterfaceMockRecorder) ListEndpoints(arg0, arg1 interface{}, arg2 ...interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	varargs := append([]interface{}{arg0, arg1}, arg2...)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListEndpoints", reflect.TypeOf((*MockWorkerNodeInterface)(nil).ListEndpoints), varargs...)
 }
