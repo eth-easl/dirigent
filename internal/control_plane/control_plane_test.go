@@ -13,7 +13,7 @@ import (
 	"time"
 )
 
-var mockConfig config.ControlPlaneConfig = config.ControlPlaneConfig{
+var mockConfig = config.ControlPlaneConfig{
 	Port:              "",
 	PortRegistration:  "",
 	Verbosity:         "",

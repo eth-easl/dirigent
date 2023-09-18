@@ -2,9 +2,9 @@ package control_plane
 
 import (
 	"cluster_manager/api/proto"
+	"cluster_manager/internal/control_plane/core"
 	"cluster_manager/internal/control_plane/persistence"
 	placement2 "cluster_manager/internal/control_plane/placement_policy"
-	"cluster_manager/internal/data_plane/function_metadata"
 	"cluster_manager/pkg/atomic_map"
 	"cluster_manager/pkg/tracing"
 	"cluster_manager/pkg/utils"
@@ -57,7 +57,7 @@ func (ss *ServiceInfoStorage) GetAllURLs() []string {
 	return res
 }
 
-func (ss *ServiceInfoStorage) reconstructEndpointInController(endpoint *Endpoint, dpiClients *atomic_map.AtomicMap[string, *function_metadata.DataPlaneConnectionInfo]) {
+func (ss *ServiceInfoStorage) reconstructEndpointInController(endpoint *Endpoint, dpiClients *atomic_map.AtomicMap[string, core.DataPlaneInterface]) {
 	ss.Controller.EndpointLock.Lock()
 	defer ss.Controller.EndpointLock.Unlock()
 
@@ -67,7 +67,7 @@ func (ss *ServiceInfoStorage) reconstructEndpointInController(endpoint *Endpoint
 	ss.updateEndpoints(dpiClients, ss.prepareUrlList())
 }
 
-func (ss *ServiceInfoStorage) ScalingControllerLoop(nodeList *atomic_map.AtomicMap[string, *WorkerNode], dpiClients *atomic_map.AtomicMap[string, *function_metadata.DataPlaneConnectionInfo]) {
+func (ss *ServiceInfoStorage) ScalingControllerLoop(nodeList *atomic_map.AtomicMap[string, *WorkerNode], dpiClients *atomic_map.AtomicMap[string, core.DataPlaneInterface]) {
 	for {
 		select {
 		case desiredCount := <-*ss.Controller.DesiredStateChannel:
@@ -112,7 +112,7 @@ func (ss *ServiceInfoStorage) ScalingControllerLoop(nodeList *atomic_map.AtomicM
 	}
 }
 
-func (ss *ServiceInfoStorage) doUpscaling(toCreateCount int, nodeList *atomic_map.AtomicMap[string, *WorkerNode], dpiClients *atomic_map.AtomicMap[string, *function_metadata.DataPlaneConnectionInfo]) {
+func (ss *ServiceInfoStorage) doUpscaling(toCreateCount int, nodeList *atomic_map.AtomicMap[string, *WorkerNode], dpiClients *atomic_map.AtomicMap[string, core.DataPlaneInterface]) {
 	wg := sync.WaitGroup{}
 
 	var finalEndpoint []*Endpoint
@@ -220,7 +220,7 @@ func (ss *ServiceInfoStorage) removeEndpointFromWNStruct(e *Endpoint) {
 	worker.Delete(e)
 }
 
-func (ss *ServiceInfoStorage) doDownscaling(toEvict map[*Endpoint]struct{}, urls []*proto.EndpointInfo, dpiClients *atomic_map.AtomicMap[string, *function_metadata.DataPlaneConnectionInfo]) {
+func (ss *ServiceInfoStorage) doDownscaling(toEvict map[*Endpoint]struct{}, urls []*proto.EndpointInfo, dpiClients *atomic_map.AtomicMap[string, core.DataPlaneInterface]) {
 	barrier := sync.WaitGroup{}
 
 	barrier.Add(len(toEvict))
@@ -262,22 +262,22 @@ func (ss *ServiceInfoStorage) doDownscaling(toEvict map[*Endpoint]struct{}, urls
 	ss.updateEndpoints(dpiClients, urls)
 }
 
-func (ss *ServiceInfoStorage) updateEndpoints(dpiClients *atomic_map.AtomicMap[string, *function_metadata.DataPlaneConnectionInfo], endpoints []*proto.EndpointInfo) {
+func (ss *ServiceInfoStorage) updateEndpoints(dpiClients *atomic_map.AtomicMap[string, core.DataPlaneInterface], endpoints []*proto.EndpointInfo) {
 	wg := &sync.WaitGroup{}
 
 	wg.Add(dpiClients.Len())
 
 	for _, c := range dpiClients.Values() {
-		go func(c *function_metadata.DataPlaneConnectionInfo) {
-			resp, err := c.Iface.UpdateEndpointList(context.Background(), &proto.DeploymentEndpointPatch{
+		go func(c core.DataPlaneInterface) {
+			resp, err := c.UpdateEndpointList(context.Background(), &proto.DeploymentEndpointPatch{
 				Service:   ss.ServiceInfo,
 				Endpoints: endpoints,
 			})
 			if err != nil || !resp.Success {
 				logrus.Warn("Failed to update endpoint list in the data plane")
 
-				apiPort, _ := strconv.ParseInt(c.APIPort, 10, 64)
-				proxyPort, _ := strconv.ParseInt(c.APIPort, 10, 64)
+				apiPort, _ := strconv.ParseInt(c.GetApiPort(), 10, 64)
+				proxyPort, _ := strconv.ParseInt(c.GetProxyPort(), 10, 64)
 
 				_, err := ss.ControlPlane.DeregisterDataplane(context.Background(), &proto.DataplaneInfo{
 					APIPort:   int32(apiPort),

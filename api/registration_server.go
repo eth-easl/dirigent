@@ -111,7 +111,7 @@ func StartServiceRegistrationServer(cpApi *CpApiServer, registrationPort string)
 				delimiter = ";"
 			}
 
-			endpointList += fmt.Sprintf("%s:%s%s", conn.IP, conn.ProxyPort, delimiter)
+			endpointList += fmt.Sprintf("%s:%s%s", conn.GetIP(), conn.GetProxyPort(), delimiter)
 
 			cnt++
 		}

@@ -2,6 +2,7 @@ package control_plane
 
 import (
 	"cluster_manager/api/proto"
+	"cluster_manager/internal/control_plane/core"
 	"cluster_manager/internal/control_plane/persistence"
 	"cluster_manager/internal/data_plane/function_metadata"
 	"cluster_manager/pkg/atomic_map"
@@ -19,7 +20,7 @@ import (
 )
 
 type ControlPlane struct {
-	DataPlaneConnections *atomic_map.AtomicMap[string, *function_metadata.DataPlaneConnectionInfo]
+	DataPlaneConnections *atomic_map.AtomicMap[string, core.DataPlaneInterface]
 
 	NIStorage *atomic_map.AtomicMap[string, *WorkerNode]
 	SIStorage *atomic_map.AtomicMap[string, *ServiceInfoStorage]
@@ -35,7 +36,7 @@ func NewControlPlane(client persistence.PersistenceLayer, outputFile string, pla
 	return &ControlPlane{
 		NIStorage:            atomic_map.NewAtomicMap[string, *WorkerNode](),
 		SIStorage:            atomic_map.NewAtomicMap[string, *ServiceInfoStorage](),
-		DataPlaneConnections: atomic_map.NewAtomicMap[string, *function_metadata.DataPlaneConnectionInfo](),
+		DataPlaneConnections: atomic_map.NewAtomicMap[string, core.DataPlaneInterface](),
 		ColdStartTracing:     tracing.NewColdStartTracingService(outputFile),
 		PlacementPolicy:      placementPolicy,
 		PersistenceLayer:     client,
@@ -55,7 +56,7 @@ func (c *ControlPlane) GetNumberServices() int {
 	return c.SIStorage.Len()
 }
 
-func filterServicesOnWorkerNode(ss *ServiceInfoStorage, wn *WorkerNode) []string {
+func (c *ControlPlane) getServicesOnWorkerNode(ss *ServiceInfoStorage, wn *WorkerNode) []string {
 	toRemove, ok := ss.WorkerEndpoints.Get(wn.Name)
 	if !ok {
 		return []string{}
@@ -77,7 +78,7 @@ func (c *ControlPlane) createWorkerNodeFailureEvents(wn *WorkerNode) []*proto.Fa
 		failureMetadata := &proto.Failure{
 			Type:        proto.FailureType_WORKER_NODE_FAILURE,
 			ServiceName: ss.ServiceInfo.Name,
-			SandboxIDs:  filterServicesOnWorkerNode(ss, wn),
+			SandboxIDs:  c.getServicesOnWorkerNode(ss, wn),
 		}
 
 		if len(failureMetadata.SandboxIDs) > 0 {
@@ -286,7 +287,7 @@ func (c *ControlPlane) RegisterService(ctx context.Context, serviceInfo *proto.S
 
 func (c *ControlPlane) connectToRegisteredService(ctx context.Context, serviceInfo *proto.ServiceInfo, reconstructFromPersistence bool) error {
 	for _, conn := range c.DataPlaneConnections.Values() {
-		_, err := conn.Iface.AddDeployment(ctx, serviceInfo)
+		_, err := conn.AddDeployment(ctx, serviceInfo)
 		if err != nil {
 			return err
 		}
@@ -350,17 +351,14 @@ func (c *ControlPlane) RegisterDataplane(ctx context.Context, in *proto.Dataplan
 		return &proto.ActionStatus{Success: false}, err
 	}
 
-	conn, err := grpc_helpers.InitializeDataPlaneConnection(dataplaneInfo.Address, dataplaneInfo.ApiPort)
+	dataplaneConnection := function_metadata.NewDataplaneConnection(dataplaneInfo.Address, dataplaneInfo.ApiPort, dataplaneInfo.ProxyPort)
+
+	err = dataplaneConnection.InitializeDataPlaneConnection(dataplaneInfo.Address, dataplaneInfo.ApiPort)
 	if err != nil {
-		return nil, err
+		return &proto.ActionStatus{Success: false}, err
 	}
 
-	c.DataPlaneConnections.Set(dataplaneInfo.Address, &function_metadata.DataPlaneConnectionInfo{
-		Iface:     conn,
-		IP:        dataplaneInfo.Address,
-		APIPort:   dataplaneInfo.ApiPort,
-		ProxyPort: dataplaneInfo.ProxyPort,
-	})
+	c.DataPlaneConnections.Set(dataplaneInfo.Address, dataplaneConnection)
 
 	return &proto.ActionStatus{Success: true}, nil
 }
@@ -484,7 +482,7 @@ func (c *ControlPlane) reconstructServiceState(ctx context.Context) error {
 	return nil
 }
 
-func (c *ControlPlane) reconstructEndpointsState(ctx context.Context, dpiClients *atomic_map.AtomicMap[string, *function_metadata.DataPlaneConnectionInfo]) error {
+func (c *ControlPlane) reconstructEndpointsState(ctx context.Context, dpiClients *atomic_map.AtomicMap[string, core.DataPlaneInterface]) error {
 	endpoints := make([]*proto.Endpoint, 0)
 
 	for _, workerNode := range c.NIStorage.Values() {
@@ -517,7 +515,7 @@ func (c *ControlPlane) reconstructEndpointsState(ctx context.Context, dpiClients
 	return nil
 }
 
-func removeEndpoints(ss *ServiceInfoStorage, dpConns *atomic_map.AtomicMap[string, *function_metadata.DataPlaneConnectionInfo], endpoints []string) {
+func removeEndpoints(ss *ServiceInfoStorage, dpConns *atomic_map.AtomicMap[string, core.DataPlaneInterface], endpoints []string) {
 	ss.Controller.EndpointLock.Lock()
 	defer ss.Controller.EndpointLock.Unlock()
 
