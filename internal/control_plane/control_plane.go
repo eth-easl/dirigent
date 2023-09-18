@@ -4,7 +4,6 @@ import (
 	"cluster_manager/api/proto"
 	"cluster_manager/internal/control_plane/core"
 	"cluster_manager/internal/control_plane/persistence"
-	"cluster_manager/internal/data_plane/function_metadata"
 	"cluster_manager/pkg/atomic_map"
 	config2 "cluster_manager/pkg/config"
 	"cluster_manager/pkg/grpc_helpers"
@@ -19,6 +18,8 @@ import (
 	"time"
 )
 
+type DataplaneFactory func(string, string, string) core.DataPlaneInterface
+
 type ControlPlane struct {
 	DataPlaneConnections *atomic_map.AtomicMap[string, core.DataPlaneInterface]
 
@@ -30,9 +31,11 @@ type ControlPlane struct {
 	ColdStartTracing *tracing.TracingService[tracing.ColdStartLogEntry] `json:"-"`
 	PlacementPolicy  PlacementPolicy
 	PersistenceLayer persistence.PersistenceLayer
+
+	dataplaneCreator DataplaneFactory
 }
 
-func NewControlPlane(client persistence.PersistenceLayer, outputFile string, placementPolicy PlacementPolicy) *ControlPlane {
+func NewControlPlane(client persistence.PersistenceLayer, outputFile string, placementPolicy PlacementPolicy, dataplaneCreator DataplaneFactory) *ControlPlane {
 	return &ControlPlane{
 		NIStorage:            atomic_map.NewAtomicMap[string, *WorkerNode](),
 		SIStorage:            atomic_map.NewAtomicMap[string, *ServiceInfoStorage](),
@@ -41,6 +44,7 @@ func NewControlPlane(client persistence.PersistenceLayer, outputFile string, pla
 		PlacementPolicy:      placementPolicy,
 		PersistenceLayer:     client,
 		WorkerEndpoints:      atomic_map.NewAtomicMap[string, *atomic_map.AtomicMap[*Endpoint, string]](),
+		dataplaneCreator:     dataplaneCreator,
 	}
 }
 
@@ -351,7 +355,7 @@ func (c *ControlPlane) RegisterDataplane(ctx context.Context, in *proto.Dataplan
 		return &proto.ActionStatus{Success: false}, err
 	}
 
-	dataplaneConnection := function_metadata.NewDataplaneConnection(dataplaneInfo.Address, dataplaneInfo.ApiPort, dataplaneInfo.ProxyPort)
+	dataplaneConnection := c.dataplaneCreator(dataplaneInfo.Address, dataplaneInfo.ApiPort, dataplaneInfo.ProxyPort)
 
 	err = dataplaneConnection.InitializeDataPlaneConnection(dataplaneInfo.Address, dataplaneInfo.ApiPort)
 	if err != nil {
@@ -434,13 +438,10 @@ func (c *ControlPlane) reconstructDataplaneState(ctx context.Context) error {
 	}
 
 	for _, dataplaneInfo := range dataPlaneValues {
-		conn, _ := grpc_helpers.InitializeDataPlaneConnection(dataplaneInfo.Address, dataplaneInfo.ApiPort)
-		c.DataPlaneConnections.Set(dataplaneInfo.Address, &function_metadata.DataPlaneConnectionInfo{
-			Iface:     conn,
-			IP:        dataplaneInfo.Address,
-			APIPort:   dataplaneInfo.ApiPort,
-			ProxyPort: dataplaneInfo.ProxyPort,
-		})
+		dataplaneConnection := c.dataplaneCreator(dataplaneInfo.Address, dataplaneInfo.ApiPort, dataplaneInfo.ProxyPort)
+		dataplaneConnection.InitializeDataPlaneConnection(dataplaneInfo.Address, dataplaneInfo.ApiPort)
+
+		c.DataPlaneConnections.Set(dataplaneInfo.Address, dataplaneConnection)
 	}
 
 	return nil

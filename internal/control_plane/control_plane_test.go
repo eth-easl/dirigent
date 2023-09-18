@@ -2,13 +2,15 @@ package control_plane
 
 import (
 	"cluster_manager/api/proto"
-	mock_persistence "cluster_manager/mock"
+	"cluster_manager/internal/control_plane/core"
+	"cluster_manager/mock/mock_core"
+	"cluster_manager/mock/mock_persistence"
 	"cluster_manager/pkg/atomic_map"
 	"cluster_manager/pkg/config"
 	"context"
+	"github.com/golang/mock/gomock"
 	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
-	"go.uber.org/mock/gomock"
 	"testing"
 	"time"
 )
@@ -43,7 +45,7 @@ func TestCreationControlPlaneEmpty(t *testing.T) {
 		return make([]*proto.DataplaneInformation, 0), nil
 	}).Times(1)
 
-	controlPlane := NewControlPlane(persistenceLayer, "", NewRandomPolicy())
+	controlPlane := NewControlPlane(persistenceLayer, "", NewRandomPolicy(), NewDataplaneConnection)
 
 	start := time.Now()
 	err := controlPlane.ReconstructState(context.Background(), mockConfig)
@@ -107,7 +109,7 @@ func TestCreationControlPlaneWith5Services(t *testing.T) {
 		return make([]*proto.DataplaneInformation, 0), nil
 	}).Times(1)
 
-	controlPlane := NewControlPlane(persistenceLayer, "", NewRandomPolicy())
+	controlPlane := NewControlPlane(persistenceLayer, "", NewRandomPolicy(), NewDataplaneConnection)
 
 	start := time.Now()
 	err := controlPlane.ReconstructState(context.Background(), mockConfig)
@@ -118,6 +120,75 @@ func TestCreationControlPlaneWith5Services(t *testing.T) {
 	assert.Zero(t, controlPlane.GetNumberConnectedWorkers(), "Number of connected workers should be 0")
 	assert.Zero(t, controlPlane.GetNumberDataplanes(), "Number of connected data planes should be 0")
 	assert.Equal(t, 5, controlPlane.GetNumberServices(), "Number of registered services should be 0")
+
+	logrus.Infof("Took %s seconds to reconstruct", elapsed)
+}
+
+type testStructure struct {
+	ctrl *gomock.Controller
+}
+
+func (t testStructure) NewMockDataplaneConnection(IP, APIPort, ProxyPort string) core.DataPlaneInterface {
+	mockInterface := mock_core.NewMockDataPlaneInterface(t.ctrl)
+
+	mockInterface.EXPECT().InitializeDataPlaneConnection(gomock.Any(), gomock.Any()).DoAndReturn(func(string, string) error {
+		return nil
+	}).Times(1)
+
+	return mockInterface
+}
+
+func TestRegisterDataplanes(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	te := testStructure{ctrl: ctrl}
+
+	persistenceLayer := mock_persistence.NewMockPersistenceLayer(ctrl)
+
+	persistenceLayer.EXPECT().GetWorkerNodeInformation(gomock.Any()).DoAndReturn(func(_ context.Context) ([]*proto.WorkerNodeInformation, error) {
+		return make([]*proto.WorkerNodeInformation, 0), nil
+	}).Times(1)
+
+	persistenceLayer.EXPECT().GetServiceInformation(gomock.Any()).DoAndReturn(func(_ context.Context) ([]*proto.ServiceInfo, error) {
+		return make([]*proto.ServiceInfo, 0), nil
+	}).Times(1)
+
+	persistenceLayer.EXPECT().GetDataPlaneInformation(gomock.Any()).DoAndReturn(func(_ context.Context) ([]*proto.DataplaneInformation, error) {
+		arr := make([]*proto.DataplaneInformation, 0)
+
+		arr = append(arr, &proto.DataplaneInformation{
+			Address:   "A1",
+			ApiPort:   "",
+			ProxyPort: "",
+		})
+
+		arr = append(arr, &proto.DataplaneInformation{
+			Address:   "A2",
+			ApiPort:   "",
+			ProxyPort: "",
+		})
+
+		arr = append(arr, &proto.DataplaneInformation{
+			Address:   "A3",
+			ApiPort:   "",
+			ProxyPort: "",
+		})
+
+		return arr, nil
+	}).Times(1)
+
+	controlPlane := NewControlPlane(persistenceLayer, "", NewRandomPolicy(), te.NewMockDataplaneConnection)
+
+	start := time.Now()
+	err := controlPlane.ReconstructState(context.Background(), mockConfig)
+	elapsed := time.Since(start)
+
+	assert.NoError(t, err, "reconstructing control plane state failed")
+
+	assert.Zero(t, controlPlane.GetNumberConnectedWorkers(), "Number of connected workers should be 0")
+	assert.Equal(t, 3, controlPlane.GetNumberDataplanes(), "Number of connected data planes should be 0")
+	assert.Zero(t, controlPlane.GetNumberServices(), "Number of registered services should be 0")
 
 	logrus.Infof("Took %s seconds to reconstruct", elapsed)
 }
@@ -158,7 +229,7 @@ func TestHandleNodeFailure(t *testing.T) {
 	d, _ = wep2.Get(wn1.Name)
 	d.Set(&Endpoint{SandboxID: "sandbox4", Node: wn1}, ss1.ServiceInfo.Name)
 
-	cp := NewControlPlane(nil, "", nil)
+	cp := NewControlPlane(nil, "", nil, NewDataplaneConnection)
 	cp.SIStorage.Set(ss1.ServiceInfo.Name, ss1)
 	cp.SIStorage.Set(ss2.ServiceInfo.Name, ss2)
 

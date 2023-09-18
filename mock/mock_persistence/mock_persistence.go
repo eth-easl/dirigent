@@ -9,7 +9,7 @@ import (
 	context "context"
 	reflect "reflect"
 
-	gomock "go.uber.org/mock/gomock"
+	gomock "github.com/golang/mock/gomock"
 )
 
 // MockPersistenceLayer is a mock of PersistenceLayer interface.
@@ -49,20 +49,6 @@ func (mr *MockPersistenceLayerMockRecorder) DeleteDataPlaneInformation(ctx, data
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteDataPlaneInformation", reflect.TypeOf((*MockPersistenceLayer)(nil).DeleteDataPlaneInformation), ctx, dataplaneInfo)
 }
 
-// DeleteEndpoint mocks base method.
-func (m *MockPersistenceLayer) DeleteEndpoint(ctx context.Context, serviceName, workerNodeName string) error {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "DeleteEndpoint", ctx, serviceName, workerNodeName)
-	ret0, _ := ret[0].(error)
-	return ret0
-}
-
-// DeleteEndpoint indicates an expected call of DeleteEndpoint.
-func (mr *MockPersistenceLayerMockRecorder) DeleteEndpoint(ctx, serviceName, workerNodeName interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteEndpoint", reflect.TypeOf((*MockPersistenceLayer)(nil).DeleteEndpoint), ctx, serviceName, workerNodeName)
-}
-
 // DeleteWorkerNodeInformation mocks base method.
 func (m *MockPersistenceLayer) DeleteWorkerNodeInformation(ctx context.Context, workerNodeInfo *proto.WorkerNodeInformation) error {
 	m.ctrl.T.Helper()
@@ -90,22 +76,6 @@ func (m *MockPersistenceLayer) GetDataPlaneInformation(ctx context.Context) ([]*
 func (mr *MockPersistenceLayerMockRecorder) GetDataPlaneInformation(ctx interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetDataPlaneInformation", reflect.TypeOf((*MockPersistenceLayer)(nil).GetDataPlaneInformation), ctx)
-}
-
-// GetEndpoints mocks base method.
-func (m *MockPersistenceLayer) GetEndpoints(ctx context.Context) ([]*proto.Endpoint, []string, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetEndpoints", ctx)
-	ret0, _ := ret[0].([]*proto.Endpoint)
-	ret1, _ := ret[1].([]string)
-	ret2, _ := ret[2].(error)
-	return ret0, ret1, ret2
-}
-
-// GetEndpoints indicates an expected call of GetEndpoints.
-func (mr *MockPersistenceLayerMockRecorder) GetEndpoints(ctx interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetEndpoints", reflect.TypeOf((*MockPersistenceLayer)(nil).GetEndpoints), ctx)
 }
 
 // GetServiceInformation mocks base method.
@@ -152,20 +122,6 @@ func (mr *MockPersistenceLayerMockRecorder) StoreDataPlaneInformation(ctx, datap
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "StoreDataPlaneInformation", reflect.TypeOf((*MockPersistenceLayer)(nil).StoreDataPlaneInformation), ctx, dataplaneInfo)
 }
 
-// StoreSerialized mocks base method.
-func (m *MockPersistenceLayer) StoreSerialized(ctx context.Context, controlPlane []byte) error {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "StoreSerialized", ctx, controlPlane)
-	ret0, _ := ret[0].(error)
-	return ret0
-}
-
-// StoreSerialized indicates an expected call of StoreSerialized.
-func (mr *MockPersistenceLayerMockRecorder) StoreSerialized(ctx, controlPlane interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "StoreSerialized", reflect.TypeOf((*MockPersistenceLayer)(nil).StoreSerialized), ctx, controlPlane)
-}
-
 // StoreServiceInformation mocks base method.
 func (m *MockPersistenceLayer) StoreServiceInformation(ctx context.Context, serviceInfo *proto.ServiceInfo) error {
 	m.ctrl.T.Helper()
@@ -192,18 +148,4 @@ func (m *MockPersistenceLayer) StoreWorkerNodeInformation(ctx context.Context, w
 func (mr *MockPersistenceLayerMockRecorder) StoreWorkerNodeInformation(ctx, workerNodeInfo interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "StoreWorkerNodeInformation", reflect.TypeOf((*MockPersistenceLayer)(nil).StoreWorkerNodeInformation), ctx, workerNodeInfo)
-}
-
-// UpdateEndpoints mocks base method.
-func (m *MockPersistenceLayer) UpdateEndpoints(ctx context.Context, serviceName string, endpoints []*proto.Endpoint) error {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "UpdateEndpoints", ctx, serviceName, endpoints)
-	ret0, _ := ret[0].(error)
-	return ret0
-}
-
-// UpdateEndpoints indicates an expected call of UpdateEndpoints.
-func (mr *MockPersistenceLayerMockRecorder) UpdateEndpoints(ctx, serviceName, endpoints interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateEndpoints", reflect.TypeOf((*MockPersistenceLayer)(nil).UpdateEndpoints), ctx, serviceName, endpoints)
 }
