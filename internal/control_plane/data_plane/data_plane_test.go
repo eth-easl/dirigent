@@ -1,7 +1,8 @@
-package control_plane
+package data_plane
 
 import (
 	"cluster_manager/internal/control_plane/core"
+	"cluster_manager/internal/control_plane/workers"
 	"github.com/stretchr/testify/assert"
 	"testing"
 	"time"
@@ -16,7 +17,7 @@ func TestDataPlaneCreation(t *testing.T) {
 		Memory:   10,
 	}
 
-	wn := NewWorkerNode(conf)
+	wn := workers.NewWorkerNode(conf)
 
 	assert.Equal(t, wn.GetName(), conf.Name)
 	assert.Equal(t, wn.GetIP(), conf.IP)

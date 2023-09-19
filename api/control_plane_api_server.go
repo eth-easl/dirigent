@@ -3,8 +3,10 @@ package api
 import (
 	"cluster_manager/api/proto"
 	"cluster_manager/internal/control_plane"
+	"cluster_manager/internal/control_plane/data_plane"
 	"cluster_manager/internal/control_plane/persistence"
 	"cluster_manager/internal/control_plane/placement_policy"
+	"cluster_manager/internal/control_plane/workers"
 	config2 "cluster_manager/pkg/config"
 	"context"
 	"google.golang.org/protobuf/types/known/emptypb"
@@ -17,7 +19,7 @@ type CpApiServer struct {
 
 func CreateNewCpApiServer(client persistence.PersistenceLayer, outputFile string, placementPolicy placement_policy.PlacementPolicy) *CpApiServer {
 	return &CpApiServer{
-		ControlPlane: control_plane.NewControlPlane(client, outputFile, placementPolicy, control_plane.NewDataplaneConnection, control_plane.NewWorkerNode),
+		ControlPlane: control_plane.NewControlPlane(client, outputFile, placementPolicy, data_plane.NewDataplaneConnection, workers.NewWorkerNode),
 	}
 }
 

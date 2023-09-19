@@ -1,6 +1,7 @@
-package control_plane
+package workers
 
 import (
+	"cluster_manager/internal/control_plane/data_plane"
 	"github.com/stretchr/testify/assert"
 	"testing"
 )
@@ -10,7 +11,7 @@ func TestWorkerNodeCreation(t *testing.T) {
 	mockAPI := "mockAPI"
 	mockProxy := "mockProxy"
 
-	dataPlane := NewDataplaneConnection(mockIp, mockAPI, mockProxy)
+	dataPlane := data_plane.NewDataplaneConnection(mockIp, mockAPI, mockProxy)
 
 	assert.Equal(t, mockIp, dataPlane.GetIP())
 	assert.Equal(t, mockAPI, dataPlane.GetApiPort())

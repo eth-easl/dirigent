@@ -1,4 +1,4 @@
-package control_plane
+package data_plane
 
 import (
 	"cluster_manager/api/proto"

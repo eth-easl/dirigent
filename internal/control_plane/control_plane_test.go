@@ -3,7 +3,9 @@ package control_plane
 import (
 	"cluster_manager/api/proto"
 	"cluster_manager/internal/control_plane/core"
+	"cluster_manager/internal/control_plane/data_plane"
 	"cluster_manager/internal/control_plane/placement_policy"
+	"cluster_manager/internal/control_plane/workers"
 	"cluster_manager/mock/mock_core"
 	"cluster_manager/mock/mock_persistence"
 	"cluster_manager/pkg/atomic_map"
@@ -48,7 +50,7 @@ func TestCreationControlPlaneEmpty(t *testing.T) {
 		return make([]*proto.DataplaneInformation, 0), nil
 	}).Times(1)
 
-	controlPlane := NewControlPlane(persistenceLayer, "", placement_policy.NewRandomPolicy(), NewDataplaneConnection, NewWorkerNode)
+	controlPlane := NewControlPlane(persistenceLayer, "", placement_policy.NewRandomPolicy(), data_plane.NewDataplaneConnection, workers.NewWorkerNode)
 
 	start := time.Now()
 	err := controlPlane.ReconstructState(context.Background(), mockConfig)
@@ -112,7 +114,7 @@ func TestCreationControlPlaneWith5Services(t *testing.T) {
 		return make([]*proto.DataplaneInformation, 0), nil
 	}).Times(1)
 
-	controlPlane := NewControlPlane(persistenceLayer, "", placement_policy.NewRandomPolicy(), NewDataplaneConnection, NewWorkerNode)
+	controlPlane := NewControlPlane(persistenceLayer, "", placement_policy.NewRandomPolicy(), data_plane.NewDataplaneConnection, workers.NewWorkerNode)
 
 	start := time.Now()
 	err := controlPlane.ReconstructState(context.Background(), mockConfig)
@@ -257,7 +259,7 @@ func TestRegisterDataplanes(t *testing.T) {
 		return arr, nil
 	}).Times(1)
 
-	controlPlane := NewControlPlane(persistenceLayer, "", placement_policy.NewRandomPolicy(), te.NewMockDataplaneConnection, NewWorkerNode)
+	controlPlane := NewControlPlane(persistenceLayer, "", placement_policy.NewRandomPolicy(), te.NewMockDataplaneConnection, workers.NewWorkerNode)
 
 	start := time.Now()
 	err := controlPlane.ReconstructState(context.Background(), mockConfig)
@@ -286,8 +288,8 @@ func TestEndpointSearchByContainerName(t *testing.T) {
 }
 
 func TestHandleNodeFailure(t *testing.T) {
-	wn1 := &WorkerNode{Name: "node1"}
-	wn2 := &WorkerNode{Name: "node2"}
+	wn1 := &workers.WorkerNode{Name: "node1"}
+	wn2 := &workers.WorkerNode{Name: "node2"}
 
 	wep1 := atomic_map.NewAtomicMap[string, *atomic_map.AtomicMap[*core.Endpoint, string]]()
 	ss1 := &ServiceInfoStorage{ServiceInfo: &proto.ServiceInfo{Name: "service1"}, WorkerEndpoints: wep1}
@@ -308,7 +310,7 @@ func TestHandleNodeFailure(t *testing.T) {
 	d, _ = wep2.Get(wn1.Name)
 	d.Set(&core.Endpoint{SandboxID: "sandbox4", Node: wn1}, ss1.ServiceInfo.Name)
 
-	cp := NewControlPlane(nil, "", nil, NewDataplaneConnection, NewWorkerNode)
+	cp := NewControlPlane(nil, "", nil, data_plane.NewDataplaneConnection, workers.NewWorkerNode)
 	cp.SIStorage.Set(ss1.ServiceInfo.Name, ss1)
 	cp.SIStorage.Set(ss2.ServiceInfo.Name, ss2)
 
