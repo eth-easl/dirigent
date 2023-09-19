@@ -1,6 +1,7 @@
-package api
+package registration_server
 
 import (
+	"cluster_manager/api"
 	"cluster_manager/api/proto"
 	"cluster_manager/internal/control_plane/autoscaling"
 	"fmt"
@@ -10,7 +11,7 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-func StartServiceRegistrationServer(cpApi *CpApiServer, registrationPort string) {
+func StartServiceRegistrationServer(cpApi *api.CpApiServer, registrationPort string) {
 	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodPost {
 			http.Error(w, "Method not allowed.", http.StatusMethodNotAllowed)

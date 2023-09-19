@@ -5,6 +5,7 @@ import (
 	"cluster_manager/api/proto"
 	"cluster_manager/internal/control_plane/persistence"
 	"cluster_manager/internal/control_plane/placement_policy"
+	"cluster_manager/internal/control_plane/registration_server"
 	"cluster_manager/pkg/config"
 	"cluster_manager/pkg/grpc_helpers"
 	"cluster_manager/pkg/logger"
@@ -68,7 +69,7 @@ func main() {
 	go cpApiServer.ControlPlane.ColdStartTracing.StartTracingService()
 	defer close(cpApiServer.ControlPlane.ColdStartTracing.InputChannel)
 
-	go api.StartServiceRegistrationServer(cpApiServer, cfg.PortRegistration)
+	go registration_server.StartServiceRegistrationServer(cpApiServer, cfg.PortRegistration)
 	go grpc_helpers.CreateGRPCServer(utils.DockerLocalhost, cfg.Port, func(sr grpc.ServiceRegistrar) {
 		proto.RegisterCpiInterfaceServer(sr, cpApiServer)
 	})
