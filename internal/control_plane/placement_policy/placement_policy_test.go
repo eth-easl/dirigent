@@ -1,8 +1,8 @@
-package control_plane
+package placement_policy
 
 import (
+	"cluster_manager/internal/control_plane"
 	"cluster_manager/internal/control_plane/core"
-	placement2 "cluster_manager/internal/control_plane/placement_policy"
 	"cluster_manager/pkg/atomic_map"
 	"sort"
 	"testing"
@@ -14,10 +14,10 @@ func TestRandomPolicy(t *testing.T) {
 	policy := NewRandomPolicy()
 	storage := atomic_map.NewAtomicMap[string, core.WorkerNodeInterface]()
 
-	storage.Set("w1", &WorkerNode{})
-	storage.Set("w2", &WorkerNode{})
+	storage.Set("w1", &control_plane.WorkerNode{})
+	storage.Set("w2", &control_plane.WorkerNode{})
 
-	requested := &placement2.ResourceMap{}
+	requested := &ResourceMap{}
 
 	for i := 0; i < 100; i++ {
 		currentStorage := policy.Place(storage, requested)
@@ -30,11 +30,11 @@ func TestRoundRobin(t *testing.T) {
 	policy := NewRoundRobinPolicy()
 	storage := atomic_map.NewAtomicMap[string, core.WorkerNodeInterface]()
 
-	requested := &placement2.ResourceMap{}
+	requested := &ResourceMap{}
 
-	storage.Set("w1", &WorkerNode{})
-	storage.Set("w2", &WorkerNode{})
-	storage.Set("w3", &WorkerNode{})
+	storage.Set("w1", &control_plane.WorkerNode{})
+	storage.Set("w2", &control_plane.WorkerNode{})
+	storage.Set("w3", &control_plane.WorkerNode{})
 
 	nodes := sort.StringSlice(storage.Keys())
 	nodes.Sort()

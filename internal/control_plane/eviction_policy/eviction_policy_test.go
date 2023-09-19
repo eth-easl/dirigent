@@ -1,13 +1,14 @@
-package control_plane
+package eviction_policy
 
 import (
+	"cluster_manager/internal/control_plane/core"
 	"cluster_manager/pkg/tracing"
 	"github.com/stretchr/testify/assert"
 	"testing"
 )
 
 func TestEvictionPolicyEmpty(t *testing.T) {
-	emptyList := make([]*Endpoint, 0)
+	emptyList := make([]*core.Endpoint, 0)
 
 	toEvict, currentState := EvictionPolicy(emptyList)
 
@@ -16,9 +17,9 @@ func TestEvictionPolicyEmpty(t *testing.T) {
 }
 
 func TestEvictionPolicy(t *testing.T) {
-	list := make([]*Endpoint, 0)
+	list := make([]*core.Endpoint, 0)
 
-	list = append(list, &Endpoint{
+	list = append(list, &core.Endpoint{
 		SandboxID:       "",
 		URL:             "",
 		Node:            nil,
@@ -26,7 +27,7 @@ func TestEvictionPolicy(t *testing.T) {
 		CreationHistory: tracing.ColdStartLogEntry{},
 	})
 
-	list = append(list, &Endpoint{
+	list = append(list, &core.Endpoint{
 		SandboxID:       "",
 		URL:             "",
 		Node:            nil,
@@ -34,7 +35,7 @@ func TestEvictionPolicy(t *testing.T) {
 		CreationHistory: tracing.ColdStartLogEntry{},
 	})
 
-	list = append(list, &Endpoint{
+	list = append(list, &core.Endpoint{
 		SandboxID:       "",
 		URL:             "",
 		Node:            nil,

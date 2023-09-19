@@ -8,8 +8,6 @@ import (
 	"time"
 )
 
-type DataplaneFactory func(string, string, string) DataPlaneInterface
-
 type DataPlaneInterface interface {
 	InitializeDataPlaneConnection(host string, port string) error
 	AddDeployment(context.Context, *proto.ServiceInfo) (*proto.DeploymentUpdateSuccess, error)
@@ -20,16 +18,6 @@ type DataPlaneInterface interface {
 	GetApiPort() string
 	GetProxyPort() string
 }
-
-type WorkerNodeConfiguration struct {
-	Name     string
-	IP       string
-	Port     string
-	CpuCores int
-	Memory   int
-}
-
-type WorkerNodeFactory func(configuration WorkerNodeConfiguration) WorkerNodeInterface
 
 type WorkerNodeInterface interface {
 	GetAPI() proto.WorkerNodeInterfaceClient

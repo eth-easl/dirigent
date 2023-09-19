@@ -3,6 +3,7 @@ package control_plane
 import (
 	"cluster_manager/api/proto"
 	"cluster_manager/internal/control_plane/core"
+	"cluster_manager/internal/control_plane/placement_policy"
 	"cluster_manager/mock/mock_core"
 	"cluster_manager/mock/mock_persistence"
 	"cluster_manager/pkg/atomic_map"
@@ -47,7 +48,7 @@ func TestCreationControlPlaneEmpty(t *testing.T) {
 		return make([]*proto.DataplaneInformation, 0), nil
 	}).Times(1)
 
-	controlPlane := NewControlPlane(persistenceLayer, "", NewRandomPolicy(), NewDataplaneConnection, NewWorkerNode)
+	controlPlane := NewControlPlane(persistenceLayer, "", placement_policy.NewRandomPolicy(), NewDataplaneConnection, NewWorkerNode)
 
 	start := time.Now()
 	err := controlPlane.ReconstructState(context.Background(), mockConfig)
@@ -111,7 +112,7 @@ func TestCreationControlPlaneWith5Services(t *testing.T) {
 		return make([]*proto.DataplaneInformation, 0), nil
 	}).Times(1)
 
-	controlPlane := NewControlPlane(persistenceLayer, "", NewRandomPolicy(), NewDataplaneConnection, NewWorkerNode)
+	controlPlane := NewControlPlane(persistenceLayer, "", placement_policy.NewRandomPolicy(), NewDataplaneConnection, NewWorkerNode)
 
 	start := time.Now()
 	err := controlPlane.ReconstructState(context.Background(), mockConfig)
@@ -201,7 +202,7 @@ func TestRegisterWorkers(t *testing.T) {
 		return make([]*proto.DataplaneInformation, 0), nil
 	}).Times(1)
 
-	controlPlane := NewControlPlane(persistenceLayer, "", NewRandomPolicy(), te.NewMockDataplaneConnection, te.NewMockWorkerConnection)
+	controlPlane := NewControlPlane(persistenceLayer, "", placement_policy.NewRandomPolicy(), te.NewMockDataplaneConnection, te.NewMockWorkerConnection)
 
 	start := time.Now()
 	err := controlPlane.ReconstructState(context.Background(), mockConfig)
@@ -256,7 +257,7 @@ func TestRegisterDataplanes(t *testing.T) {
 		return arr, nil
 	}).Times(1)
 
-	controlPlane := NewControlPlane(persistenceLayer, "", NewRandomPolicy(), te.NewMockDataplaneConnection, NewWorkerNode)
+	controlPlane := NewControlPlane(persistenceLayer, "", placement_policy.NewRandomPolicy(), te.NewMockDataplaneConnection, NewWorkerNode)
 
 	start := time.Now()
 	err := controlPlane.ReconstructState(context.Background(), mockConfig)
@@ -272,7 +273,7 @@ func TestRegisterDataplanes(t *testing.T) {
 }
 
 func TestEndpointSearchByContainerName(t *testing.T) {
-	endpoints := []*Endpoint{
+	endpoints := []*core.Endpoint{
 		{SandboxID: "a"},
 		{SandboxID: "b"},
 		{SandboxID: "c"},
@@ -288,24 +289,24 @@ func TestHandleNodeFailure(t *testing.T) {
 	wn1 := &WorkerNode{Name: "node1"}
 	wn2 := &WorkerNode{Name: "node2"}
 
-	wep1 := atomic_map.NewAtomicMap[string, *atomic_map.AtomicMap[*Endpoint, string]]()
+	wep1 := atomic_map.NewAtomicMap[string, *atomic_map.AtomicMap[*core.Endpoint, string]]()
 	ss1 := &ServiceInfoStorage{ServiceInfo: &proto.ServiceInfo{Name: "service1"}, WorkerEndpoints: wep1}
 
-	wep2 := atomic_map.NewAtomicMap[string, *atomic_map.AtomicMap[*Endpoint, string]]()
+	wep2 := atomic_map.NewAtomicMap[string, *atomic_map.AtomicMap[*core.Endpoint, string]]()
 	ss2 := &ServiceInfoStorage{ServiceInfo: &proto.ServiceInfo{Name: "service2"}, WorkerEndpoints: wep2}
 
-	wep1.Set(wn1.Name, atomic_map.NewAtomicMap[*Endpoint, string]())
+	wep1.Set(wn1.Name, atomic_map.NewAtomicMap[*core.Endpoint, string]())
 	d, _ := wep1.Get(wn1.Name)
-	d.Set(&Endpoint{SandboxID: "sandbox1", Node: wn1}, ss1.ServiceInfo.Name)
-	d.Set(&Endpoint{SandboxID: "sandbox2", Node: wn1}, ss1.ServiceInfo.Name)
+	d.Set(&core.Endpoint{SandboxID: "sandbox1", Node: wn1}, ss1.ServiceInfo.Name)
+	d.Set(&core.Endpoint{SandboxID: "sandbox2", Node: wn1}, ss1.ServiceInfo.Name)
 
-	wep1.Set(wn2.Name, atomic_map.NewAtomicMap[*Endpoint, string]())
+	wep1.Set(wn2.Name, atomic_map.NewAtomicMap[*core.Endpoint, string]())
 	d, _ = wep1.Get(wn2.Name)
-	d.Set(&Endpoint{SandboxID: "sandbox3", Node: wn2}, ss2.ServiceInfo.Name)
+	d.Set(&core.Endpoint{SandboxID: "sandbox3", Node: wn2}, ss2.ServiceInfo.Name)
 
-	wep2.Set(wn1.Name, atomic_map.NewAtomicMap[*Endpoint, string]())
+	wep2.Set(wn1.Name, atomic_map.NewAtomicMap[*core.Endpoint, string]())
 	d, _ = wep2.Get(wn1.Name)
-	d.Set(&Endpoint{SandboxID: "sandbox4", Node: wn1}, ss1.ServiceInfo.Name)
+	d.Set(&core.Endpoint{SandboxID: "sandbox4", Node: wn1}, ss1.ServiceInfo.Name)
 
 	cp := NewControlPlane(nil, "", nil, NewDataplaneConnection, NewWorkerNode)
 	cp.SIStorage.Set(ss1.ServiceInfo.Name, ss1)

@@ -2,8 +2,10 @@ package control_plane
 
 import (
 	"cluster_manager/api/proto"
+	"cluster_manager/internal/control_plane/autoscaling"
 	"cluster_manager/internal/control_plane/core"
 	"cluster_manager/internal/control_plane/persistence"
+	"cluster_manager/internal/control_plane/placement_policy"
 	"cluster_manager/pkg/atomic_map"
 	config2 "cluster_manager/pkg/config"
 	"cluster_manager/pkg/grpc_helpers"
@@ -24,17 +26,17 @@ type ControlPlane struct {
 	NIStorage *atomic_map.AtomicMap[string, core.WorkerNodeInterface]
 	SIStorage *atomic_map.AtomicMap[string, *ServiceInfoStorage]
 
-	WorkerEndpoints *atomic_map.AtomicMap[string, *atomic_map.AtomicMap[*Endpoint, string]]
+	WorkerEndpoints *atomic_map.AtomicMap[string, *atomic_map.AtomicMap[*core.Endpoint, string]]
 
 	ColdStartTracing *tracing.TracingService[tracing.ColdStartLogEntry] `json:"-"`
-	PlacementPolicy  PlacementPolicy
+	PlacementPolicy  placement_policy.PlacementPolicy
 	PersistenceLayer persistence.PersistenceLayer
 
 	dataPlaneCreator  core.DataplaneFactory
 	workerNodeCreator core.WorkerNodeFactory
 }
 
-func NewControlPlane(client persistence.PersistenceLayer, outputFile string, placementPolicy PlacementPolicy, dataplaneCreator core.DataplaneFactory, workerNodeCreator core.WorkerNodeFactory) *ControlPlane {
+func NewControlPlane(client persistence.PersistenceLayer, outputFile string, placementPolicy placement_policy.PlacementPolicy, dataplaneCreator core.DataplaneFactory, workerNodeCreator core.WorkerNodeFactory) *ControlPlane {
 	return &ControlPlane{
 		NIStorage:            atomic_map.NewAtomicMap[string, core.WorkerNodeInterface](),
 		SIStorage:            atomic_map.NewAtomicMap[string, *ServiceInfoStorage](),
@@ -42,7 +44,7 @@ func NewControlPlane(client persistence.PersistenceLayer, outputFile string, pla
 		ColdStartTracing:     tracing.NewColdStartTracingService(outputFile),
 		PlacementPolicy:      placementPolicy,
 		PersistenceLayer:     client,
-		WorkerEndpoints:      atomic_map.NewAtomicMap[string, *atomic_map.AtomicMap[*Endpoint, string]](),
+		WorkerEndpoints:      atomic_map.NewAtomicMap[string, *atomic_map.AtomicMap[*core.Endpoint, string]](),
 		dataPlaneCreator:     dataplaneCreator,
 		workerNodeCreator:    workerNodeCreator,
 	}
@@ -183,7 +185,7 @@ func (c *ControlPlane) RegisterNode(ctx context.Context, in *proto.NodeInfo) (*p
 
 func (c *ControlPlane) connectToRegisteredWorker(wn core.WorkerNodeInterface) {
 	c.NIStorage.Set(wn.GetName(), wn)
-	c.WorkerEndpoints.Set(wn.GetName(), atomic_map.NewAtomicMap[*Endpoint, string]())
+	c.WorkerEndpoints.Set(wn.GetName(), atomic_map.NewAtomicMap[*core.Endpoint, string]())
 
 	go wn.GetAPI()
 }
@@ -306,7 +308,7 @@ func (c *ControlPlane) connectToRegisteredService(ctx context.Context, serviceIn
 	service := &ServiceInfoStorage{
 		ServiceInfo:             serviceInfo,
 		ControlPlane:            c,
-		Controller:              NewPerFunctionStateController(&scalingChannel, serviceInfo),
+		Controller:              autoscaling.NewPerFunctionStateController(&scalingChannel, serviceInfo),
 		ColdStartTracingChannel: &c.ColdStartTracing.InputChannel,
 		PlacementPolicy:         c.PlacementPolicy,
 		PersistenceLayer:        c.PersistenceLayer,
@@ -496,7 +498,7 @@ func (c *ControlPlane) reconstructEndpointsState(ctx context.Context, dpiClients
 	logrus.Tracef("Found %d endpoints", len(endpoints))
 
 	for _, endpoint := range endpoints {
-		controlPlaneEndpoint := &Endpoint{
+		controlPlaneEndpoint := &core.Endpoint{
 			SandboxID: endpoint.SandboxID,
 			URL:       endpoint.URL,
 			Node:      c.NIStorage.GetUnsafe(endpoint.NodeName),
@@ -518,7 +520,7 @@ func removeEndpoints(ss *ServiceInfoStorage, dpConns *atomic_map.AtomicMap[strin
 	ss.Controller.EndpointLock.Lock()
 	defer ss.Controller.EndpointLock.Unlock()
 
-	toRemove := make(map[*Endpoint]struct{})
+	toRemove := make(map[*core.Endpoint]struct{})
 	for _, cid := range endpoints {
 		endpoint := searchEndpointByContainerName(ss.Controller.Endpoints, cid)
 		if endpoint == nil {
@@ -556,7 +558,7 @@ func (c *ControlPlane) HandleFailure(failures []*proto.Failure) bool {
 	return true
 }
 
-func searchEndpointByContainerName(endpoints []*Endpoint, cid string) *Endpoint {
+func searchEndpointByContainerName(endpoints []*core.Endpoint, cid string) *core.Endpoint {
 	for _, e := range endpoints {
 		if e.SandboxID == cid {
 			return e

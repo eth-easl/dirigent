@@ -2,7 +2,9 @@ package control_plane
 
 import (
 	"cluster_manager/api/proto"
+	"cluster_manager/internal/control_plane/autoscaling"
 	"cluster_manager/internal/control_plane/core"
+	"cluster_manager/internal/control_plane/eviction_policy"
 	"cluster_manager/internal/control_plane/persistence"
 	placement2 "cluster_manager/internal/control_plane/placement_policy"
 	"cluster_manager/pkg/atomic_map"
@@ -18,33 +20,19 @@ import (
 	"time"
 )
 
-type NodeInfoStorage struct {
-	sync.Mutex
-
-	NodeInfo map[string]*WorkerNode
-}
-
 type ServiceInfoStorage struct {
 	ServiceInfo  *proto.ServiceInfo
 	ControlPlane *ControlPlane
 
-	Controller              *PFStateController
+	Controller              *autoscaling.PFStateController
 	ColdStartTracingChannel *chan tracing.ColdStartLogEntry
 
-	PlacementPolicy  PlacementPolicy
+	PlacementPolicy  placement2.PlacementPolicy
 	PersistenceLayer persistence.PersistenceLayer
 
-	WorkerEndpoints *atomic_map.AtomicMap[string, *atomic_map.AtomicMap[*Endpoint, string]]
+	WorkerEndpoints *atomic_map.AtomicMap[string, *atomic_map.AtomicMap[*core.Endpoint, string]]
 
 	StartTime time.Time
-}
-
-type Endpoint struct {
-	SandboxID       string
-	URL             string
-	Node            core.WorkerNodeInterface
-	HostPort        int32
-	CreationHistory tracing.ColdStartLogEntry
 }
 
 func (ss *ServiceInfoStorage) GetAllURLs() []string {
@@ -57,7 +45,7 @@ func (ss *ServiceInfoStorage) GetAllURLs() []string {
 	return res
 }
 
-func (ss *ServiceInfoStorage) reconstructEndpointInController(endpoint *Endpoint, dpiClients *atomic_map.AtomicMap[string, core.DataPlaneInterface]) {
+func (ss *ServiceInfoStorage) reconstructEndpointInController(endpoint *core.Endpoint, dpiClients *atomic_map.AtomicMap[string, core.DataPlaneInterface]) {
 	ss.Controller.EndpointLock.Lock()
 	defer ss.Controller.EndpointLock.Unlock()
 
@@ -86,10 +74,10 @@ func (ss *ServiceInfoStorage) ScalingControllerLoop(nodeList *atomic_map.AtomicM
 				go ss.doUpscaling(desiredCount-actualScale, nodeList, dpiClients)
 			} else if !ss.isDownScalingDisabled() && actualScale > desiredCount {
 				currentState := ss.Controller.Endpoints
-				toEvict := make(map[*Endpoint]struct{})
+				toEvict := make(map[*core.Endpoint]struct{})
 
 				for i := 0; i < actualScale-desiredCount; i++ {
-					endpoint, newState := EvictionPolicy(currentState)
+					endpoint, newState := eviction_policy.EvictionPolicy(currentState)
 
 					if _, ok := toEvict[endpoint]; ok {
 						logrus.Warn("Endpoint repetition - this is a bug.")
@@ -115,7 +103,7 @@ func (ss *ServiceInfoStorage) ScalingControllerLoop(nodeList *atomic_map.AtomicM
 func (ss *ServiceInfoStorage) doUpscaling(toCreateCount int, nodeList *atomic_map.AtomicMap[string, core.WorkerNodeInterface], dpiClients *atomic_map.AtomicMap[string, core.DataPlaneInterface]) {
 	wg := sync.WaitGroup{}
 
-	var finalEndpoint []*Endpoint
+	var finalEndpoint []*core.Endpoint
 
 	endpointMutex := sync.Mutex{}
 
@@ -129,7 +117,7 @@ func (ss *ServiceInfoStorage) doUpscaling(toCreateCount int, nodeList *atomic_ma
 
 			// TODO : @Lazar, We need to ask some resources
 			requested := placement2.CreateResourceMap(1, 1)
-			node := ApplyPlacementPolicy(ss.PlacementPolicy, nodeList, requested)
+			node := placement2.ApplyPlacementPolicy(ss.PlacementPolicy, nodeList, requested)
 			if node == nil {
 				logrus.Warn("Failed to do placement. No nodes are schedulable.")
 
@@ -154,7 +142,7 @@ func (ss *ServiceInfoStorage) doUpscaling(toCreateCount int, nodeList *atomic_ma
 			endpointMutex.Lock()
 			logrus.Debug("Endpoint appended: ", resp.ID)
 
-			newEndpoint := &Endpoint{
+			newEndpoint := &core.Endpoint{
 				SandboxID: resp.ID,
 				URL:       fmt.Sprintf("%s:%d", node.GetIP(), resp.PortMappings.HostPort),
 				Node:      node,
@@ -211,7 +199,7 @@ func (ss *ServiceInfoStorage) doUpscaling(toCreateCount int, nodeList *atomic_ma
 	}
 }
 
-func (ss *ServiceInfoStorage) removeEndpointFromWNStruct(e *Endpoint) {
+func (ss *ServiceInfoStorage) removeEndpointFromWNStruct(e *core.Endpoint) {
 	// Update worker node structure
 	worker, present := ss.WorkerEndpoints.Get(e.Node.GetName())
 	if !present {
@@ -220,7 +208,7 @@ func (ss *ServiceInfoStorage) removeEndpointFromWNStruct(e *Endpoint) {
 	worker.Delete(e)
 }
 
-func (ss *ServiceInfoStorage) doDownscaling(toEvict map[*Endpoint]struct{}, urls []*proto.EndpointInfo, dpiClients *atomic_map.AtomicMap[string, core.DataPlaneInterface]) {
+func (ss *ServiceInfoStorage) doDownscaling(toEvict map[*core.Endpoint]struct{}, urls []*proto.EndpointInfo, dpiClients *atomic_map.AtomicMap[string, core.DataPlaneInterface]) {
 	barrier := sync.WaitGroup{}
 
 	barrier.Add(len(toEvict))
@@ -233,7 +221,7 @@ func (ss *ServiceInfoStorage) doDownscaling(toEvict map[*Endpoint]struct{}, urls
 			continue // why this happens?
 		}
 
-		go func(key *Endpoint) {
+		go func(key *core.Endpoint) {
 			defer barrier.Done()
 
 			ctx, cancel := context.WithTimeout(context.Background(), utils.WorkerNodeTrafficTimeout)
@@ -296,8 +284,8 @@ func (ss *ServiceInfoStorage) updateEndpoints(dpiClients *atomic_map.AtomicMap[s
 	wg.Wait()
 }
 
-func (ss *ServiceInfoStorage) excludeEndpoints(total []*Endpoint, toExclude map[*Endpoint]struct{}) []*Endpoint {
-	var result []*Endpoint
+func (ss *ServiceInfoStorage) excludeEndpoints(total []*core.Endpoint, toExclude map[*core.Endpoint]struct{}) []*core.Endpoint {
+	var result []*core.Endpoint
 
 	for _, endpoint := range total {
 		_, ok := toExclude[endpoint]
@@ -310,8 +298,8 @@ func (ss *ServiceInfoStorage) excludeEndpoints(total []*Endpoint, toExclude map[
 	return result
 }
 
-func (ss *ServiceInfoStorage) excludeSingleEndpoint(total []*Endpoint, toExclude *Endpoint) []*Endpoint {
-	result := make([]*Endpoint, 0, len(total))
+func (ss *ServiceInfoStorage) excludeSingleEndpoint(total []*core.Endpoint, toExclude *core.Endpoint) []*core.Endpoint {
+	result := make([]*core.Endpoint, 0, len(total))
 
 	for _, endpoint := range total {
 		if endpoint == toExclude {

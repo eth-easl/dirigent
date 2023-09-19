@@ -1,8 +1,8 @@
-package control_plane
+package autoscaling
 
 import (
 	"cluster_manager/api/proto"
-	"cluster_manager/internal/control_plane/autoscaling"
+	"cluster_manager/internal/control_plane/core"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -16,8 +16,8 @@ type PFStateController struct {
 	AutoscalingRunning  int32
 	DesiredStateChannel *chan int
 
-	ScalingMetadata autoscaling.AutoscalingMetadata
-	Endpoints       []*Endpoint
+	ScalingMetadata AutoscalingMetadata
+	Endpoints       []*core.Endpoint
 
 	Period time.Duration
 }
@@ -26,7 +26,7 @@ func NewPerFunctionStateController(scalingChannel *chan int, serviceInfo *proto.
 	return &PFStateController{
 		DesiredStateChannel: scalingChannel,
 		Period:              2 * time.Second, // TODO: hardcoded autoscaling period for now
-		ScalingMetadata: autoscaling.AutoscalingMetadata{
+		ScalingMetadata: AutoscalingMetadata{
 			AutoscalingConfig: serviceInfo.AutoscalingConfig,
 		},
 	}

@@ -3,8 +3,8 @@ package main
 import (
 	"cluster_manager/api"
 	"cluster_manager/api/proto"
-	"cluster_manager/internal/control_plane"
 	"cluster_manager/internal/control_plane/persistence"
+	"cluster_manager/internal/control_plane/placement_policy"
 	"cluster_manager/pkg/config"
 	"cluster_manager/pkg/grpc_helpers"
 	"cluster_manager/pkg/logger"
@@ -84,16 +84,16 @@ func main() {
 	}
 }
 
-func parsePlacementPolicy(controlPlaneConfig config.ControlPlaneConfig) control_plane.PlacementPolicy {
+func parsePlacementPolicy(controlPlaneConfig config.ControlPlaneConfig) placement_policy.PlacementPolicy {
 	switch controlPlaneConfig.PlacementPolicy {
 	case "random":
-		return control_plane.NewRandomPolicy()
+		return placement_policy.NewRandomPolicy()
 	case "round-robin":
-		return control_plane.NewRoundRobinPolicy()
+		return placement_policy.NewRoundRobinPolicy()
 	case "kubernetes":
-		return control_plane.NewKubernetesPolicy()
+		return placement_policy.NewKubernetesPolicy()
 	default:
 		logrus.Error("Failed to parse placement, default policy is random")
-		return control_plane.NewRandomPolicy()
+		return placement_policy.NewRandomPolicy()
 	}
 }
