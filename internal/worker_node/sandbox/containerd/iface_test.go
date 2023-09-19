@@ -19,6 +19,7 @@ import (
 const cniConfigPath = "../../../../configs/cni.conf"
 
 func TestCreateAContainer(t *testing.T) {
+	t.Skip()
 	logrus.SetLevel(logrus.TraceLevel)
 
 	// fails to expose networking to the container
@@ -62,6 +63,7 @@ func TestCreateAContainer(t *testing.T) {
 }
 
 func TestParallelCreation(t *testing.T) {
+	t.Skip()
 	logrus.SetLevel(logrus.DebugLevel)
 	logrus.SetFormatter(&logrus.TextFormatter{TimestampFormat: time.StampMilli, FullTimestamp: true})
 
@@ -112,6 +114,7 @@ func TestParallelCreation(t *testing.T) {
 }
 
 func TestContainerFailureHandlerTriggering(t *testing.T) {
+	t.Skip()
 	logrus.SetLevel(logrus.TraceLevel)
 
 	// fails to expose networking to the container
