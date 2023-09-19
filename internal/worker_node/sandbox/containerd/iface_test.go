@@ -16,7 +16,7 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-const cniConfigPath = "../../../configs/cni.conf"
+const cniConfigPath = "../../../../configs/cni.conf"
 
 func TestCreateAContainer(t *testing.T) {
 	logrus.SetLevel(logrus.TraceLevel)

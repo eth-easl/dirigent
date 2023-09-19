@@ -5,7 +5,12 @@
     <img src="https://systems.ethz.ch/_jcr_content/orgbox/image.imageformat.logo.1825449303.svg" alt="Logo" width="160" height="80">
   </a>
 
-<h3 align="center">Cluster Manager</h3>
+<h1 align="center">Dirigent</h1>
+
+---
+
+[![GitHub Workflow Status](https://github.com/eth-easl/modyn/actions/workflows/workflow.yaml/badge.svg)](https://github.com/eth-easl/modyn/actions/workflows/workflow.yaml)
+[![License](https://img.shields.io/github/license/eth-easl/modyn)](https://img.shields.io/github/license/eth-easl/modyn)
 
   <p align="center">
     A research cluster manager built at ETH Zürich
