@@ -1,6 +1,7 @@
 package control_plane
 
 import (
+	"cluster_manager/internal/control_plane/core"
 	placement2 "cluster_manager/internal/control_plane/placement_policy"
 	"cluster_manager/pkg/atomic_map"
 	"sort"
@@ -11,7 +12,7 @@ import (
 
 func TestRandomPolicy(t *testing.T) {
 	policy := NewRandomPolicy()
-	storage := atomic_map.NewAtomicMap[string, *WorkerNode]()
+	storage := atomic_map.NewAtomicMap[string, core.WorkerNodeInterface]()
 
 	storage.Set("w1", &WorkerNode{})
 	storage.Set("w2", &WorkerNode{})
@@ -27,7 +28,7 @@ func TestRandomPolicy(t *testing.T) {
 
 func TestRoundRobin(t *testing.T) {
 	policy := NewRoundRobinPolicy()
-	storage := atomic_map.NewAtomicMap[string, *WorkerNode]()
+	storage := atomic_map.NewAtomicMap[string, core.WorkerNodeInterface]()
 
 	requested := &placement2.ResourceMap{}
 

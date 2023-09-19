@@ -42,7 +42,7 @@ type ServiceInfoStorage struct {
 type Endpoint struct {
 	SandboxID       string
 	URL             string
-	Node            *WorkerNode
+	Node            core.WorkerNodeInterface
 	HostPort        int32
 	CreationHistory tracing.ColdStartLogEntry
 }
@@ -67,7 +67,7 @@ func (ss *ServiceInfoStorage) reconstructEndpointInController(endpoint *Endpoint
 	ss.updateEndpoints(dpiClients, ss.prepareUrlList())
 }
 
-func (ss *ServiceInfoStorage) ScalingControllerLoop(nodeList *atomic_map.AtomicMap[string, *WorkerNode], dpiClients *atomic_map.AtomicMap[string, core.DataPlaneInterface]) {
+func (ss *ServiceInfoStorage) ScalingControllerLoop(nodeList *atomic_map.AtomicMap[string, core.WorkerNodeInterface], dpiClients *atomic_map.AtomicMap[string, core.DataPlaneInterface]) {
 	for {
 		select {
 		case desiredCount := <-*ss.Controller.DesiredStateChannel:
@@ -112,7 +112,7 @@ func (ss *ServiceInfoStorage) ScalingControllerLoop(nodeList *atomic_map.AtomicM
 	}
 }
 
-func (ss *ServiceInfoStorage) doUpscaling(toCreateCount int, nodeList *atomic_map.AtomicMap[string, *WorkerNode], dpiClients *atomic_map.AtomicMap[string, core.DataPlaneInterface]) {
+func (ss *ServiceInfoStorage) doUpscaling(toCreateCount int, nodeList *atomic_map.AtomicMap[string, core.WorkerNodeInterface], dpiClients *atomic_map.AtomicMap[string, core.DataPlaneInterface]) {
 	wg := sync.WaitGroup{}
 
 	var finalEndpoint []*Endpoint
@@ -142,7 +142,7 @@ func (ss *ServiceInfoStorage) doUpscaling(toCreateCount int, nodeList *atomic_ma
 
 			resp, err := node.CreateSandbox(ctx, ss.ServiceInfo)
 			if err != nil || !resp.Success {
-				logrus.Warnf("Failed to start a sandbox on worker node %s (error %s)", node.Name, err.Error())
+				logrus.Warnf("Failed to start a sandbox on worker node %s (error %s)", node.GetName(), err.Error())
 
 				atomic.AddInt64(&ss.Controller.ScalingMetadata.ActualScale, -1)
 				return
@@ -156,7 +156,7 @@ func (ss *ServiceInfoStorage) doUpscaling(toCreateCount int, nodeList *atomic_ma
 
 			newEndpoint := &Endpoint{
 				SandboxID: resp.ID,
-				URL:       fmt.Sprintf("%s:%d", node.IP, resp.PortMappings.HostPort),
+				URL:       fmt.Sprintf("%s:%d", node.GetIP(), resp.PortMappings.HostPort),
 				Node:      node,
 				HostPort:  resp.PortMappings.HostPort,
 				CreationHistory: tracing.ColdStartLogEntry{
@@ -168,7 +168,7 @@ func (ss *ServiceInfoStorage) doUpscaling(toCreateCount int, nodeList *atomic_ma
 			}
 
 			// Update worker node structure
-			workerEndpointMap, present := ss.WorkerEndpoints.Get(node.Name)
+			workerEndpointMap, present := ss.WorkerEndpoints.Get(node.GetName())
 			if !present {
 				logrus.Fatal("Endpoint not present in the map")
 			}
@@ -213,7 +213,7 @@ func (ss *ServiceInfoStorage) doUpscaling(toCreateCount int, nodeList *atomic_ma
 
 func (ss *ServiceInfoStorage) removeEndpointFromWNStruct(e *Endpoint) {
 	// Update worker node structure
-	worker, present := ss.WorkerEndpoints.Get(e.Node.Name)
+	worker, present := ss.WorkerEndpoints.Get(e.Node.GetName())
 	if !present {
 		logrus.Error("Endpoint not present in the map.")
 	}
@@ -248,7 +248,7 @@ func (ss *ServiceInfoStorage) doDownscaling(toEvict map[*Endpoint]struct{}, urls
 				if err != nil {
 					errText = err.Error()
 				}
-				logrus.Warnf("Failed to delete a sandbox with ID %s on worker node %s. (error : %s)", victim.SandboxID, victim.Node.Name, errText)
+				logrus.Warnf("Failed to delete a sandbox with ID %s on worker node %s. (error : %s)", victim.SandboxID, victim.Node.GetName(), errText)
 				return
 			}
 

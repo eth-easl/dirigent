@@ -16,7 +16,7 @@ type CpApiServer struct {
 
 func CreateNewCpApiServer(client persistence.PersistenceLayer, outputFile string, placementPolicy control_plane.PlacementPolicy) *CpApiServer {
 	return &CpApiServer{
-		ControlPlane: control_plane.NewControlPlane(client, outputFile, placementPolicy, control_plane.NewDataplaneConnection),
+		ControlPlane: control_plane.NewControlPlane(client, outputFile, placementPolicy, control_plane.NewDataplaneConnection, control_plane.NewWorkerNode),
 	}
 }
 

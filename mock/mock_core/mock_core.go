@@ -6,8 +6,10 @@ package mock_core
 
 import (
 	proto "cluster_manager/api/proto"
+	core "cluster_manager/internal/control_plane/core"
 	context "context"
 	reflect "reflect"
+	time "time"
 
 	gomock "github.com/golang/mock/gomock"
 	grpc "google.golang.org/grpc"
@@ -216,18 +218,144 @@ func (mr *MockWorkerNodeInterfaceMockRecorder) DeleteSandbox(arg0, arg1 interfac
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteSandbox", reflect.TypeOf((*MockWorkerNodeInterface)(nil).DeleteSandbox), varargs...)
 }
 
-// GetApi mocks base method.
-func (m *MockWorkerNodeInterface) GetApi() proto.WorkerNodeInterfaceClient {
+// GetAPI mocks base method.
+func (m *MockWorkerNodeInterface) GetAPI() proto.WorkerNodeInterfaceClient {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetApi")
+	ret := m.ctrl.Call(m, "GetAPI")
 	ret0, _ := ret[0].(proto.WorkerNodeInterfaceClient)
 	return ret0
 }
 
-// GetApi indicates an expected call of GetApi.
-func (mr *MockWorkerNodeInterfaceMockRecorder) GetApi() *gomock.Call {
+// GetAPI indicates an expected call of GetAPI.
+func (mr *MockWorkerNodeInterfaceMockRecorder) GetAPI() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetApi", reflect.TypeOf((*MockWorkerNodeInterface)(nil).GetApi))
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetAPI", reflect.TypeOf((*MockWorkerNodeInterface)(nil).GetAPI))
+}
+
+// GetCpuCores mocks base method.
+func (m *MockWorkerNodeInterface) GetCpuCores() int {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetCpuCores")
+	ret0, _ := ret[0].(int)
+	return ret0
+}
+
+// GetCpuCores indicates an expected call of GetCpuCores.
+func (mr *MockWorkerNodeInterfaceMockRecorder) GetCpuCores() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetCpuCores", reflect.TypeOf((*MockWorkerNodeInterface)(nil).GetCpuCores))
+}
+
+// GetCpuUsage mocks base method.
+func (m *MockWorkerNodeInterface) GetCpuUsage() int {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetCpuUsage")
+	ret0, _ := ret[0].(int)
+	return ret0
+}
+
+// GetCpuUsage indicates an expected call of GetCpuUsage.
+func (mr *MockWorkerNodeInterfaceMockRecorder) GetCpuUsage() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetCpuUsage", reflect.TypeOf((*MockWorkerNodeInterface)(nil).GetCpuUsage))
+}
+
+// GetIP mocks base method.
+func (m *MockWorkerNodeInterface) GetIP() string {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetIP")
+	ret0, _ := ret[0].(string)
+	return ret0
+}
+
+// GetIP indicates an expected call of GetIP.
+func (mr *MockWorkerNodeInterfaceMockRecorder) GetIP() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetIP", reflect.TypeOf((*MockWorkerNodeInterface)(nil).GetIP))
+}
+
+// GetLastHeartBeat mocks base method.
+func (m *MockWorkerNodeInterface) GetLastHeartBeat() time.Time {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetLastHeartBeat")
+	ret0, _ := ret[0].(time.Time)
+	return ret0
+}
+
+// GetLastHeartBeat indicates an expected call of GetLastHeartBeat.
+func (mr *MockWorkerNodeInterfaceMockRecorder) GetLastHeartBeat() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetLastHeartBeat", reflect.TypeOf((*MockWorkerNodeInterface)(nil).GetLastHeartBeat))
+}
+
+// GetMemory mocks base method.
+func (m *MockWorkerNodeInterface) GetMemory() int {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetMemory")
+	ret0, _ := ret[0].(int)
+	return ret0
+}
+
+// GetMemory indicates an expected call of GetMemory.
+func (mr *MockWorkerNodeInterfaceMockRecorder) GetMemory() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetMemory", reflect.TypeOf((*MockWorkerNodeInterface)(nil).GetMemory))
+}
+
+// GetMemoryUsage mocks base method.
+func (m *MockWorkerNodeInterface) GetMemoryUsage() int {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetMemoryUsage")
+	ret0, _ := ret[0].(int)
+	return ret0
+}
+
+// GetMemoryUsage indicates an expected call of GetMemoryUsage.
+func (mr *MockWorkerNodeInterfaceMockRecorder) GetMemoryUsage() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetMemoryUsage", reflect.TypeOf((*MockWorkerNodeInterface)(nil).GetMemoryUsage))
+}
+
+// GetName mocks base method.
+func (m *MockWorkerNodeInterface) GetName() string {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetName")
+	ret0, _ := ret[0].(string)
+	return ret0
+}
+
+// GetName indicates an expected call of GetName.
+func (mr *MockWorkerNodeInterfaceMockRecorder) GetName() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetName", reflect.TypeOf((*MockWorkerNodeInterface)(nil).GetName))
+}
+
+// GetPort mocks base method.
+func (m *MockWorkerNodeInterface) GetPort() string {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetPort")
+	ret0, _ := ret[0].(string)
+	return ret0
+}
+
+// GetPort indicates an expected call of GetPort.
+func (mr *MockWorkerNodeInterfaceMockRecorder) GetPort() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetPort", reflect.TypeOf((*MockWorkerNodeInterface)(nil).GetPort))
+}
+
+// GetWorkerNodeConfiguration mocks base method.
+func (m *MockWorkerNodeInterface) GetWorkerNodeConfiguration() core.WorkerNodeConfiguration {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetWorkerNodeConfiguration")
+	ret0, _ := ret[0].(core.WorkerNodeConfiguration)
+	return ret0
+}
+
+// GetWorkerNodeConfiguration indicates an expected call of GetWorkerNodeConfiguration.
+func (mr *MockWorkerNodeInterfaceMockRecorder) GetWorkerNodeConfiguration() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetWorkerNodeConfiguration", reflect.TypeOf((*MockWorkerNodeInterface)(nil).GetWorkerNodeConfiguration))
 }
 
 // ListEndpoints mocks base method.
@@ -248,4 +376,40 @@ func (mr *MockWorkerNodeInterfaceMockRecorder) ListEndpoints(arg0, arg1 interfac
 	mr.mock.ctrl.T.Helper()
 	varargs := append([]interface{}{arg0, arg1}, arg2...)
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListEndpoints", reflect.TypeOf((*MockWorkerNodeInterface)(nil).ListEndpoints), varargs...)
+}
+
+// SetCpuUsage mocks base method.
+func (m *MockWorkerNodeInterface) SetCpuUsage(arg0 int) {
+	m.ctrl.T.Helper()
+	m.ctrl.Call(m, "SetCpuUsage", arg0)
+}
+
+// SetCpuUsage indicates an expected call of SetCpuUsage.
+func (mr *MockWorkerNodeInterfaceMockRecorder) SetCpuUsage(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetCpuUsage", reflect.TypeOf((*MockWorkerNodeInterface)(nil).SetCpuUsage), arg0)
+}
+
+// SetMemoryUsage mocks base method.
+func (m *MockWorkerNodeInterface) SetMemoryUsage(arg0 int) {
+	m.ctrl.T.Helper()
+	m.ctrl.Call(m, "SetMemoryUsage", arg0)
+}
+
+// SetMemoryUsage indicates an expected call of SetMemoryUsage.
+func (mr *MockWorkerNodeInterfaceMockRecorder) SetMemoryUsage(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetMemoryUsage", reflect.TypeOf((*MockWorkerNodeInterface)(nil).SetMemoryUsage), arg0)
+}
+
+// UpdateLastHearBeat mocks base method.
+func (m *MockWorkerNodeInterface) UpdateLastHearBeat() {
+	m.ctrl.T.Helper()
+	m.ctrl.Call(m, "UpdateLastHearBeat")
+}
+
+// UpdateLastHearBeat indicates an expected call of UpdateLastHearBeat.
+func (mr *MockWorkerNodeInterfaceMockRecorder) UpdateLastHearBeat() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateLastHearBeat", reflect.TypeOf((*MockWorkerNodeInterface)(nil).UpdateLastHearBeat))
 }

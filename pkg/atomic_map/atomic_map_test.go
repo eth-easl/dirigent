@@ -111,6 +111,5 @@ func TestAtomicMap_MultipleThreads(t *testing.T) {
 	wg.Wait()
 
 	keys := atomicMap.Keys()
-	fmt.Println(len(keys))
 	assert.Lenf(t, keys, size, "Map should have %d keys", size)
 }

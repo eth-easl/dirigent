@@ -18,12 +18,10 @@ import (
 	"time"
 )
 
-type DataplaneFactory func(string, string, string) core.DataPlaneInterface
-
 type ControlPlane struct {
 	DataPlaneConnections *atomic_map.AtomicMap[string, core.DataPlaneInterface]
 
-	NIStorage *atomic_map.AtomicMap[string, *WorkerNode]
+	NIStorage *atomic_map.AtomicMap[string, core.WorkerNodeInterface]
 	SIStorage *atomic_map.AtomicMap[string, *ServiceInfoStorage]
 
 	WorkerEndpoints *atomic_map.AtomicMap[string, *atomic_map.AtomicMap[*Endpoint, string]]
@@ -32,19 +30,21 @@ type ControlPlane struct {
 	PlacementPolicy  PlacementPolicy
 	PersistenceLayer persistence.PersistenceLayer
 
-	dataplaneCreator DataplaneFactory
+	dataPlaneCreator  core.DataplaneFactory
+	workerNodeCreator core.WorkerNodeFactory
 }
 
-func NewControlPlane(client persistence.PersistenceLayer, outputFile string, placementPolicy PlacementPolicy, dataplaneCreator DataplaneFactory) *ControlPlane {
+func NewControlPlane(client persistence.PersistenceLayer, outputFile string, placementPolicy PlacementPolicy, dataplaneCreator core.DataplaneFactory, workerNodeCreator core.WorkerNodeFactory) *ControlPlane {
 	return &ControlPlane{
-		NIStorage:            atomic_map.NewAtomicMap[string, *WorkerNode](),
+		NIStorage:            atomic_map.NewAtomicMap[string, core.WorkerNodeInterface](),
 		SIStorage:            atomic_map.NewAtomicMap[string, *ServiceInfoStorage](),
 		DataPlaneConnections: atomic_map.NewAtomicMap[string, core.DataPlaneInterface](),
 		ColdStartTracing:     tracing.NewColdStartTracingService(outputFile),
 		PlacementPolicy:      placementPolicy,
 		PersistenceLayer:     client,
 		WorkerEndpoints:      atomic_map.NewAtomicMap[string, *atomic_map.AtomicMap[*Endpoint, string]](),
-		dataplaneCreator:     dataplaneCreator,
+		dataPlaneCreator:     dataplaneCreator,
+		workerNodeCreator:    workerNodeCreator,
 	}
 }
 
@@ -60,8 +60,8 @@ func (c *ControlPlane) GetNumberServices() int {
 	return c.SIStorage.Len()
 }
 
-func (c *ControlPlane) getServicesOnWorkerNode(ss *ServiceInfoStorage, wn *WorkerNode) []string {
-	toRemove, ok := ss.WorkerEndpoints.Get(wn.Name)
+func (c *ControlPlane) getServicesOnWorkerNode(ss *ServiceInfoStorage, wn core.WorkerNodeInterface) []string {
+	toRemove, ok := ss.WorkerEndpoints.Get(wn.GetName())
 	if !ok {
 		return []string{}
 	}
@@ -74,7 +74,7 @@ func (c *ControlPlane) getServicesOnWorkerNode(ss *ServiceInfoStorage, wn *Worke
 	return cIDs
 }
 
-func (c *ControlPlane) createWorkerNodeFailureEvents(wn *WorkerNode) []*proto.Failure {
+func (c *ControlPlane) createWorkerNodeFailureEvents(wn core.WorkerNodeInterface) []*proto.Failure {
 	var failures []*proto.Failure
 	c.SIStorage.Range(func(key, value any) bool {
 		ss := value.(*ServiceInfoStorage)
@@ -95,14 +95,14 @@ func (c *ControlPlane) createWorkerNodeFailureEvents(wn *WorkerNode) []*proto.Fa
 	return failures
 }
 
-func (c *ControlPlane) handleNodeFailure(wn *WorkerNode) {
+func (c *ControlPlane) handleNodeFailure(wn core.WorkerNodeInterface) {
 	c.HandleFailure(c.createWorkerNodeFailureEvents(wn))
 }
 
 func (c *ControlPlane) CheckPeriodicallyWorkerNodes() {
 	for {
 		for _, workerNode := range c.NIStorage.Values() {
-			if time.Since(workerNode.LastHeartbeat) > utils.TolerateHeartbeatMisses*utils.HeartbeatInterval {
+			if time.Since(workerNode.GetLastHeartBeat()) > utils.TolerateHeartbeatMisses*utils.HeartbeatInterval {
 				// Propagate endpoint removal from the data planes
 				c.handleNodeFailure(workerNode)
 
@@ -154,21 +154,20 @@ func (c *ControlPlane) RegisterNode(ctx context.Context, in *proto.NodeInfo) (*p
 		}, nil
 	}
 
-	wn := &WorkerNode{
-		Name:          in.NodeID,
-		IP:            ipAddress,
-		Port:          strconv.Itoa(int(in.Port)),
-		CpuCores:      int(in.CpuCores),
-		Memory:        int(in.MemorySize),
-		LastHeartbeat: time.Now(),
-	}
+	wn := c.workerNodeCreator(core.WorkerNodeConfiguration{
+		Name:     in.NodeID,
+		IP:       ipAddress,
+		Port:     strconv.Itoa(int(in.Port)),
+		CpuCores: int(in.CpuCores),
+		Memory:   int(in.MemorySize), // TODO: Correct conversion?
+	})
 
 	err := c.PersistenceLayer.StoreWorkerNodeInformation(ctx, &proto.WorkerNodeInformation{
-		Name:     wn.Name,
-		Ip:       wn.IP,
-		Port:     wn.Port,
-		CpuCores: int32(wn.CpuCores),
-		Memory:   int32(wn.Memory),
+		Name:     in.NodeID,
+		Ip:       ipAddress,
+		Port:     strconv.Itoa(int(in.Port)),
+		CpuCores: int32(in.CpuCores),
+		Memory:   int32(in.MemorySize),
 	})
 	if err != nil {
 		logrus.Errorf("Failed to store information to persistence layer (error : %s)", err.Error())
@@ -182,9 +181,9 @@ func (c *ControlPlane) RegisterNode(ctx context.Context, in *proto.NodeInfo) (*p
 	return &proto.ActionStatus{Success: true}, nil
 }
 
-func (c *ControlPlane) connectToRegisteredWorker(wn *WorkerNode) {
-	c.NIStorage.Set(wn.Name, wn)
-	c.WorkerEndpoints.Set(wn.Name, atomic_map.NewAtomicMap[*Endpoint, string]())
+func (c *ControlPlane) connectToRegisteredWorker(wn core.WorkerNodeInterface) {
+	c.NIStorage.Set(wn.GetName(), wn)
+	c.WorkerEndpoints.Set(wn.GetName(), atomic_map.NewAtomicMap[*Endpoint, string]())
 
 	go wn.GetAPI()
 }
@@ -206,13 +205,13 @@ func (c *ControlPlane) DeregisterNode(ctx context.Context, in *proto.NodeInfo) (
 		}, nil
 	}
 
-	wn := &WorkerNode{
+	wn := c.workerNodeCreator(core.WorkerNodeConfiguration{
 		Name:     in.NodeID,
 		IP:       ipAddress,
 		Port:     strconv.Itoa(int(in.Port)),
 		CpuCores: int(in.CpuCores),
-		Memory:   int(in.MemorySize),
-	}
+		Memory:   int(in.MemorySize), // TODO: Is int really a valid conversion?
+	})
 
 	err := c.deregisterNode(wn)
 	if err != nil {
@@ -225,13 +224,13 @@ func (c *ControlPlane) DeregisterNode(ctx context.Context, in *proto.NodeInfo) (
 	return &proto.ActionStatus{Success: true}, nil
 }
 
-func (c *ControlPlane) deregisterNode(wn *WorkerNode) error {
+func (c *ControlPlane) deregisterNode(wn core.WorkerNodeInterface) error {
 	err := c.PersistenceLayer.DeleteWorkerNodeInformation(context.Background(), &proto.WorkerNodeInformation{
-		Name:     wn.Name,
-		Ip:       wn.IP,
-		Port:     wn.Port,
-		CpuCores: int32(wn.CpuCores),
-		Memory:   int32(wn.Memory),
+		Name:     wn.GetName(),
+		Ip:       wn.GetIP(),
+		Port:     wn.GetPort(),
+		CpuCores: int32(wn.GetCpuCores()),
+		Memory:   int32(wn.GetMemory()),
 	})
 	if err != nil {
 		return err
@@ -242,8 +241,8 @@ func (c *ControlPlane) deregisterNode(wn *WorkerNode) error {
 	return nil
 }
 
-func (c *ControlPlane) disconnectRegisteredWorker(wn *WorkerNode) {
-	c.NIStorage.Delete(wn.Name)
+func (c *ControlPlane) disconnectRegisteredWorker(wn core.WorkerNodeInterface) {
+	c.NIStorage.Delete(wn.GetName())
 }
 
 func (c *ControlPlane) NodeHeartbeat(_ context.Context, in *proto.NodeHeartbeatMessage) (*proto.ActionStatus, error) {
@@ -261,10 +260,10 @@ func (c *ControlPlane) NodeHeartbeat(_ context.Context, in *proto.NodeHeartbeatM
 	return &proto.ActionStatus{Success: true}, nil
 }
 
-func (c *ControlPlane) updateWorkerNodeInformation(workerNode *WorkerNode, in *proto.NodeHeartbeatMessage) {
-	workerNode.LastHeartbeat = time.Now()
-	workerNode.CpuUsage = int(in.CpuUsage)
-	workerNode.MemoryUsage = int(in.MemoryUsage)
+func (c *ControlPlane) updateWorkerNodeInformation(workerNode core.WorkerNodeInterface, in *proto.NodeHeartbeatMessage) {
+	workerNode.UpdateLastHearBeat()
+	workerNode.SetCpuUsage(int(in.CpuUsage))
+	workerNode.SetMemoryUsage(int(in.MemoryUsage)) // TODO: Correct conversion?
 }
 
 func (c *ControlPlane) RegisterService(ctx context.Context, serviceInfo *proto.ServiceInfo) (*proto.ActionStatus, error) {
@@ -355,7 +354,7 @@ func (c *ControlPlane) RegisterDataplane(ctx context.Context, in *proto.Dataplan
 		return &proto.ActionStatus{Success: false}, err
 	}
 
-	dataplaneConnection := c.dataplaneCreator(dataplaneInfo.Address, dataplaneInfo.ApiPort, dataplaneInfo.ProxyPort)
+	dataplaneConnection := c.dataPlaneCreator(dataplaneInfo.Address, dataplaneInfo.ApiPort, dataplaneInfo.ProxyPort)
 
 	err = dataplaneConnection.InitializeDataPlaneConnection(dataplaneInfo.Address, dataplaneInfo.ApiPort)
 	if err != nil {
@@ -438,7 +437,7 @@ func (c *ControlPlane) reconstructDataplaneState(ctx context.Context) error {
 	}
 
 	for _, dataplaneInfo := range dataPlaneValues {
-		dataplaneConnection := c.dataplaneCreator(dataplaneInfo.Address, dataplaneInfo.ApiPort, dataplaneInfo.ProxyPort)
+		dataplaneConnection := c.dataPlaneCreator(dataplaneInfo.Address, dataplaneInfo.ApiPort, dataplaneInfo.ProxyPort)
 		dataplaneConnection.InitializeDataPlaneConnection(dataplaneInfo.Address, dataplaneInfo.ApiPort)
 
 		c.DataPlaneConnections.Set(dataplaneInfo.Address, dataplaneConnection)
@@ -454,14 +453,13 @@ func (c *ControlPlane) reconstructWorkersState(ctx context.Context) error {
 	}
 
 	for _, worker := range workers {
-		c.connectToRegisteredWorker(&WorkerNode{
-			Name:          worker.Name,
-			IP:            worker.Ip,
-			Port:          worker.Port,
-			CpuCores:      int(worker.CpuCores),
-			Memory:        int(worker.Memory),
-			LastHeartbeat: time.Now(),
-		})
+		c.connectToRegisteredWorker(c.workerNodeCreator(core.WorkerNodeConfiguration{
+			Name:     worker.Name,
+			IP:       worker.Ip,
+			Port:     worker.Port,
+			CpuCores: int(worker.CpuCores),
+			Memory:   int(worker.Memory),
+		}))
 	}
 
 	return nil
@@ -487,7 +485,7 @@ func (c *ControlPlane) reconstructEndpointsState(ctx context.Context, dpiClients
 	endpoints := make([]*proto.Endpoint, 0)
 
 	for _, workerNode := range c.NIStorage.Values() {
-		list, err := workerNode.GetAPI().ListEndpoints(ctx, &emptypb.Empty{})
+		list, err := workerNode.ListEndpoints(ctx, &emptypb.Empty{})
 		if err != nil {
 			return err
 		}

@@ -1,6 +1,7 @@
 package control_plane
 
 import (
+	"cluster_manager/internal/control_plane/core"
 	"cluster_manager/internal/control_plane/placement_policy"
 	"cluster_manager/pkg/atomic_map"
 	"math/rand"
@@ -10,7 +11,7 @@ import (
 )
 
 type PlacementPolicy interface {
-	Place(*atomic_map.AtomicMap[string, *WorkerNode], *placement_policy.ResourceMap) *WorkerNode
+	Place(*atomic_map.AtomicMap[string, core.WorkerNodeInterface], *placement_policy.ResourceMap) core.WorkerNodeInterface
 }
 
 func NewRandomPolicy() *RandomPolicy {
@@ -41,7 +42,7 @@ type KubernetesPolicy struct {
 	resourceMap *placement_policy.ResourceMap
 }
 
-func ApplyPlacementPolicy(placementPolicy PlacementPolicy, storage *atomic_map.AtomicMap[string, *WorkerNode], requested *placement_policy.ResourceMap) *WorkerNode {
+func ApplyPlacementPolicy(placementPolicy PlacementPolicy, storage *atomic_map.AtomicMap[string, core.WorkerNodeInterface], requested *placement_policy.ResourceMap) core.WorkerNodeInterface {
 	if noNodesInCluster(storage) {
 		return nil
 	}
@@ -49,14 +50,14 @@ func ApplyPlacementPolicy(placementPolicy PlacementPolicy, storage *atomic_map.A
 	return placementPolicy.Place(storage, requested)
 }
 
-func filterMachines(storage *atomic_map.AtomicMap[string, *WorkerNode], resourceMap *placement_policy.ResourceMap) *atomic_map.AtomicMap[string, *WorkerNode] {
-	var resultingNodes atomic_map.AtomicMap[string, *WorkerNode]
+func filterMachines(storage *atomic_map.AtomicMap[string, core.WorkerNodeInterface], resourceMap *placement_policy.ResourceMap) *atomic_map.AtomicMap[string, core.WorkerNodeInterface] {
+	var resultingNodes atomic_map.AtomicMap[string, core.WorkerNodeInterface]
 
 	// Model implementation - kubernetes/pkg/scheduler/framework/plugins/noderesources/fit.go:fitsRequest:256
 	keys, values := storage.KeyValues()
 	for i := 0; i < len(keys); i++ {
-		isMemoryBigEnough := values[i].Memory >= resourceMap.GetMemory()
-		isCpuBigEnough := values[i].CpuCores >= resourceMap.GetCPUCores()
+		isMemoryBigEnough := values[i].GetMemory() >= resourceMap.GetMemory()
+		isCpuBigEnough := values[i].GetCpuCores() >= resourceMap.GetCPUCores()
 
 		if !isMemoryBigEnough || !isCpuBigEnough {
 			continue
@@ -68,16 +69,16 @@ func filterMachines(storage *atomic_map.AtomicMap[string, *WorkerNode], resource
 	return &resultingNodes
 }
 
-func getInstalledResources(machine *WorkerNode) *placement_policy.ResourceMap {
-	return placement_policy.CreateResourceMap(machine.CpuCores, machine.Memory)
+func getInstalledResources(machine core.WorkerNodeInterface) *placement_policy.ResourceMap {
+	return placement_policy.CreateResourceMap(machine.GetCpuCores(), machine.GetMemory())
 }
 
-func getRequestedResources(machine *WorkerNode, request *placement_policy.ResourceMap) *placement_policy.ResourceMap {
-	currentUsage := placement_policy.CreateResourceMap(machine.CpuUsage*machine.CpuCores, machine.MemoryUsage*machine.Memory)
+func getRequestedResources(machine core.WorkerNodeInterface, request *placement_policy.ResourceMap) *placement_policy.ResourceMap {
+	currentUsage := placement_policy.CreateResourceMap(machine.GetCpuUsage()*machine.GetCpuCores(), machine.GetMemoryUsage()*machine.GetMemory())
 	return placement_policy.SumResources(currentUsage, request)
 }
 
-func prioritizeNodes(storage *atomic_map.AtomicMap[string, *WorkerNode], request *placement_policy.ResourceMap) map[string]int {
+func prioritizeNodes(storage *atomic_map.AtomicMap[string, core.WorkerNodeInterface], request *placement_policy.ResourceMap) map[string]int {
 	scores := make(map[string]int)
 
 	filterAlgorithms := placement_policy.CreateScoringPipeline()
@@ -91,22 +92,22 @@ func prioritizeNodes(storage *atomic_map.AtomicMap[string, *WorkerNode], request
 			sc := alg.Score(*installedResources, *requestedResources)
 			scores[keys[i]] += sc
 
-			logrus.Debugf("%s on node #%s has scored %d.\n", alg.Name, machines[i].Name, sc)
+			logrus.Debugf("%s on node #%s has scored %d.\n", alg.Name, machines[i].GetName(), sc)
 		}
 	}
 
 	return scores
 }
 
-func selectOneMachine(storage *atomic_map.AtomicMap[string, *WorkerNode], scores map[string]int) *WorkerNode {
+func selectOneMachine(storage *atomic_map.AtomicMap[string, core.WorkerNodeInterface], scores map[string]int) core.WorkerNodeInterface {
 	if storage.Len() == 0 {
 		logrus.Fatal("There is no candidate machine to select from.")
 	}
 
 	var (
-		selected      *WorkerNode = nil
-		maxScore      int         = -1
-		cntOfMaxScore int         = 1
+		selected      core.WorkerNodeInterface = nil
+		maxScore      int                      = -1
+		cntOfMaxScore int                      = 1
 	)
 
 	keys, elements := storage.KeyValues()
@@ -127,7 +128,7 @@ func selectOneMachine(storage *atomic_map.AtomicMap[string, *WorkerNode], scores
 	return selected
 }
 
-func (policy *RandomPolicy) Place(storage *atomic_map.AtomicMap[string, *WorkerNode], requested *placement_policy.ResourceMap) *WorkerNode {
+func (policy *RandomPolicy) Place(storage *atomic_map.AtomicMap[string, core.WorkerNodeInterface], requested *placement_policy.ResourceMap) core.WorkerNodeInterface {
 	nbNodes := getNumberNodes(storage)
 
 	index := rand.Intn(nbNodes)
@@ -135,7 +136,7 @@ func (policy *RandomPolicy) Place(storage *atomic_map.AtomicMap[string, *WorkerN
 	return nodeFromIndex(storage, index)
 }
 
-func (policy *RoundRobinPolicy) Place(storage *atomic_map.AtomicMap[string, *WorkerNode], _ *placement_policy.ResourceMap) *WorkerNode {
+func (policy *RoundRobinPolicy) Place(storage *atomic_map.AtomicMap[string, core.WorkerNodeInterface], _ *placement_policy.ResourceMap) core.WorkerNodeInterface {
 	nbNodes := getNumberNodes(storage)
 	if nbNodes == 0 {
 		return nil
@@ -147,7 +148,7 @@ func (policy *RoundRobinPolicy) Place(storage *atomic_map.AtomicMap[string, *Wor
 	return nodeFromIndex(storage, index)
 }
 
-func (policy *KubernetesPolicy) Place(storage *atomic_map.AtomicMap[string, *WorkerNode], requested *placement_policy.ResourceMap) *WorkerNode {
+func (policy *KubernetesPolicy) Place(storage *atomic_map.AtomicMap[string, core.WorkerNodeInterface], requested *placement_policy.ResourceMap) core.WorkerNodeInterface {
 	filteredStorage := filterMachines(storage, policy.resourceMap)
 
 	scores := prioritizeNodes(filteredStorage, requested)
@@ -155,15 +156,15 @@ func (policy *KubernetesPolicy) Place(storage *atomic_map.AtomicMap[string, *Wor
 	return selectOneMachine(filteredStorage, scores)
 }
 
-func getNumberNodes(storage *atomic_map.AtomicMap[string, *WorkerNode]) int {
+func getNumberNodes(storage *atomic_map.AtomicMap[string, core.WorkerNodeInterface]) int {
 	return storage.Len()
 }
 
-func noNodesInCluster(storage *atomic_map.AtomicMap[string, *WorkerNode]) bool {
+func noNodesInCluster(storage *atomic_map.AtomicMap[string, core.WorkerNodeInterface]) bool {
 	return getNumberNodes(storage) == 0
 }
 
-func nodeFromIndex(storage *atomic_map.AtomicMap[string, *WorkerNode], index int) *WorkerNode {
+func nodeFromIndex(storage *atomic_map.AtomicMap[string, core.WorkerNodeInterface], index int) core.WorkerNodeInterface {
 	nodes := sort.StringSlice(storage.Keys())
 	nodes.Sort()
 	nodeName := nodes[index]
