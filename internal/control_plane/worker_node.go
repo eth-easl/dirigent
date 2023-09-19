@@ -74,14 +74,6 @@ func (w *WorkerNode) GetAPI() proto.WorkerNodeInterfaceClient {
 	return w.api
 }
 
-func (w *WorkerNode) GetIP() string {
-	return w.IP
-}
-
-func (w *WorkerNode) GetPort() string {
-	return w.Port
-}
-
 func (w *WorkerNode) UpdateLastHearBeat() {
 	w.LastHeartbeat = time.Now()
 }
@@ -92,6 +84,14 @@ func (w *WorkerNode) SetCpuUsage(usage int) {
 
 func (w *WorkerNode) SetMemoryUsage(usage int) {
 	w.MemoryUsage = usage
+}
+
+func (w *WorkerNode) GetIP() string {
+	return w.IP
+}
+
+func (w *WorkerNode) GetPort() string {
+	return w.Port
 }
 
 func (w *WorkerNode) GetMemory() int {
