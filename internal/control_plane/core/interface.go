@@ -14,6 +14,8 @@ type DataPlaneInterface interface {
 	UpdateEndpointList(context.Context, *proto.DeploymentEndpointPatch) (*proto.DeploymentUpdateSuccess, error)
 	DeleteDeployment(context.Context, *proto.ServiceInfo) (*proto.DeploymentUpdateSuccess, error)
 	ResetMeasurements(context.Context, *emptypb.Empty) (*proto.ActionStatus, error)
+	GetLastHeartBeat() time.Time
+	UpdateHeartBeat()
 	GetIP() string
 	GetApiPort() string
 	GetProxyPort() string

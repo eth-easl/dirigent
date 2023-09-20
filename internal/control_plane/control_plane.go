@@ -120,6 +120,28 @@ func (c *ControlPlane) CheckPeriodicallyWorkerNodes() {
 	}
 }
 
+func (c *ControlPlane) CheckPeriodicallyDataplanes() {
+	for {
+		for _, datapalaneConnection := range c.DataPlaneConnections.Values() {
+			if time.Since(datapalaneConnection.GetLastHeartBeat()) > utils.TolerateHeartbeatMisses*utils.HeartbeatInterval {
+				apiPort, _ := strconv.ParseInt(datapalaneConnection.GetApiPort(), 10, 64)
+				proxyPort, _ := strconv.ParseInt(datapalaneConnection.GetProxyPort(), 10, 64)
+				// Trigger a dataplane deregistration
+				_, err := c.DeregisterDataplane(context.Background(), &proto.DataplaneInfo{
+					APIPort:   int32(apiPort),
+					ProxyPort: int32(proxyPort),
+				})
+
+				if err != nil {
+					logrus.Errorf("Failed to deregister dataplane (error : %s)", err.Error())
+				}
+			}
+		}
+
+		time.Sleep(utils.HeartbeatInterval)
+	}
+}
+
 func (c *ControlPlane) OnMetricsReceive(_ context.Context, metric *proto.AutoscalingMetric) (*proto.ActionStatus, error) {
 	storage, ok := c.SIStorage.Get(metric.ServiceName)
 	if !ok {
@@ -346,7 +368,9 @@ func (c *ControlPlane) RegisterDataplane(ctx context.Context, in *proto.Dataplan
 	}
 
 	if found := c.DataPlaneConnections.Find(dataplaneInfo.Address); found {
-		logrus.Debugf("Dataplane with ip %s already registered - request ignored", dataplaneInfo.Address)
+		logrus.Debugf("Dataplane with ip %s already registered - update last heartbeat timestamp", dataplaneInfo.Address)
+		dataplane, _ := c.DataPlaneConnections.Get(dataplaneInfo.Address)
+		dataplane.UpdateHeartBeat()
 		return &proto.ActionStatus{Success: true}, err
 	}
 

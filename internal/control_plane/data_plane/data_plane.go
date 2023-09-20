@@ -6,21 +6,32 @@ import (
 	"cluster_manager/pkg/grpc_helpers"
 	"context"
 	"google.golang.org/protobuf/types/known/emptypb"
+	"time"
 )
 
 func NewDataplaneConnection(IP, APIPort, ProxyPort string) core.DataPlaneInterface {
 	return &DataPlaneConnectionInfo{
-		IP:        IP,
-		APIPort:   APIPort,
-		ProxyPort: ProxyPort,
+		IP:            IP,
+		APIPort:       APIPort,
+		ProxyPort:     ProxyPort,
+		LastHeartBeat: time.Now(),
 	}
 }
 
 type DataPlaneConnectionInfo struct {
-	Iface     proto.DpiInterfaceClient
-	IP        string
-	APIPort   string
-	ProxyPort string
+	Iface         proto.DpiInterfaceClient
+	IP            string
+	APIPort       string
+	ProxyPort     string
+	LastHeartBeat time.Time
+}
+
+func (d *DataPlaneConnectionInfo) GetLastHeartBeat() time.Time {
+	return d.LastHeartBeat
+}
+
+func (d *DataPlaneConnectionInfo) UpdateHeartBeat() {
+	d.LastHeartBeat = time.Now()
 }
 
 func (d *DataPlaneConnectionInfo) InitializeDataPlaneConnection(host string, port string) error {

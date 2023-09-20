@@ -11,7 +11,7 @@ import (
 	reflect "reflect"
 	time "time"
 
-	gomock "github.com/golang/mock/gomock"
+	gomock "go.uber.org/mock/gomock"
 	grpc "google.golang.org/grpc"
 	emptypb "google.golang.org/protobuf/types/known/emptypb"
 )
@@ -97,6 +97,20 @@ func (mr *MockDataPlaneInterfaceMockRecorder) GetIP() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetIP", reflect.TypeOf((*MockDataPlaneInterface)(nil).GetIP))
 }
 
+// GetLastHeartBeat mocks base method.
+func (m *MockDataPlaneInterface) GetLastHeartBeat() time.Time {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetLastHeartBeat")
+	ret0, _ := ret[0].(time.Time)
+	return ret0
+}
+
+// GetLastHeartBeat indicates an expected call of GetLastHeartBeat.
+func (mr *MockDataPlaneInterfaceMockRecorder) GetLastHeartBeat() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetLastHeartBeat", reflect.TypeOf((*MockDataPlaneInterface)(nil).GetLastHeartBeat))
+}
+
 // GetProxyPort mocks base method.
 func (m *MockDataPlaneInterface) GetProxyPort() string {
 	m.ctrl.T.Helper()
@@ -153,6 +167,18 @@ func (m *MockDataPlaneInterface) UpdateEndpointList(arg0 context.Context, arg1 *
 func (mr *MockDataPlaneInterfaceMockRecorder) UpdateEndpointList(arg0, arg1 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateEndpointList", reflect.TypeOf((*MockDataPlaneInterface)(nil).UpdateEndpointList), arg0, arg1)
+}
+
+// UpdateHeartBeat mocks base method.
+func (m *MockDataPlaneInterface) UpdateHeartBeat() {
+	m.ctrl.T.Helper()
+	m.ctrl.Call(m, "UpdateHeartBeat")
+}
+
+// UpdateHeartBeat indicates an expected call of UpdateHeartBeat.
+func (mr *MockDataPlaneInterfaceMockRecorder) UpdateHeartBeat() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateHeartBeat", reflect.TypeOf((*MockDataPlaneInterface)(nil).UpdateHeartBeat))
 }
 
 // MockWorkerNodeInterface is a mock of WorkerNodeInterface interface.
