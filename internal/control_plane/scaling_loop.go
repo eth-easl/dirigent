@@ -14,7 +14,6 @@ import (
 	"fmt"
 	"github.com/sirupsen/logrus"
 	"google.golang.org/protobuf/types/known/durationpb"
-	"strconv"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -262,19 +261,11 @@ func (ss *ServiceInfoStorage) updateEndpoints(dpiClients *atomic_map.AtomicMap[s
 				Endpoints: endpoints,
 			})
 			if err != nil || !resp.Success {
-				logrus.Warn("Failed to update endpoint list in the data plane")
-
-				apiPort, _ := strconv.ParseInt(c.GetApiPort(), 10, 64)
-				proxyPort, _ := strconv.ParseInt(c.GetProxyPort(), 10, 64)
-
-				_, err := ss.ControlPlane.DeregisterDataplane(context.Background(), &proto.DataplaneInfo{
-					APIPort:   int32(apiPort),
-					ProxyPort: int32(proxyPort),
-				})
-
+				errText := ""
 				if err != nil {
-					logrus.Errorf("Failed to deregister dataplane : (error %s)", err.Error())
+					errText = err.Error()
 				}
+				logrus.Warnf("Failed to update endpoint list in the data plane : %s", errText)
 			}
 
 			wg.Done()
