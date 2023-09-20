@@ -8,22 +8,22 @@ const (
 )
 
 type ResourceMap struct {
-	resources map[string]int
+	resources map[string]uint64
 }
 
-func (r *ResourceMap) GetCPUCores() int {
+func (r *ResourceMap) GetCPUCores() uint64 {
 	return r.resources[RM_CPU_KEY]
 }
 
-func (r *ResourceMap) GetMemory() int {
+func (r *ResourceMap) GetMemory() uint64 {
 	return r.resources[RM_MEMORY_KEY]
 }
 
-func (r *ResourceMap) SetCPUCores(v int) {
+func (r *ResourceMap) SetCPUCores(v uint64) {
 	r.resources[RM_CPU_KEY] = v
 }
 
-func (r *ResourceMap) SetMemory(v int) {
+func (r *ResourceMap) SetMemory(v uint64) {
 	r.resources[RM_MEMORY_KEY] = v
 }
 
@@ -37,7 +37,7 @@ func (r *ResourceMap) ResourceKeys() []string {
 	return keys
 }
 
-func (r *ResourceMap) GetByKey(key string) int {
+func (r *ResourceMap) GetByKey(key string) uint64 {
 	if v, ok := r.resources[key]; ok {
 		return v
 	} else {
@@ -46,8 +46,8 @@ func (r *ResourceMap) GetByKey(key string) int {
 	}
 }
 
-func (r *ResourceMap) SumAllResourceTypes() int {
-	sum := 0
+func (r *ResourceMap) SumAllResourceTypes() uint64 {
+	var sum uint64 = 0
 
 	for _, key := range r.ResourceKeys() {
 		req := r.GetByKey(key)
@@ -58,9 +58,9 @@ func (r *ResourceMap) SumAllResourceTypes() int {
 }
 
 // CreateResourceMap CPU in milliCPUs.
-func CreateResourceMap(cpu, memory int) *ResourceMap {
+func CreateResourceMap(cpu, memory uint64) *ResourceMap {
 	r := &ResourceMap{
-		resources: make(map[string]int),
+		resources: make(map[string]uint64),
 	}
 
 	r.SetCPUCores(cpu)

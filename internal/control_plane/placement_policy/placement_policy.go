@@ -77,8 +77,8 @@ func getRequestedResources(machine core.WorkerNodeInterface, request *ResourceMa
 	return SumResources(currentUsage, request)
 }
 
-func prioritizeNodes(storage *atomic_map.AtomicMap[string, core.WorkerNodeInterface], request *ResourceMap) map[string]int {
-	scores := make(map[string]int)
+func prioritizeNodes(storage *atomic_map.AtomicMap[string, core.WorkerNodeInterface], request *ResourceMap) map[string]uint64 {
+	scores := make(map[string]uint64)
 
 	filterAlgorithms := CreateScoringPipeline()
 
@@ -98,15 +98,15 @@ func prioritizeNodes(storage *atomic_map.AtomicMap[string, core.WorkerNodeInterf
 	return scores
 }
 
-func selectOneMachine(storage *atomic_map.AtomicMap[string, core.WorkerNodeInterface], scores map[string]int) core.WorkerNodeInterface {
+func selectOneMachine(storage *atomic_map.AtomicMap[string, core.WorkerNodeInterface], scores map[string]uint64) core.WorkerNodeInterface {
 	if storage.Len() == 0 {
 		logrus.Fatal("There is no candidate machine to select from.")
 	}
 
 	var (
 		selected      core.WorkerNodeInterface = nil
-		maxScore      int                      = -1
-		cntOfMaxScore int                      = 1
+		maxScore      uint64                   = 0
+		cntOfMaxScore uint64                   = 1
 	)
 
 	keys, elements := storage.KeyValues()
@@ -117,7 +117,7 @@ func selectOneMachine(storage *atomic_map.AtomicMap[string, core.WorkerNodeInter
 			cntOfMaxScore = 1
 		} else if scores[keys[i]] == maxScore {
 			cntOfMaxScore++
-			if rand.Intn(cntOfMaxScore) == 0 {
+			if rand.Intn(int(cntOfMaxScore)) == 0 {
 				// Replace the candidate with probability of 1/cntOfMaxScore
 				selected = elements[i]
 			}

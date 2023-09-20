@@ -4,7 +4,7 @@ import (
 	"math"
 )
 
-type ScoringAlgorithmType func(ResourceMap, ResourceMap) int
+type ScoringAlgorithmType func(ResourceMap, ResourceMap) uint64
 
 type ScoringAlgorithm struct {
 	Name  string
@@ -24,7 +24,7 @@ func CreateScoringPipeline() []ScoringAlgorithm {
 	}
 }
 
-func leastRequestedScore(requested, capacity int) int {
+func leastRequestedScore(requested, capacity uint64) uint64 {
 	if capacity == 0 {
 		return 0
 	}
@@ -37,10 +37,11 @@ func leastRequestedScore(requested, capacity int) int {
 	return ((capacity - requested) * 100) / capacity
 }
 
-func ScoreFitLeastAllocated(installed ResourceMap, requested ResourceMap) int {
-	nodeScore, weightSum := 0, 0
+func ScoreFitLeastAllocated(installed ResourceMap, requested ResourceMap) uint64 {
+	var nodeScore uint64 = 0
+	var weightSum uint64 = 0
 
-	weights := map[string]int{
+	weights := map[string]uint64{
 		RM_CPU_KEY:    1,
 		RM_MEMORY_KEY: 1,
 	}
@@ -60,7 +61,7 @@ func ScoreFitLeastAllocated(installed ResourceMap, requested ResourceMap) int {
 	return nodeScore / weightSum
 }
 
-func ScoreBalancedAllocation(installed ResourceMap, requested ResourceMap) int {
+func ScoreBalancedAllocation(installed ResourceMap, requested ResourceMap) uint64 {
 	var (
 		totalFraction float64
 	)
@@ -97,5 +98,5 @@ func ScoreBalancedAllocation(installed ResourceMap, requested ResourceMap) int {
 
 	// STD (standard deviation) is always a positive value. 1-deviation lets the score to be higher for node which has least deviation and
 	// multiplying it with `MaxNodeScore` provides the scaling factor needed.
-	return int((1 - std) * float64(100))
+	return uint64((1 - std) * float64(100))
 }

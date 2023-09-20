@@ -7,12 +7,12 @@ import (
 )
 
 const (
-	mockCpus      int = 4
-	mockCpus2     int = 8
-	mockMemory    int = 10
-	mockMemory2   int = 20
-	mockSumCpu    int = 12
-	mockSumMemory int = 30
+	mockCpus      uint64 = 4
+	mockCpus2     uint64 = 8
+	mockMemory    uint64 = 10
+	mockMemory2   uint64 = 20
+	mockSumCpu    uint64 = 12
+	mockSumMemory uint64 = 30
 )
 
 func TestResourceMap(t *testing.T) {

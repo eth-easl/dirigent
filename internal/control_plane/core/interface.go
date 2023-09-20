@@ -30,12 +30,12 @@ type WorkerNodeInterface interface {
 	GetLastHeartBeat() time.Time
 	GetWorkerNodeConfiguration() WorkerNodeConfiguration
 	UpdateLastHearBeat()
-	SetCpuUsage(int)
-	SetMemoryUsage(int)
-	GetMemory() int
-	GetCpuCores() int
-	GetCpuUsage() int
-	GetMemoryUsage() int
+	SetCpuUsage(uint64)
+	SetMemoryUsage(uint64)
+	GetMemory() uint64
+	GetCpuCores() uint64
+	GetCpuUsage() uint64
+	GetMemoryUsage() uint64
 	GetIP() string
 	GetPort() string
 }

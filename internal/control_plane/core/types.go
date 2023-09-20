@@ -8,8 +8,8 @@ type WorkerNodeConfiguration struct {
 	Name     string
 	IP       string
 	Port     string
-	CpuCores int
-	Memory   int
+	CpuCores uint64
+	Memory   uint64
 }
 
 type WorkerNodeFactory func(configuration WorkerNodeConfiguration) WorkerNodeInterface

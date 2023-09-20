@@ -15,11 +15,11 @@ type WorkerNode struct {
 	IP   string
 	Port string
 
-	CpuUsage    int
-	MemoryUsage int
+	CpuUsage    uint64
+	MemoryUsage uint64
 
-	CpuCores int
-	Memory   int
+	CpuCores uint64
+	Memory   uint64
 
 	LastHeartbeat time.Time
 	api           proto.WorkerNodeInterfaceClient
@@ -78,11 +78,11 @@ func (w *WorkerNode) UpdateLastHearBeat() {
 	w.LastHeartbeat = time.Now()
 }
 
-func (w *WorkerNode) SetCpuUsage(usage int) {
+func (w *WorkerNode) SetCpuUsage(usage uint64) {
 	w.CpuUsage = usage
 }
 
-func (w *WorkerNode) SetMemoryUsage(usage int) {
+func (w *WorkerNode) SetMemoryUsage(usage uint64) {
 	w.MemoryUsage = usage
 }
 
@@ -94,18 +94,18 @@ func (w *WorkerNode) GetPort() string {
 	return w.Port
 }
 
-func (w *WorkerNode) GetMemory() int {
+func (w *WorkerNode) GetMemory() uint64 {
 	return w.Memory
 }
 
-func (w *WorkerNode) GetCpuCores() int {
+func (w *WorkerNode) GetCpuCores() uint64 {
 	return w.CpuCores
 }
 
-func (w *WorkerNode) GetCpuUsage() int {
+func (w *WorkerNode) GetCpuUsage() uint64 {
 	return w.CpuUsage
 }
 
-func (w *WorkerNode) GetMemoryUsage() int {
+func (w *WorkerNode) GetMemoryUsage() uint64 {
 	return w.MemoryUsage
 }

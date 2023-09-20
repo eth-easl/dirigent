@@ -259,10 +259,10 @@ func (mr *MockWorkerNodeInterfaceMockRecorder) GetAPI() *gomock.Call {
 }
 
 // GetCpuCores mocks base method.
-func (m *MockWorkerNodeInterface) GetCpuCores() int {
+func (m *MockWorkerNodeInterface) GetCpuCores() uint64 {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetCpuCores")
-	ret0, _ := ret[0].(int)
+	ret0, _ := ret[0].(uint64)
 	return ret0
 }
 
@@ -273,10 +273,10 @@ func (mr *MockWorkerNodeInterfaceMockRecorder) GetCpuCores() *gomock.Call {
 }
 
 // GetCpuUsage mocks base method.
-func (m *MockWorkerNodeInterface) GetCpuUsage() int {
+func (m *MockWorkerNodeInterface) GetCpuUsage() uint64 {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetCpuUsage")
-	ret0, _ := ret[0].(int)
+	ret0, _ := ret[0].(uint64)
 	return ret0
 }
 
@@ -315,10 +315,10 @@ func (mr *MockWorkerNodeInterfaceMockRecorder) GetLastHeartBeat() *gomock.Call {
 }
 
 // GetMemory mocks base method.
-func (m *MockWorkerNodeInterface) GetMemory() int {
+func (m *MockWorkerNodeInterface) GetMemory() uint64 {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetMemory")
-	ret0, _ := ret[0].(int)
+	ret0, _ := ret[0].(uint64)
 	return ret0
 }
 
@@ -329,10 +329,10 @@ func (mr *MockWorkerNodeInterfaceMockRecorder) GetMemory() *gomock.Call {
 }
 
 // GetMemoryUsage mocks base method.
-func (m *MockWorkerNodeInterface) GetMemoryUsage() int {
+func (m *MockWorkerNodeInterface) GetMemoryUsage() uint64 {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetMemoryUsage")
-	ret0, _ := ret[0].(int)
+	ret0, _ := ret[0].(uint64)
 	return ret0
 }
 
@@ -405,7 +405,7 @@ func (mr *MockWorkerNodeInterfaceMockRecorder) ListEndpoints(arg0, arg1 interfac
 }
 
 // SetCpuUsage mocks base method.
-func (m *MockWorkerNodeInterface) SetCpuUsage(arg0 int) {
+func (m *MockWorkerNodeInterface) SetCpuUsage(arg0 uint64) {
 	m.ctrl.T.Helper()
 	m.ctrl.Call(m, "SetCpuUsage", arg0)
 }
@@ -417,7 +417,7 @@ func (mr *MockWorkerNodeInterfaceMockRecorder) SetCpuUsage(arg0 interface{}) *go
 }
 
 // SetMemoryUsage mocks base method.
-func (m *MockWorkerNodeInterface) SetMemoryUsage(arg0 int) {
+func (m *MockWorkerNodeInterface) SetMemoryUsage(arg0 uint64) {
 	m.ctrl.T.Helper()
 	m.ctrl.Call(m, "SetMemoryUsage", arg0)
 }

@@ -54,8 +54,8 @@ message WorkerNodeInformation {
   string Name = 1;
   string Ip = 2;
   string Port = 3;
-  int32 CpuCores = 4;
-  int32 Memory = 5;
+  uint64 CpuCores = 4;
+  uint64 Memory = 5;
 }
 
 message Endpoint {

@@ -182,16 +182,16 @@ func (c *ControlPlane) RegisterNode(ctx context.Context, in *proto.NodeInfo) (*p
 		Name:     in.NodeID,
 		IP:       ipAddress,
 		Port:     strconv.Itoa(int(in.Port)),
-		CpuCores: int(in.CpuCores),
-		Memory:   int(in.MemorySize), // TODO: Correct conversion?
+		CpuCores: in.CpuCores,
+		Memory:   in.MemorySize,
 	})
 
 	err := c.PersistenceLayer.StoreWorkerNodeInformation(ctx, &proto.WorkerNodeInformation{
 		Name:     in.NodeID,
 		Ip:       ipAddress,
 		Port:     strconv.Itoa(int(in.Port)),
-		CpuCores: int32(in.CpuCores),
-		Memory:   int32(in.MemorySize),
+		CpuCores: in.CpuCores,
+		Memory:   in.MemorySize,
 	})
 	if err != nil {
 		logrus.Errorf("Failed to store information to persistence layer (error : %s)", err.Error())
@@ -233,8 +233,8 @@ func (c *ControlPlane) DeregisterNode(ctx context.Context, in *proto.NodeInfo) (
 		Name:     in.NodeID,
 		IP:       ipAddress,
 		Port:     strconv.Itoa(int(in.Port)),
-		CpuCores: int(in.CpuCores),
-		Memory:   int(in.MemorySize), // TODO: Is int really a valid conversion?
+		CpuCores: in.CpuCores,
+		Memory:   in.MemorySize,
 	})
 
 	err := c.deregisterNode(wn)
@@ -253,8 +253,8 @@ func (c *ControlPlane) deregisterNode(wn core.WorkerNodeInterface) error {
 		Name:     wn.GetName(),
 		Ip:       wn.GetIP(),
 		Port:     wn.GetPort(),
-		CpuCores: int32(wn.GetCpuCores()),
-		Memory:   int32(wn.GetMemory()),
+		CpuCores: wn.GetCpuCores(),
+		Memory:   wn.GetMemory(),
 	})
 	if err != nil {
 		return err
@@ -286,8 +286,8 @@ func (c *ControlPlane) NodeHeartbeat(_ context.Context, in *proto.NodeHeartbeatM
 
 func (c *ControlPlane) updateWorkerNodeInformation(workerNode core.WorkerNodeInterface, in *proto.NodeHeartbeatMessage) {
 	workerNode.UpdateLastHearBeat()
-	workerNode.SetCpuUsage(int(in.CpuUsage))
-	workerNode.SetMemoryUsage(int(in.MemoryUsage)) // TODO: Correct conversion?
+	workerNode.SetCpuUsage(in.CpuUsage)
+	workerNode.SetMemoryUsage(in.MemoryUsage)
 }
 
 func (c *ControlPlane) RegisterService(ctx context.Context, serviceInfo *proto.ServiceInfo) (*proto.ActionStatus, error) {
@@ -483,8 +483,8 @@ func (c *ControlPlane) reconstructWorkersState(ctx context.Context) error {
 			Name:     worker.Name,
 			IP:       worker.Ip,
 			Port:     worker.Port,
-			CpuCores: int(worker.CpuCores),
-			Memory:   int(worker.Memory),
+			CpuCores: worker.CpuCores,
+			Memory:   worker.Memory,
 		}))
 	}
 

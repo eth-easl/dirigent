@@ -10,30 +10,30 @@ import (
 )
 
 type HardwareUsage struct {
-	CpuUsage    int32
-	MemoryUsage int32
+	CpuUsage    uint64
+	MemoryUsage uint64
 }
 
-func GetNumberCpus() int32 {
-	return int32(runtime.NumCPU())
+func GetNumberCpus() uint64 {
+	return uint64(runtime.NumCPU())
 }
 
 func GetMemory() uint64 {
 	return memory.TotalMemory()
 }
 
-func getCpuUsage() int32 {
+func getCpuUsage() uint64 {
 	percent, err := cpu.Percent(0, false)
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	return int32(math.Ceil(percent[0]))
+	return uint64(math.Ceil(percent[0]))
 }
 
-func getMemoryUsage() int32 {
+func getMemoryUsage() uint64 {
 	memory := float64(memory.TotalMemory()-memory.FreeMemory()) / float64(memory.TotalMemory())
-	return int32(memory * 100)
+	return uint64(memory * 100)
 }
 
 func GetHardwareUsage() HardwareUsage {
