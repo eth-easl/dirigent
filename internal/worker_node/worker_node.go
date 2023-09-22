@@ -5,6 +5,7 @@ import (
 	"cluster_manager/internal/worker_node/managers"
 	"cluster_manager/internal/worker_node/sandbox"
 	"cluster_manager/internal/worker_node/sandbox/containerd"
+	"cluster_manager/internal/worker_node/sandbox/firecracker"
 	"cluster_manager/pkg/config"
 	"cluster_manager/pkg/hardware"
 	"cluster_manager/pkg/utils"
@@ -24,13 +25,19 @@ const (
 
 type WorkerNode struct {
 	cpApi          proto.CpiInterfaceClient
-	SandboxRuntime sandbox.SandboxRuntime
+	SandboxRuntime sandbox.RuntimeInterface
 
 	ImageManager   *containerd.ImageManager
 	SandboxManager *managers.SandboxManager
 	ProcessMonitor *managers.ProcessMonitor
 
 	quitChannel chan bool
+}
+
+func isUserRoot() (int, bool) {
+	uid := os.Getuid()
+
+	return uid, uid == 0
 }
 
 func NewWorkerNode(cpApi proto.CpiInterfaceClient, config config.WorkerNodeConfig) *WorkerNode {
@@ -43,9 +50,23 @@ func NewWorkerNode(cpApi proto.CpiInterfaceClient, config config.WorkerNodeConfi
 	sandboxManager := managers.NewSandboxManager(hostName)
 	processMonitor := managers.NewProcessMonitor()
 
+	if _, isRoot := isUserRoot(); !isRoot {
+		logrus.Fatal("Cannot create a worker daemon without sudo.")
+	}
+
+	var runtimeInterface sandbox.RuntimeInterface
+	switch config.CRIType {
+	case "containerd":
+		runtimeInterface = containerd.NewContainerdRuntime(cpApi, config, imageManager, sandboxManager, processMonitor)
+	case "firecracker":
+		runtimeInterface = firecracker.NewFirecrackerRuntime()
+	default:
+		logrus.Fatal("Unsupported sandbox type.")
+	}
+
 	workerNode := &WorkerNode{
 		cpApi:          cpApi,
-		SandboxRuntime: containerd.NewContainerdRuntime(cpApi, config, imageManager, sandboxManager, processMonitor),
+		SandboxRuntime: runtimeInterface,
 
 		ImageManager:   imageManager,
 		SandboxManager: sandboxManager,

@@ -17,7 +17,7 @@ import (
 )
 
 type ContainerdRuntime struct {
-	sandbox.SandboxRuntime
+	sandbox.RuntimeInterface
 
 	cpApi proto.CpiInterfaceClient
 
@@ -165,4 +165,8 @@ func (cr *ContainerdRuntime) DeleteSandbox(grpcCtx context.Context, in *proto.Sa
 
 func (cr *ContainerdRuntime) ListEndpoints(_ context.Context, _ *emptypb.Empty) (*proto.EndpointsList, error) {
 	return cr.SandboxManager.ListEndpoints()
+}
+
+func (cr *ContainerdRuntime) ValidateHostConfig() bool {
+	return true
 }

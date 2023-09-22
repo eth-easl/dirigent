@@ -34,6 +34,7 @@ type WorkerNodeConfig struct {
 	ControlPlanePort string `mapstructure:"controlPlanePort"`
 	Port             int    `mapstructure:"port"`
 	Verbosity        string `mapstructure:"verbosity"`
+	CRIType          string `mapstructure:"criType"`
 	CRIPath          string `mapstructure:"criPath"`
 	CNIConfigPath    string `mapstructure:"cniConfigPath"`
 	PrefetchImage    bool   `mapstructure:"prefetchImage"`
