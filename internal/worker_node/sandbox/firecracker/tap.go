@@ -4,23 +4,26 @@ import (
 	"fmt"
 	"github.com/sirupsen/logrus"
 	"math/rand"
+	"net"
 	"os/exec"
+	"strings"
 )
 
-const ()
+const (
+	tapDevicePrefix = "fc-"
+	tapDeviceSuffix = "-tap"
+)
 
 type TAPLink struct {
 	Device string
 	MAC    string
 	IP     string
+	VMIP   string
 }
 
 func createTAPDevice(vmcs *VMControlStructure) error {
-	ip := vmcs.ipManager.GenerateIP()
-	dev := fmt.Sprintf("fc-%d-tap", rand.Int()%1_000_000)
-
-	// Remove the TAP device if it exists; error means device not found
-	_ = removeTapDevice(dev)
+	ip, vmip, mac := vmcs.IpManager.GenerateIPMACPair()
+	dev := fmt.Sprintf("%s%d%s", tapDevicePrefix, rand.Int()%1_000_000, tapDeviceSuffix)
 
 	err := exec.Command("sudo", "ip", "tuntap", "add", "dev", dev, "mode", "tap").Run()
 	if err != nil {
@@ -54,21 +57,32 @@ func createTAPDevice(vmcs *VMControlStructure) error {
 
 	vmcs.tapLink = &TAPLink{
 		Device: dev,
+		MAC:    mac,
 		IP:     ip,
+		VMIP:   vmip,
 	}
 
 	return nil
 }
 
-func removeTapDevice(dev string) error {
-	// We forward the error for now, as a failure here may mean that the TAP
-	// device doesn't exist, which is not a critical error
-	err := exec.Command("sudo", "ip", "link", "del", dev).Run()
+func DeleteFirecrackerTAPDevices() error {
+	devices, err := net.Interfaces()
 	if err != nil {
+		logrus.Error("Error listing network devices.")
 		return err
 	}
 
-	// TODO: should we set the link down first before removing it
-	err = exec.Command("sudo", "ip", "link", "set", "dev", dev, "down").Run()
+	for _, dev := range devices {
+		if !strings.HasPrefix(dev.Name, tapDevicePrefix) || !strings.HasSuffix(dev.Name, tapDeviceSuffix) {
+			continue
+		}
+
+		err = exec.Command("sudo", "ip", "link", "del", dev.Name).Run()
+		if err != nil {
+			logrus.Error("Error deleting network device '", dev.Name, "'.")
+			return err
+		}
+	}
+
 	return err
 }

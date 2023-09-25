@@ -13,7 +13,7 @@ type IPManager struct {
 func NewIPManager(networkPrefix string) *IPManager {
 	return &IPManager{
 		networkPrefix:     networkPrefix,
-		allocationCounter: 0,
+		allocationCounter: 1,
 	}
 }
 
@@ -23,7 +23,7 @@ func (ipm *IPManager) getUniqueCounterValue() uint32 {
 
 	for !swapped {
 		oldValue = atomic.LoadUint32(&ipm.allocationCounter)
-		newValue := oldValue + 1
+		newValue := oldValue + 2 // one for the host, one for the guest
 
 		swapped = atomic.CompareAndSwapUint32(&ipm.allocationCounter, oldValue, newValue)
 	}
@@ -42,14 +42,20 @@ func (ipm *IPManager) generateRawIP() (uint32, uint32) {
 	return extractThirdField(val), extractFourthField(val)
 }
 
-func (ipm *IPManager) GenerateIP() string {
+func (ipm *IPManager) GenerateIPMACPair() (string, string, string) {
 	c, d := ipm.generateRawIP()
-	return fmt.Sprintf("%s.%d.%d", ipm.networkPrefix, c, d)
+
+	ip := fmt.Sprintf("%s.%d.%d", ipm.networkPrefix, c, d)
+	vmip := fmt.Sprintf("%s.%d.%d", ipm.networkPrefix, c, d+1)
+	mac := fmt.Sprintf("02:FC:00:00:%02x:%02x", c, d)
+
+	return ip, vmip, mac
 }
 
 func extractThirdField(counterValue uint32) uint32 {
 	return counterValue / 256
 }
+
 func extractFourthField(counterValue uint32) uint32 {
 	return counterValue % 256
 }

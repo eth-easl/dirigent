@@ -9,16 +9,16 @@ import (
 )
 
 type VMControlStructure struct {
-	context context.Context
+	Context context.Context
 	cancel  context.CancelFunc
 
 	vm      *firecracker.Machine
 	config  *firecracker.Config
 	tapLink *TAPLink
 
-	kernelPath     string
-	fileSystemPath string
-	ipManager      *IPManager
+	KernelPath     string
+	FileSystemPath string
+	IpManager      *IPManager
 }
 
 func getVMCommandBuild(vmcs *VMControlStructure) *exec.Cmd {
@@ -28,7 +28,7 @@ func getVMCommandBuild(vmcs *VMControlStructure) *exec.Cmd {
 		WithStdin(os.Stdin).
 		WithStdout(os.Stdout).
 		WithStderr(os.Stderr).
-		Build(vmcs.context)
+		Build(vmcs.Context)
 }
 
 func StartFirecrackerVM(vmcs *VMControlStructure) bool {
@@ -40,7 +40,14 @@ func StartFirecrackerVM(vmcs *VMControlStructure) bool {
 
 	makeFirecrackerConfig(vmcs)
 
-	machine, err := firecracker.NewMachine(vmcs.context, *vmcs.config, firecracker.WithProcessRunner(getVMCommandBuild(vmcs)))
+	logger := logrus.New()
+	logger.SetLevel(logrus.DebugLevel)
+
+	machine, err := firecracker.NewMachine(vmcs.Context,
+		*vmcs.config,
+		firecracker.WithLogger(logrus.NewEntry(logger)),
+		firecracker.WithProcessRunner(getVMCommandBuild(vmcs)),
+	)
 	if err != nil {
 		logrus.Fatal(err)
 		return false
@@ -48,13 +55,15 @@ func StartFirecrackerVM(vmcs *VMControlStructure) bool {
 
 	vmcs.vm = machine
 
-	err = machine.Start(vmcs.context)
+	logrus.Debug("Starting VM with IP = ", vmcs.tapLink.IP, " (MAC = ", vmcs.tapLink.MAC, ")")
+
+	err = machine.Start(vmcs.Context)
 	if err != nil {
 		logrus.Fatal(err)
 		return false
 	}
 
-	err = machine.Wait(vmcs.context)
+	err = machine.Wait(vmcs.Context)
 	if err != nil {
 		logrus.Fatal(err)
 		return false

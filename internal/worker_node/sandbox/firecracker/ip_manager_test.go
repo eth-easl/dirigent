@@ -26,7 +26,8 @@ func TestGetUniqueValue(t *testing.T) {
 	barrier.Wait()
 
 	computedSum := atomic.LoadUint32(&sum)
-	if computedSum != uint32(tries*(tries-1)/2) {
+	expectedSum := uint32(tries * (tries - 1)) // sum of all even numbers
+	if computedSum != expectedSum {
 		t.Error("Bad IP manager. Concurrency error.")
 	}
 }

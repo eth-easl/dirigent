@@ -32,14 +32,18 @@ func makeFirecrackerConfig(vmcs *VMControlStructure) {
 		logrus.Fatal("Network must be created before creating a Firecracker config.")
 	}
 
+	kernelArgs := "panic=1 pci=off nomodules reboot=k tsc=reliable quiet i8042.noaux ipv6.disable=1 console=ttyS0 random.trust_cpu=on"
+	kernelArgs += fmt.Sprintf(" ip=%s::%s:255.255.255.252::eth0:off", vmcs.tapLink.VMIP, vmcs.tapLink.IP)
+
 	vmcs.config = &firecracker.Config{
 		SocketPath:      makeSocketPath(strconv.Itoa(rand.Int())),
-		KernelImagePath: vmcs.kernelPath,
-		KernelArgs:      "panic=1 pci=off nomodules reboot=k tsc=reliable quiet i8042.noaux ipv6.disable=1 console=ttyS0 random.trust_cpu=on",
+		KernelImagePath: vmcs.KernelPath,
+		KernelArgs:      kernelArgs,
 		LogPath:         fmt.Sprintf("%s.log", socket),
+		LogLevel:        logrus.DebugLevel.String(),
 		Drives: []models.Drive{{
 			DriveID:      firecracker.String("1"),
-			PathOnHost:   firecracker.String(vmcs.fileSystemPath),
+			PathOnHost:   firecracker.String(vmcs.FileSystemPath),
 			IsReadOnly:   firecracker.Bool(false),
 			IsRootDevice: firecracker.Bool(true),
 		}},
