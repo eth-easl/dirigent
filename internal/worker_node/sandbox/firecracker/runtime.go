@@ -79,7 +79,7 @@ func (fcr *Runtime) CreateSandbox(_ context.Context, in *proto.ServiceInfo) (*pr
 		},
 
 		HostPort:  containerd.AssignRandomPort(),
-		IP:        vmcs.tapLink.IP,
+		IP:        vmcs.tapLink.VMIP,
 		GuestPort: int(in.PortForwarding.GuestPort),
 
 		ExitStatusChannel: make(chan uint32),
@@ -91,7 +91,7 @@ func (fcr *Runtime) CreateSandbox(_ context.Context, in *proto.ServiceInfo) (*pr
 	fcr.SandboxManager.AddSandbox(vmcs.SandboxID, metadata)
 	fcr.ProcessMonitor.AddChannel(uint32(vmPID), metadata.ExitStatusChannel)
 
-	// TODO: add port forwarding
+	// port forwarding
 	iptablesStart := time.Now()
 	containerd.AddRules(fcr.IPT, metadata.HostPort, metadata.IP, metadata.GuestPort)
 	iptablesDuration := time.Since(iptablesStart)
@@ -99,6 +99,8 @@ func (fcr *Runtime) CreateSandbox(_ context.Context, in *proto.ServiceInfo) (*pr
 	go containerd.WatchExitChannel(fcr.cpApi, metadata, func(metadata *managers.Metadata) string {
 		return metadata.RuntimeMetadata.(FirecrackerMetadata).VMCS.SandboxID
 	})
+
+	in.PortForwarding.HostPort = int32(metadata.HostPort)
 
 	return &proto.SandboxCreationStatus{
 		Success:      true,

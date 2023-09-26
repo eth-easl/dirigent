@@ -40,6 +40,13 @@ func StartFirecrackerVM(vmcs *VMControlStructure) error {
 		return err
 	}
 
+	logrus.Debugf("VM %s allocated host IP = %s, VM IP = %s, MAC = %s",
+		vmcs.SandboxID,
+		vmcs.tapLink.IP,
+		vmcs.tapLink.VMIP,
+		vmcs.tapLink.MAC,
+	)
+
 	makeFirecrackerConfig(vmcs)
 
 	logger := logrus.New()
