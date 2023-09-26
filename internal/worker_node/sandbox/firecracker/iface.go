@@ -5,16 +5,12 @@ import (
 	"github.com/firecracker-microvm/firecracker-go-sdk"
 	"github.com/firecracker-microvm/firecracker-go-sdk/client/models"
 	"github.com/sirupsen/logrus"
-	"math/rand"
 	"os"
 	"path/filepath"
-	"strconv"
-	"strings"
 )
 
 func makeSocketPath(vmmID string) string {
-	filename := strings.Join([]string{"firecracker.socket", vmmID}, "-")
-	return filepath.Join(os.TempDir(), filename)
+	return filepath.Join(os.TempDir(), vmmID)
 }
 
 func createCNIConfig() *firecracker.CNIConfiguration {
@@ -26,8 +22,6 @@ func createCNIConfig() *firecracker.CNIConfiguration {
 }
 
 func makeFirecrackerConfig(vmcs *VMControlStructure) {
-	socket := makeSocketPath(strconv.Itoa(rand.Int()))
-
 	if vmcs.tapLink == nil {
 		logrus.Fatal("Network must be created before creating a Firecracker config.")
 	}
@@ -36,10 +30,10 @@ func makeFirecrackerConfig(vmcs *VMControlStructure) {
 	kernelArgs += fmt.Sprintf(" ip=%s::%s:255.255.255.252::eth0:off", vmcs.tapLink.VMIP, vmcs.tapLink.IP)
 
 	vmcs.config = &firecracker.Config{
-		SocketPath:      makeSocketPath(strconv.Itoa(rand.Int())),
+		SocketPath:      makeSocketPath(vmcs.SandboxID),
 		KernelImagePath: vmcs.KernelPath,
 		KernelArgs:      kernelArgs,
-		LogPath:         fmt.Sprintf("%s.log", socket),
+		LogPath:         fmt.Sprintf("/tmp/%s.log", vmcs.SandboxID),
 		LogLevel:        logrus.DebugLevel.String(),
 		Drives: []models.Drive{{
 			DriveID:      firecracker.String("1"),

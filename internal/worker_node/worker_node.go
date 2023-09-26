@@ -59,7 +59,7 @@ func NewWorkerNode(cpApi proto.CpiInterfaceClient, config config.WorkerNodeConfi
 	case "containerd":
 		runtimeInterface = containerd.NewContainerdRuntime(cpApi, config, imageManager, sandboxManager, processMonitor)
 	case "firecracker":
-		runtimeInterface = firecracker.NewFirecrackerRuntime()
+		runtimeInterface = firecracker.NewFirecrackerRuntime(hostName, cpApi, config.FirecrackerKernel, config.FirecrackerFileSystem, config.FirecrackerIPPrefix)
 	default:
 		logrus.Fatal("Unsupported sandbox type.")
 	}

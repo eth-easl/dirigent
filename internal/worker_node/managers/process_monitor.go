@@ -17,7 +17,8 @@ type ProcessMonitor struct {
 func NewProcessMonitor() *ProcessMonitor {
 	cn, err := garlic.DialPCNWithEvents([]garlic.EventType{garlic.ProcEventExit})
 	if err != nil {
-		logrus.Debug(err)
+		// kill worker node daemon if process monitor doesn't start
+		logrus.Fatal(err)
 		return nil
 	}
 

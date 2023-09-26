@@ -6,15 +6,17 @@ import (
 	"github.com/sirupsen/logrus"
 	"os"
 	"os/exec"
+	"syscall"
 )
 
 type VMControlStructure struct {
 	Context context.Context
-	cancel  context.CancelFunc
 
 	vm      *firecracker.Machine
 	config  *firecracker.Config
 	tapLink *TAPLink
+
+	SandboxID string
 
 	KernelPath     string
 	FileSystemPath string
@@ -31,11 +33,11 @@ func getVMCommandBuild(vmcs *VMControlStructure) *exec.Cmd {
 		Build(vmcs.Context)
 }
 
-func StartFirecrackerVM(vmcs *VMControlStructure) bool {
+func StartFirecrackerVM(vmcs *VMControlStructure) error {
 	err := createTAPDevice(vmcs)
 	if err != nil {
 		logrus.Error("Error setting up network for a microVM - ", err)
-		return false
+		return err
 	}
 
 	makeFirecrackerConfig(vmcs)
@@ -50,7 +52,7 @@ func StartFirecrackerVM(vmcs *VMControlStructure) bool {
 	)
 	if err != nil {
 		logrus.Fatal(err)
-		return false
+		return err
 	}
 
 	vmcs.vm = machine
@@ -60,14 +62,18 @@ func StartFirecrackerVM(vmcs *VMControlStructure) bool {
 	err = machine.Start(vmcs.Context)
 	if err != nil {
 		logrus.Fatal(err)
-		return false
+		return err
 	}
 
-	err = machine.Wait(vmcs.Context)
+	return err
+}
+
+func StopFirecrackerVM(vmcs *VMControlStructure) error {
+	pid, err := vmcs.vm.PID()
 	if err != nil {
-		logrus.Fatal(err)
-		return false
+		return err
 	}
 
-	return true
+	err = syscall.Kill(pid, syscall.SIGKILL)
+	return err
 }

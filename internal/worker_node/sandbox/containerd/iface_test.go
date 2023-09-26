@@ -44,16 +44,18 @@ func TestCreateAContainer(t *testing.T) {
 	logrus.Info("Create container - ", time.Since(start).Microseconds(), "μs")
 
 	start = time.Now()
-	task, exitCh, ip, netns, err, _, _ := StartContainer(ctx, container, network)
+	task, _, ip, netns, err, _, _ := StartContainer(ctx, container, network)
 	assert.NoError(t, err, "Failed to start container")
 	logrus.Info("Start container - ", time.Since(start).Microseconds(), "μs")
 
 	sm := &managers.Metadata{
-		Task:        task,
-		Container:   container,
-		ExitChannel: exitCh,
-		IP:          ip,
-		NetNs:       netns,
+		RuntimeMetadata: ContainerdMetadata{
+			Task:      task,
+			Container: container,
+		},
+
+		IP:    ip,
+		NetNs: netns,
 	}
 
 	go WatchExitChannel(nil, sm)
@@ -88,15 +90,17 @@ func TestParallelCreation(t *testing.T) {
 				assert.NoError(t, err, "Failed to create a container")
 
 				start := time.Now()
-				task, exitCh, ip, netns, err, _, _ := StartContainer(ctx, container, network)
+				task, _, ip, netns, err, _, _ := StartContainer(ctx, container, network)
 				assert.NoError(t, err, "Failed to start a container")
 
 				sm := &managers.Metadata{
-					Task:        task,
-					Container:   container,
-					ExitChannel: exitCh,
-					IP:          ip,
-					NetNs:       netns,
+					RuntimeMetadata: ContainerdMetadata{
+						Task:      task,
+						Container: container,
+					},
+
+					IP:    ip,
+					NetNs: netns,
 				}
 
 				logrus.Debug("Sandbox creation took: ", time.Since(start).Milliseconds(), " ms")
@@ -140,16 +144,18 @@ func TestContainerFailureHandlerTriggering(t *testing.T) {
 	logrus.Info("Create container - ", time.Since(start).Microseconds(), "μs")
 
 	start = time.Now()
-	task, exitCh, ip, netns, err, _, _ := StartContainer(ctx, container, network)
+	task, _, ip, netns, err, _, _ := StartContainer(ctx, container, network)
 	assert.NoError(t, err, "Failed to start container")
 	logrus.Info("Start container - ", time.Since(start).Microseconds(), "μs")
 
 	sm := &managers.Metadata{
-		Task:        task,
-		Container:   container,
-		ExitChannel: exitCh,
-		IP:          ip,
-		NetNs:       netns,
+		RuntimeMetadata: ContainerdMetadata{
+			Task:      task,
+			Container: container,
+		},
+
+		IP:    ip,
+		NetNs: netns,
 
 		ExitStatusChannel: make(chan uint32),
 	}

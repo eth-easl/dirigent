@@ -30,6 +30,13 @@ type ContainerdRuntime struct {
 	ProcessMonitor *managers.ProcessMonitor
 }
 
+type ContainerdMetadata struct {
+	managers.RuntimeMetadata
+
+	Task      containerd.Task
+	Container containerd.Container
+}
+
 func NewContainerdRuntime(cpApi proto.CpiInterfaceClient, config config.WorkerNodeConfig, imageManager *ImageManager, sandboxManager *managers.SandboxManager, processMonitor *managers.ProcessMonitor) *ContainerdRuntime {
 	containerdClient := GetContainerdClient(config.CRIPath)
 
@@ -81,7 +88,7 @@ func (cr *ContainerdRuntime) CreateSandbox(grpcCtx context.Context, in *proto.Se
 		return &proto.SandboxCreationStatus{Success: false}, err
 	}
 
-	task, exitChannel, ip, netNs, err, durationContainerStart, durationCNI := StartContainer(ctx, container, cr.CNIClient)
+	task, _, ip, netNs, err, durationContainerStart, durationCNI := StartContainer(ctx, container, cr.CNIClient)
 	if err != nil {
 		logrus.Warn("Failed starting a container - ", err)
 		return &proto.SandboxCreationStatus{Success: false}, err
@@ -90,13 +97,15 @@ func (cr *ContainerdRuntime) CreateSandbox(grpcCtx context.Context, in *proto.Se
 	metadata := &managers.Metadata{
 		ServiceName: in.Name,
 
-		Task:        task,
-		Container:   container,
-		ExitChannel: exitChannel,
-		HostPort:    AssignRandomPort(),
-		IP:          ip,
-		GuestPort:   int(in.PortForwarding.GuestPort),
-		NetNs:       netNs,
+		RuntimeMetadata: ContainerdMetadata{
+			Task:      task,
+			Container: container,
+		},
+
+		HostPort:  AssignRandomPort(),
+		IP:        ip,
+		GuestPort: int(in.PortForwarding.GuestPort),
+		NetNs:     netNs,
 
 		ExitStatusChannel: make(chan uint32),
 	}
@@ -116,7 +125,9 @@ func (cr *ContainerdRuntime) CreateSandbox(grpcCtx context.Context, in *proto.Se
 
 	in.PortForwarding.HostPort = int32(metadata.HostPort)
 
-	go WatchExitChannel(cr.cpApi, metadata)
+	go WatchExitChannel(cr.cpApi, metadata, func(metadata *managers.Metadata) string {
+		return metadata.RuntimeMetadata.(ContainerdMetadata).Container.ID()
+	})
 
 	return &proto.SandboxCreationStatus{
 		Success:      true,

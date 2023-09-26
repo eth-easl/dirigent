@@ -3,7 +3,6 @@ package managers
 import (
 	"cluster_manager/api/proto"
 	"cluster_manager/pkg/atomic_map"
-	"github.com/containerd/containerd"
 )
 
 type SandboxManager struct {
@@ -12,16 +11,17 @@ type SandboxManager struct {
 	nodeName string
 }
 
+type RuntimeMetadata interface{}
+
 type Metadata struct {
 	ServiceName string
 
-	Task        containerd.Task
-	Container   containerd.Container
-	ExitChannel <-chan containerd.ExitStatus
-	HostPort    int
-	IP          string
-	GuestPort   int
-	NetNs       string
+	RuntimeMetadata RuntimeMetadata
+
+	HostPort  int
+	IP        string
+	GuestPort int
+	NetNs     string
 
 	ExitStatusChannel chan uint32
 }

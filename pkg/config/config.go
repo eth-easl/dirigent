@@ -38,6 +38,10 @@ type WorkerNodeConfig struct {
 	CRIPath          string `mapstructure:"criPath"`
 	CNIConfigPath    string `mapstructure:"cniConfigPath"`
 	PrefetchImage    bool   `mapstructure:"prefetchImage"`
+
+	FirecrackerKernel     string `mapstructure:"firecrackerKernel"`
+	FirecrackerFileSystem string `mapstructure:"firecrackerFileSystem"`
+	FirecrackerIPPrefix   string `mapstructure:"firecrackerIPPrefix"`
 }
 
 type ProfilerConfig struct {

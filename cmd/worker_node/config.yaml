@@ -2,7 +2,11 @@ controlPlaneIp: "localhost"
 controlPlanePort: "9090"
 port: "10010"
 verbosity: "trace"
-criType: "containerd"
+criType: "firecracker"
 criPath: "/run/containerd/containerd.sock"
 cniConfigPath: "configs/cni.conf"
 prefetchImage: true
+
+firecrackerKernel: "/home/lcvetkovic/projects/cluster_manager/configs/vmlinux.bin"
+firecrackerFileSystem: "/home/lcvetkovic/projects/dandelion_experiments/servers/firecracker/image/rootfs.ext4"
+firecrackerIPPrefix: "169.254"
