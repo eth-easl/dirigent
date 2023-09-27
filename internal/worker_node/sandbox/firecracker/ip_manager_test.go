@@ -26,7 +26,7 @@ func TestGetUniqueValue(t *testing.T) {
 	barrier.Wait()
 
 	computedSum := atomic.LoadUint32(&sum)
-	expectedSum := uint32(tries * (tries - 1)) // sum of all even numbers
+	expectedSum := uint32(2 * tries * (tries - 1)) // sum of all even numbers
 	if computedSum != expectedSum {
 		t.Error("Bad IP manager. Concurrency error.")
 	}
@@ -38,14 +38,14 @@ func TestIPAddressGeneration(t *testing.T) {
 	ipm := &IPManager{}
 	barrier := &sync.WaitGroup{}
 
-	tries := 256 + rand.Intn(255)*256
+	tries := 256 + rand.Intn(32)*256
 
 	barrier.Add(tries)
 	for i := 0; i < tries; i++ {
 		go func() {
-			c, d := ipm.generateRawIP()
+			c, d := ipm.generateRawGatewayIP()
 
-			if c > 255 || d == 0 || d == 256 {
+			if c > 255 || d%4 != 0 {
 				t.Errorf("Invalid IP address received - x.x.%d.%d", c, d)
 			}
 

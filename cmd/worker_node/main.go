@@ -10,7 +10,6 @@ import (
 	"cluster_manager/pkg/utils"
 	"context"
 	"flag"
-	"os"
 	"os/signal"
 	"strconv"
 	"syscall"
@@ -25,10 +24,6 @@ var (
 
 func main() {
 	flag.Parse()
-
-	//////////////////////// TODO: FIX BEFORE MERGING THE PR ////////////////////////
-	os.Setenv("PATH", os.Getenv("PATH")+":/usr/local/bin/firecracker")
-	//////////////////////// TODO: FIX BEFORE MERGING THE PR ////////////////////////
 
 	logrus.Debugf("Configuration path is : %s", *configPath)
 

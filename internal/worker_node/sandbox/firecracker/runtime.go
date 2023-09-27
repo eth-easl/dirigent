@@ -117,7 +117,7 @@ func (fcr *Runtime) CreateSandbox(_ context.Context, in *proto.ServiceInfo) (*pr
 	}, nil
 }
 
-func (fcr *Runtime) DeleteSandbox(ctx context.Context, in *proto.SandboxID) (*proto.ActionStatus, error) {
+func (fcr *Runtime) DeleteSandbox(_ context.Context, in *proto.SandboxID) (*proto.ActionStatus, error) {
 	metadata := fcr.SandboxManager.DeleteSandbox(in.ID)
 	if metadata == nil {
 		logrus.Warn("Tried to delete non-existing sandbox ", in.ID)
@@ -142,7 +142,7 @@ func (fcr *Runtime) DeleteSandbox(ctx context.Context, in *proto.SandboxID) (*pr
 	return &proto.ActionStatus{Success: true}, nil
 }
 
-func (fcr *Runtime) ListEndpoints(ctx context.Context, _ *emptypb.Empty) (*proto.EndpointsList, error) {
+func (fcr *Runtime) ListEndpoints(_ context.Context, _ *emptypb.Empty) (*proto.EndpointsList, error) {
 	return fcr.SandboxManager.ListEndpoints()
 }
 
