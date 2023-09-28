@@ -3,7 +3,7 @@ module cluster_manager
 go 1.20
 
 require (
-	github.com/containerd/containerd v1.5.7
+	github.com/containerd/containerd v1.5.17
 	github.com/containerd/go-cni v1.1.9
 	github.com/coreos/go-iptables v0.6.0
 	github.com/cznic/mathutil v0.0.0-20181122101859-297441e03548
@@ -20,6 +20,7 @@ require (
 	github.com/stretchr/testify v1.8.4
 	go.uber.org/mock v0.2.0
 	golang.org/x/net v0.12.0
+	golang.org/x/sys v0.10.0
 	gonum.org/v1/gonum v0.13.0
 	google.golang.org/grpc v1.46.0-dev
 	google.golang.org/protobuf v1.28.1
@@ -34,7 +35,7 @@ require (
 	github.com/containerd/cgroups v1.1.0 // indirect
 	github.com/containerd/continuity v0.4.1 // indirect
 	github.com/containerd/fifo v1.1.0 // indirect
-	github.com/containerd/ttrpc v1.0.2 // indirect
+	github.com/containerd/ttrpc v1.1.0 // indirect
 	github.com/containerd/typeurl v1.0.2 // indirect
 	github.com/containernetworking/cni v1.1.2 // indirect
 	github.com/containernetworking/plugins v1.0.1 // indirect
@@ -96,7 +97,6 @@ require (
 	golang.org/x/exp v0.0.0-20230725093048-515e97ebf090 // indirect
 	golang.org/x/mod v0.12.0 // indirect
 	golang.org/x/sync v0.3.0 // indirect
-	golang.org/x/sys v0.10.0 // indirect
 	golang.org/x/text v0.11.0 // indirect
 	golang.org/x/tools v0.11.0 // indirect
 	google.golang.org/genproto v0.0.0-20210602131652-f16073e35f0c // indirect
