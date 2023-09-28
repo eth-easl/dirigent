@@ -1,6 +1,7 @@
 #!/bin/bash
 
 sudo apt-get update
+sudo apt-get install git-lfs
 
 # Install Golang
 if [ -x "$(command -v go)" ]; then
@@ -15,7 +16,10 @@ fi
 # Install Docker
 sudo curl -L "https://github.com/docker/compose/releases/download/1.29.2/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose
 sudo chmod +x /usr/local/bin/docker-compose
-sudo apt-get install -y docker.io git-lfs
+sudo apt-get install -y docker.io
+sudo groupadd docker
+sudo usermod -aG docker $USER
+newgrp docker
 
 # Install CNI
 K8S_VERSION=1.23.5-00

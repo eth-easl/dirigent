@@ -39,7 +39,7 @@ function SetupDataPlane() {
 
 function SetupWorkerNodes() {
     ARGS="--configPath cmd/worker_node/config_cluster.yaml"
-    CMD="cd ~/cluster_manager; sudo env 'PATH=\$PATH' /usr/local/go/bin/go run cmd/worker_node/main.go ${ARGS}"
+    CMD="cd ~/cluster_manager; sudo env 'PATH=\$PATH:/usr/local/bin/firecracker' /usr/local/go/bin/go run cmd/worker_node/main.go ${ARGS}"
 
     function internal_setup() {
         # LFS pull for VM kernel image and rootfs
