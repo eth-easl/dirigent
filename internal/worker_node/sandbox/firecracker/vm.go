@@ -24,13 +24,18 @@ type VMControlStructure struct {
 }
 
 func getVMCommandBuild(vmcs *VMControlStructure) *exec.Cmd {
-	return firecracker.VMCommandBuilder{}.
+	vmCommandBuild := firecracker.VMCommandBuilder{}.
 		WithBin("firecracker").
 		WithSocketPath(vmcs.config.SocketPath).
-		WithStdin(os.Stdin).
-		WithStdout(os.Stdout).
-		WithStderr(os.Stderr).
-		Build(vmcs.Context)
+		WithStderr(os.Stderr)
+
+	if logrus.GetLevel() != logrus.InfoLevel {
+		vmCommandBuild = vmCommandBuild.
+			WithStdin(os.Stdin).
+			WithStdout(os.Stdout)
+	}
+
+	return vmCommandBuild.Build(vmcs.Context)
 }
 
 func StartFirecrackerVM(vmcs *VMControlStructure) error {
@@ -50,13 +55,14 @@ func StartFirecrackerVM(vmcs *VMControlStructure) error {
 	makeFirecrackerConfig(vmcs)
 
 	logger := logrus.New()
-	logger.SetLevel(logrus.DebugLevel)
+	logger.SetLevel(logrus.GetLevel())
 
-	machine, err := firecracker.NewMachine(vmcs.Context,
-		*vmcs.config,
-		firecracker.WithLogger(logrus.NewEntry(logger)),
-		firecracker.WithProcessRunner(getVMCommandBuild(vmcs)),
-	)
+	newMachineOpts := []firecracker.Opt{firecracker.WithProcessRunner(getVMCommandBuild(vmcs))}
+	if logrus.GetLevel() != logrus.InfoLevel {
+		newMachineOpts = append(newMachineOpts, firecracker.WithLogger(logrus.NewEntry(logger)))
+	}
+
+	machine, err := firecracker.NewMachine(vmcs.Context, *vmcs.config, newMachineOpts...)
 	if err != nil {
 		logrus.Fatal(err)
 		return err

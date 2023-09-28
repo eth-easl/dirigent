@@ -26,7 +26,10 @@ func makeFirecrackerConfig(vmcs *VMControlStructure) {
 		logrus.Fatal("Network must be created before creating a Firecracker config.")
 	}
 
-	kernelArgs := "panic=1 pci=off nomodules reboot=k tsc=reliable quiet i8042.noaux ipv6.disable=1 console=ttyS0 random.trust_cpu=on"
+	kernelArgs := "panic=1 pci=off nomodules reboot=k tsc=reliable quiet i8042.nokbd i8042.noaux 8250.nr_uarts=0 ipv6.disable=1"
+	if logrus.GetLevel() != logrus.InfoLevel {
+		kernelArgs = "panic=1 pci=off nomodules reboot=k tsc=reliable quiet i8042.noaux ipv6.disable=1 console=ttyS0 random.trust_cpu=on"
+	}
 	kernelArgs += fmt.Sprintf(" ip=%s::%s:255.255.255.252::eth0:off", vmcs.tapLink.VMIP, vmcs.tapLink.IP)
 
 	vmcs.config = &firecracker.Config{
@@ -47,6 +50,7 @@ func makeFirecrackerConfig(vmcs *VMControlStructure) {
 				MacAddress:  vmcs.tapLink.MAC,
 			},
 		}},
+		// TODO: add resource requests/limits
 		MachineCfg: models.MachineConfiguration{
 			MemSizeMib: firecracker.Int64(256),
 			VcpuCount:  firecracker.Int64(2),
