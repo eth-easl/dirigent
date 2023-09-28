@@ -4,9 +4,9 @@ port: "10010"
 verbosity: "trace"
 criType: "firecracker"
 criPath: "/run/containerd/containerd.sock"
-cniConfigPath: "../../configs/cni.conf"
-prefetchImage: false
+cniConfigPath: "configs/cni.conf"
+prefetchImage: true
 
-firecrackerKernel: "/home/lcvetkovic/projects/cluster_manager/configs/firecracker/vmlinux.bin"
-firecrackerFileSystem: "/home/lcvetkovic/projects/cluster_manager/configs/firecracker/rootfs.ext4"
+firecrackerKernel: "configs/firecracker/vmlinux.bin"
+firecrackerFileSystem: "configs/firecracker/rootfs.ext4"
 firecrackerIPPrefix: "169.254"
