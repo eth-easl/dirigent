@@ -1,5 +1,7 @@
 #!/bin/bash
 
+sudo apt-get update
+
 # Install Golang
 if [ -x "$(command -v go)" ]; then
     echo "Go has already been installed"
