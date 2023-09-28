@@ -20,8 +20,8 @@ for l in load:
     data = data.drop(columns=['time_x', 'time_y', 'success', 'service_name', 'container_id'])
 
     data['control_plane'] = data['cold_start'] - \
-                            (data['image_fetch'] + data['container_create'] + data['container_start'] +
-                             data['cni'] + data['iptables'] + data['db'] + data['other_worker_node'])
+                            (data['image_fetch'] + data['sandbox_create'] + data['sandbox_start'] +
+                             data['network_setup'] + data['iptables'] + data['db'] + data['other_worker_node'])
     data = data.drop(columns=['cold_start'])
 
     hist = []

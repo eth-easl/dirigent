@@ -134,12 +134,12 @@ func (cr *ContainerdRuntime) CreateSandbox(grpcCtx context.Context, in *proto.Se
 		ID:           container.ID(),
 		PortMappings: in.PortForwarding,
 		LatencyBreakdown: &proto.SandboxCreationBreakdown{
-			Total:           durationpb.New(time.Since(start)),
-			ImageFetch:      durationpb.New(durationFetch),
-			ContainerCreate: durationpb.New(durationContainerCreation),
-			CNI:             durationpb.New(durationCNI),
-			ContainerStart:  durationpb.New(durationContainerStart),
-			Iptables:        durationpb.New(durationIptables),
+			Total:         durationpb.New(time.Since(start)),
+			ImageFetch:    durationpb.New(durationFetch),
+			SandboxCreate: durationpb.New(durationContainerCreation),
+			NetworkSetup:  durationpb.New(durationCNI),
+			SandboxStart:  durationpb.New(durationContainerStart),
+			Iptables:      durationpb.New(durationIptables),
 		},
 	}, nil
 }

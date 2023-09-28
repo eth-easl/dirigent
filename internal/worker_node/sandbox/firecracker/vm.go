@@ -7,6 +7,7 @@ import (
 	"os"
 	"os/exec"
 	"syscall"
+	"time"
 )
 
 type VMControlStructure struct {
@@ -38,12 +39,15 @@ func getVMCommandBuild(vmcs *VMControlStructure) *exec.Cmd {
 	return vmCommandBuild.Build(vmcs.Context)
 }
 
-func StartFirecrackerVM(vmcs *VMControlStructure) error {
+func StartFirecrackerVM(vmcs *VMControlStructure) (error, time.Duration, time.Duration, time.Duration) {
+	startTAP := time.Now()
 	err := createTAPDevice(vmcs)
 	if err != nil {
 		logrus.Error("Error setting up network for a microVM - ", err)
-		return err
+		return err, time.Since(startTAP), time.Duration(0), time.Duration(0)
 	}
+	tapEnd := time.Since(startTAP)
+	logrus.Debug("TAP creation time: ", tapEnd.Milliseconds(), " ms")
 
 	logrus.Debugf("VM %s allocated host IP = %s, VM IP = %s, MAC = %s",
 		vmcs.SandboxID,
@@ -52,11 +56,12 @@ func StartFirecrackerVM(vmcs *VMControlStructure) error {
 		vmcs.tapLink.MAC,
 	)
 
-	makeFirecrackerConfig(vmcs)
-
 	logger := logrus.New()
 	logger.SetLevel(logrus.GetLevel())
 
+	startVMCreation := time.Now()
+
+	makeFirecrackerConfig(vmcs)
 	newMachineOpts := []firecracker.Opt{firecracker.WithProcessRunner(getVMCommandBuild(vmcs))}
 	if logrus.GetLevel() != logrus.InfoLevel {
 		newMachineOpts = append(newMachineOpts, firecracker.WithLogger(logrus.NewEntry(logger)))
@@ -65,20 +70,27 @@ func StartFirecrackerVM(vmcs *VMControlStructure) error {
 	machine, err := firecracker.NewMachine(vmcs.Context, *vmcs.config, newMachineOpts...)
 	if err != nil {
 		logrus.Fatal(err)
-		return err
+		return err, tapEnd, time.Since(startVMCreation), time.Duration(0)
 	}
-
 	vmcs.vm = machine
 
+	vmCreateEnd := time.Since(startVMCreation)
+	logrus.Debug("VM creation time: ", vmCreateEnd.Milliseconds(), " ms")
+
 	logrus.Debug("Starting VM with IP = ", vmcs.tapLink.IP, " (MAC = ", vmcs.tapLink.MAC, ")")
+
+	timeVMStart := time.Now()
 
 	err = machine.Start(vmcs.Context)
 	if err != nil {
 		logrus.Fatal(err)
-		return err
+		return err, tapEnd, vmCreateEnd, time.Since(timeVMStart)
 	}
 
-	return err
+	vmStartEnd := time.Since(timeVMStart)
+	logrus.Debug("VM starting time: ", vmStartEnd.Milliseconds(), " ms")
+
+	return err, tapEnd, vmCreateEnd, vmStartEnd
 }
 
 func StopFirecrackerVM(vmcs *VMControlStructure) error {

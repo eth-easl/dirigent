@@ -31,4 +31,3 @@ curl -L ${release_url}/download/${latest}/firecracker-${latest}-${ARCH}.tgz \
 sudo mv release-${latest}-$(uname -m) /usr/local/bin/firecracker
 sudo mv /usr/local/bin/firecracker/firecracker-${latest}-${ARCH} /usr/local/bin/firecracker/firecracker
 sudo sh -c  "echo 'export PATH=\$PATH:/usr/local/bin/firecracker' >> /etc/profile"
-

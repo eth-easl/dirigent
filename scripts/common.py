@@ -24,8 +24,8 @@ def getResult(load, rootPath):
         data = data.drop(columns=['time_x', 'time_y', 'success', 'service_name', 'container_id'])
 
         data['control_plane'] = data['cold_start'] - \
-                                (data['image_fetch'] + data['container_create'] + data['container_start'] +
-                                 data['cni'] + data['iptables'] + data['other_worker_node'] + data['data_plane_propagation'])
+                                (data['image_fetch'] + data['sandbox_create'] + data['sandbox_start'] +
+                                 data['network_setup'] + data['iptables'] + data['other_worker_node'] + data['data_plane_propagation'])
         data = data.drop(columns=['cold_start'])
 
         p50 = data.quantile(0.5)

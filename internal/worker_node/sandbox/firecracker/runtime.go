@@ -66,7 +66,7 @@ func (fcr *Runtime) CreateSandbox(_ context.Context, in *proto.ServiceInfo) (*pr
 		SandboxID: fmt.Sprintf("firecracker-%d", rand.Int()),
 	}
 
-	err := StartFirecrackerVM(vmcs)
+	err, tapCreation, vmCreate, vmStart := StartFirecrackerVM(vmcs)
 	if err != nil {
 		return &proto.SandboxCreationStatus{Success: false}, err
 	}
@@ -102,17 +102,19 @@ func (fcr *Runtime) CreateSandbox(_ context.Context, in *proto.ServiceInfo) (*pr
 
 	in.PortForwarding.HostPort = int32(metadata.HostPort)
 
+	logrus.Debug("Worker node part: ", time.Since(start))
+
 	return &proto.SandboxCreationStatus{
 		Success:      true,
 		ID:           vmcs.SandboxID,
 		PortMappings: in.PortForwarding,
 		LatencyBreakdown: &proto.SandboxCreationBreakdown{
-			Total:           durationpb.New(time.Since(start)),
-			ImageFetch:      durationpb.New(0),
-			ContainerCreate: durationpb.New(0),
-			CNI:             durationpb.New(0),
-			ContainerStart:  durationpb.New(0),
-			Iptables:        durationpb.New(iptablesDuration),
+			Total:         durationpb.New(time.Since(start)),
+			ImageFetch:    durationpb.New(0),
+			SandboxCreate: durationpb.New(vmCreate),
+			NetworkSetup:  durationpb.New(tapCreation),
+			SandboxStart:  durationpb.New(vmStart),
+			Iptables:      durationpb.New(iptablesDuration),
 		},
 	}, nil
 }

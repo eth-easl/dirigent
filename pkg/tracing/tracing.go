@@ -12,7 +12,7 @@ import (
 )
 
 const (
-	coldStartLogHeader = "time,service_name,container_id,success,image_fetch,container_create,container_start,cni,iptables,data_plane_propagation,other_worker_node\n"
+	coldStartLogHeader = "time,service_name,container_id,success,image_fetch,sandbox_create,sandbox_start,network_setup,iptables,data_plane_propagation,other_worker_node\n"
 	proxyLogHeader     = "time,service_name,container_id,get_metadata,cold_start,cold_start_pause,load_balancing,cc_throttling,proxying,other\n"
 )
 
@@ -117,8 +117,8 @@ func CreateFileIfNotExist(path string) *os.File {
 func coldStartWriteFunction(f *os.File, msg ColdStartLogEntry) {
 	// DB should not be included in 'other' as 'LatencyBreakdown.Total' is only the worker node part
 	other := msg.LatencyBreakdown.Total.AsDuration() - (msg.LatencyBreakdown.ImageFetch.AsDuration() +
-		msg.LatencyBreakdown.ContainerCreate.AsDuration() + msg.LatencyBreakdown.ContainerStart.AsDuration() +
-		msg.LatencyBreakdown.CNI.AsDuration() + msg.LatencyBreakdown.Iptables.AsDuration())
+		msg.LatencyBreakdown.SandboxCreate.AsDuration() + msg.LatencyBreakdown.SandboxStart.AsDuration() +
+		msg.LatencyBreakdown.NetworkSetup.AsDuration() + msg.LatencyBreakdown.Iptables.AsDuration())
 
 	_, _ = f.WriteString(fmt.Sprintf("%d,%s,%s,%t,%d,%d,%d,%d,%d,%d,%d\n",
 		time.Now().UnixNano(),
@@ -126,9 +126,9 @@ func coldStartWriteFunction(f *os.File, msg ColdStartLogEntry) {
 		msg.ContainerID,
 		msg.Success,
 		msg.LatencyBreakdown.ImageFetch.AsDuration().Microseconds(),
-		msg.LatencyBreakdown.ContainerCreate.AsDuration().Microseconds(),
-		msg.LatencyBreakdown.ContainerStart.AsDuration().Microseconds(),
-		msg.LatencyBreakdown.CNI.AsDuration().Microseconds(),
+		msg.LatencyBreakdown.SandboxCreate.AsDuration().Microseconds(),
+		msg.LatencyBreakdown.SandboxStart.AsDuration().Microseconds(),
+		msg.LatencyBreakdown.NetworkSetup.AsDuration().Microseconds(),
 		msg.LatencyBreakdown.Iptables.AsDuration().Microseconds(),
 		msg.LatencyBreakdown.DataplanePropagation.AsDuration().Microseconds(),
 		other.Microseconds(),

@@ -22,6 +22,8 @@ type TAPLink struct {
 }
 
 func createTAPDevice(vmcs *VMControlStructure) error {
+	// TODO: make a pool of TAPs and remove TAP creation from the critical path
+
 	ip, vmip, mac := vmcs.IpManager.GenerateIPMACPair()
 	dev := fmt.Sprintf("%s%d%s", tapDevicePrefix, rand.Int()%1_000_000, tapDeviceSuffix)
 
