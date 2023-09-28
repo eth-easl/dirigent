@@ -10,5 +10,6 @@ scripts/__pycache__/
 cmd/test
 
 # This is not to allow non-explicit updates to Linux kernel image and Rootfs image
+configs/firecracker/app
 configs/firecracker/rootfs.ext4
 configs/firecracker/vmlinux.bin
