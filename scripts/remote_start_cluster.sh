@@ -39,10 +39,11 @@ function SetupDataPlane() {
 
 function SetupWorkerNodes() {
     ARGS="--configPath cmd/worker_node/config_cluster.yaml"
-    CMD="cd ~/cluster_manager; sudo /usr/local/go/bin/go run cmd/worker_node/main.go ${ARGS}"
+    CMD="cd ~/cluster_manager; sudo env 'PATH=\$PATH' /usr/local/go/bin/go run cmd/worker_node/main.go ${ARGS}"
 
     function internal_setup() {
-        RemoteExec $1 "cd ~/cluster_manager; git pull"
+        # LFS pull for VM kernel image and rootfs
+        RemoteExec $1 "cd ~/cluster_manager; git pull; git lfs pull"
         RemoteExec $1 "tmux kill-session -t worker_daemon"
         RemoteExec $1 "tmux new -s worker_daemon -d"
 
