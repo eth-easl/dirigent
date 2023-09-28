@@ -1,0 +1,2 @@
+*.bin filter=lfs diff=lfs merge=lfs -text
+*.ext4 filter=lfs diff=lfs merge=lfs -text

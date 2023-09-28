@@ -7,7 +7,7 @@ persistence: false
 reconstruct: false
 
 profiler:
-  enable: true
+  enable: false
   mutex: false
 
 redis:

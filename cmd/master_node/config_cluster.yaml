@@ -3,11 +3,11 @@ portRegistration: "9091"
 verbosity: "trace"
 traceOutputFolder: "data"
 placementPolicy: "random"
-persistence: true
-reconstruct: true
+persistence: false
+reconstruct: false
 
 profiler:
-  enable: true
+  enable: false
   mutex: false
 
 redis:
