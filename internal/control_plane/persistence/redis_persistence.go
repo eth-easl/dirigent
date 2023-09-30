@@ -114,10 +114,10 @@ func (driver *RedisClient) StoreWorkerNodeInformation(ctx context.Context, worke
 	return driver.RedisClient.HSet(ctx, key, "data", data).Err()
 }
 
-func (driver *RedisClient) DeleteWorkerNodeInformation(ctx context.Context, workerNodeInfo *proto.WorkerNodeInformation) error {
+func (driver *RedisClient) DeleteWorkerNodeInformation(ctx context.Context, name string) error {
 	logrus.Trace("delete worker node information in the database")
 
-	key := fmt.Sprintf("%s:%s", workerPrefix, workerNodeInfo.Name)
+	key := fmt.Sprintf("%s:%s", workerPrefix, name)
 
 	return driver.RedisClient.Del(ctx, key, "data").Err()
 }

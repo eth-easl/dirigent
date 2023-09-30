@@ -104,7 +104,8 @@ func StartServiceRegistrationServer(cpApi *api.CpApiServer, registrationPort str
 		endpointList := ""
 
 		cnt := 0
-		for _, conn := range cpApi.ControlPlane.DataPlaneConnections.Values() {
+		cpApi.ControlPlane.DataPlaneConnections.RLock()
+		for _, conn := range cpApi.ControlPlane.DataPlaneConnections.GetMap() {
 			setDelimiter := cnt != cpApi.ControlPlane.DataPlaneConnections.Len()-1
 			delimiter := ""
 
@@ -116,6 +117,7 @@ func StartServiceRegistrationServer(cpApi *api.CpApiServer, registrationPort str
 
 			cnt++
 		}
+		cpApi.ControlPlane.DataPlaneConnections.RUnlock()
 
 		_, err = w.Write([]byte(endpointList))
 		if err != nil {

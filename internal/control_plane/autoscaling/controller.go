@@ -14,7 +14,7 @@ type PFStateController struct {
 	EndpointLock sync.Mutex
 
 	AutoscalingRunning  int32
-	DesiredStateChannel *chan int
+	DesiredStateChannel chan int
 
 	ScalingMetadata AutoscalingMetadata
 	Endpoints       []*core.Endpoint
@@ -22,7 +22,7 @@ type PFStateController struct {
 	Period time.Duration
 }
 
-func NewPerFunctionStateController(scalingChannel *chan int, serviceInfo *proto.ServiceInfo) *PFStateController {
+func NewPerFunctionStateController(scalingChannel chan int, serviceInfo *proto.ServiceInfo) *PFStateController {
 	return &PFStateController{
 		DesiredStateChannel: scalingChannel,
 		Period:              2 * time.Second, // TODO: hardcoded autoscaling period for now
@@ -52,7 +52,7 @@ func (as *PFStateController) ScalingLoop() {
 		desiredScale := as.ScalingMetadata.KnativeScaling(isScaleFromZero)
 		logrus.Debug("Desired scale: ", desiredScale)
 
-		*as.DesiredStateChannel <- desiredScale
+		as.DesiredStateChannel <- desiredScale
 
 		isScaleFromZero = false
 

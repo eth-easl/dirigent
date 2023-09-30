@@ -8,8 +8,8 @@ import (
 	"cluster_manager/internal/control_plane/workers"
 	"cluster_manager/mock/mock_core"
 	"cluster_manager/mock/mock_persistence"
-	"cluster_manager/pkg/atomic_map"
 	"cluster_manager/pkg/config"
+	"cluster_manager/pkg/synchronization"
 	"context"
 	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
@@ -291,22 +291,22 @@ func TestHandleNodeFailure(t *testing.T) {
 	wn1 := &workers.WorkerNode{Name: "node1"}
 	wn2 := &workers.WorkerNode{Name: "node2"}
 
-	wep1 := atomic_map.NewAtomicMap[string, *atomic_map.AtomicMap[*core.Endpoint, string]]()
+	wep1 := synchronization.NewControlPlaneSyncStructure[string, synchronization.SyncStructure[*core.Endpoint, string]]()
 	ss1 := &ServiceInfoStorage{ServiceInfo: &proto.ServiceInfo{Name: "service1"}, WorkerEndpoints: wep1}
 
-	wep2 := atomic_map.NewAtomicMap[string, *atomic_map.AtomicMap[*core.Endpoint, string]]()
+	wep2 := synchronization.NewControlPlaneSyncStructure[string, synchronization.SyncStructure[*core.Endpoint, string]]()
 	ss2 := &ServiceInfoStorage{ServiceInfo: &proto.ServiceInfo{Name: "service2"}, WorkerEndpoints: wep2}
 
-	wep1.Set(wn1.Name, atomic_map.NewAtomicMap[*core.Endpoint, string]())
+	wep1.Set(wn1.Name, synchronization.NewControlPlaneSyncStructure[*core.Endpoint, string]())
 	d, _ := wep1.Get(wn1.Name)
 	d.Set(&core.Endpoint{SandboxID: "sandbox1", Node: wn1}, ss1.ServiceInfo.Name)
 	d.Set(&core.Endpoint{SandboxID: "sandbox2", Node: wn1}, ss1.ServiceInfo.Name)
 
-	wep1.Set(wn2.Name, atomic_map.NewAtomicMap[*core.Endpoint, string]())
+	wep1.Set(wn2.Name, synchronization.NewControlPlaneSyncStructure[*core.Endpoint, string]())
 	d, _ = wep1.Get(wn2.Name)
 	d.Set(&core.Endpoint{SandboxID: "sandbox3", Node: wn2}, ss2.ServiceInfo.Name)
 
-	wep2.Set(wn1.Name, atomic_map.NewAtomicMap[*core.Endpoint, string]())
+	wep2.Set(wn1.Name, synchronization.NewControlPlaneSyncStructure[*core.Endpoint, string]())
 	d, _ = wep2.Get(wn1.Name)
 	d.Set(&core.Endpoint{SandboxID: "sandbox4", Node: wn1}, ss1.ServiceInfo.Name)
 

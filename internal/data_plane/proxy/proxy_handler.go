@@ -56,7 +56,7 @@ func (ps *ProxyingService) StartProxyServer() {
 
 	err := server.ListenAndServe()
 	if err != nil {
-		logrus.Fatal("Failed to create a proxy server.")
+		logrus.Fatalf("Failed to create a proxy server : (err : %s)", err.Error())
 	}
 }
 

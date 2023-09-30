@@ -50,17 +50,17 @@ func (mr *MockPersistenceLayerMockRecorder) DeleteDataPlaneInformation(ctx, data
 }
 
 // DeleteWorkerNodeInformation mocks base method.
-func (m *MockPersistenceLayer) DeleteWorkerNodeInformation(ctx context.Context, workerNodeInfo *proto.WorkerNodeInformation) error {
+func (m *MockPersistenceLayer) DeleteWorkerNodeInformation(ctx context.Context, name string) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "DeleteWorkerNodeInformation", ctx, workerNodeInfo)
+	ret := m.ctrl.Call(m, "DeleteWorkerNodeInformation", ctx, name)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // DeleteWorkerNodeInformation indicates an expected call of DeleteWorkerNodeInformation.
-func (mr *MockPersistenceLayerMockRecorder) DeleteWorkerNodeInformation(ctx, workerNodeInfo interface{}) *gomock.Call {
+func (mr *MockPersistenceLayerMockRecorder) DeleteWorkerNodeInformation(ctx, name interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteWorkerNodeInformation", reflect.TypeOf((*MockPersistenceLayer)(nil).DeleteWorkerNodeInformation), ctx, workerNodeInfo)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteWorkerNodeInformation", reflect.TypeOf((*MockPersistenceLayer)(nil).DeleteWorkerNodeInformation), ctx, name)
 }
 
 // GetDataPlaneInformation mocks base method.

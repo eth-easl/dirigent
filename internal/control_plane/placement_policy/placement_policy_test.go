@@ -3,7 +3,8 @@ package placement_policy
 import (
 	"cluster_manager/internal/control_plane/core"
 	"cluster_manager/internal/control_plane/workers"
-	"cluster_manager/pkg/atomic_map"
+	_map "cluster_manager/pkg/map"
+	"cluster_manager/pkg/synchronization"
 	"sort"
 	"testing"
 
@@ -12,7 +13,7 @@ import (
 
 func TestRandomPolicy(t *testing.T) {
 	policy := NewRandomPolicy()
-	storage := atomic_map.NewAtomicMap[string, core.WorkerNodeInterface]()
+	storage := synchronization.NewControlPlaneSyncStructure[string, core.WorkerNodeInterface]()
 
 	storage.Set("w1", &workers.WorkerNode{})
 	storage.Set("w2", &workers.WorkerNode{})
@@ -22,13 +23,13 @@ func TestRandomPolicy(t *testing.T) {
 	for i := 0; i < 100; i++ {
 		currentStorage := policy.Place(storage, requested)
 		assert.NotNil(t, currentStorage)
-		assert.True(t, currentStorage == storage.GetUnsafe("w1") || currentStorage == storage.GetUnsafe("w2"))
+		assert.True(t, currentStorage == storage.GetNoCheck("w1") || currentStorage == storage.GetNoCheck("w2"))
 	}
 }
 
 func TestRoundRobin(t *testing.T) {
 	policy := NewRoundRobinPolicy()
-	storage := atomic_map.NewAtomicMap[string, core.WorkerNodeInterface]()
+	storage := synchronization.NewControlPlaneSyncStructure[string, core.WorkerNodeInterface]()
 
 	requested := &ResourceMap{}
 
@@ -36,24 +37,24 @@ func TestRoundRobin(t *testing.T) {
 	storage.Set("w2", &workers.WorkerNode{})
 	storage.Set("w3", &workers.WorkerNode{})
 
-	nodes := sort.StringSlice(storage.Keys())
+	nodes := sort.StringSlice(_map.Keys(storage.GetMap()))
 	nodes.Sort()
 
 	for i := 0; i < 100; i++ {
 		{
 			currentStorage := policy.Place(storage, requested)
 			assert.NotNil(t, currentStorage)
-			assert.Equal(t, currentStorage, storage.GetUnsafe(nodes[0]))
+			assert.Equal(t, currentStorage, storage.GetNoCheck(nodes[0]))
 		}
 		{
 			currentStorage := policy.Place(storage, requested)
 			assert.NotNil(t, currentStorage)
-			assert.Equal(t, currentStorage, storage.GetUnsafe(nodes[1]))
+			assert.Equal(t, currentStorage, storage.GetNoCheck(nodes[1]))
 		}
 		{
 			currentStorage := policy.Place(storage, requested)
 			assert.NotNil(t, currentStorage)
-			assert.Equal(t, currentStorage, storage.GetUnsafe(nodes[2]))
+			assert.Equal(t, currentStorage, storage.GetNoCheck(nodes[2]))
 		}
 	}
 }

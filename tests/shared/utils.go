@@ -13,7 +13,6 @@ import (
 	"net"
 	"net/http"
 	"sync"
-	"testing"
 	"time"
 
 	"github.com/sirupsen/logrus"
@@ -21,12 +20,12 @@ import (
 
 const (
 	DeployedFunctionName  string = "test"
-	ControlPlaneAddress   string = "10.0.1.2"
-	DataPlaneAddress      string = "10.0.1.3"
+	ControlPlaneAddress   string = "localhost"
+	DataPlaneAddress      string = "localhost"
 	FunctionNameFormatter string = "%s%d"
 )
 
-func DeployService(t *testing.T, nbDeploys, offset int) {
+func DeployService(nbDeploys, offset int) {
 	logrus.SetLevel(logrus.DebugLevel)
 	logrus.SetFormatter(&logrus.TextFormatter{TimestampFormat: time.StampMilli, FullTimestamp: true})
 
@@ -54,13 +53,12 @@ func DeployService(t *testing.T, nbDeploys, offset int) {
 		})
 
 		if err != nil || !resp.Success {
-			t.Error("Failed to deploy service")
 			logrus.Error("Failed to deploy service")
 		}
 	}
 }
 
-func DeployServiceTime(t *testing.T, nbDeploys, offset int) time.Duration {
+func DeployServiceTime(nbDeploys, offset int) time.Duration {
 	logrus.SetLevel(logrus.DebugLevel)
 	logrus.SetFormatter(&logrus.TextFormatter{TimestampFormat: time.StampMilli, FullTimestamp: true})
 
@@ -89,15 +87,18 @@ func DeployServiceTime(t *testing.T, nbDeploys, offset int) time.Duration {
 		})
 
 		if err != nil || !resp.Success {
-			t.Error("Failed to deploy service")
-			logrus.Error("Failed to deploy service")
+			text := ""
+			if err != nil {
+				text += err.Error()
+			}
+			logrus.Errorf("Failed to deploy service : %s", text)
 		}
 	}
 
 	return time.Since(start)
 }
 
-func PerformXInvocations(_ *testing.T, nbInvocations, offset int) {
+func PerformXInvocations(nbInvocations, offset int) {
 	wg := sync.WaitGroup{}
 	wg.Add(nbInvocations)
 
@@ -125,14 +126,7 @@ func PerformXInvocations(_ *testing.T, nbInvocations, offset int) {
 
 			resp, err := client.Do(req)
 			if err != nil {
-				logrus.Debugf("Failed to establish a HTTP connection - %v\n", err.Error())
-				return
-			}
-
-			body, err := io.ReadAll(resp.Body)
-			if err != nil || resp == nil || resp.StatusCode != http.StatusOK {
-				logrus.Debugf("HTTP timeout for function %s", functionName)
-				return
+				t.Error("Invocation failed - ", err)
 			}
 
 			logrus.Info(fmt.Sprintf("%s - %d ms", string(body), time.Since(start).Milliseconds()))

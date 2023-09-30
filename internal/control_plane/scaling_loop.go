@@ -7,7 +7,7 @@ import (
 	"cluster_manager/internal/control_plane/eviction_policy"
 	"cluster_manager/internal/control_plane/persistence"
 	placement2 "cluster_manager/internal/control_plane/placement_policy"
-	"cluster_manager/pkg/atomic_map"
+	"cluster_manager/pkg/synchronization"
 	"cluster_manager/pkg/tracing"
 	"cluster_manager/pkg/utils"
 	"context"
@@ -29,7 +29,7 @@ type ServiceInfoStorage struct {
 	PlacementPolicy  placement2.PlacementPolicy
 	PersistenceLayer persistence.PersistenceLayer
 
-	WorkerEndpoints *atomic_map.AtomicMap[string, *atomic_map.AtomicMap[*core.Endpoint, string]]
+	WorkerEndpoints synchronization.SyncStructure[string, synchronization.SyncStructure[*core.Endpoint, string]]
 
 	StartTime time.Time
 }
@@ -44,7 +44,8 @@ func (ss *ServiceInfoStorage) GetAllURLs() []string {
 	return res
 }
 
-func (ss *ServiceInfoStorage) reconstructEndpointInController(endpoint *core.Endpoint, dpiClients *atomic_map.AtomicMap[string, core.DataPlaneInterface]) {
+// Sequential code at this point - thread safe
+func (ss *ServiceInfoStorage) reconstructEndpointInController(endpoint *core.Endpoint, dpiClients synchronization.SyncStructure[string, core.DataPlaneInterface]) {
 	ss.Controller.EndpointLock.Lock()
 	defer ss.Controller.EndpointLock.Unlock()
 
@@ -54,10 +55,10 @@ func (ss *ServiceInfoStorage) reconstructEndpointInController(endpoint *core.End
 	ss.updateEndpoints(dpiClients, ss.prepareUrlList())
 }
 
-func (ss *ServiceInfoStorage) ScalingControllerLoop(nodeList *atomic_map.AtomicMap[string, core.WorkerNodeInterface], dpiClients *atomic_map.AtomicMap[string, core.DataPlaneInterface]) {
+func (ss *ServiceInfoStorage) ScalingControllerLoop(nodeList synchronization.SyncStructure[string, core.WorkerNodeInterface], dpiClients synchronization.SyncStructure[string, core.DataPlaneInterface]) {
 	for {
 		select {
-		case desiredCount := <-*ss.Controller.DesiredStateChannel:
+		case desiredCount := <-ss.Controller.DesiredStateChannel:
 			ss.Controller.EndpointLock.Lock()
 
 			swapped := false
@@ -99,7 +100,7 @@ func (ss *ServiceInfoStorage) ScalingControllerLoop(nodeList *atomic_map.AtomicM
 	}
 }
 
-func (ss *ServiceInfoStorage) doUpscaling(toCreateCount int, nodeList *atomic_map.AtomicMap[string, core.WorkerNodeInterface], dpiClients *atomic_map.AtomicMap[string, core.DataPlaneInterface]) {
+func (ss *ServiceInfoStorage) doUpscaling(toCreateCount int, nodeList synchronization.SyncStructure[string, core.WorkerNodeInterface], dpiClients synchronization.SyncStructure[string, core.DataPlaneInterface]) {
 	wg := sync.WaitGroup{}
 
 	var finalEndpoint []*core.Endpoint
@@ -160,12 +161,12 @@ func (ss *ServiceInfoStorage) doUpscaling(toCreateCount int, nodeList *atomic_ma
 			}
 
 			// Update worker node structure
-			workerEndpointMap, present := ss.WorkerEndpoints.Get(node.GetName())
+			workerEndpointMap, present := ss.WorkerEndpoints.AtomicGet(node.GetName())
 			if !present {
 				logrus.Fatal("Endpoint not present in the map")
 			}
 
-			workerEndpointMap.Set(newEndpoint, ss.ServiceInfo.Name)
+			workerEndpointMap.AtomicSet(newEndpoint, ss.ServiceInfo.Name)
 
 			finalEndpoint = append(finalEndpoint, newEndpoint)
 
@@ -205,17 +206,19 @@ func (ss *ServiceInfoStorage) doUpscaling(toCreateCount int, nodeList *atomic_ma
 
 func (ss *ServiceInfoStorage) removeEndpointFromWNStruct(e *core.Endpoint) {
 	// Update worker node structure
-	worker, present := ss.WorkerEndpoints.Get(e.Node.GetName())
+	ss.WorkerEndpoints.Lock()
+	worker, present := ss.WorkerEndpoints.AtomicGet(e.Node.GetName())
 	if !present {
 		logrus.Error("Endpoint not present in the map.")
 	}
-	worker.Delete(e)
+	worker.AtomicRemove(e)
+	ss.WorkerEndpoints.Unlock()
 }
 
-func (ss *ServiceInfoStorage) doDownscaling(toEvict map[*core.Endpoint]struct{}, urls []*proto.EndpointInfo, dpiClients *atomic_map.AtomicMap[string, core.DataPlaneInterface]) {
-	barrier := sync.WaitGroup{}
+func (ss *ServiceInfoStorage) doDownscaling(toEvict map[*core.Endpoint]struct{}, urls []*proto.EndpointInfo, dpiClients synchronization.SyncStructure[string, core.DataPlaneInterface]) {
+	wg := sync.WaitGroup{}
 
-	barrier.Add(len(toEvict))
+	wg.Add(len(toEvict))
 
 	for key := range toEvict {
 		victim := key
@@ -226,7 +229,7 @@ func (ss *ServiceInfoStorage) doDownscaling(toEvict map[*core.Endpoint]struct{},
 		}
 
 		go func(key *core.Endpoint) {
-			defer barrier.Done()
+			defer wg.Done()
 
 			ctx, cancel := context.WithTimeout(context.Background(), utils.WorkerNodeTrafficTimeout)
 			defer cancel()
@@ -249,17 +252,18 @@ func (ss *ServiceInfoStorage) doDownscaling(toEvict map[*core.Endpoint]struct{},
 	}
 
 	// batch update of endpoints
-	barrier.Wait()
+	wg.Wait()
 
 	ss.updateEndpoints(dpiClients, urls)
 }
 
-func (ss *ServiceInfoStorage) updateEndpoints(dpiClients *atomic_map.AtomicMap[string, core.DataPlaneInterface], endpoints []*proto.EndpointInfo) {
+func (ss *ServiceInfoStorage) updateEndpoints(dpiClients synchronization.SyncStructure[string, core.DataPlaneInterface], endpoints []*proto.EndpointInfo) {
 	wg := &sync.WaitGroup{}
 
 	wg.Add(dpiClients.Len())
 
-	for _, c := range dpiClients.Values() {
+	dpiClients.Lock()
+	for _, c := range dpiClients.GetMap() {
 		go func(c core.DataPlaneInterface) {
 			resp, err := c.UpdateEndpointList(context.Background(), &proto.DeploymentEndpointPatch{
 				Service:   ss.ServiceInfo,
@@ -276,6 +280,7 @@ func (ss *ServiceInfoStorage) updateEndpoints(dpiClients *atomic_map.AtomicMap[s
 			wg.Done()
 		}(c)
 	}
+	dpiClients.Unlock()
 
 	wg.Wait()
 }

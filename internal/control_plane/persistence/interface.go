@@ -10,7 +10,7 @@ type PersistenceLayer interface {
 	DeleteDataPlaneInformation(ctx context.Context, dataplaneInfo *proto.DataplaneInformation) error
 	GetDataPlaneInformation(ctx context.Context) ([]*proto.DataplaneInformation, error)
 	StoreWorkerNodeInformation(ctx context.Context, workerNodeInfo *proto.WorkerNodeInformation) error
-	DeleteWorkerNodeInformation(ctx context.Context, workerNodeInfo *proto.WorkerNodeInformation) error
+	DeleteWorkerNodeInformation(ctx context.Context, name string) error
 	GetWorkerNodeInformation(ctx context.Context) ([]*proto.WorkerNodeInformation, error)
 	StoreServiceInformation(ctx context.Context, serviceInfo *proto.ServiceInfo) error
 	GetServiceInformation(ctx context.Context) ([]*proto.ServiceInfo, error)

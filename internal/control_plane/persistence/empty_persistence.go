@@ -27,7 +27,7 @@ func (e *EmptyPersistence) StoreWorkerNodeInformation(ctx context.Context, worke
 	return nil
 }
 
-func (e *EmptyPersistence) DeleteWorkerNodeInformation(ctx context.Context, workerNodeInfo *proto.WorkerNodeInformation) error {
+func (e *EmptyPersistence) DeleteWorkerNodeInformation(ctx context.Context, name string) error {
 	return nil
 }
 
