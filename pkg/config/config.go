@@ -20,6 +20,7 @@ type ControlPlaneConfig struct {
 }
 
 type DataPlaneConfig struct {
+	DataPlaneIp         string `mapstructure:"dataPlaneIp"`
 	ControlPlaneIp      string `mapstructure:"controlPlaneIp"`
 	ControlPlanePort    string `mapstructure:"controlPlanePort"`
 	PortProxy           string `mapstructure:"portProxy"`
@@ -30,6 +31,7 @@ type DataPlaneConfig struct {
 }
 
 type WorkerNodeConfig struct {
+	WorkerNodeIP     string `mapstructure:"workerNodeIp"`
 	ControlPlaneIp   string `mapstructure:"controlPlaneIp"`
 	ControlPlanePort string `mapstructure:"controlPlanePort"`
 	Port             int    `mapstructure:"port"`

@@ -8,7 +8,6 @@ import (
 	"cluster_manager/internal/control_plane/placement_policy"
 	"cluster_manager/pkg/atomic_map"
 	config2 "cluster_manager/pkg/config"
-	"cluster_manager/pkg/grpc_helpers"
 	"cluster_manager/pkg/tracing"
 	"cluster_manager/pkg/utils"
 	"context"
@@ -170,17 +169,9 @@ func (c *ControlPlane) RegisterNode(ctx context.Context, in *proto.NodeInfo) (*p
 		}, nil
 	}
 
-	ipAddress, ok := grpc_helpers.GetIPAddressFromGRPCCall(ctx)
-	if !ok {
-		return &proto.ActionStatus{
-			Success: false,
-			Message: "Node registration failed. Error getting IP address from context.",
-		}, nil
-	}
-
 	wn := c.workerNodeCreator(core.WorkerNodeConfiguration{
 		Name:     in.NodeID,
-		IP:       ipAddress,
+		IP:       in.IP,
 		Port:     strconv.Itoa(int(in.Port)),
 		CpuCores: in.CpuCores,
 		Memory:   in.MemorySize,
@@ -188,7 +179,7 @@ func (c *ControlPlane) RegisterNode(ctx context.Context, in *proto.NodeInfo) (*p
 
 	err := c.PersistenceLayer.StoreWorkerNodeInformation(ctx, &proto.WorkerNodeInformation{
 		Name:     in.NodeID,
-		Ip:       ipAddress,
+		Ip:       in.IP,
 		Port:     strconv.Itoa(int(in.Port)),
 		CpuCores: in.CpuCores,
 		Memory:   in.MemorySize,
@@ -212,7 +203,7 @@ func (c *ControlPlane) connectToRegisteredWorker(wn core.WorkerNodeInterface) {
 	go wn.GetAPI()
 }
 
-func (c *ControlPlane) DeregisterNode(ctx context.Context, in *proto.NodeInfo) (*proto.ActionStatus, error) {
+func (c *ControlPlane) DeregisterNode(_ context.Context, in *proto.NodeInfo) (*proto.ActionStatus, error) {
 	_, ok := c.NIStorage.Get(in.NodeID)
 	if !ok {
 		return &proto.ActionStatus{
@@ -221,17 +212,9 @@ func (c *ControlPlane) DeregisterNode(ctx context.Context, in *proto.NodeInfo) (
 		}, nil
 	}
 
-	ipAddress, ok := grpc_helpers.GetIPAddressFromGRPCCall(ctx)
-	if !ok {
-		return &proto.ActionStatus{
-			Success: false,
-			Message: "Node registration failed. Error getting IP address from context.",
-		}, nil
-	}
-
 	wn := c.workerNodeCreator(core.WorkerNodeConfiguration{
 		Name:     in.NodeID,
-		IP:       ipAddress,
+		IP:       in.NodeID,
 		Port:     strconv.Itoa(int(in.Port)),
 		CpuCores: in.CpuCores,
 		Memory:   in.MemorySize,
@@ -345,15 +328,9 @@ func (c *ControlPlane) connectToRegisteredService(ctx context.Context, serviceIn
 	return nil
 }
 
-func (c *ControlPlane) processDataplaneRequest(ctx context.Context, in *proto.DataplaneInfo) (proto.DataplaneInformation, error) {
-	ipAddress, ok := grpc_helpers.GetIPAddressFromGRPCCall(ctx)
-	if !ok {
-		logrus.Debug("Failed to extract IP address from data plane registration request")
-		return proto.DataplaneInformation{}, errors.New("failed to extract IP address from data plane registration request")
-	}
-
+func (c *ControlPlane) processDataplaneRequest(_ context.Context, in *proto.DataplaneInfo) (proto.DataplaneInformation, error) {
 	return proto.DataplaneInformation{
-		Address:   ipAddress,
+		Address:   in.IP,
 		ApiPort:   strconv.Itoa(int(in.APIPort)),
 		ProxyPort: strconv.Itoa(int(in.ProxyPort)),
 	}, nil

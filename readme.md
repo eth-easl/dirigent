@@ -65,6 +65,11 @@ You can download a copy of all the files in this repository by cloning the
 
 ## Dependencies - Installation
 
+To run the cluster manager locally the following setting must be enabled:
+```bash
+sudo sysctl -w net.ipv4.conf.all.route_localnet=1
+```
+
 kubernetes-cni must be installed.
 
 ```bash
@@ -192,7 +197,7 @@ Distributed under the MIT License. See `LICENSE.txt` for more information.
 
 ## Contact
 
-Lazar Cvetkovic - lazar.cvetkovic@inf.ethz.ch
+Lazar Cvetković - lazar.cvetkovic@inf.ethz.ch
 
 François Costa - fcosta@ethz.ch
 

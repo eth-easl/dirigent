@@ -135,8 +135,8 @@ func (w *WorkerNode) sendInstructionToControlPlane(config config.WorkerNodeConfi
 	pollErr := wait.PollUntilContextCancel(pollContext, 5*time.Second, false,
 		func(ctx context.Context) (done bool, err error) {
 			nodeInfo := &proto.NodeInfo{
-				NodeID: hostName,
-				// IP fetched from server-side context
+				NodeID:     hostName,
+				IP:         config.WorkerNodeIP,
 				Port:       int32(config.Port),
 				CpuCores:   hardware.GetNumberCpus(),
 				MemorySize: hardware.GetMemory(),

@@ -50,7 +50,7 @@ func (d *Dataplane) sendHeartbeatLoop() {
 			grpcPort, _ := strconv.Atoi(d.config.PortGRPC)
 			proxyPort, _ := strconv.Atoi(d.config.PortProxy)
 
-			_, err = grpc_helpers.InitializeControlPlaneConnection(d.config.ControlPlaneIp, d.config.ControlPlanePort, int32(grpcPort), int32(proxyPort))
+			_, err = grpc_helpers.InitializeControlPlaneConnection(d.config.ControlPlaneIp, d.config.ControlPlanePort, d.config.DataPlaneIp, int32(grpcPort), int32(proxyPort))
 			if err != nil {
 				return false, err
 			}
@@ -93,7 +93,7 @@ func (d *Dataplane) GetProxyServer() (*proxy.ProxyingService, error) {
 	grpcPort, _ := strconv.Atoi(d.config.PortGRPC)
 	proxyPort, _ := strconv.Atoi(d.config.PortProxy)
 
-	dpConnection, err := grpc_helpers.InitializeControlPlaneConnection(d.config.ControlPlaneIp, d.config.ControlPlanePort, int32(grpcPort), int32(proxyPort))
+	dpConnection, err := grpc_helpers.InitializeControlPlaneConnection(d.config.ControlPlaneIp, d.config.ControlPlanePort, d.config.DataPlaneIp, int32(grpcPort), int32(proxyPort))
 	if err != nil {
 		return nil, err
 	}
@@ -109,10 +109,7 @@ func (d *Dataplane) GetProxyServer() (*proxy.ProxyingService, error) {
 }
 
 func (d *Dataplane) DeregisterControlPlaneConnection() {
-	grpcPort, _ := strconv.Atoi(d.config.PortGRPC)
-	proxyPort, _ := strconv.Atoi(d.config.PortProxy)
-
-	_, err := grpc_helpers.DeregisterControlPlaneConnection(d.config.ControlPlaneIp, d.config.ControlPlanePort, int32(grpcPort), int32(proxyPort))
+	err := grpc_helpers.DeregisterControlPlaneConnection(&d.config)
 	if err != nil {
 		logrus.Errorf("Failed to deregister from control plane (error : %s)", err.Error())
 	}

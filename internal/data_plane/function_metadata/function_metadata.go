@@ -68,7 +68,7 @@ func NewFunctionMetadata(name string) *FunctionMetadata {
 		metrics: ScalingMetric{
 			timeWindowSize: 2 * time.Second,
 		},
-		coldStartDelay: 50 * time.Millisecond, // TODO: implement readiness probing
+		coldStartDelay: 10 * time.Millisecond, // TODO: implement readiness probing
 		loadBalancingMetadata: LoadBalancingMetadata{
 			RoundRobinCounter:           0,
 			KubernetesRoundRobinCounter: 0,

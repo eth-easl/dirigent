@@ -34,7 +34,7 @@ func main() {
 
 	logger.SetupLogger(cfg.Verbosity)
 
-	cpApi, err := grpc_helpers.InitializeControlPlaneConnection(cfg.ControlPlaneIp, cfg.ControlPlanePort, -1, -1)
+	cpApi, err := grpc_helpers.InitializeControlPlaneConnection(cfg.ControlPlaneIp, cfg.ControlPlanePort, "", -1, -1)
 	if err != nil {
 		logrus.Fatalf("Failed to initialize control plane connection (error : %s)", err.Error())
 	}

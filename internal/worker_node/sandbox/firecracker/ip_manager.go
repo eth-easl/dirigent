@@ -38,14 +38,15 @@ func (ipm *IPManager) generateRawGatewayIP() (uint32, uint32) {
 	return extractThirdField(val), extractFourthField(val)
 }
 
-func (ipm *IPManager) GenerateIPMACPair() (string, string, string) {
+func (ipm *IPManager) GenerateIPMACPair() (string, string, string, string) {
 	c, d := ipm.generateRawGatewayIP()
 
+	gateway := fmt.Sprintf("%s.%d.%d", ipm.networkPrefix, c, d)
 	ip := fmt.Sprintf("%s.%d.%d", ipm.networkPrefix, c, d+1)
 	vmip := fmt.Sprintf("%s.%d.%d", ipm.networkPrefix, c, d+2)
 	mac := fmt.Sprintf("02:FC:00:00:%02x:%02x", c, d)
 
-	return ip, vmip, mac
+	return gateway, ip, vmip, mac
 }
 
 func extractThirdField(counterValue uint32) uint32 {

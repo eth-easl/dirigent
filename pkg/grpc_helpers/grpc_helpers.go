@@ -2,17 +2,18 @@ package grpc_helpers
 
 import (
 	"cluster_manager/api/proto"
+	"cluster_manager/pkg/config"
 	"cluster_manager/pkg/utils"
 	"context"
 	"errors"
 	"fmt"
 	"net"
+	"strconv"
 	"time"
 
 	"github.com/sirupsen/logrus"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
-	"google.golang.org/grpc/peer"
 	"google.golang.org/grpc/reflection"
 	"k8s.io/apimachinery/pkg/util/wait"
 )
@@ -99,7 +100,7 @@ func EstablishGRPCConnectionPoll(host, port string, dialOptions ...grpc.DialOpti
 	return conn
 }
 
-func InitializeControlPlaneConnection(host string, port string, dataplanePort, proxyPort int32) (proto.CpiInterfaceClient, error) {
+func InitializeControlPlaneConnection(host string, port string, dataplaneIP string, dataplanePort, proxyPort int32) (proto.CpiInterfaceClient, error) {
 	conn := EstablishGRPCConnectionPoll(host, port)
 	if conn == nil {
 		logrus.Fatal("Failed to establish connection with the control plane")
@@ -109,8 +110,10 @@ func InitializeControlPlaneConnection(host string, port string, dataplanePort, p
 
 	dpiClient := proto.NewCpiInterfaceClient(conn)
 
+	// TODO: this method should be split into two because of parameters
 	if dataplanePort != -1 {
 		dpInfo := &proto.DataplaneInfo{
+			IP:        dataplaneIP,
 			APIPort:   dataplanePort,
 			ProxyPort: proxyPort,
 		}
@@ -124,29 +127,23 @@ func InitializeControlPlaneConnection(host string, port string, dataplanePort, p
 	return dpiClient, nil
 }
 
-func DeregisterControlPlaneConnection(host string, port string, dataplanePort, proxyPort int32) (proto.CpiInterfaceClient, error) {
-	conn := EstablishGRPCConnectionPoll(host, port)
-	if conn == nil {
-		return nil, errors.New("Failed to establish connection with the control plane")
+func DeregisterControlPlaneConnection(cfg *config.DataPlaneConfig) error {
+	grpcPort, _ := strconv.Atoi(cfg.PortGRPC)
+	proxyPort, _ := strconv.Atoi(cfg.PortProxy)
+
+	conn := EstablishGRPCConnectionPoll(cfg.ControlPlaneIp, cfg.ControlPlanePort)
+	cpApi := proto.NewCpiInterfaceClient(conn)
+
+	resp, err := cpApi.DeregisterDataplane(context.Background(), &proto.DataplaneInfo{
+		IP:        cfg.DataPlaneIp,
+		APIPort:   int32(grpcPort),
+		ProxyPort: int32(proxyPort),
+	})
+	if err != nil || !resp.Success {
+		logrus.Fatal("Failed to register data plane with the control plane")
 	}
 
-	logrus.Info("Successfully established connection with the control plane")
-
-	dpiClient := proto.NewCpiInterfaceClient(conn)
-
-	if dataplanePort != -1 {
-		dpInfo := &proto.DataplaneInfo{
-			APIPort:   dataplanePort,
-			ProxyPort: proxyPort,
-		}
-
-		resp, err := dpiClient.DeregisterDataplane(context.Background(), dpInfo)
-		if err != nil || !resp.Success {
-			logrus.Fatal("Failed to register data plane with the control plane")
-		}
-	}
-
-	return dpiClient, nil
+	return err
 }
 
 func InitializeWorkerNodeConnection(host, port string) (proto.WorkerNodeInterfaceClient, error) {
@@ -169,20 +166,4 @@ func InitializeDataPlaneConnection(host string, port string) (proto.DpiInterface
 	logrus.Info("Successfully established connection with the data plane")
 
 	return proto.NewDpiInterfaceClient(conn), nil
-}
-
-func GetIPAddressFromGRPCCall(ctx context.Context) (string, bool) {
-	peerCtx, ok := peer.FromContext(ctx)
-	if !ok {
-		return "", false
-	}
-
-	switch addr := peerCtx.Addr.(type) {
-	case *net.UDPAddr:
-		return addr.IP.String(), true
-	case *net.TCPAddr:
-		return addr.IP.String(), true
-	default:
-		return "", false
-	}
 }

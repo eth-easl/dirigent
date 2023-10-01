@@ -1,3 +1,4 @@
+dataPlaneIp: "127.0.0.1"
 controlPlaneIp: "localhost"
 controlPlanePort: "9090"
 portProxy: "8080"

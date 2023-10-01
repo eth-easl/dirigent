@@ -15,16 +15,17 @@ const (
 )
 
 type TAPLink struct {
-	Device string
-	MAC    string
-	IP     string
-	VMIP   string
+	Device  string
+	MAC     string
+	Gateway string
+	IP      string
+	VMIP    string
 }
 
 func createTAPDevice(vmcs *VMControlStructure) error {
 	// TODO: make a pool of TAPs and remove TAP creation from the critical path
 
-	ip, vmip, mac := vmcs.IpManager.GenerateIPMACPair()
+	gateway, ip, vmip, mac := vmcs.IpManager.GenerateIPMACPair()
 	dev := fmt.Sprintf("%s%d%s", tapDevicePrefix, rand.Int()%1_000_000, tapDeviceSuffix)
 
 	err := exec.Command("sudo", "ip", "tuntap", "add", "dev", dev, "mode", "tap").Run()
@@ -58,10 +59,11 @@ func createTAPDevice(vmcs *VMControlStructure) error {
 	}
 
 	vmcs.tapLink = &TAPLink{
-		Device: dev,
-		MAC:    mac,
-		IP:     ip,
-		VMIP:   vmip,
+		Device:  dev,
+		MAC:     mac,
+		Gateway: gateway,
+		IP:      ip,
+		VMIP:    vmip,
 	}
 
 	return nil

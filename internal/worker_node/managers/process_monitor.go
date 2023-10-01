@@ -18,7 +18,7 @@ func NewProcessMonitor() *ProcessMonitor {
 	cn, err := garlic.DialPCNWithEvents([]garlic.EventType{garlic.ProcEventExit})
 	if err != nil {
 		// kill worker node daemon if process monitor doesn't start
-		logrus.Fatal(err)
+		logrus.Fatalf("Failed do start process monitor: (error: %s)", err.Error())
 		return nil
 	}
 

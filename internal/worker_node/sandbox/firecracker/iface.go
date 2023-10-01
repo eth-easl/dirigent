@@ -23,7 +23,8 @@ func createCNIConfig() *firecracker.CNIConfiguration {
 
 func makeFirecrackerConfig(vmcs *VMControlStructure) {
 	if vmcs.tapLink == nil {
-		logrus.Fatal("Network must be created before creating a Firecracker config.")
+		logrus.Error("Network must be created before creating a Firecracker config.")
+		return
 	}
 
 	kernelArgs := "panic=1 pci=off nomodules reboot=k tsc=reliable quiet i8042.nokbd i8042.noaux 8250.nr_uarts=0 ipv6.disable=1"

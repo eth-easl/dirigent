@@ -86,7 +86,11 @@ func (fcr *Runtime) CreateSandbox(_ context.Context, in *proto.ServiceInfo) (*pr
 	}
 
 	// VM process monitoring
-	vmPID, _ := vmcs.vm.PID()
+	vmPID, err := vmcs.vm.PID()
+	if err != nil {
+		logrus.Debug(err)
+		return &proto.SandboxCreationStatus{Success: false}, err
+	}
 
 	fcr.SandboxManager.AddSandbox(vmcs.SandboxID, metadata)
 	fcr.ProcessMonitor.AddChannel(uint32(vmPID), metadata.ExitStatusChannel)

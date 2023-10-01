@@ -26,8 +26,9 @@ message AutoscalingMetric {
 }
 
 message DataplaneInfo {
-  int32 APIPort = 1;
-  int32 ProxyPort = 2;
+  string IP = 1;
+  int32 APIPort = 2;
+  int32 ProxyPort = 3;
 }
 
 enum FailureType {

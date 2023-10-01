@@ -14,7 +14,7 @@ func Clean() {
 	logrus.SetLevel(logrus.DebugLevel)
 	logrus.SetFormatter(&logrus.TextFormatter{TimestampFormat: time.StampMilli, FullTimestamp: true})
 
-	cpApi, err := common.InitializeControlPlaneConnection(shared.ControlPlaneAddress, utils.DefaultControlPlanePort, -1, -1)
+	cpApi, err := common.InitializeControlPlaneConnection(shared.ControlPlaneAddress, utils.DefaultControlPlanePort, "", -1, -1)
 	if err != nil {
 		logrus.Fatalf("%s", err.Error())
 	}

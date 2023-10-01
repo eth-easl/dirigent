@@ -83,7 +83,7 @@ func StartFirecrackerVM(vmcs *VMControlStructure) (error, time.Duration, time.Du
 
 	err = machine.Start(vmcs.Context)
 	if err != nil {
-		logrus.Fatal(err)
+		logrus.Error(err)
 		return err, tapEnd, vmCreateEnd, time.Since(timeVMStart)
 	}
 
