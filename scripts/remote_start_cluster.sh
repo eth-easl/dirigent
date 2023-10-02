@@ -29,6 +29,10 @@ function SetupControlPlane() {
 
 function SetupDataPlane() {
     RemoteExec $DATA_PLANE "cd ~/cluster_manager; git pull"
+
+    IP_ADDRESS=$(RemoteExec $DATA_PLANE "netstat -ie | grep -B1 '10.0.1' | sed -n 2p | tr -s ' ' | cut -d ' ' -f 3")
+    RemoteExec $DATA_PLANE 'export DATA_PLANE_IP=\"'$IP_ADDRESS'\"; cd cluster_manager; cat cmd/data_plane/config_cluster.yaml | envsubst > cmd/data_plane/tmp && mv cmd/data_plane/tmp cmd/data_plane/config_cluster.yaml'
+
     RemoteExec $DATA_PLANE "tmux kill-session -t data_plane"
     RemoteExec $DATA_PLANE "tmux new -s data_plane -d"
 
@@ -44,6 +48,10 @@ function SetupWorkerNodes() {
     function internal_setup() {
         # LFS pull for VM kernel image and rootfs
         RemoteExec $1 "cd ~/cluster_manager; git pull; git lfs pull"
+
+        IP_ADDRESS=$(RemoteExec $1 "netstat -ie | grep -B1 '10.0.1' | sed -n 2p | tr -s ' ' | cut -d ' ' -f 3")
+        RemoteExec $1 'export WORKER_NODE_IP=\"'$IP_ADDRESS'\"; cd cluster_manager; cat cmd/worker_node/config_cluster.yaml | envsubst > cmd/worker_node/tmp && mv cmd/worker_node/tmp cmd/worker_node/config_cluster.yaml'
+
         RemoteExec $1 "tmux kill-session -t worker_daemon"
         RemoteExec $1 "tmux new -s worker_daemon -d"
 

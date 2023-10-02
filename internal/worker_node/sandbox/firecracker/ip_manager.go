@@ -2,6 +2,7 @@ package firecracker
 
 import (
 	"fmt"
+	"github.com/sirupsen/logrus"
 	"sync/atomic"
 )
 
@@ -23,7 +24,12 @@ func (ipm *IPManager) getUniqueCounterValue() uint32 {
 
 	for !swapped {
 		oldValue = atomic.LoadUint32(&ipm.allocationCounter)
-		// we need four IP addresses per VM - gateway, 2 TAPs, broadcast
+		if oldValue >= 65536 {
+			logrus.Fatal("Run out of IP addresses.")
+		}
+
+		// We need four IP addresses per VM - gateway, 2 TAPs, broadcast.
+		// Hence, there are enough IP addresses for 16 384 VMs
 		newValue := oldValue + 4
 
 		swapped = atomic.CompareAndSwapUint32(&ipm.allocationCounter, oldValue, newValue)
