@@ -214,7 +214,28 @@ func (c *ControlPlane) RegisterService(ctx context.Context, serviceInfo *proto.S
 	return &proto.ActionStatus{Success: false}, errors.New("service is already registered")
 }
 
-// TODO: Create function deregister service - François Costa
+func (c *ControlPlane) DeregisterService(ctx context.Context, serviceInfo *proto.ServiceInfo) (*proto.ActionStatus, error) {
+
+	if enter := c.SIStorage.RemoveIfPresent(serviceInfo.Name); enter {
+		err := c.PersistenceLayer.DeleteServiceInformation(ctx, serviceInfo)
+		if err != nil {
+			logrus.Errorf("Failed to delete information to persistence layer (error : %s)", err.Error())
+			return &proto.ActionStatus{Success: false}, err
+		}
+
+		err = c.removeServiceFromDataplaneAndStopLoop(ctx, serviceInfo, false)
+		if err != nil {
+			logrus.Warnf("Failed to connect registered service (error : %s)", err.Error())
+			c.SIStorage.AtomicRemove(serviceInfo.Name)
+			return &proto.ActionStatus{Success: false}, err
+		}
+
+		return &proto.ActionStatus{Success: true}, nil
+	}
+
+	logrus.Errorf("Service with name %s is not registered", serviceInfo.Name)
+	return &proto.ActionStatus{Success: false}, errors.New("service is not registered")
+}
 
 func (c *ControlPlane) ListServices(_ context.Context, _ *emptypb.Empty) (*proto.ServiceList, error) {
 	c.SIStorage.RLock()

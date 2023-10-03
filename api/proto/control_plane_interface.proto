@@ -43,6 +43,8 @@ message Failure {
   repeated string SandboxIDs = 3;
 }
 
+
+
 service CpiInterface {
   rpc OnMetricsReceive(AutoscalingMetric) returns (ActionStatus);
   rpc ListServices(google.protobuf.Empty) returns (ServiceList);
@@ -56,6 +58,7 @@ service CpiInterface {
 
   rpc DeregisterDataplane(DataplaneInfo) returns (ActionStatus);
   rpc DeregisterNode(NodeInfo) returns (ActionStatus);
+  rpc DeregisterService(ServiceInfo) returns (ActionStatus);
 
   rpc ResetMeasurements(google.protobuf.Empty) returns (ActionStatus);
 }

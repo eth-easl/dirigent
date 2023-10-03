@@ -35,7 +35,15 @@ func (e *EmptyPersistence) GetWorkerNodeInformation(ctx context.Context) ([]*pro
 	return make([]*proto.WorkerNodeInformation, 0), nil
 }
 
+func (e *EmptyPersistence) WorkerNodeInformation(ctx context.Context) ([]*proto.WorkerNodeInformation, error) {
+	return make([]*proto.WorkerNodeInformation, 0), nil
+}
+
 func (e *EmptyPersistence) StoreServiceInformation(ctx context.Context, serviceInfo *proto.ServiceInfo) error {
+	return nil
+}
+
+func (e *EmptyPersistence) DeleteServiceInformation(ctx context.Context, serviceInfo *proto.ServiceInfo) error {
 	return nil
 }
 

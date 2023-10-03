@@ -14,14 +14,14 @@ Helpers for control_plane.go
 
 // Only one goroutine will execute the function per service
 func (c *ControlPlane) notifyDataplanesAndStartScalingLoop(ctx context.Context, serviceInfo *proto.ServiceInfo, reconstructFromPersistence bool) error {
-	c.DataPlaneConnections.RLock()
+	c.DataPlaneConnections.Lock()
 	for _, conn := range c.DataPlaneConnections.GetMap() {
 		_, err := conn.AddDeployment(ctx, serviceInfo)
 		if err != nil {
 			return err
 		}
 	}
-	c.DataPlaneConnections.RUnlock()
+	c.DataPlaneConnections.Unlock()
 
 	startTime := time.Time{}
 	if reconstructFromPersistence {
@@ -40,6 +40,21 @@ func (c *ControlPlane) notifyDataplanesAndStartScalingLoop(ctx context.Context, 
 	})
 
 	go c.SIStorage.GetNoCheck(serviceInfo.Name).ScalingControllerLoop(c.NIStorage, c.DataPlaneConnections)
+
+	return nil
+}
+
+func (c *ControlPlane) removeServiceFromDataplaneAndStopLoop(ctx context.Context, serviceInfo *proto.ServiceInfo, reconstructFromPersistence bool) error {
+	c.DataPlaneConnections.Lock()
+	for _, conn := range c.DataPlaneConnections.GetMap() {
+		_, err := conn.DeleteDeployment(ctx, serviceInfo)
+		if err != nil {
+			return err
+		}
+	}
+	c.DataPlaneConnections.Unlock()
+
+	close(c.SIStorage.AtomicGetNoCheck(serviceInfo.Name).Controller.DesiredStateChannel)
 
 	return nil
 }

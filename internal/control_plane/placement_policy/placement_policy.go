@@ -43,6 +43,9 @@ type KubernetesPolicy struct {
 }
 
 func ApplyPlacementPolicy(placementPolicy PlacementPolicy, storage synchronization.SyncStructure[string, core.WorkerNodeInterface], requested *ResourceMap) core.WorkerNodeInterface {
+	storage.RLock()
+	defer storage.RUnlock()
+
 	if noNodesInCluster(storage) {
 		return nil
 	}
@@ -54,7 +57,6 @@ func filterMachines(storage synchronization.SyncStructure[string, core.WorkerNod
 	var resultingNodes synchronization.SyncStructure[string, core.WorkerNodeInterface]
 
 	// Model implementation - kubernetes/pkg/scheduler/framework/plugins/noderesources/fit.go:fitsRequest:256
-	storage.RLock()
 	for key, value := range storage.GetMap() {
 		isMemoryBigEnough := value.GetMemory() >= resourceMap.GetMemory()
 		isCpuBigEnough := value.GetCpuCores() >= resourceMap.GetCPUCores()
@@ -65,7 +67,6 @@ func filterMachines(storage synchronization.SyncStructure[string, core.WorkerNod
 
 		resultingNodes.Set(key, value)
 	}
-	storage.RUnlock()
 
 	return resultingNodes
 }
@@ -85,7 +86,6 @@ func prioritizeNodes(storage synchronization.SyncStructure[string, core.WorkerNo
 	filterAlgorithms := CreateScoringPipeline()
 
 	for _, alg := range filterAlgorithms {
-		storage.RLock()
 		for key, machine := range storage.GetMap() {
 			installedResources := getInstalledResources(machine)
 			requestedResources := getRequestedResources(machine, request)
@@ -95,7 +95,6 @@ func prioritizeNodes(storage synchronization.SyncStructure[string, core.WorkerNo
 
 			logrus.Debugf("%s on node #%s has scored %d.\n", alg.Name, machine.GetName(), sc)
 		}
-		storage.RUnlock()
 	}
 
 	return scores
@@ -112,7 +111,6 @@ func selectOneMachine(storage synchronization.SyncStructure[string, core.WorkerN
 		cntOfMaxScore uint64                   = 1
 	)
 
-	storage.RLock()
 	for key, element := range storage.GetMap() {
 		if scores[key] > maxScore {
 			maxScore = scores[key]
@@ -126,7 +124,6 @@ func selectOneMachine(storage synchronization.SyncStructure[string, core.WorkerN
 			}
 		}
 	}
-	storage.RUnlock()
 
 	return selected
 }
@@ -168,12 +165,10 @@ func noNodesInCluster(storage synchronization.SyncStructure[string, core.WorkerN
 }
 
 func nodeFromIndex(storage synchronization.SyncStructure[string, core.WorkerNodeInterface], index int) core.WorkerNodeInterface {
-	storage.RLock()
 	nodes := sort.StringSlice(_map.Keys(storage.GetMap()))
 	nodes.Sort()
 	nodeName := nodes[index]
 
 	value, _ := storage.Get(nodeName)
-	storage.RUnlock()
 	return value
 }

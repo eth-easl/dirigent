@@ -166,6 +166,14 @@ func (driver *RedisClient) StoreServiceInformation(ctx context.Context, serviceI
 	return driver.RedisClient.HSet(ctx, key, "data", data).Err()
 }
 
+func (driver *RedisClient) DeleteServiceInformation(ctx context.Context, serviceInfo *proto.ServiceInfo) error {
+	logrus.Trace("delete service information in the database")
+
+	key := fmt.Sprintf("%s:%s", servicePrefix, serviceInfo.Name)
+
+	return driver.RedisClient.Del(ctx, key, "data").Err()
+}
+
 func (driver *RedisClient) GetServiceInformation(ctx context.Context) ([]*proto.ServiceInfo, error) {
 	logrus.Trace("get services information from the database")
 

@@ -21,6 +21,7 @@ type SyncStructure[K comparable, V any] interface {
 
 	AtomicSet(key K, value V)
 	AtomicGet(key K) (V, bool)
+	AtomicGetNoCheck(key K) V
 	AtomicRemove(key K)
 
 	Len() int // Atomic operation
@@ -117,6 +118,13 @@ func (s *Structure[K, V]) AtomicGet(key K) (V, bool) {
 	defer s.internalLock.RUnlock()
 
 	return s.Get(key)
+}
+
+func (s *Structure[K, V]) AtomicGetNoCheck(key K) V {
+	s.internalLock.RLock()
+	defer s.internalLock.RUnlock()
+
+	return s.GetNoCheck(key)
 }
 
 func (s *Structure[K, V]) AtomicRemove(key K) {

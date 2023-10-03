@@ -191,6 +191,12 @@ This command will fire a single invocation.
 cd scripts/francois; ./burst.sh 1 
 ```
 
+In case you get a timeout, try to run the following command before
+
+```bash
+sudo sysctl -w net.ipv4.conf.all.route_localnet=1
+```
+
 ## Configure Firecracker for local development
 
 - Install Firecracker

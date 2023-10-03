@@ -56,9 +56,18 @@ func (ss *ServiceInfoStorage) reconstructEndpointInController(endpoint *core.End
 }
 
 func (ss *ServiceInfoStorage) ScalingControllerLoop(nodeList synchronization.SyncStructure[string, core.WorkerNodeInterface], dpiClients synchronization.SyncStructure[string, core.DataPlaneInterface]) {
-	for {
-		select {
-		case desiredCount := <-ss.Controller.DesiredStateChannel:
+	ok := true
+	desiredCount := 0
+
+	for ok {
+		desiredCount, ok = <-ss.Controller.DesiredStateChannel
+
+		// Channel closed, we want to remove all endpoints
+		if !ok {
+			desiredCount = 0
+		}
+
+		if ok {
 			ss.Controller.EndpointLock.Lock()
 
 			swapped := false
