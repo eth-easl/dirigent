@@ -21,17 +21,17 @@ func createCNIConfig() *firecracker.CNIConfiguration {
 	}
 }
 
-func makeFirecrackerConfig(vmcs *VMControlStructure) {
+func makeFirecrackerConfig(vmcs *VMControlStructure, vmDebugMode bool) {
 	if vmcs.tapLink == nil {
 		logrus.Error("Network must be created before creating a Firecracker config.")
 		return
 	}
 
 	kernelArgs := "panic=1 pci=off nomodules reboot=k tsc=reliable quiet i8042.nokbd i8042.noaux 8250.nr_uarts=0 ipv6.disable=1"
-	if logrus.GetLevel() != logrus.InfoLevel {
+	if vmDebugMode {
 		kernelArgs = "panic=1 pci=off nomodules reboot=k tsc=reliable quiet i8042.noaux ipv6.disable=1 console=ttyS0 random.trust_cpu=on"
 	}
-	kernelArgs += fmt.Sprintf(" ip=%s::%s:255.255.255.252::eth0:off", vmcs.tapLink.VMIP, vmcs.tapLink.IP)
+	kernelArgs += fmt.Sprintf(" ip=%s::%s:255.255.255.252::eth0:off", vmcs.tapLink.VmIP, vmcs.tapLink.GatewayIP)
 
 	vmcs.config = &firecracker.Config{
 		SocketPath:      makeSocketPath(vmcs.SandboxID),

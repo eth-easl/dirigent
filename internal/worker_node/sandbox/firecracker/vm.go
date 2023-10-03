@@ -27,19 +27,19 @@ type VMControlStructure struct {
 func getVMCommandBuild(vmcs *VMControlStructure) *exec.Cmd {
 	vmCommandBuild := firecracker.VMCommandBuilder{}.
 		WithBin("firecracker").
-		WithSocketPath(vmcs.config.SocketPath).
-		WithStderr(os.Stderr)
+		WithSocketPath(vmcs.config.SocketPath)
 
 	if logrus.GetLevel() != logrus.InfoLevel {
 		vmCommandBuild = vmCommandBuild.
 			WithStdin(os.Stdin).
-			WithStdout(os.Stdout)
+			WithStdout(os.Stdout).
+			WithStderr(os.Stderr)
 	}
 
 	return vmCommandBuild.Build(vmcs.Context)
 }
 
-func StartFirecrackerVM(vmcs *VMControlStructure) (error, time.Duration, time.Duration, time.Duration) {
+func StartFirecrackerVM(vmcs *VMControlStructure, vmDebugMode bool) (error, time.Duration, time.Duration, time.Duration) {
 	startTAP := time.Now()
 	err := createTAPDevice(vmcs)
 	if err != nil {
@@ -49,21 +49,20 @@ func StartFirecrackerVM(vmcs *VMControlStructure) (error, time.Duration, time.Du
 	tapEnd := time.Since(startTAP)
 	logrus.Debug("TAP creation time: ", tapEnd.Milliseconds(), " ms")
 
-	logrus.Debugf("VM %s allocated host IP = %s, VM IP = %s, MAC = %s",
+	logrus.Debugf("VM %s allocated host gateway IP = %s, VM IP = %s, MAC = %s",
 		vmcs.SandboxID,
-		vmcs.tapLink.IP,
-		vmcs.tapLink.VMIP,
+		vmcs.tapLink.GatewayIP,
+		vmcs.tapLink.VmIP,
 		vmcs.tapLink.MAC,
 	)
 
-	logger := logrus.New()
-	logger.SetLevel(logrus.GetLevel())
-
 	startVMCreation := time.Now()
 
-	makeFirecrackerConfig(vmcs)
+	makeFirecrackerConfig(vmcs, vmDebugMode)
 	newMachineOpts := []firecracker.Opt{firecracker.WithProcessRunner(getVMCommandBuild(vmcs))}
-	if logrus.GetLevel() != logrus.InfoLevel {
+	if vmDebugMode {
+		logger := logrus.New()
+		logger.SetLevel(logrus.GetLevel())
 		newMachineOpts = append(newMachineOpts, firecracker.WithLogger(logrus.NewEntry(logger)))
 	}
 
@@ -77,7 +76,7 @@ func StartFirecrackerVM(vmcs *VMControlStructure) (error, time.Duration, time.Du
 	vmCreateEnd := time.Since(startVMCreation)
 	logrus.Debug("VM creation time: ", vmCreateEnd.Milliseconds(), " ms")
 
-	logrus.Debug("Starting VM with IP = ", vmcs.tapLink.IP, " (MAC = ", vmcs.tapLink.MAC, ")")
+	logrus.Debug("Starting VM with IP = ", vmcs.tapLink.VmIP, " (MAC = ", vmcs.tapLink.MAC, ")")
 
 	timeVMStart := time.Now()
 

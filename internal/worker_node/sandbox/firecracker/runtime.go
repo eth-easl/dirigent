@@ -21,6 +21,8 @@ type Runtime struct {
 
 	cpApi proto.CpiInterfaceClient
 
+	VMDebugMode bool
+
 	KernelPath     string
 	FileSystemPath string
 	IpManager      *IPManager
@@ -36,12 +38,14 @@ type FirecrackerMetadata struct {
 	VMCS *VMControlStructure
 }
 
-func NewFirecrackerRuntime(hostname string, cpApi proto.CpiInterfaceClient, kernelPath string, fileSystemPath string, ipPrefix string) *Runtime {
+func NewFirecrackerRuntime(hostname string, cpApi proto.CpiInterfaceClient, kernelPath string, fileSystemPath string, ipPrefix string, vmDebugMode bool) *Runtime {
 	_ = DeleteFirecrackerTAPDevices()
 	ipt, _ := containerd.NewIptablesUtil()
 
 	return &Runtime{
 		cpApi: cpApi,
+
+		VMDebugMode: vmDebugMode,
 
 		KernelPath:     kernelPath,
 		FileSystemPath: fileSystemPath,
@@ -66,7 +70,7 @@ func (fcr *Runtime) CreateSandbox(_ context.Context, in *proto.ServiceInfo) (*pr
 		SandboxID: fmt.Sprintf("firecracker-%d", rand.Int()),
 	}
 
-	err, tapCreation, vmCreate, vmStart := StartFirecrackerVM(vmcs)
+	err, tapCreation, vmCreate, vmStart := StartFirecrackerVM(vmcs, fcr.VMDebugMode)
 	if err != nil {
 		return &proto.SandboxCreationStatus{Success: false}, err
 	}
@@ -79,7 +83,7 @@ func (fcr *Runtime) CreateSandbox(_ context.Context, in *proto.ServiceInfo) (*pr
 		},
 
 		HostPort:  containerd.AssignRandomPort(),
-		IP:        vmcs.tapLink.VMIP,
+		IP:        vmcs.tapLink.VmIP,
 		GuestPort: int(in.PortForwarding.GuestPort),
 
 		ExitStatusChannel: make(chan uint32),

@@ -21,7 +21,8 @@ func AddRules(ipt *iptables.IPTables, sourcePort int, destIP string, destPort in
 		"--to-destination", fmt.Sprintf("%s:%d", destIP, destPort),
 	)
 	if err != nil {
-		logrus.Warn(fmt.Sprintf("Error adding a PREROUTING rule for %d->%s:%d", sourcePort, destIP, destPort))
+		logrus.Errorf("Error adding a PREROUTING rule for %d->%s:%d", sourcePort, destIP, destPort)
+		logrus.Error(err)
 	}
 
 	err = ipt.Append(
@@ -31,7 +32,8 @@ func AddRules(ipt *iptables.IPTables, sourcePort int, destIP string, destPort in
 		"--to-destination", fmt.Sprintf("%s:%d", destIP, destPort),
 	)
 	if err != nil {
-		logrus.Warn(fmt.Sprintf("Error adding an OUTPUT rule for %d->%s:%d", sourcePort, destIP, destPort))
+		logrus.Errorf("Error adding an OUTPUT rule for %d->%s:%d", sourcePort, destIP, destPort)
+		logrus.Error(err)
 	}
 
 	err = ipt.AppendUnique(
@@ -40,7 +42,8 @@ func AddRules(ipt *iptables.IPTables, sourcePort int, destIP string, destPort in
 		"-j", "MASQUERADE",
 	)
 	if err != nil {
-		logrus.Warn("Error adding a POSTROUTING MASQUERADE")
+		logrus.Error("Error adding a POSTROUTING MASQUERADE")
+		logrus.Error(err)
 	}
 }
 

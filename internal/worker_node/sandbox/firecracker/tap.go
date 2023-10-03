@@ -15,17 +15,16 @@ const (
 )
 
 type TAPLink struct {
-	Device  string
-	MAC     string
-	Gateway string
-	IP      string
-	VMIP    string
+	Device    string
+	MAC       string
+	GatewayIP string
+	VmIP      string
 }
 
 func createTAPDevice(vmcs *VMControlStructure) error {
 	// TODO: make a pool of TAPs and remove TAP creation from the critical path
 
-	gateway, ip, vmip, mac := vmcs.IpManager.GenerateIPMACPair()
+	gatewayIP, vmip, mac := vmcs.IpManager.GenerateIPMACPair()
 	dev := fmt.Sprintf("%s%d%s", tapDevicePrefix, rand.Int()%1_000_000, tapDeviceSuffix)
 
 	err := exec.Command("sudo", "ip", "tuntap", "add", "dev", dev, "mode", "tap").Run()
@@ -46,7 +45,7 @@ func createTAPDevice(vmcs *VMControlStructure) error {
 		return err
 	}
 
-	err = exec.Command("sudo", "ip", "addr", "add", ip+"/30", "dev", dev).Run()
+	err = exec.Command("sudo", "ip", "addr", "add", gatewayIP+"/30", "dev", dev).Run()
 	if err != nil {
 		logrus.Errorf("failed to assign IP address to device %s - %v", dev, err)
 		return err
@@ -58,12 +57,18 @@ func createTAPDevice(vmcs *VMControlStructure) error {
 		return err
 	}
 
+	err = exec.Command("sudo", "arp", "-s", vmip, mac).Run()
+	if err != nil {
+		logrus.Errorf("failed to configure arp entry for device %s - %v", dev, err)
+		return err
+	}
+	logrus.Debug("ARP table entry inserted ", vmip, " ", mac)
+
 	vmcs.tapLink = &TAPLink{
-		Device:  dev,
-		MAC:     mac,
-		Gateway: gateway,
-		IP:      ip,
-		VMIP:    vmip,
+		Device:    dev,
+		MAC:       mac,
+		GatewayIP: gatewayIP,
+		VmIP:      vmip,
 	}
 
 	return nil

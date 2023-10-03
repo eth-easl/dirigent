@@ -11,3 +11,4 @@ prefetchImage: true
 firecrackerKernel: "configs/firecracker/vmlinux.bin"
 firecrackerFileSystem: "configs/firecracker/rootfs.ext4"
 firecrackerIPPrefix: "169.254"
+firecrackerVMDebugMode: false
