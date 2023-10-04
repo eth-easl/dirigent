@@ -7,6 +7,7 @@ import (
 	"container/list"
 	"context"
 	"errors"
+	"os"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -36,6 +37,8 @@ type LoadBalancingMetadata struct {
 type FunctionMetadata struct {
 	sync.RWMutex
 
+	uniqueIdentifier string
+
 	identifier         string
 	sandboxParallelism uint
 
@@ -55,12 +58,18 @@ type ScalingMetric struct {
 	timestamp      time.Time
 	timeWindowSize time.Duration
 
-	totalRequests    int32
-	inflightRequests int32
+	totalRequests    uint32
+	inflightRequests uint32
 }
 
 func NewFunctionMetadata(name string) *FunctionMetadata {
+	hostName, err := os.Hostname()
+	if err != nil {
+		logrus.Warn("Error fetching host name.")
+	}
+
 	return &FunctionMetadata{
+		uniqueIdentifier:   hostName,
 		identifier:         name,
 		sandboxParallelism: 1, // TODO: make dynamic
 		queue:              list.New(),
@@ -218,20 +227,20 @@ func (m *FunctionMetadata) SetEndpoints(newEndpoints []*UpstreamEndpoint) {
 }
 
 func (m *FunctionMetadata) DecreaseInflight() {
-	atomic.AddInt32(&m.metrics.inflightRequests, -1)
+	atomic.AddUint32(&m.metrics.inflightRequests, -1)
 }
 
 func (m *FunctionMetadata) TryWarmStart(cp *proto.CpiInterfaceClient) (chan struct{}, time.Duration) {
 	start := time.Now()
 
 	// autoscaling metric
-	atomic.AddInt32(&m.metrics.inflightRequests, 1)
+	atomic.AddUint32(&m.metrics.inflightRequests, 1)
 	// runtime statistics
-	atomic.AddInt32(&m.metrics.totalRequests, 1)
+	atomic.AddUint32(&m.metrics.totalRequests, 1)
 
 	endpointCount := atomic.LoadInt32(&m.upstreamEndpointsCount)
 	if endpointCount == 0 {
-		waitChannel := make(chan struct{}, 1)
+		waitChannel := make(chan time.Duration, 1)
 
 		m.Lock()
 		defer m.Unlock()
@@ -262,12 +271,13 @@ func (m *FunctionMetadata) sendMetricsToAutoscaler(cp *proto.CpiInterfaceClient)
 
 		m.Lock()
 
-		inflightRequests := atomic.LoadInt32(&m.metrics.inflightRequests)
+		inflightRequests := atomic.LoadUint32(&m.metrics.inflightRequests)
 
 		go func() {
 			status, err := (*cp).OnMetricsReceive(context.Background(), &proto.AutoscalingMetric{
-				ServiceName: m.identifier,
-				Metric:      float32(inflightRequests),
+				ServiceName:      m.identifier,
+				DataplaneName:    m.uniqueIdentifier,
+				InflightRequests: inflightRequests,
 			})
 			if err != nil || !status.Success {
 				logrus.Warn("Failed to forward metrics to the control plane for service '", m.identifier, "'")

@@ -244,14 +244,14 @@ func (c *ControlPlane) ListServices(_ context.Context, _ *emptypb.Empty) (*proto
 }
 
 func (c *ControlPlane) OnMetricsReceive(_ context.Context, metric *proto.AutoscalingMetric) (*proto.ActionStatus, error) {
-	storage, ok := c.SIStorage.Get(metric.ServiceName)
+	storage, ok := c.SIStorage.AtomicGet(metric.ServiceName)
 	if !ok {
 		logrus.Warn("SIStorage does not exist for '", metric.ServiceName, "'")
 		return &proto.ActionStatus{Success: false}, nil
 	}
 
-	storage.Controller.ScalingMetadata.SetCachedScalingMetric(float64(metric.Metric))
-	logrus.Debug("Scaling metric for '", storage.ServiceInfo.Name, "' is ", metric.Metric)
+	storage.Controller.ScalingMetadata.SetCachedScalingMetric(metric)
+	logrus.Debug("Scaling metric for '", storage.ServiceInfo.Name, "' is ", storage.Controller.ScalingMetadata.ActualScale)
 
 	storage.Controller.Start()
 

@@ -22,7 +22,8 @@ message NodeHeartbeatMessage {
 
 message AutoscalingMetric {
   string ServiceName = 1;
-  float Metric = 2;
+  string DataplaneName = 2;
+  uint32 InflightRequests = 3;
 }
 
 message DataplaneInfo {

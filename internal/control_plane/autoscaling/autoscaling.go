@@ -3,6 +3,8 @@ package autoscaling
 import (
 	"cluster_manager/api/proto"
 	"math"
+	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/cznic/mathutil"
@@ -26,7 +28,10 @@ type AutoscalingMetadata struct {
 	StartPanickingTimestamp time.Time
 	MaxPanicPods            int
 
-	cachedScalingMetric float64
+	inflightRequestsPerDataPlane map[string]uint32
+	inflightRequestsLock         sync.RWMutex
+
+	cachedScalingMetric uint32
 	scalingMetrics      []float64
 	windowHead          int64
 }
@@ -47,8 +52,11 @@ func NewDefaultAutoscalingMetadata() *proto.AutoscalingConfiguration {
 	}
 }
 
-func (s *AutoscalingMetadata) SetCachedScalingMetric(value float64) {
-	s.cachedScalingMetric = value
+func (s *AutoscalingMetadata) SetCachedScalingMetric(metrics *proto.AutoscalingMetric) {
+	s.inflightRequestsLock.Lock()
+	defer s.inflightRequestsLock.Unlock()
+
+	atomic.AddUint32(&s.cachedScalingMetric, metrics.InflightRequests-s.inflightRequestsPerDataPlane[metrics.ServiceName])
 }
 
 func (s *AutoscalingMetadata) KnativeScaling(isScaleFromZero bool) int {
@@ -56,7 +64,7 @@ func (s *AutoscalingMetadata) KnativeScaling(isScaleFromZero bool) int {
 		return 1
 	}
 
-	desiredScale, _ := s.internalScaleAlgorithm(s.cachedScalingMetric)
+	desiredScale, _ := s.internalScaleAlgorithm(float64(s.cachedScalingMetric))
 
 	return mathutil.Clamp(desiredScale, int(s.AutoscalingConfig.ScalingLowerBound), int(s.AutoscalingConfig.ScalingUpperBound))
 }

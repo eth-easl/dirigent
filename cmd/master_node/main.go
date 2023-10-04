@@ -31,7 +31,6 @@ var (
 
 func main() {
 	flag.Parse()
-
 	logrus.Debugf("Configuration path is : %s", *configPath)
 
 	cfg, err := config.ReadControlPlaneConfiguration(*configPath)
