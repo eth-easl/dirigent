@@ -4,6 +4,7 @@ import (
 	"cluster_manager/api/proto"
 	"fmt"
 	"github.com/stretchr/testify/assert"
+	"math"
 	"testing"
 )
 
@@ -101,17 +102,20 @@ func TestEndpointMerge(t *testing.T) {
 func TestExponentialBackoff(t *testing.T) {
 	eb := &ExponentialBackoff{
 		Interval:        0.015,
-		ExponentialRate: 1.5,
+		ExponentialRate: 1.3,
 		RetryNumber:     0,
 		MaxDifference:   1,
 	}
 
+	var res []float64
 	for i := 0; i < 20; i++ {
-		val := eb.Next()
+		res = append(res, eb.Next())
+		fmt.Println(i+1, ": ", res[i])
+	}
 
-		fmt.Println(i+1, ": ", val)
-		if i == 13 && val != -1 {
-			t.Errorf("Unexpected value.")
+	for i := 0; i < 19; i++ {
+		if math.Abs(res[i]-res[i+1]) > eb.MaxDifference {
+			t.Error("Unexpected value.")
 		}
 	}
 }

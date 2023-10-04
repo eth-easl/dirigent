@@ -99,12 +99,11 @@ func (ps *ProxyingService) createInvocationHandler(next http.Handler, cache *com
 			// wait until a cold start is resolved
 			coldStartWaitTime := time.Now()
 
-			<-coldStartChannel
+			// TODO: check for readiness wait and cold start latencies
+			coldStartPause = <-coldStartChannel
+			//time.Sleep(175 * time.Millisecond)
 
-			durationColdStart += time.Since(coldStartWaitTime)
-
-			time.Sleep(metadata.GetColdStartDelay())
-			coldStartPause = metadata.GetColdStartDelay()
+			durationColdStart = time.Since(coldStartWaitTime)
 		}
 
 		///////////////////////////////////////////////
