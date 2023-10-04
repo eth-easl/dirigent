@@ -110,7 +110,7 @@ func (fcr *Runtime) CreateSandbox(_ context.Context, in *proto.ServiceInfo) (*pr
 
 	in.PortForwarding.HostPort = int32(metadata.HostPort)
 
-	logrus.Debug("Worker node part: ", time.Since(start))
+	logrus.Debug("Worker node part: ", time.Since(start).Milliseconds(), " ms")
 
 	return &proto.SandboxCreationStatus{
 		Success:      true,

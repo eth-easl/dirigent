@@ -6,12 +6,6 @@ import (
 	_map "cluster_manager/pkg/map"
 	"container/list"
 	"context"
-	"crypto/tls"
-	"errors"
-	"fmt"
-	"golang.org/x/net/http2"
-	"net"
-	"net/http"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -135,154 +129,96 @@ func createThrottlerChannel(capacity uint) RequestThrottler {
 	return ccChannel
 }
 
-func (m *FunctionMetadata) updateEndpointList(data []*proto.EndpointInfo) {
+func (m *FunctionMetadata) mergeEndpointLists(data []*proto.EndpointInfo) []*UpstreamEndpoint {
 	oldURLs, mmOld := _map.ExtractField[*UpstreamEndpoint](m.upstreamEndpoints, func(info *UpstreamEndpoint) string { return info.URL })
 	newURLs, mmNew := _map.ExtractField[*proto.EndpointInfo](data, func(info *proto.EndpointInfo) string { return info.URL })
 
 	toAdd := _map.Difference(newURLs, oldURLs)
 	toRemove := _map.Difference(oldURLs, newURLs)
 
+	var toProbe []*UpstreamEndpoint
 	for i := 0; i < len(toAdd); i++ {
-		m.upstreamEndpoints = append(m.upstreamEndpoints, &UpstreamEndpoint{
+		endpoint := &UpstreamEndpoint{
 			ID:       mmNew[toAdd[i]].ID,
 			URL:      mmNew[toAdd[i]].URL,
 			Capacity: createThrottlerChannel(m.sandboxParallelism),
-		})
+		}
+
+		toProbe = append(toProbe, endpoint)
 	}
+
+	m.Lock()
+	defer m.Unlock()
 
 	for i := 0; i < len(toRemove); i++ {
 		for j := 0; j < len(m.upstreamEndpoints); j++ {
 			if mmOld[toRemove[i]].URL == m.upstreamEndpoints[j].URL {
 				m.upstreamEndpoints = append(m.upstreamEndpoints[:j], m.upstreamEndpoints[j+1:]...)
+				atomic.AddInt32(&m.upstreamEndpointsCount, -1)
 				break
 			}
 		}
 	}
+
+	return toProbe
 }
 
-func createProbingDialer(network, addr string) (net.Conn, error) {
-	dialer := &net.Dialer{
-		DualStack: true,
-		KeepAlive: 5 * time.Second,
-		Timeout:   10 * time.Millisecond,
-	}
+func (m *FunctionMetadata) SetUpstreamURLs(endpoints []*proto.EndpointInfo) {
+	toProbe := m.mergeEndpointLists(endpoints)
 
-	return dialer.Dial(network, addr)
-}
+	for _, endpoint := range toProbe {
+		e := endpoint
 
-var httpProbingClient = http.Client{
-	Timeout: 10 * time.Millisecond,
-	Transport: &http2.Transport{
-		AllowHTTP: true,
-		DialTLSContext: func(ctx context.Context, network, addr string, cfg *tls.Config) (net.Conn, error) {
-			return createProbingDialer(network, addr)
-		},
-		DisableCompression: true,
-	},
-}
+		go func() {
+			_, passed := SendReadinessProbe(e.URL)
 
-func (m *FunctionMetadata) passReadinessProbe(url string) (time.Duration, bool) {
-	wg := &sync.WaitGroup{}
-	wg.Add(1)
+			if passed {
+				var oldValue int32
 
-	// empirically determined to make 20 probes before failure
-	/*	1 :  0.015
-		2 :  0.02535
-		3 :  0.032955000000000005
-		4 :  0.042841500000000005
-		5 :  0.05569395000000001
-		6 :  0.07240213500000002
-		7 :  0.09412277550000003
-		8 :  0.12235960815000003
-		9 :  0.15906749059500003
-		10 :  0.20678773777350007
-		11 :  0.26882405910555013
-		12 :  0.3494712768372152
-		13 :  0.45431265988837977
-		14 :  0.5906064578548937
-		15 :  0.7677883952113619
-		16 :  0.9981249137747704
-		17 :  1.2975623879072016
-		18 :  1.6868311042793622
-		19 :  2.1928804355631715
-		20 :  2.8507445662321222 */
-	expBackoff := ExponentialBackoff{
-		Interval:        0.015,
-		ExponentialRate: 1.3,
-		RetryNumber:     0,
-		MaxDifference:   1,
-	}
+				swapped := false
+				for !swapped {
+					oldValue = atomic.LoadInt32(&m.upstreamEndpointsCount)
+					newValue := oldValue + 1
 
-	passed := true
-	start := time.Now()
-
-	go func() {
-		defer wg.Done()
-
-		for {
-			res, err := httpProbingClient.Get(fmt.Sprintf("http://%s/health", url))
-			if err != nil || res == nil || (res != nil && res.StatusCode != http.StatusOK) {
-				toSleep := expBackoff.Next()
-				if toSleep < 0 {
-					logrus.Error("Failed to pass readiness probe for ", url, ".")
-
-					passed = false
-					break
+					swapped = atomic.CompareAndSwapInt32(&m.upstreamEndpointsCount, oldValue, newValue)
 				}
 
-				time.Sleep(time.Duration(int(toSleep*1000)) * time.Millisecond)
+				if oldValue == 0 {
+					m.dequeueRequests()
+				}
 
-				continue
+				m.Lock()
+				m.upstreamEndpoints = append(m.upstreamEndpoints, e)
+				m.Unlock()
+
+				logrus.Debug("Added endpoint for ", m.identifier, " (count: ", int32(len(m.upstreamEndpoints)), ")")
 			}
-
-			break
-		}
-	}()
-
-	wg.Wait()
-
-	elapsed := time.Since(start)
-
-	logrus.Trace("Passed readiness probe for ", url, " in ", elapsed.Milliseconds(), " ms")
-	return elapsed, passed
+		}()
+	}
 }
 
-func (m *FunctionMetadata) SetUpstreamURLs(endpoints []*proto.EndpointInfo) error {
-	m.Lock()
-	defer m.Unlock()
+func (m *FunctionMetadata) dequeueRequests() {
+	dequeueCnt := 0
 
-	m.updateEndpointList(endpoints)
-	atomic.StoreInt32(&m.upstreamEndpointsCount, int32(len(m.upstreamEndpoints)))
-	logrus.Debug("Updated endpoint list for ", m.identifier, " (count: ", int32(len(m.upstreamEndpoints)), ")")
+	for m.queue.Len() > 0 {
+		dequeue := m.queue.Front()
+		m.queue.Remove(dequeue)
 
-	if len(m.upstreamEndpoints) > 0 {
-		dequeueCnt := 0
-
-		for m.queue.Len() > 0 {
-			dequeue := m.queue.Front()
-			m.queue.Remove(dequeue)
-
-			signal, ok := dequeue.Value.(chan time.Duration)
-			if !ok {
-				return errors.New("failed to convert dequeue into channel")
-			}
-
-			// TODO: add support for multiple readiness probes
-			readinessDuration, _ := m.passReadinessProbe(endpoints[0].URL)
-
-			// unblock proxy request
-			signal <- readinessDuration
-			close(signal)
-
-			dequeueCnt++
+		signal, ok := dequeue.Value.(chan struct{})
+		if !ok {
+			logrus.Fatal("Failed to convert dequeue into channel")
 		}
 
-		if dequeueCnt > 0 {
-			logrus.Debug("Dequeued ", dequeueCnt, " requests for ", m.identifier)
-		}
+		// unblock proxy request
+		signal <- struct{}{}
+		close(signal)
+
+		dequeueCnt++
 	}
 
-	return nil
+	if dequeueCnt > 0 {
+		logrus.Debug("Dequeued ", dequeueCnt, " requests for ", m.identifier)
+	}
 }
 
 func (m *FunctionMetadata) SetEndpoints(newEndpoints []*UpstreamEndpoint) {
@@ -293,7 +229,7 @@ func (m *FunctionMetadata) DecreaseInflight() {
 	atomic.AddInt32(&m.metrics.inflightRequests, -1)
 }
 
-func (m *FunctionMetadata) TryWarmStart(cp *proto.CpiInterfaceClient) (chan time.Duration, time.Duration) {
+func (m *FunctionMetadata) TryWarmStart(cp *proto.CpiInterfaceClient) (chan struct{}, time.Duration) {
 	start := time.Now()
 
 	// autoscaling metric
@@ -303,7 +239,7 @@ func (m *FunctionMetadata) TryWarmStart(cp *proto.CpiInterfaceClient) (chan time
 
 	endpointCount := atomic.LoadInt32(&m.upstreamEndpointsCount)
 	if endpointCount == 0 {
-		waitChannel := make(chan time.Duration, 1)
+		waitChannel := make(chan struct{}, 1)
 
 		m.Lock()
 		defer m.Unlock()

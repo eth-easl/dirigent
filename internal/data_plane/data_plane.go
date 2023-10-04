@@ -75,11 +75,7 @@ func (d *Dataplane) UpdateEndpointList(patch *proto.DeploymentEndpointPatch) (*p
 		return &proto.DeploymentUpdateSuccess{Success: false}, nil
 	}
 
-	err := deployment.SetUpstreamURLs(patch.Endpoints)
-	if err != nil {
-		return nil, err
-	}
-
+	deployment.SetUpstreamURLs(patch.Endpoints)
 	return &proto.DeploymentUpdateSuccess{Success: true}, nil
 }
 

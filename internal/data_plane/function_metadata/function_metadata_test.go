@@ -75,7 +75,7 @@ func TestEndpointMerge(t *testing.T) {
 				})
 			}
 
-			metadata.updateEndpointList(endpointsInfo)
+			metadata.mergeEndpointLists(endpointsInfo)
 			mergedResults := metadata.upstreamEndpoints
 
 			assert.Equal(t, len(mergedResults), len(test.expectedURLs), "Invalid endpoint merge. Algorithm is broken.")

@@ -99,9 +99,7 @@ func (ps *ProxyingService) createInvocationHandler(next http.Handler, cache *com
 			// wait until a cold start is resolved
 			coldStartWaitTime := time.Now()
 
-			// TODO: check for readiness wait and cold start latencies
-			coldStartPause = <-coldStartChannel
-			//time.Sleep(175 * time.Millisecond)
+			<-coldStartChannel
 
 			durationColdStart = time.Since(coldStartWaitTime)
 		}
@@ -113,7 +111,7 @@ func (ps *ProxyingService) createInvocationHandler(next http.Handler, cache *com
 		lbSuccess, endpoint, durationLB, durationCC := load_balancing.DoLoadBalancing(r, metadata, ps.LoadBalancingPolicy)
 		if !lbSuccess {
 			w.WriteHeader(http.StatusGone)
-			logrus.Debug("Cold start passed by no sandbox available.")
+			logrus.Debug("Cold start passed, but no sandbox available.")
 
 			return
 		}
