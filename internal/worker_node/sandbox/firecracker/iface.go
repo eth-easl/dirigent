@@ -9,16 +9,14 @@ import (
 	"path/filepath"
 )
 
+const (
+	noDebugKernelArgs = "panic=1 pci=off nomodules reboot=k tsc=reliable quiet i8042.nokbd i8042.noaux 8250.nr_uarts=0 ipv6.disable=1"
+	debugKernelArgs   = "panic=1 pci=off nomodules reboot=k tsc=reliable quiet i8042.noaux ipv6.disable=1 console=ttyS0 random.trust_cpu=on"
+	ipKernelArg       = " ip=%s::%s:255.255.255.252::eth0:off"
+)
+
 func makeSocketPath(vmmID string) string {
 	return filepath.Join(os.TempDir(), vmmID)
-}
-
-func createCNIConfig() *firecracker.CNIConfiguration {
-	return &firecracker.CNIConfiguration{
-		NetworkName: "fcnet",
-		IfName:      "veth0",
-		ConfDir:     "/home/lcvetkovic/projects/cluster_manager/configs/firecracker",
-	}
 }
 
 func makeFirecrackerConfig(vmcs *VMControlStructure, vmDebugMode bool) {
@@ -27,11 +25,11 @@ func makeFirecrackerConfig(vmcs *VMControlStructure, vmDebugMode bool) {
 		return
 	}
 
-	kernelArgs := "panic=1 pci=off nomodules reboot=k tsc=reliable quiet i8042.nokbd i8042.noaux 8250.nr_uarts=0 ipv6.disable=1"
+	kernelArgs := noDebugKernelArgs
 	if vmDebugMode {
-		kernelArgs = "panic=1 pci=off nomodules reboot=k tsc=reliable quiet i8042.noaux ipv6.disable=1 console=ttyS0 random.trust_cpu=on"
+		kernelArgs = debugKernelArgs
 	}
-	kernelArgs += fmt.Sprintf(" ip=%s::%s:255.255.255.252::eth0:off", vmcs.tapLink.VmIP, vmcs.tapLink.GatewayIP)
+	kernelArgs += fmt.Sprintf(ipKernelArg, vmcs.tapLink.VmIP, vmcs.tapLink.GatewayIP)
 
 	vmcs.config = &firecracker.Config{
 		SocketPath:      makeSocketPath(vmcs.SandboxID),

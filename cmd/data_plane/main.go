@@ -53,7 +53,7 @@ func main() {
 	defer close(proxyServer.Tracing.InputChannel)
 
 	// TODO: bad heartbeat implementation
-	//go dataPlane.SetupHeartbeatLoop()
+	go dataPlane.SetupHeartbeatLoop()
 	go proxyServer.StartProxyServer()
 
 	defer dataPlane.DeregisterControlPlaneConnection()

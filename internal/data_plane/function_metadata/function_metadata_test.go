@@ -3,7 +3,6 @@ package function_metadata
 import (
 	"cluster_manager/api/proto"
 	"fmt"
-	"github.com/stretchr/testify/assert"
 	"math"
 	"testing"
 )
@@ -13,43 +12,50 @@ func TestEndpointMerge(t *testing.T) {
 		testName     string
 		oldURLs      []string
 		newURLs      []string
+		toProbe      []string
 		expectedURLs []string
 	}{
 		{
 			testName:     "endpoint_merge_1nil_2new",
 			oldURLs:      nil,
 			newURLs:      []string{"a", "b", "c"},
-			expectedURLs: []string{"a", "b", "c"},
+			toProbe:      []string{"a", "b", "c"},
+			expectedURLs: []string{},
 		},
 		{
 			testName:     "endpoint_merge_1empty_2new",
 			oldURLs:      []string{},
 			newURLs:      []string{"a", "b", "c"},
-			expectedURLs: []string{"a", "b", "c"},
+			toProbe:      []string{"a", "b", "c"},
+			expectedURLs: []string{},
 		},
 		{
 			testName:     "endpoint_merge_1two_2append_one",
 			oldURLs:      []string{"a", "b"},
 			newURLs:      []string{"a", "b", "c"},
-			expectedURLs: []string{"a", "b", "c"},
+			toProbe:      []string{"c"},
+			expectedURLs: []string{"a", "b"},
 		},
 		{
 			testName:     "endpoint_merge_1two_2delete_one",
 			oldURLs:      []string{"a", "b"},
 			newURLs:      []string{"b", "c"},
-			expectedURLs: []string{"b", "c"},
+			toProbe:      []string{"c"},
+			expectedURLs: []string{"b"},
 		},
 		{
 			testName:     "endpoint_merge_1two_2add_one_delete_one",
 			oldURLs:      []string{"a", "b"},
 			newURLs:      []string{"b", "c", "d"},
-			expectedURLs: []string{"b", "c", "d"},
+			toProbe:      []string{"c", "d"},
+			expectedURLs: []string{"b"},
 		},
 		{
 			testName:     "endpoint_merge_1two_2change_completely",
 			oldURLs:      []string{"a", "b"},
 			newURLs:      []string{"c", "d", "e"},
-			expectedURLs: []string{"c", "d", "e"},
+			toProbe:      []string{"c", "d", "e"},
+			expectedURLs: []string{},
 		},
 	}
 
@@ -75,25 +81,28 @@ func TestEndpointMerge(t *testing.T) {
 				})
 			}
 
-			metadata.mergeEndpointLists(endpointsInfo)
-			mergedResults := metadata.upstreamEndpoints
+			toProbe := metadata.mergeEndpointLists(endpointsInfo)
 
-			assert.Equal(t, len(mergedResults), len(test.expectedURLs), "Invalid endpoint merge. Algorithm is broken.")
+			// Endpoint adding
+			if len(toProbe) != len(test.toProbe) {
+				t.Error("Invalid merge endpoint list function return value.")
+			}
 
-			for i := 0; i < len(mergedResults); i++ {
-				found := false
-				url1 := mergedResults[i]
-
-				for j := 0; j < len(test.expectedURLs); j++ {
-					url2 := mergedResults[j]
-
-					if url1 == url2 {
-						found = true
-						break
-					}
+			for i := 0; i < len(test.toProbe); i++ {
+				if test.toProbe[i] != toProbe[i].URL {
+					t.Error("Invalid endpoint to probe merge. Algorithm is broken.")
 				}
+			}
 
-				assert.True(t, found, "Invalid endpoint merge. Algorithm is broken.")
+			// Endpoint removal
+			if len(metadata.upstreamEndpoints) != len(test.expectedURLs) {
+				t.Error("Invalid endpoint list function return value.")
+			}
+
+			for i := 0; i < len(test.expectedURLs); i++ {
+				if test.expectedURLs[i] != metadata.upstreamEndpoints[i].URL {
+					t.Error("Invalid endpoint merge. Algorithm is broken.")
+				}
 			}
 		})
 	}

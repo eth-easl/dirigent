@@ -58,7 +58,9 @@ func TestCreateAContainer(t *testing.T) {
 		NetNs: netns,
 	}
 
-	go WatchExitChannel(nil, sm)
+	go WatchExitChannel(nil, sm, func(metadata *managers.Metadata) string {
+		return metadata.RuntimeMetadata.(ContainerdMetadata).Container.ID()
+	})
 
 	err = DeleteContainer(ctx, network, sm)
 	assert.NoError(t, err, "Failed to delete container")
@@ -161,7 +163,9 @@ func TestContainerFailureHandlerTriggering(t *testing.T) {
 	}
 	pm.AddChannel(task.Pid(), sm.ExitStatusChannel)
 
-	go WatchExitChannel(nil, sm)
+	go WatchExitChannel(nil, sm, func(metadata *managers.Metadata) string {
+		return metadata.RuntimeMetadata.(ContainerdMetadata).Container.ID()
+	})
 
 	// wait until 'WatchExitChannel' is ready
 	time.Sleep(3 * time.Second)
