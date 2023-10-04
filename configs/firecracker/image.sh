@@ -40,7 +40,7 @@ fi
 
 build_go_function(){
     export PATH=$PATH:/usr/local/go/bin
-    go build -tags netgo -ldflags '-extldflags "-static"' -o "$DEST_PATH/$APP_NAME" || exit
+    go build -buildvcs=false -tags netgo -ldflags '-extldflags "-static"' -o "$DEST_PATH/$APP_NAME" || exit
     echo "Built go function"
 }
 #  build the application

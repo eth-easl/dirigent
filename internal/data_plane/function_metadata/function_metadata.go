@@ -7,6 +7,8 @@ import (
 	"container/list"
 	"context"
 	"errors"
+	"fmt"
+	"net/http"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -161,6 +163,48 @@ func (m *FunctionMetadata) updateEndpointList(data []*proto.EndpointInfo) {
 	}
 }
 
+func (m *FunctionMetadata) passReadinessProbe(url string) bool {
+	wg := &sync.WaitGroup{}
+	wg.Add(1)
+
+	expBackoff := ExponentialBackoff{
+		Interval:        0.015,
+		ExponentialRate: 1.5,
+		RetryNumber:     0,
+		MaxDifference:   1,
+	}
+
+	passed := true
+
+	go func() {
+		client := http.Client{
+			Timeout: 10 * time.Millisecond,
+		}
+
+		for {
+			res, err := client.Get(fmt.Sprintf("%s/health", url))
+			if err != nil || (res != nil && res.StatusCode != http.StatusOK) {
+				toSleep := expBackoff.Next()
+				if toSleep < 0 {
+					passed = false
+					wg.Done()
+
+					break
+				}
+
+				time.Sleep(time.Duration(int(toSleep*1000)) * time.Millisecond)
+				continue
+			}
+
+			wg.Done()
+		}
+	}()
+
+	wg.Wait()
+
+	return passed
+}
+
 func (m *FunctionMetadata) SetUpstreamURLs(endpoints []*proto.EndpointInfo) error {
 	m.Lock()
 	defer m.Unlock()
@@ -181,6 +225,9 @@ func (m *FunctionMetadata) SetUpstreamURLs(endpoints []*proto.EndpointInfo) erro
 				return errors.New("failed to convert dequeue into channel")
 			}
 
+			//m.passReadinessProbe()
+
+			// unblock proxy request
 			signal <- struct{}{}
 			close(signal)
 

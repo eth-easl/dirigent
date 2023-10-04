@@ -2,9 +2,9 @@ package function_metadata
 
 import (
 	"cluster_manager/api/proto"
-	"testing"
-
+	"fmt"
 	"github.com/stretchr/testify/assert"
+	"testing"
 )
 
 func TestEndpointMerge(t *testing.T) {
@@ -95,5 +95,23 @@ func TestEndpointMerge(t *testing.T) {
 				assert.True(t, found, "Invalid endpoint merge. Algorithm is broken.")
 			}
 		})
+	}
+}
+
+func TestExponentialBackoff(t *testing.T) {
+	eb := &ExponentialBackoff{
+		Interval:        0.015,
+		ExponentialRate: 1.5,
+		RetryNumber:     0,
+		MaxDifference:   1,
+	}
+
+	for i := 0; i < 20; i++ {
+		val := eb.Next()
+
+		fmt.Println(i+1, ": ", val)
+		if i == 13 && val != -1 {
+			t.Errorf("Unexpected value.")
+		}
 	}
 }
