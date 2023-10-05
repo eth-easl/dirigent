@@ -62,50 +62,48 @@ func (ss *ServiceInfoStorage) ScalingControllerLoop(nodeList synchronization.Syn
 	for ok {
 		desiredCount, ok = <-ss.Controller.DesiredStateChannel
 
-		// Channel closed, we want to remove all endpoints
+		// Channel closed ==> We send the instruction to remove all endpoints
 		if !ok {
 			desiredCount = 0
 		}
 
-		if ok {
-			ss.Controller.EndpointLock.Lock()
+		ss.Controller.EndpointLock.Lock()
 
-			swapped := false
+		swapped := false
 
-			var actualScale int
+		var actualScale int
 
-			for !swapped {
-				actualScale = int(ss.Controller.ScalingMetadata.ActualScale)
-				swapped = atomic.CompareAndSwapInt64(&ss.Controller.ScalingMetadata.ActualScale, int64(actualScale), int64(desiredCount))
-			}
-
-			if actualScale < desiredCount {
-				go ss.doUpscaling(desiredCount-actualScale, nodeList, dpiClients)
-			} else if !ss.isDownScalingDisabled() && actualScale > desiredCount {
-				currentState := ss.Controller.Endpoints
-				toEvict := make(map[*core.Endpoint]struct{})
-
-				for i := 0; i < actualScale-desiredCount; i++ {
-					endpoint, newState := eviction_policy.EvictionPolicy(currentState)
-
-					if _, ok := toEvict[endpoint]; ok {
-						logrus.Warn("Endpoint repetition - this is a bug.")
-					}
-					toEvict[endpoint] = struct{}{}
-					currentState = newState
-				}
-
-				if actualScale-desiredCount != len(toEvict) {
-					logrus.Warn("downscaling reference error")
-				}
-
-				ss.Controller.Endpoints = ss.excludeEndpoints(ss.Controller.Endpoints, toEvict)
-
-				go ss.doDownscaling(toEvict, ss.prepareUrlList(), dpiClients)
-			}
-
-			ss.Controller.EndpointLock.Unlock() // for all cases (>, ==, <)
+		for !swapped {
+			actualScale = int(ss.Controller.ScalingMetadata.ActualScale)
+			swapped = atomic.CompareAndSwapInt64(&ss.Controller.ScalingMetadata.ActualScale, int64(actualScale), int64(desiredCount))
 		}
+
+		if actualScale < desiredCount {
+			go ss.doUpscaling(desiredCount-actualScale, nodeList, dpiClients)
+		} else if !ss.isDownScalingDisabled() && actualScale > desiredCount {
+			currentState := ss.Controller.Endpoints
+			toEvict := make(map[*core.Endpoint]struct{})
+
+			for i := 0; i < actualScale-desiredCount; i++ {
+				endpoint, newState := eviction_policy.EvictionPolicy(currentState)
+
+				if _, ok := toEvict[endpoint]; ok {
+					logrus.Warn("Endpoint repetition - this is a bug.")
+				}
+				toEvict[endpoint] = struct{}{}
+				currentState = newState
+			}
+
+			if actualScale-desiredCount != len(toEvict) {
+				logrus.Warn("downscaling reference error")
+			}
+
+			ss.Controller.Endpoints = ss.excludeEndpoints(ss.Controller.Endpoints, toEvict)
+
+			go ss.doDownscaling(toEvict, ss.prepareUrlList(), dpiClients)
+		}
+
+		ss.Controller.EndpointLock.Unlock() // for all cases (>, ==, <)
 	}
 }
 
