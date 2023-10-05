@@ -61,8 +61,8 @@ func (c *ControlPlane) RegisterDataplane(ctx context.Context, in *proto.Dataplan
 	key := in.IP
 	dataplaneConnection := c.dataPlaneCreator(dataplaneInfo.Address, dataplaneInfo.ApiPort, dataplaneInfo.ProxyPort)
 
-	if enter := c.DataPlaneConnections.SetIfAbsent(key, dataplaneConnection); enter {
-		err := c.PersistenceLayer.StoreDataPlaneInformation(ctx, &dataplaneInfo)
+	if enter, timestamp := c.DataPlaneConnections.SetIfAbsent(key, dataplaneConnection); enter {
+		err := c.PersistenceLayer.StoreDataPlaneInformation(ctx, &dataplaneInfo, timestamp)
 		if err != nil {
 			logrus.Errorf("Failed to store information to persistence layer (error : %s)", err.Error())
 			c.DataPlaneConnections.Remove(key)
@@ -98,13 +98,12 @@ func (c *ControlPlane) DeregisterDataplane(ctx context.Context, in *proto.Datapl
 		ProxyPort: strconv.Itoa(int(in.ProxyPort)),
 	}
 
-	// TODO: Ask Michal if we are allowed to do like this - Francois Costa
-	c.DataPlaneConnections.AtomicRemove(dataplaneInfo.Address)
-
-	err := c.PersistenceLayer.DeleteDataPlaneInformation(ctx, &dataplaneInfo)
-	if err != nil {
-		logrus.Errorf("Failed to store information to persistence layer (error : %s)", err.Error())
-		return &proto.ActionStatus{Success: false}, err
+	if enter, timestamp := c.DataPlaneConnections.RemoveIfPresent(dataplaneInfo.Address); enter {
+		err := c.PersistenceLayer.DeleteDataPlaneInformation(ctx, &dataplaneInfo, timestamp)
+		if err != nil {
+			logrus.Errorf("Failed to store information to persistence layer (error : %s)", err.Error())
+			return &proto.ActionStatus{Success: false}, err
+		}
 	}
 
 	return &proto.ActionStatus{Success: true}, nil
@@ -121,14 +120,14 @@ func (c *ControlPlane) RegisterNode(ctx context.Context, in *proto.NodeInfo) (*p
 		Memory:   in.MemorySize,
 	})
 
-	if enter := c.NIStorage.SetIfAbsent(in.NodeID, wn); enter {
+	if enter, timestamp := c.NIStorage.SetIfAbsent(in.NodeID, wn); enter {
 		err := c.PersistenceLayer.StoreWorkerNodeInformation(ctx, &proto.WorkerNodeInformation{
 			Name:     in.NodeID,
 			Ip:       in.IP,
 			Port:     strconv.Itoa(int(in.Port)),
 			CpuCores: in.CpuCores,
 			Memory:   in.MemorySize,
-		})
+		}, timestamp)
 		if err != nil {
 			logrus.Errorf("Failed to store information to persistence layer (error : %s)", err.Error())
 			c.NIStorage.AtomicRemove(in.NodeID)
@@ -150,8 +149,8 @@ func (c *ControlPlane) RegisterNode(ctx context.Context, in *proto.NodeInfo) (*p
 }
 
 func (c *ControlPlane) DeregisterNode(ctx context.Context, in *proto.NodeInfo) (*proto.ActionStatus, error) {
-	if enter := c.NIStorage.RemoveIfPresent(in.NodeID); enter {
-		err := c.PersistenceLayer.DeleteWorkerNodeInformation(context.Background(), in.NodeID)
+	if enter, timestamp := c.NIStorage.RemoveIfPresent(in.NodeID); enter {
+		err := c.PersistenceLayer.DeleteWorkerNodeInformation(context.Background(), in.NodeID, timestamp)
 		if err != nil {
 			logrus.Errorf("Failed to disconnect registered worker (error : %s)", err.Error())
 			return &proto.ActionStatus{Success: false}, err
@@ -191,8 +190,8 @@ func (c *ControlPlane) NodeHeartbeat(_ context.Context, in *proto.NodeHeartbeatM
 
 func (c *ControlPlane) RegisterService(ctx context.Context, serviceInfo *proto.ServiceInfo) (*proto.ActionStatus, error) {
 
-	if enter := c.SIStorage.SetIfAbsent(serviceInfo.Name, &ServiceInfoStorage{}); enter {
-		err := c.PersistenceLayer.StoreServiceInformation(ctx, serviceInfo)
+	if enter, timestamp := c.SIStorage.SetIfAbsent(serviceInfo.Name, &ServiceInfoStorage{}); enter {
+		err := c.PersistenceLayer.StoreServiceInformation(ctx, serviceInfo, timestamp)
 		if err != nil {
 			logrus.Errorf("Failed to store information to persistence layer (error : %s)", err.Error())
 			c.SIStorage.AtomicRemove(serviceInfo.Name)
@@ -216,8 +215,8 @@ func (c *ControlPlane) RegisterService(ctx context.Context, serviceInfo *proto.S
 
 func (c *ControlPlane) DeregisterService(ctx context.Context, serviceInfo *proto.ServiceInfo) (*proto.ActionStatus, error) {
 
-	if enter := c.SIStorage.RemoveIfPresent(serviceInfo.Name); enter {
-		err := c.PersistenceLayer.DeleteServiceInformation(ctx, serviceInfo)
+	if enter, timestamp := c.SIStorage.RemoveIfPresent(serviceInfo.Name); enter {
+		err := c.PersistenceLayer.DeleteServiceInformation(ctx, serviceInfo, timestamp)
 		if err != nil {
 			logrus.Errorf("Failed to delete information to persistence layer (error : %s)", err.Error())
 			return &proto.ActionStatus{Success: false}, err
@@ -270,7 +269,7 @@ func (c *ControlPlane) CheckPeriodicallyWorkerNodes() {
 
 				// Trigger a node deregistration
 				c.NIStorage.Remove(workerNode.GetName())
-				err := c.PersistenceLayer.DeleteWorkerNodeInformation(context.Background(), workerNode.GetName())
+				err := c.PersistenceLayer.DeleteWorkerNodeInformation(context.Background(), workerNode.GetName(), time.Now())
 				if err != nil {
 					logrus.Errorf("Failed to deregister node (error : %s)", err.Error())
 				}

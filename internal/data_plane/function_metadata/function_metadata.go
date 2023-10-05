@@ -59,7 +59,7 @@ type ScalingMetric struct {
 	timeWindowSize time.Duration
 
 	totalRequests    uint32
-	inflightRequests uint32
+	inflightRequests int32
 }
 
 func NewFunctionMetadata(name string) *FunctionMetadata {
@@ -227,14 +227,14 @@ func (m *FunctionMetadata) SetEndpoints(newEndpoints []*UpstreamEndpoint) {
 }
 
 func (m *FunctionMetadata) DecreaseInflight() {
-	atomic.AddUint32(&m.metrics.inflightRequests, -1)
+	atomic.AddInt32(&m.metrics.inflightRequests, -1)
 }
 
 func (m *FunctionMetadata) TryWarmStart(cp *proto.CpiInterfaceClient) (chan struct{}, time.Duration) {
 	start := time.Now()
 
 	// autoscaling metric
-	atomic.AddUint32(&m.metrics.inflightRequests, 1)
+	atomic.AddInt32(&m.metrics.inflightRequests, 1)
 	// runtime statistics
 	atomic.AddUint32(&m.metrics.totalRequests, 1)
 
@@ -271,7 +271,7 @@ func (m *FunctionMetadata) sendMetricsToAutoscaler(cp *proto.CpiInterfaceClient)
 
 		m.Lock()
 
-		inflightRequests := atomic.LoadUint32(&m.metrics.inflightRequests)
+		inflightRequests := atomic.LoadInt32(&m.metrics.inflightRequests)
 
 		go func() {
 			status, err := (*cp).OnMetricsReceive(context.Background(), &proto.AutoscalingMetric{

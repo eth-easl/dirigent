@@ -3,6 +3,7 @@ package persistence
 import (
 	"cluster_manager/api/proto"
 	"context"
+	"time"
 )
 
 func NewEmptyPeristenceLayer() *EmptyPersistence {
@@ -11,11 +12,11 @@ func NewEmptyPeristenceLayer() *EmptyPersistence {
 
 type EmptyPersistence struct{}
 
-func (e *EmptyPersistence) StoreDataPlaneInformation(ctx context.Context, dataplaneInfo *proto.DataplaneInformation) error {
+func (e *EmptyPersistence) StoreDataPlaneInformation(ctx context.Context, dataplaneInfo *proto.DataplaneInformation, timestamp time.Time) error {
 	return nil
 }
 
-func (e *EmptyPersistence) DeleteDataPlaneInformation(ctx context.Context, dataplaneInfo *proto.DataplaneInformation) error {
+func (e *EmptyPersistence) DeleteDataPlaneInformation(ctx context.Context, dataplaneInfo *proto.DataplaneInformation, timestamp time.Time) error {
 	return nil
 }
 
@@ -23,11 +24,11 @@ func (e *EmptyPersistence) GetDataPlaneInformation(ctx context.Context) ([]*prot
 	return make([]*proto.DataplaneInformation, 0), nil
 }
 
-func (e *EmptyPersistence) StoreWorkerNodeInformation(ctx context.Context, workerNodeInfo *proto.WorkerNodeInformation) error {
+func (e *EmptyPersistence) StoreWorkerNodeInformation(ctx context.Context, workerNodeInfo *proto.WorkerNodeInformation, timestamp time.Time) error {
 	return nil
 }
 
-func (e *EmptyPersistence) DeleteWorkerNodeInformation(ctx context.Context, name string) error {
+func (e *EmptyPersistence) DeleteWorkerNodeInformation(ctx context.Context, name string, timestamp time.Time) error {
 	return nil
 }
 
@@ -35,15 +36,11 @@ func (e *EmptyPersistence) GetWorkerNodeInformation(ctx context.Context) ([]*pro
 	return make([]*proto.WorkerNodeInformation, 0), nil
 }
 
-func (e *EmptyPersistence) WorkerNodeInformation(ctx context.Context) ([]*proto.WorkerNodeInformation, error) {
-	return make([]*proto.WorkerNodeInformation, 0), nil
-}
-
-func (e *EmptyPersistence) StoreServiceInformation(ctx context.Context, serviceInfo *proto.ServiceInfo) error {
+func (e *EmptyPersistence) StoreServiceInformation(ctx context.Context, serviceInfo *proto.ServiceInfo, timestamp time.Time) error {
 	return nil
 }
 
-func (e *EmptyPersistence) DeleteServiceInformation(ctx context.Context, serviceInfo *proto.ServiceInfo) error {
+func (e *EmptyPersistence) DeleteServiceInformation(ctx context.Context, serviceInfo *proto.ServiceInfo, timestamp time.Time) error {
 	return nil
 }
 

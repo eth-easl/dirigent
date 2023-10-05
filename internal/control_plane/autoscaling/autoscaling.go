@@ -28,10 +28,10 @@ type AutoscalingMetadata struct {
 	StartPanickingTimestamp time.Time
 	MaxPanicPods            int
 
-	inflightRequestsPerDataPlane map[string]uint32
+	inflightRequestsPerDataPlane map[string]int32
 	inflightRequestsLock         sync.RWMutex
 
-	cachedScalingMetric uint32
+	cachedScalingMetric int32
 	scalingMetrics      []float64
 	windowHead          int64
 }
@@ -56,7 +56,7 @@ func (s *AutoscalingMetadata) SetCachedScalingMetric(metrics *proto.AutoscalingM
 	s.inflightRequestsLock.Lock()
 	defer s.inflightRequestsLock.Unlock()
 
-	atomic.AddUint32(&s.cachedScalingMetric, metrics.InflightRequests-s.inflightRequestsPerDataPlane[metrics.ServiceName])
+	atomic.AddInt32(&s.cachedScalingMetric, metrics.InflightRequests-s.inflightRequestsPerDataPlane[metrics.ServiceName])
 }
 
 func (s *AutoscalingMetadata) KnativeScaling(isScaleFromZero bool) int {
