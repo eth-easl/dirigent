@@ -71,7 +71,7 @@ func (c *ControlPlane) reconstructDataplaneState(ctx context.Context) error {
 	return nil
 }
 
-// Single threaded function - reconstruction happend before starting the control plane
+// Single threaded function - reconstruction happens before starting the control plane
 func (c *ControlPlane) reconstructWorkersState(ctx context.Context) error {
 	workers, err := c.PersistenceLayer.GetWorkerNodeInformation(ctx)
 	if err != nil {
@@ -89,7 +89,6 @@ func (c *ControlPlane) reconstructWorkersState(ctx context.Context) error {
 		})
 
 		c.NIStorage.Set(wn.GetName(), wn)
-		c.WorkerEndpoints.Set(wn.GetName(), synchronization.NewControlPlaneSyncStructure[*core.Endpoint, string]())
 
 		go wn.GetAPI()
 	}

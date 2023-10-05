@@ -35,7 +35,7 @@ func (c *ControlPlane) notifyDataplanesAndStartScalingLoop(ctx context.Context, 
 		ColdStartTracingChannel: &c.ColdStartTracing.InputChannel,
 		PlacementPolicy:         c.PlacementPolicy,
 		PersistenceLayer:        c.PersistenceLayer,
-		WorkerEndpoints:         c.WorkerEndpoints,
+		NodeInformation:         c.NIStorage,
 		StartTime:               startTime,
 	})
 

@@ -2,6 +2,7 @@ package core
 
 import (
 	"cluster_manager/api/proto"
+	"cluster_manager/pkg/synchronization"
 	"context"
 	"google.golang.org/grpc"
 	"google.golang.org/protobuf/types/known/emptypb"
@@ -38,4 +39,5 @@ type WorkerNodeInterface interface {
 	GetMemoryUsage() uint64
 	GetIP() string
 	GetPort() string
+	GetEndpointMap() synchronization.SyncStructure[*Endpoint, string]
 }

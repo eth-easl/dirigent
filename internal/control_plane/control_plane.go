@@ -19,11 +19,8 @@ import (
 
 type ControlPlane struct {
 	DataPlaneConnections synchronization.SyncStructure[string, core.DataPlaneInterface]
-
-	NIStorage synchronization.SyncStructure[string, core.WorkerNodeInterface]
-	SIStorage synchronization.SyncStructure[string, *ServiceInfoStorage]
-
-	WorkerEndpoints synchronization.SyncStructure[string, synchronization.SyncStructure[*core.Endpoint, string]]
+	NIStorage            synchronization.SyncStructure[string, core.WorkerNodeInterface]
+	SIStorage            synchronization.SyncStructure[string, *ServiceInfoStorage]
 
 	ColdStartTracing *tracing.TracingService[tracing.ColdStartLogEntry] `json:"-"`
 	PlacementPolicy  placement_policy.PlacementPolicy
@@ -41,7 +38,6 @@ func NewControlPlane(client persistence.PersistenceLayer, outputFile string, pla
 		ColdStartTracing:     tracing.NewColdStartTracingService(outputFile),
 		PlacementPolicy:      placementPolicy,
 		PersistenceLayer:     client,
-		WorkerEndpoints:      synchronization.NewControlPlaneSyncStructure[string, synchronization.SyncStructure[*core.Endpoint, string]](),
 		dataPlaneCreator:     dataplaneCreator,
 		workerNodeCreator:    workerNodeCreator,
 	}
@@ -134,7 +130,6 @@ func (c *ControlPlane) RegisterNode(ctx context.Context, in *proto.NodeInfo) (*p
 			return &proto.ActionStatus{Success: false}, err
 		}
 
-		c.WorkerEndpoints.Set(wn.GetName(), synchronization.NewControlPlaneSyncStructure[*core.Endpoint, string]())
 		go wn.GetAPI()
 
 		logrus.Info("Node '", in.NodeID, "' has been successfully register with the control plane")
@@ -157,7 +152,6 @@ func (c *ControlPlane) DeregisterNode(ctx context.Context, in *proto.NodeInfo) (
 		}
 
 		// TODO: Remove the endpoints from the deregistered node - François Costa
-
 		logrus.Info("Node '", in.NodeID, "' has been successfully deregistered with the control plane")
 		return &proto.ActionStatus{Success: true}, nil
 	}
@@ -306,23 +300,6 @@ func (c *ControlPlane) CheckPeriodicallyDataplanes() {
 
 // Fault detection
 
-func (c *ControlPlane) getServicesOnWorkerNode(ss *ServiceInfoStorage, wn core.WorkerNodeInterface) []string {
-	toRemove, ok := ss.WorkerEndpoints.Get(wn.GetName())
-	if !ok {
-		return []string{}
-	}
-
-	var cIDs []string
-
-	toRemove.RLock()
-	for key, _ := range toRemove.GetMap() {
-		cIDs = append(cIDs, key.SandboxID)
-	}
-	toRemove.RUnlock()
-
-	return cIDs
-}
-
 func (c *ControlPlane) createWorkerNodeFailureEvents(wn core.WorkerNodeInterface) []*proto.Failure {
 	var failures []*proto.Failure
 	c.SIStorage.Lock()
@@ -341,6 +318,23 @@ func (c *ControlPlane) createWorkerNodeFailureEvents(wn core.WorkerNodeInterface
 	}
 
 	return failures
+}
+
+func (c *ControlPlane) getServicesOnWorkerNode(ss *ServiceInfoStorage, wn core.WorkerNodeInterface) []string {
+	toRemove, ok := c.NIStorage.AtomicGet(wn.GetName())
+	if !ok {
+		return []string{}
+	}
+
+	var cIDs []string
+
+	toRemove.GetEndpointMap().RLock()
+	for key, _ := range toRemove.GetEndpointMap().GetMap() {
+		cIDs = append(cIDs, key.SandboxID)
+	}
+	toRemove.GetEndpointMap().RUnlock()
+
+	return cIDs
 }
 
 func (c *ControlPlane) handleNodeFailure(wn core.WorkerNodeInterface) {

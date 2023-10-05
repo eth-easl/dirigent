@@ -4,6 +4,7 @@ import (
 	"cluster_manager/api/proto"
 	"cluster_manager/internal/control_plane/core"
 	"cluster_manager/pkg/grpc_helpers"
+	"cluster_manager/pkg/synchronization"
 	"context"
 	"google.golang.org/grpc"
 	"google.golang.org/protobuf/types/known/emptypb"
@@ -23,6 +24,8 @@ type WorkerNode struct {
 
 	LastHeartbeat time.Time
 	api           proto.WorkerNodeInterfaceClient
+
+	endpointMap synchronization.SyncStructure[*core.Endpoint, string]
 }
 
 func NewWorkerNode(workerNodeConfiguration core.WorkerNodeConfiguration) core.WorkerNodeInterface {
@@ -33,6 +36,7 @@ func NewWorkerNode(workerNodeConfiguration core.WorkerNodeConfiguration) core.Wo
 		CpuCores:      workerNodeConfiguration.CpuCores,
 		Memory:        workerNodeConfiguration.Memory,
 		LastHeartbeat: time.Now(),
+		endpointMap:   synchronization.NewControlPlaneSyncStructure[*core.Endpoint, string](),
 	}
 }
 
@@ -108,4 +112,8 @@ func (w *WorkerNode) GetCpuUsage() uint64 {
 
 func (w *WorkerNode) GetMemoryUsage() uint64 {
 	return w.MemoryUsage
+}
+
+func (w *WorkerNode) GetEndpointMap() synchronization.SyncStructure[*core.Endpoint, string] {
+	return w.endpointMap
 }

@@ -29,7 +29,7 @@ type ServiceInfoStorage struct {
 	PlacementPolicy  placement2.PlacementPolicy
 	PersistenceLayer persistence.PersistenceLayer
 
-	WorkerEndpoints synchronization.SyncStructure[string, synchronization.SyncStructure[*core.Endpoint, string]]
+	NodeInformation synchronization.SyncStructure[string, core.WorkerNodeInterface]
 
 	StartTime time.Time
 }
@@ -151,7 +151,7 @@ func (ss *ServiceInfoStorage) doUpscaling(toCreateCount int, nodeList synchroniz
 			logrus.Debug("Sandbox creation took: ", resp.LatencyBreakdown.Total.AsDuration().Milliseconds(), " ms")
 
 			// Critical section
-			endpointMutex.Lock()
+
 			logrus.Debug("Endpoint appended: ", resp.ID)
 
 			newEndpoint := &core.Endpoint{
@@ -168,15 +168,14 @@ func (ss *ServiceInfoStorage) doUpscaling(toCreateCount int, nodeList synchroniz
 			}
 
 			// Update worker node structure
-			workerEndpointMap, present := ss.WorkerEndpoints.AtomicGet(node.GetName())
-			if !present {
-				logrus.Fatal("Endpoint not present in the map")
-			}
+			//workerEndpointMap, present := ss.WorkerEndpoints.AtomicGet(node.GetName())
+			// TODO: Review this line François ==> Is it correct?
+			// TODO: Poential race condition ==> Check this as well
+			ss.NodeInformation.GetNoCheck(node.GetName()).GetEndpointMap().AtomicSet(newEndpoint, ss.ServiceInfo.Name)
+			//workerEndpointMap.AtomicSet(newEndpoint, ss.ServiceInfo.Name)
 
-			workerEndpointMap.AtomicSet(newEndpoint, ss.ServiceInfo.Name)
-
+			endpointMutex.Lock()
 			finalEndpoint = append(finalEndpoint, newEndpoint)
-
 			endpointMutex.Unlock()
 		}()
 	}
@@ -213,13 +212,10 @@ func (ss *ServiceInfoStorage) doUpscaling(toCreateCount int, nodeList synchroniz
 
 func (ss *ServiceInfoStorage) removeEndpointFromWNStruct(e *core.Endpoint) {
 	// Update worker node structure
-	ss.WorkerEndpoints.Lock()
-	worker, present := ss.WorkerEndpoints.AtomicGet(e.Node.GetName())
-	if !present {
-		logrus.Error("Endpoint not present in the map.")
-	}
-	worker.AtomicRemove(e)
-	ss.WorkerEndpoints.Unlock()
+	ss.NodeInformation.GetNoCheck(e.Node.GetName()).GetEndpointMap().Lock()
+	defer ss.NodeInformation.GetNoCheck(e.Node.GetName()).GetEndpointMap().Unlock()
+
+	ss.NodeInformation.GetNoCheck(e.Node.GetName()).GetEndpointMap().AtomicRemove(e)
 }
 
 func (ss *ServiceInfoStorage) doDownscaling(toEvict map[*core.Endpoint]struct{}, urls []*proto.EndpointInfo, dpiClients synchronization.SyncStructure[string, core.DataPlaneInterface]) {
