@@ -4,7 +4,6 @@ import (
 	"cluster_manager/tests/shared"
 	"flag"
 	"sync"
-	"testing"
 	"time"
 
 	"github.com/sirupsen/logrus"
@@ -28,7 +27,7 @@ func main() {
 	flag.Parse()
 
 	logrus.Info("Registering services")
-	shared.DeployService(&testing.T{}, (*duration)*(*nbColdStartsPerSecond), 0)
+	shared.DeployService((*duration)*(*nbColdStartsPerSecond), 0)
 
 	logrus.Info("Starting sweep test")
 
@@ -62,7 +61,7 @@ func simulateUniformDistribution() {
 		wg.Add(1)
 
 		go func(offset int) {
-			shared.PerformXInvocations(&testing.T{}, 1, offset)
+			shared.PerformXInvocations(1, offset)
 			wg.Done()
 		}(offset)
 
@@ -95,7 +94,7 @@ func simulatePoisonDistribution() {
 	for index, timeToWait := range wait {
 		go func(timeToWait time.Duration) {
 			time.Sleep(timeToWait)
-			shared.PerformXInvocations(&testing.T{}, 1, index)
+			shared.PerformXInvocations(1, index)
 			wg.Done()
 		}(timeToWait)
 	}

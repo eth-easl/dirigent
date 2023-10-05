@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"github.com/sirupsen/logrus"
 	"os"
-	"testing"
 )
 
 var (
@@ -32,7 +31,7 @@ func main() {
 		for i := 0; i < nbTests; i++ {
 			logrus.Infof("Iteration : %d", i)
 
-			duration := shared.DeployServiceTime(&testing.T{}, value, offset)
+			duration := shared.DeployServiceTime(value, offset)
 			offset += value
 			measure += float64(duration) / 1e3
 		}
