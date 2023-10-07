@@ -27,7 +27,9 @@ func NewPerFunctionStateController(scalingChannel chan int, serviceInfo *proto.S
 		DesiredStateChannel: scalingChannel,
 		Period:              2 * time.Second, // TODO: hardcoded autoscaling period for now
 		ScalingMetadata: AutoscalingMetadata{
-			AutoscalingConfig: serviceInfo.AutoscalingConfig,
+			AutoscalingConfig:            serviceInfo.AutoscalingConfig,
+			inflightRequestsPerDataPlane: make(map[string]int32),
+			inflightRequestsLock:         sync.RWMutex{},
 		},
 	}
 }

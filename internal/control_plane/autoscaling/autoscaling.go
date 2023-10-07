@@ -56,7 +56,8 @@ func (s *AutoscalingMetadata) SetCachedScalingMetric(metrics *proto.AutoscalingM
 	s.inflightRequestsLock.Lock()
 	defer s.inflightRequestsLock.Unlock()
 
-	atomic.AddInt32(&s.cachedScalingMetric, metrics.InflightRequests-s.inflightRequestsPerDataPlane[metrics.ServiceName])
+	atomic.AddInt32(&s.cachedScalingMetric, metrics.InflightRequests-s.inflightRequestsPerDataPlane[metrics.DataplaneName])
+	s.inflightRequestsPerDataPlane[metrics.DataplaneName] = metrics.InflightRequests
 }
 
 func (s *AutoscalingMetadata) KnativeScaling(isScaleFromZero bool) int {
