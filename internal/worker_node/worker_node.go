@@ -143,7 +143,7 @@ func (w *WorkerNode) sendInstructionToControlPlane(config config.WorkerNodeConfi
 	pollContext, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 
-	pollErr := wait.PollUntilContextCancel(pollContext, 5*time.Second, false,
+	pollErr := wait.PollUntilContextCancel(pollContext, 5*time.Second, true,
 		func(ctx context.Context) (done bool, err error) {
 			nodeInfo := &proto.NodeInfo{
 				NodeID:     hostName,
@@ -210,7 +210,7 @@ func (w *WorkerNode) sendHeartbeatLoop(cpApi *proto.CpiInterfaceClient) {
 	pollContext, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 
-	pollErr := wait.PollUntilContextCancel(pollContext, 5*time.Second, false,
+	pollErr := wait.PollUntilContextCancel(pollContext, 5*time.Second, true,
 		func(ctx context.Context) (done bool, err error) {
 			workerStatistics, err := w.getWorkerStatistics()
 			if err != nil {

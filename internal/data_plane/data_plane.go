@@ -45,7 +45,7 @@ func (d *Dataplane) sendHeartbeatLoop() {
 	pollContext, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 
-	pollErr := wait.PollUntilContextCancel(pollContext, 5*time.Second, false,
+	pollErr := wait.PollUntilContextCancel(pollContext, 5*time.Second, true,
 		func(ctx context.Context) (done bool, err error) {
 			grpcPort, _ := strconv.Atoi(d.config.PortGRPC)
 			proxyPort, _ := strconv.Atoi(d.config.PortProxy)
