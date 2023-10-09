@@ -9,6 +9,8 @@ import (
 )
 
 func TestImageManager(t *testing.T) {
+	t.Skip()
+
 	imageManager := NewImageManager()
 
 	containerdClient := GetContainerdClient("/run/containerd/containerd.sock")

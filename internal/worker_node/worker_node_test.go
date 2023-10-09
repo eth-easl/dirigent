@@ -17,6 +17,7 @@ func TestCreationWorkerNode(t *testing.T) {
 		ControlPlanePort: "",
 		Port:             0,
 		Verbosity:        "",
+		CRIType:          "containerd",
 		CRIPath:          "/run/containerd/containerd.sock",
 		CNIConfigPath:    "../../configs/cni.conf",
 		PrefetchImage:    false,
