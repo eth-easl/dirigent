@@ -5,21 +5,25 @@ import (
 	"cluster_manager/internal/control_plane/autoscaling"
 	common "cluster_manager/pkg/grpc_helpers"
 	"cluster_manager/pkg/utils"
-	"cluster_manager/tests/proto"
 	"context"
+	"crypto/tls"
 	"fmt"
+	"golang.org/x/net/http2"
+	"io"
+	"net"
+	"net/http"
 	"sync"
 	"testing"
 	"time"
 
 	"github.com/sirupsen/logrus"
-	"google.golang.org/grpc"
 )
 
 const (
-	DeployedFunctionName string = "/faas.Executor/Execute"
-	ControlPlaneAddress  string = "10.0.1.2"
-	DataPlaneAddress     string = "10.0.1.3"
+	DeployedFunctionName  string = "test"
+	ControlPlaneAddress   string = "10.0.1.2"
+	DataPlaneAddress      string = "10.0.1.3"
+	FunctionNameFormatter string = "%s%d"
 )
 
 func DeployService(t *testing.T, nbDeploys, offset int) {
@@ -40,7 +44,7 @@ func DeployService(t *testing.T, nbDeploys, offset int) {
 
 	for i := 0; i < nbDeploys; i++ {
 		resp, err := cpApi.RegisterService(ctx, &proto2.ServiceInfo{
-			Name:  fmt.Sprintf("%s&%d", DeployedFunctionName, i+offset),
+			Name:  fmt.Sprintf(FunctionNameFormatter, DeployedFunctionName, i+offset),
 			Image: "docker.io/cvetkovic/empty_function:latest",
 			PortForwarding: &proto2.PortMapping{
 				GuestPort: 80,
@@ -75,7 +79,7 @@ func DeployServiceTime(t *testing.T, nbDeploys, offset int) time.Duration {
 	start := time.Now()
 	for i := 0; i < nbDeploys; i++ {
 		resp, err := cpApi.RegisterService(ctx, &proto2.ServiceInfo{
-			Name:  fmt.Sprintf("%s&%d", DeployedFunctionName, i+offset),
+			Name:  fmt.Sprintf(FunctionNameFormatter, DeployedFunctionName, i+offset),
 			Image: "docker.io/cvetkovic/empty_function:latest",
 			PortForwarding: &proto2.PortMapping{
 				GuestPort: 80,
@@ -93,27 +97,45 @@ func DeployServiceTime(t *testing.T, nbDeploys, offset int) time.Duration {
 	return time.Since(start)
 }
 
-func PerformXInvocations(t *testing.T, nbInvocations, offset int) {
+func PerformXInvocations(_ *testing.T, nbInvocations, offset int) {
 	wg := sync.WaitGroup{}
 	wg.Add(nbInvocations)
 
 	for i := 0; i < nbInvocations; i++ {
+		functionName := fmt.Sprintf(FunctionNameFormatter, DeployedFunctionName, i+offset)
+
 		go func(i int) {
-			conn := common.EstablishGRPCConnectionPoll(DataPlaneAddress, "8080", grpc.WithAuthority(fmt.Sprintf("%s&%d", DeployedFunctionName, i+offset)))
-			if conn == nil {
-				logrus.Fatal("Failed to establish gRPC connection with the data plane")
+			defer wg.Done()
+
+			start := time.Now()
+
+			client := http.Client{
+				Timeout: 10 * time.Second,
+				Transport: &http2.Transport{
+					AllowHTTP: true,
+					DialTLSContext: func(ctx context.Context, network, addr string, cfg *tls.Config) (net.Conn, error) {
+						return net.Dial(network, addr)
+					},
+					DisableCompression: true,
+				},
 			}
 
-			logrus.Info("Connection with the gRPC server has been established")
+			req, err := http.NewRequest("GET", "http://"+DataPlaneAddress+":"+"8080", nil)
+			req.Host = functionName
 
-			executorClient := proto.NewExecutorClient(conn)
-			err := FireInvocation(executorClient)
-
+			resp, err := client.Do(req)
 			if err != nil {
-				t.Error("Invocation failed - ", err)
+				logrus.Debugf("Failed to establish a HTTP connection - %v\n", err.Error())
+				return
 			}
 
-			wg.Done()
+			body, err := io.ReadAll(resp.Body)
+			if err != nil || resp == nil || resp.StatusCode != http.StatusOK {
+				logrus.Debugf("HTTP timeout for function %s", functionName)
+				return
+			}
+
+			logrus.Info(fmt.Sprintf("%s - %d ms", string(body), time.Since(start).Milliseconds()))
 		}(i)
 	}
 
