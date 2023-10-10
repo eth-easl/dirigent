@@ -13,7 +13,7 @@ import (
 
 const (
 	coldStartLogHeader = "time,service_name,container_id,success,image_fetch,sandbox_create,sandbox_start,network_setup,iptables,data_plane_propagation,other_worker_node\n"
-	proxyLogHeader     = "time,service_name,container_id,get_metadata,cold_start,cold_start_pause,load_balancing,cc_throttling,proxying,other\n"
+	proxyLogHeader     = "time,service_name,container_id,get_metadata,cold_start,readiness_probe,load_balancing,cc_throttling,proxying,other\n"
 )
 
 type ColdStartLogEntry struct {
@@ -31,7 +31,7 @@ type ProxyLogEntry struct {
 	Total          time.Duration
 	GetMetadata    time.Duration
 	ColdStart      time.Duration
-	ColdStartPause time.Duration
+	ReadinessProbe time.Duration
 	LoadBalancing  time.Duration
 	CCThrottling   time.Duration
 	Proxying       time.Duration
@@ -136,7 +136,7 @@ func coldStartWriteFunction(f *os.File, msg ColdStartLogEntry) {
 }
 
 func proxyWriteFunction(f *os.File, msg ProxyLogEntry) {
-	other := msg.Total - (msg.GetMetadata + msg.ColdStart + msg.ColdStartPause + msg.LoadBalancing + msg.CCThrottling + msg.Proxying)
+	other := msg.Total - (msg.GetMetadata + msg.ColdStart + msg.ReadinessProbe + msg.LoadBalancing + msg.CCThrottling + msg.Proxying)
 
 	_, _ = f.WriteString(fmt.Sprintf("%d,%s,%s,%d,%d,%d,%d,%d,%d,%d\n",
 		time.Now().UnixNano(),
@@ -144,7 +144,7 @@ func proxyWriteFunction(f *os.File, msg ProxyLogEntry) {
 		msg.ContainerID,
 		msg.GetMetadata.Microseconds(),
 		msg.ColdStart.Microseconds(),
-		msg.ColdStartPause.Microseconds(),
+		msg.ReadinessProbe.Microseconds(),
 		msg.LoadBalancing.Microseconds(),
 		msg.CCThrottling.Microseconds(),
 		msg.Proxying.Microseconds(),

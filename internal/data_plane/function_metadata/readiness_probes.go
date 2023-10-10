@@ -37,30 +37,30 @@ func SendReadinessProbe(url string) (time.Duration, bool) {
 	wg := &sync.WaitGroup{}
 	wg.Add(1)
 
-	// empirically determined to make 20 probes before failure
-	/*	1 :  0.015
-		2 :  0.02535
-		3 :  0.032955000000000005
-		4 :  0.042841500000000005
-		5 :  0.05569395000000001
-		6 :  0.07240213500000002
-		7 :  0.09412277550000003
-		8 :  0.12235960815000003
-		9 :  0.15906749059500003
-		10 :  0.20678773777350007
-		11 :  0.26882405910555013
-		12 :  0.3494712768372152
-		13 :  0.45431265988837977
-		14 :  0.5906064578548937
-		15 :  0.7677883952113619
-		16 :  0.9981249137747704
-		17 :  1.2975623879072016
-		18 :  1.6868311042793622
-		19 :  2.1928804355631715
-		20 :  2.8507445662321222 */
+	// empirically determined
+	/*	1 :  0.02
+		2 :  0.045
+		3 :  0.0675
+		4 :  0.10125
+		5 :  0.151875
+		6 :  0.2278125
+		7 :  0.34171875
+		8 :  0.512578125
+		9 :  0.7688671875
+		10 :  1.15330078125
+		11 :  1.729951171875
+		12 :  2.5949267578125
+		13 :  -1
+		14 :  -1
+		15 :  -1
+		16 :  -1
+		17 :  -1
+		18 :  -1
+		19 :  -1
+		20 :  -1 */
 	expBackoff := ExponentialBackoff{
-		Interval:        0.015,
-		ExponentialRate: 1.3,
+		Interval:        0.020,
+		ExponentialRate: 1.5,
 		RetryNumber:     0,
 		MaxDifference:   1,
 	}
@@ -68,10 +68,13 @@ func SendReadinessProbe(url string) (time.Duration, bool) {
 	passed := true
 	start := time.Now()
 
+	tries := 0
 	go func() {
 		defer wg.Done()
 
 		for {
+			tries++
+
 			res, err := httpProbingClient.Get(fmt.Sprintf("http://%s/health", url))
 			if err != nil || res == nil || (res != nil && res.StatusCode != http.StatusOK) {
 				toSleep := expBackoff.Next()
@@ -95,6 +98,6 @@ func SendReadinessProbe(url string) (time.Duration, bool) {
 
 	elapsed := time.Since(start)
 
-	logrus.Trace("Passed readiness probe for ", url, " in ", elapsed.Milliseconds(), " ms")
+	logrus.Trace("Passed readiness probe for ", url, " from ", tries, " attempt in ", elapsed.Milliseconds(), " ms")
 	return elapsed, passed
 }

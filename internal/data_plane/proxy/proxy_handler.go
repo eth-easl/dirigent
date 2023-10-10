@@ -99,9 +99,9 @@ func (ps *ProxyingService) createInvocationHandler(next http.Handler, cache *com
 			// wait until a cold start is resolved
 			coldStartWaitTime := time.Now()
 
-			<-coldStartChannel
+			coldStartPause = <-coldStartChannel
 
-			durationColdStart = time.Since(coldStartWaitTime)
+			durationColdStart = time.Since(coldStartWaitTime) - coldStartPause
 		}
 
 		///////////////////////////////////////////////
@@ -134,7 +134,7 @@ func (ps *ProxyingService) createInvocationHandler(next http.Handler, cache *com
 			Total:          time.Since(start),
 			GetMetadata:    durationGetDeployment,
 			ColdStart:      durationColdStart,
-			ColdStartPause: coldStartPause,
+			ReadinessProbe: coldStartPause,
 			LoadBalancing:  durationLB,
 			CCThrottling:   durationCC,
 			Proxying:       time.Since(startProxy),

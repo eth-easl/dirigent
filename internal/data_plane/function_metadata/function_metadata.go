@@ -170,7 +170,7 @@ func (m *FunctionMetadata) SetUpstreamURLs(endpoints []*proto.EndpointInfo) {
 		e := endpoint
 
 		go func() {
-			_, passed := SendReadinessProbe(e.URL)
+			readinessProbeDelay, passed := SendReadinessProbe(e.URL)
 
 			if passed {
 				var oldValue int32
@@ -184,7 +184,7 @@ func (m *FunctionMetadata) SetUpstreamURLs(endpoints []*proto.EndpointInfo) {
 				}
 
 				if oldValue == 0 {
-					m.dequeueRequests()
+					m.dequeueRequests(readinessProbeDelay)
 				}
 
 				m.Lock()
@@ -197,20 +197,20 @@ func (m *FunctionMetadata) SetUpstreamURLs(endpoints []*proto.EndpointInfo) {
 	}
 }
 
-func (m *FunctionMetadata) dequeueRequests() {
+func (m *FunctionMetadata) dequeueRequests(readinessProbeDelay time.Duration) {
 	dequeueCnt := 0
 
 	for m.queue.Len() > 0 {
 		dequeue := m.queue.Front()
 		m.queue.Remove(dequeue)
 
-		signal, ok := dequeue.Value.(chan struct{})
+		signal, ok := dequeue.Value.(chan time.Duration)
 		if !ok {
 			logrus.Fatal("Failed to convert dequeue into channel")
 		}
 
 		// unblock proxy request
-		signal <- struct{}{}
+		signal <- readinessProbeDelay
 		close(signal)
 
 		dequeueCnt++
@@ -229,7 +229,7 @@ func (m *FunctionMetadata) DecreaseInflight() {
 	atomic.AddInt32(&m.metrics.inflightRequests, -1)
 }
 
-func (m *FunctionMetadata) TryWarmStart(cp *proto.CpiInterfaceClient) (chan struct{}, time.Duration) {
+func (m *FunctionMetadata) TryWarmStart(cp *proto.CpiInterfaceClient) (chan time.Duration, time.Duration) {
 	start := time.Now()
 
 	// autoscaling metric
@@ -239,7 +239,7 @@ func (m *FunctionMetadata) TryWarmStart(cp *proto.CpiInterfaceClient) (chan stru
 
 	endpointCount := atomic.LoadInt32(&m.upstreamEndpointsCount)
 	if endpointCount == 0 {
-		waitChannel := make(chan struct{}, 1)
+		waitChannel := make(chan time.Duration, 1)
 
 		m.Lock()
 		defer m.Unlock()
