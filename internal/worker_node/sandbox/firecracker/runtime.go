@@ -40,7 +40,7 @@ type FirecrackerMetadata struct {
 
 func NewFirecrackerRuntime(hostname string, cpApi proto.CpiInterfaceClient, kernelPath string, fileSystemPath string, ipPrefix string, vmDebugMode bool) *Runtime {
 	_ = DeleteFirecrackerTAPDevices()
-	ipt, _ := containerd.NewIptablesUtil()
+	ipt, _ := managers.NewIptablesUtil()
 
 	return &Runtime{
 		cpApi: cpApi,
@@ -101,7 +101,7 @@ func (fcr *Runtime) CreateSandbox(_ context.Context, in *proto.ServiceInfo) (*pr
 
 	// port forwarding
 	iptablesStart := time.Now()
-	containerd.AddRules(fcr.IPT, metadata.HostPort, metadata.IP, metadata.GuestPort)
+	managers.AddRules(fcr.IPT, metadata.HostPort, metadata.IP, metadata.GuestPort)
 	iptablesDuration := time.Since(iptablesStart)
 
 	go containerd.WatchExitChannel(fcr.cpApi, metadata, func(metadata *managers.Metadata) string {
@@ -136,7 +136,7 @@ func (fcr *Runtime) DeleteSandbox(_ context.Context, in *proto.SandboxID) (*prot
 
 	start := time.Now()
 
-	containerd.DeleteRules(fcr.IPT, metadata.HostPort, metadata.IP, metadata.GuestPort)
+	managers.DeleteRules(fcr.IPT, metadata.HostPort, metadata.IP, metadata.GuestPort)
 	containerd.UnassignPort(metadata.HostPort)
 	logrus.Debug("IP tables configuration (remove rule(s)) took ", time.Since(start).Microseconds(), " μs")
 

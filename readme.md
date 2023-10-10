@@ -191,6 +191,41 @@ This command will fire a single invocation.
 cd scripts/francois; ./burst.sh 1 
 ```
 
+## Configure Firecracker for local development
+
+- Install Firecracker
+```bash
+ARCH="$(uname -m)"
+release_url="https://github.com/firecracker-microvm/firecracker/releases"
+latest=$(basename $(curl -fsSLI -o /dev/null -w  %{url_effective} ${release_url}/latest))
+curl -L ${release_url}/download/${latest}/firecracker-${latest}-${ARCH}.tgz \
+| tar -xz
+sudo mv release-${latest}-$(uname -m) /usr/local/bin/firecracker
+sudo mv /usr/local/bin/firecracker/firecracker-${latest}-${ARCH} /usr/local/bin/firecracker/firecracker
+sudo sh -c  "echo 'export PATH=\$PATH:/usr/local/bin/firecracker' >> /etc/profile" 
+```
+- Install tun-tap
+```bash
+git clone https://github.com/awslabs/tc-redirect-tap.git || true
+make -C tc-redirect-tap
+sudo cp tc-redirect-tap/tc-redirect-tap /opt/cni/bin
+```
+- Install ARP
+```bash
+sudo apt-get update && sudo apt-get install net-tools
+```
+- Download Kernel
+```bash
+sudo apt-get update && sudo apt-get install git-lfs
+git lfs fetch
+git lfs checkout
+git lfs pull 
+```
+- Run control plane and data plane processes. Run worker daemon with `sudo` and by hardcoding environmental variable `PATH` to point to the directory where Firecracker is located.
+```bash
+sudo env 'PATH=\$PATH:/usr/local/bin/firecracker' /usr/local/go/bin/go run cmd/worker_node/main.go 
+```
+
 ## License
 
 Distributed under the MIT License. See `LICENSE.txt` for more information.

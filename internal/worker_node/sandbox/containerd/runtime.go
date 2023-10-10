@@ -41,7 +41,7 @@ func NewContainerdRuntime(cpApi proto.CpiInterfaceClient, config config.WorkerNo
 	containerdClient := GetContainerdClient(config.CRIPath)
 
 	cniClient := GetCNIClient(config.CNIConfigPath)
-	ipt, err := NewIptablesUtil()
+	ipt, err := managers.NewIptablesUtil()
 
 	if err != nil {
 		logrus.Fatal("Error while accessing iptables - ", err)
@@ -117,7 +117,7 @@ func (cr *ContainerdRuntime) CreateSandbox(grpcCtx context.Context, in *proto.Se
 
 	startIptables := time.Now()
 
-	AddRules(cr.IPT, metadata.HostPort, metadata.IP, metadata.GuestPort)
+	managers.AddRules(cr.IPT, metadata.HostPort, metadata.IP, metadata.GuestPort)
 
 	durationIptables := time.Since(startIptables)
 
@@ -157,7 +157,7 @@ func (cr *ContainerdRuntime) DeleteSandbox(grpcCtx context.Context, in *proto.Sa
 
 	start := time.Now()
 
-	DeleteRules(cr.IPT, metadata.HostPort, metadata.IP, metadata.GuestPort)
+	managers.DeleteRules(cr.IPT, metadata.HostPort, metadata.IP, metadata.GuestPort)
 	UnassignPort(metadata.HostPort)
 	logrus.Debug("IP tables configuration (remove rule(s)) took ", time.Since(start).Microseconds(), " μs")
 

@@ -10,20 +10,20 @@ import (
 
 func TestGetUniqueValue(t *testing.T) {
 	ipm := &IPManager{}
-	barrier := &sync.WaitGroup{}
+	wg := &sync.WaitGroup{}
 
 	tries := 1000
 	var sum uint32 = 0
 
-	barrier.Add(tries)
+	wg.Add(tries)
 	for i := 0; i < tries; i++ {
 		go func() {
 			atomic.AddUint32(&sum, ipm.getUniqueCounterValue())
-			barrier.Done()
+			wg.Done()
 		}()
 	}
 
-	barrier.Wait()
+	wg.Wait()
 
 	computedSum := atomic.LoadUint32(&sum)
 	expectedSum := uint32(2 * tries * (tries - 1)) // sum of all even numbers
