@@ -34,7 +34,7 @@ func TestCreateAContainer(t *testing.T) {
 	ctx := namespaces.WithNamespace(context.Background(), "default")
 
 	start := time.Now()
-	image, _ := FetchImage(ctx, client, "docker.io/cvetkovic/empty_function:latest")
+	image, _ := FetchImage(ctx, client, "docker.io/cvetkovic/dirigent_empty_function:latest")
 
 	logrus.Info("Image fetching - ", time.Since(start).Microseconds(), "μs")
 
@@ -78,7 +78,7 @@ func TestParallelCreation(t *testing.T) {
 	assert.NoError(t, err)
 
 	ctx := namespaces.WithNamespace(context.Background(), "default")
-	image, _ := FetchImage(ctx, client, "docker.io/cvetkovic/empty_function:latest")
+	image, _ := FetchImage(ctx, client, "docker.io/cvetkovic/dirigent_empty_function:latest")
 
 	REPETITIONS := 1
 	for rep := 0; rep < REPETITIONS; rep++ {
@@ -136,7 +136,7 @@ func TestContainerFailureHandlerTriggering(t *testing.T) {
 	ctx := namespaces.WithNamespace(context.Background(), "default")
 
 	start := time.Now()
-	image, _ := FetchImage(ctx, client, "docker.io/cvetkovic/empty_function:latest")
+	image, _ := FetchImage(ctx, client, "docker.io/cvetkovic/dirigent_empty_function:latest")
 
 	logrus.Info("Image fetching - ", time.Since(start).Microseconds(), "μs")
 

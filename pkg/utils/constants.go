@@ -18,7 +18,7 @@ const (
 
 	TCP string = "tcp"
 
-	TestDockerImageName string = "docker.io/cvetkovic/empty_function:latest"
+	TestDockerImageName string = "docker.io/cvetkovic/dirigent_empty_function:latest"
 
 	TolerateHeartbeatMisses = 3
 	HeartbeatInterval       = 5 * time.Second

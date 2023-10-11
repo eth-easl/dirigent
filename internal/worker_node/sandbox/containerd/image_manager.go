@@ -23,7 +23,9 @@ func (m *ImageManager) GetImage(ctx context.Context, containerdClient *container
 
 	image, ok := m.imageCache.Get(url)
 	if !ok {
-		image, err := FetchImage(ctx, containerdClient, url)
+		var err error
+
+		image, err = FetchImage(ctx, containerdClient, url)
 		if err != nil {
 			return image, err, time.Since(start)
 		}

@@ -50,7 +50,7 @@ func NewContainerdRuntime(cpApi proto.CpiInterfaceClient, config config.WorkerNo
 	if config.PrefetchImage {
 		ctx := namespaces.WithNamespace(context.Background(), "default")
 		// TODO: remove hardcoded the image
-		_, err, _ = imageManager.GetImage(ctx, containerdClient, "docker.io/cvetkovic/empty_function:latest")
+		_, err, _ = imageManager.GetImage(ctx, containerdClient, "docker.io/cvetkovic/dirigent_empty_function:latest")
 		if err != nil {
 			logrus.Errorf("Failed to prefetch the image")
 		}

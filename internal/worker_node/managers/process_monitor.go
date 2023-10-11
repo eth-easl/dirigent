@@ -6,6 +6,10 @@ import (
 	"sync"
 )
 
+const (
+	PCNStartupTries = 10
+)
+
 type ProcessMonitor struct {
 	PCN garlic.CnConn
 
@@ -15,11 +19,22 @@ type ProcessMonitor struct {
 }
 
 func NewProcessMonitor() *ProcessMonitor {
-	cn, err := garlic.DialPCNWithEvents([]garlic.EventType{garlic.ProcEventExit})
+	var cn garlic.CnConn
+	var err error
+
+	for i := 1; i <= PCNStartupTries; i++ {
+		cn, err = garlic.DialPCNWithEvents([]garlic.EventType{garlic.ProcEventExit})
+		if err != nil {
+			logrus.Errorf("Failed do start process monitor (attempt %d): (error: %s)", i, err.Error())
+			continue
+		}
+
+		break
+	}
+
 	if err != nil {
 		// kill worker node daemon if process monitor doesn't start
-		logrus.Fatalf("Failed do start process monitor: (error: %s)", err.Error())
-		return nil
+		logrus.Fatalf("Failed do start process monitor. Terminating worker daemon.")
 	}
 
 	pm := &ProcessMonitor{

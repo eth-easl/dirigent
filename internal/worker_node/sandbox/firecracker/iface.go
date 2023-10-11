@@ -51,8 +51,8 @@ func makeFirecrackerConfig(vmcs *VMControlStructure, vmDebugMode bool) {
 		}},
 		// TODO: add resource requests/limits
 		MachineCfg: models.MachineConfiguration{
-			MemSizeMib: firecracker.Int64(256),
-			VcpuCount:  firecracker.Int64(2),
+			MemSizeMib: firecracker.Int64(128),
+			VcpuCount:  firecracker.Int64(1),
 			Smt:        firecracker.Bool(false),
 		},
 		// TODO: integrate jailer with Firecracker

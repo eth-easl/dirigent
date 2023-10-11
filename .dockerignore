@@ -1,0 +1,13 @@
+**/api
+**/architecture
+**/cmd
+**/configs
+**/data
+**/docs
+**/internal
+**/mock
+**/pkg
+**/scripts
+**/tests
+**/.git
+**/.github
