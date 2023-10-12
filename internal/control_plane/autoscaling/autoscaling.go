@@ -2,9 +2,10 @@ package autoscaling
 
 import (
 	"cluster_manager/api/proto"
-	"github.com/cznic/mathutil"
 	"math"
 	"time"
+
+	"github.com/cznic/mathutil"
 
 	"github.com/sirupsen/logrus"
 )
@@ -34,13 +35,13 @@ func NewDefaultAutoscalingMetadata() *proto.AutoscalingConfiguration {
 	return &proto.AutoscalingConfiguration{
 		ScalingUpperBound:                    math.MaxInt32,
 		ScalingLowerBound:                    0,
-		PanicThresholdPercentage:             10,
+		PanicThresholdPercentage:             200,
 		MaxScaleUpRate:                       1000.0,
 		MaxScaleDownRate:                     2.0,
 		ContainerConcurrency:                 1,
 		ContainerConcurrencyTargetPercentage: 70,
-		StableWindowWidthSeconds:             6,
-		PanicWindowWidthSeconds:              2,
+		StableWindowWidthSeconds:             60,
+		PanicWindowWidthSeconds:              6,
 		ScalingPeriodSeconds:                 2,
 		ScalingMethod:                        Arithmetic,
 	}
