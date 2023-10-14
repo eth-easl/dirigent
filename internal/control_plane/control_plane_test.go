@@ -10,11 +10,13 @@ import (
 	"cluster_manager/mock/mock_persistence"
 	"cluster_manager/pkg/config"
 	"context"
+	"github.com/google/uuid"
 	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
 	"go.uber.org/mock/gomock"
 	"google.golang.org/grpc"
 	"google.golang.org/protobuf/types/known/emptypb"
+	"sync"
 	"testing"
 	"time"
 )
@@ -124,6 +126,66 @@ func TestCreationControlPlaneWith5Services(t *testing.T) {
 	assert.Zero(t, controlPlane.GetNumberConnectedWorkers(), "Number of connected workers should be 0")
 	assert.Zero(t, controlPlane.GetNumberDataplanes(), "Number of connected data planes should be 0")
 	assert.Equal(t, 5, controlPlane.GetNumberServices(), "Number of registered services should be 0")
+
+	logrus.Infof("Took %s seconds to reconstruct", elapsed)
+}
+
+func TestStressRegisterServices(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	persistenceLayer := mock_persistence.NewMockPersistenceLayer(ctrl)
+
+	persistenceLayer.EXPECT().GetWorkerNodeInformation(gomock.Any()).DoAndReturn(func(_ context.Context) ([]*proto.WorkerNodeInformation, error) {
+		return make([]*proto.WorkerNodeInformation, 0), nil
+	}).Times(1)
+
+	persistenceLayer.EXPECT().GetServiceInformation(gomock.Any()).DoAndReturn(func(_ context.Context) ([]*proto.ServiceInfo, error) {
+		return []*proto.ServiceInfo{}, nil
+	}).Times(1)
+
+	persistenceLayer.EXPECT().GetDataPlaneInformation(gomock.Any()).DoAndReturn(func(_ context.Context) ([]*proto.DataplaneInformation, error) {
+		return make([]*proto.DataplaneInformation, 0), nil
+	}).Times(1)
+
+	size := 10000
+
+	persistenceLayer.EXPECT().StoreServiceInformation(gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(func(_ context.Context, _ *proto.ServiceInfo, _ time.Time) error {
+		return nil
+	}).Times(size)
+
+	controlPlane := NewControlPlane(persistenceLayer, "", placement_policy.NewRandomPolicy(), data_plane.NewDataplaneConnection, workers.NewWorkerNode)
+
+	start := time.Now()
+	assert.NoError(t, controlPlane.ReconstructState(context.Background(), mockConfig))
+
+	elapsed := time.Since(start)
+
+	cnt := 0
+
+	wg := sync.WaitGroup{}
+	wg.Add(size)
+
+	for cnt < size {
+		go func() {
+			status, err := controlPlane.RegisterService(context.Background(), &proto.ServiceInfo{
+				Name:              uuid.New().String(),
+				Image:             "",
+				PortForwarding:    nil,
+				AutoscalingConfig: nil,
+			})
+			assert.NotNil(t, status)
+			assert.NoError(t, err)
+			wg.Done()
+		}()
+		cnt++
+	}
+
+	wg.Wait()
+
+	assert.Zero(t, controlPlane.GetNumberConnectedWorkers(), "Number of connected workers should be 0")
+	assert.Zero(t, controlPlane.GetNumberDataplanes(), "Number of connected data planes should be 0")
+	assert.Equal(t, size, controlPlane.GetNumberServices(), "Number of registered services should be 0")
 
 	logrus.Infof("Took %s seconds to reconstruct", elapsed)
 }
