@@ -27,7 +27,9 @@ type WorkerNode struct {
 	cpApi          proto.CpiInterfaceClient
 	SandboxRuntime sandbox.RuntimeInterface
 
+	ImageManager   *containerd.ImageManager
 	SandboxManager *managers.SandboxManager
+	ProcessMonitor *managers.ProcessMonitor
 
 	quitChannel chan bool
 }
@@ -82,8 +84,7 @@ func NewWorkerNode(cpApi proto.CpiInterfaceClient, config config.WorkerNodeConfi
 		SandboxRuntime: runtimeInterface,
 
 		SandboxManager: sandboxManager,
-
-		quitChannel: make(chan bool),
+		ProcessMonitor: processMonitor,
 	}
 
 	return workerNode
@@ -123,8 +124,6 @@ func (w *WorkerNode) CleanResources() {
 
 func (w *WorkerNode) DeregisterNodeFromControlPlane(config config.WorkerNodeConfig, cpApi *proto.CpiInterfaceClient) {
 	logrus.Info("Trying to deregister the node with the control plane")
-
-	w.quitChannel <- true
 
 	err := w.sendInstructionToControlPlane(config, cpApi, DeregisterAction)
 	if err != nil {
@@ -178,13 +177,8 @@ func (w *WorkerNode) sendInstructionToControlPlane(config config.WorkerNodeConfi
 
 func (w *WorkerNode) SetupHeartbeatLoop(cpApi *proto.CpiInterfaceClient) {
 	for {
-		// Quit (if required) or Send
-		select {
-		case <-w.quitChannel:
-			return
-		default:
-			w.sendHeartbeatLoop(cpApi)
-		}
+		// Send
+		w.sendHeartbeatLoop(cpApi)
 
 		// Wait
 		time.Sleep(utils.HeartbeatInterval)
