@@ -6,7 +6,6 @@ import (
 	_map "cluster_manager/pkg/map"
 	"container/list"
 	"context"
-	"errors"
 	"os"
 	"sync"
 	"sync/atomic"

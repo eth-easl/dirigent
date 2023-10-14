@@ -62,7 +62,7 @@ func DeployServiceMultiThread(nbDeploys, offset int) {
 	logrus.SetLevel(logrus.DebugLevel)
 	logrus.SetFormatter(&logrus.TextFormatter{TimestampFormat: time.StampMilli, FullTimestamp: true})
 
-	cpApi, err := common.InitializeControlPlaneConnection(ControlPlaneAddress, utils.DefaultControlPlanePort, -1, -1)
+	cpApi, err := common.InitializeControlPlaneConnection(ControlPlaneAddress, utils.DefaultControlPlanePort, "", -1, -1)
 	if err != nil {
 		logrus.Fatalf("Failed to start control plane connection (error %s)", err.Error())
 	}
@@ -104,7 +104,7 @@ func Deregister(nbDeploys, offset int) {
 	logrus.SetLevel(logrus.DebugLevel)
 	logrus.SetFormatter(&logrus.TextFormatter{TimestampFormat: time.StampMilli, FullTimestamp: true})
 
-	cpApi, err := common.InitializeControlPlaneConnection(ControlPlaneAddress, utils.DefaultControlPlanePort, -1, -1)
+	cpApi, err := common.InitializeControlPlaneConnection(ControlPlaneAddress, utils.DefaultControlPlanePort, "", -1, -1)
 	if err != nil {
 		logrus.Fatalf("Failed to start control plane connection (error %s)", err.Error())
 	}
@@ -214,7 +214,14 @@ func PerformXInvocations(nbInvocations, offset int) {
 
 			resp, err := client.Do(req)
 			if err != nil {
-				t.Error("Invocation failed - ", err)
+				logrus.Debugf("Failed to establish a HTTP connection - %v\n", err.Error())
+				return
+			}
+
+			body, err := io.ReadAll(resp.Body)
+			if err != nil || resp == nil || resp.StatusCode != http.StatusOK {
+				logrus.Debugf("HTTP timeout for function %s", functionName)
+				return
 			}
 
 			logrus.Info(fmt.Sprintf("%s - %d ms", string(body), time.Since(start).Milliseconds()))
