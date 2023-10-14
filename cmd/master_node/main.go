@@ -3,9 +3,11 @@ package main
 import (
 	"cluster_manager/api"
 	"cluster_manager/api/proto"
+	"cluster_manager/internal/control_plane/data_plane"
 	"cluster_manager/internal/control_plane/persistence"
 	"cluster_manager/internal/control_plane/placement_policy"
 	"cluster_manager/internal/control_plane/registration_server"
+	"cluster_manager/internal/control_plane/workers"
 	"cluster_manager/pkg/config"
 	"cluster_manager/pkg/grpc_helpers"
 	"cluster_manager/pkg/logger"
@@ -51,7 +53,7 @@ func main() {
 		persistenceLayer = persistence.NewEmptyPeristenceLayer()
 	}
 
-	cpApiServer := api.CreateNewCpApiServer(persistenceLayer, path.Join(cfg.TraceOutputFolder, "cold_start_trace.csv"), parsePlacementPolicy(cfg))
+	cpApiServer := api.CreateNewCpApiServer(persistenceLayer, path.Join(cfg.TraceOutputFolder, "cold_start_trace.csv"), parsePlacementPolicy(cfg), data_plane.NewDataplaneConnection, workers.NewWorkerNode)
 
 	start := time.Now()
 
