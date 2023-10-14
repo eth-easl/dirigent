@@ -36,7 +36,7 @@ type LoadBalancingMetadata struct {
 type FunctionMetadata struct {
 	sync.RWMutex
 
-	uniqueIdentifier string
+	dataPlaneID string
 
 	identifier         string
 	sandboxParallelism uint
@@ -68,7 +68,7 @@ func NewFunctionMetadata(name string) *FunctionMetadata {
 	}
 
 	return &FunctionMetadata{
-		uniqueIdentifier:   hostName,
+		dataPlaneID:        hostName,
 		identifier:         name,
 		sandboxParallelism: 1, // TODO: make dynamic
 		queue:              list.New(),
@@ -275,7 +275,7 @@ func (m *FunctionMetadata) sendMetricsToAutoscaler(cp *proto.CpiInterfaceClient)
 		go func() {
 			status, err := (*cp).OnMetricsReceive(context.Background(), &proto.AutoscalingMetric{
 				ServiceName:      m.identifier,
-				DataplaneName:    m.uniqueIdentifier,
+				DataplaneName:    m.dataPlaneID,
 				InflightRequests: inflightRequests,
 			})
 			if err != nil || !status.Success {

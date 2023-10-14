@@ -283,9 +283,9 @@ func (ss *ServiceInfoStorage) updateEndpoints(dpiClients synchronization.SyncStr
 			wg.Done()
 		}(c)
 	}
-	dpiClients.Unlock()
-
 	wg.Wait()
+
+	dpiClients.Unlock()
 }
 
 func (ss *ServiceInfoStorage) excludeEndpoints(total []*core.Endpoint, toExclude map[*core.Endpoint]struct{}) []*core.Endpoint {
