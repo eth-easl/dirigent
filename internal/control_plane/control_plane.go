@@ -5,9 +5,6 @@ import (
 	"cluster_manager/internal/control_plane/core"
 	"cluster_manager/internal/control_plane/persistence"
 	"cluster_manager/internal/control_plane/placement_policy"
-	"cluster_manager/pkg/atomic_map"
-	config2 "cluster_manager/pkg/config"
-	"cluster_manager/pkg/grpc_helpers"
 	_map "cluster_manager/pkg/map"
 	"cluster_manager/pkg/synchronization"
 	"cluster_manager/pkg/tracing"
@@ -55,16 +52,17 @@ func NewControlPlane(client persistence.PersistenceLayer, outputFile string, pla
 func (c *ControlPlane) RegisterDataplane(ctx context.Context, in *proto.DataplaneInfo) (*proto.ActionStatus, error) {
 	logrus.Trace("Received a control plane registration")
 
-	dataplaneInfo, err := c.parseDataplaneRequest(ctx, in)
-	if err != nil {
-		return &proto.ActionStatus{Success: false}, err
+	dataplaneInfo := proto.DataplaneInformation{
+		Address:   in.IP,
+		ApiPort:   strconv.Itoa(int(in.APIPort)),
+		ProxyPort: strconv.Itoa(int(in.ProxyPort)),
 	}
 
-	key := dataplaneInfo.Address
+	key := in.IP
 	dataplaneConnection := c.dataPlaneCreator(dataplaneInfo.Address, dataplaneInfo.ApiPort, dataplaneInfo.ProxyPort)
 
 	if enter := c.DataPlaneConnections.SetIfAbsent(key, dataplaneConnection); enter {
-		err = c.PersistenceLayer.StoreDataPlaneInformation(ctx, &dataplaneInfo)
+		err := c.PersistenceLayer.StoreDataPlaneInformation(ctx, &dataplaneInfo)
 		if err != nil {
 			logrus.Errorf("Failed to store information to persistence layer (error : %s)", err.Error())
 			c.DataPlaneConnections.Remove(key)
@@ -88,21 +86,22 @@ func (c *ControlPlane) RegisterDataplane(ctx context.Context, in *proto.Dataplan
 	c.DataPlaneConnections.GetMap()[key].UpdateHeartBeat()
 	c.DataPlaneConnections.Unlock()
 
-	return &proto.ActionStatus{Success: true}, err
+	return &proto.ActionStatus{Success: true}, nil
 }
 
 func (c *ControlPlane) DeregisterDataplane(ctx context.Context, in *proto.DataplaneInfo) (*proto.ActionStatus, error) {
 	logrus.Trace("Received a data plane deregistration")
 
-	dataplaneInfo, err := c.parseDataplaneRequest(ctx, in)
-	if err != nil {
-		return &proto.ActionStatus{Success: false}, err
+	dataplaneInfo := proto.DataplaneInformation{
+		Address:   in.IP,
+		ApiPort:   strconv.Itoa(int(in.APIPort)),
+		ProxyPort: strconv.Itoa(int(in.ProxyPort)),
 	}
 
 	// TODO: Ask Michal if we are allowed to do like this - Francois Costa
 	c.DataPlaneConnections.AtomicRemove(dataplaneInfo.Address)
 
-	err = c.PersistenceLayer.DeleteDataPlaneInformation(ctx, &dataplaneInfo)
+	err := c.PersistenceLayer.DeleteDataPlaneInformation(ctx, &dataplaneInfo)
 	if err != nil {
 		logrus.Errorf("Failed to store information to persistence layer (error : %s)", err.Error())
 		return &proto.ActionStatus{Success: false}, err
