@@ -50,6 +50,10 @@ func (c *CpApiServer) RegisterService(ctx context.Context, serviceInfo *proto.Se
 	return c.ControlPlane.RegisterService(ctx, serviceInfo)
 }
 
+func (c *CpApiServer) DeregisterService(ctx context.Context, serviceInfo *proto.ServiceInfo) (*proto.ActionStatus, error) {
+	return c.ControlPlane.DeregisterService(ctx, serviceInfo)
+}
+
 func (c *CpApiServer) RegisterDataplane(ctx context.Context, in *proto.DataplaneInfo) (*proto.ActionStatus, error) {
 	return c.ControlPlane.RegisterDataplane(ctx, in)
 }
