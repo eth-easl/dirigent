@@ -39,7 +39,7 @@ func (c *ControlPlane) notifyDataplanesAndStartScalingLoop(ctx context.Context, 
 		StartTime:               startTime,
 	})
 
-	go c.SIStorage.GetNoCheck(serviceInfo.Name).ScalingControllerLoop(c.NIStorage, c.DataPlaneConnections)
+	go c.SIStorage.AtomicGetNoCheck(serviceInfo.Name).ScalingControllerLoop(c.NIStorage, c.DataPlaneConnections)
 
 	return nil
 }
