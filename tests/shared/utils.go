@@ -58,6 +58,94 @@ func DeployService(nbDeploys, offset int) {
 	}
 }
 
+func DeployServiceMultiThread(nbDeploys, offset int) {
+	logrus.SetLevel(logrus.DebugLevel)
+	logrus.SetFormatter(&logrus.TextFormatter{TimestampFormat: time.StampMilli, FullTimestamp: true})
+
+	cpApi, err := common.InitializeControlPlaneConnection(ControlPlaneAddress, utils.DefaultControlPlanePort, -1, -1)
+	if err != nil {
+		logrus.Fatalf("Failed to start control plane connection (error %s)", err.Error())
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), utils.GRPCFunctionTimeout)
+	defer cancel()
+
+	autoscalingConfig := autoscaling.NewDefaultAutoscalingMetadata()
+	autoscalingConfig.ScalingUpperBound = 1
+	//autoscalingConfig.ScalingLowerBound = 1
+
+	wg := sync.WaitGroup{}
+	wg.Add(nbDeploys)
+
+	for i := 0; i < nbDeploys; i++ {
+		go func(i int, offset int) {
+			resp, err := cpApi.RegisterService(ctx, &proto2.ServiceInfo{
+				Name:  fmt.Sprintf("%s&%d", DeployedFunctionName, i+offset),
+				Image: "docker.io/cvetkovic/empty_function:latest",
+				PortForwarding: &proto2.PortMapping{
+					GuestPort: 80,
+					Protocol:  proto2.L4Protocol_TCP,
+				},
+				AutoscalingConfig: autoscalingConfig,
+			})
+
+			if err != nil || !resp.Success {
+				logrus.Error("Failed to deploy service")
+			}
+
+			wg.Done()
+		}(i, offset)
+	}
+
+	wg.Wait()
+}
+
+func Deregister(nbDeploys, offset int) {
+	logrus.SetLevel(logrus.DebugLevel)
+	logrus.SetFormatter(&logrus.TextFormatter{TimestampFormat: time.StampMilli, FullTimestamp: true})
+
+	cpApi, err := common.InitializeControlPlaneConnection(ControlPlaneAddress, utils.DefaultControlPlanePort, -1, -1)
+	if err != nil {
+		logrus.Fatalf("Failed to start control plane connection (error %s)", err.Error())
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), utils.GRPCFunctionTimeout)
+	defer cancel()
+
+	autoscalingConfig := autoscaling.NewDefaultAutoscalingMetadata()
+	autoscalingConfig.ScalingUpperBound = 1
+	//autoscalingConfig.ScalingLowerBound = 1
+
+	wg := sync.WaitGroup{}
+	wg.Add(nbDeploys)
+
+	for i := 0; i < nbDeploys; i++ {
+		go func(i int, offset int) {
+			resp, err := cpApi.DeregisterService(ctx, &proto2.ServiceInfo{
+				Name:  fmt.Sprintf("%s&%d", DeployedFunctionName, i+offset),
+				Image: "docker.io/cvetkovic/empty_function:latest",
+				PortForwarding: &proto2.PortMapping{
+					GuestPort: 80,
+					Protocol:  proto2.L4Protocol_TCP,
+				},
+				AutoscalingConfig: autoscalingConfig,
+			})
+
+			if err != nil || !resp.Success {
+				text := ""
+				if err != nil {
+					text += err.Error()
+				}
+				logrus.Errorf("Failed to deploy service : %s", text)
+			}
+
+			wg.Done()
+		}(i, offset)
+	}
+
+	wg.Wait()
+}
+
 func DeployServiceTime(nbDeploys, offset int) time.Duration {
 	logrus.SetLevel(logrus.DebugLevel)
 	logrus.SetFormatter(&logrus.TextFormatter{TimestampFormat: time.StampMilli, FullTimestamp: true})
