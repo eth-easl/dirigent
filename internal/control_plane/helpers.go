@@ -54,8 +54,6 @@ func (c *ControlPlane) removeServiceFromDataplaneAndStopLoop(ctx context.Context
 	}
 	c.DataPlaneConnections.Unlock()
 
-	close(c.SIStorage.AtomicGetNoCheck(serviceInfo.Name).Controller.DesiredStateChannel)
-
 	return nil
 }
 
