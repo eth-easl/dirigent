@@ -12,7 +12,7 @@ import (
 
 type emptyWorker struct{}
 
-func NewEmptyWorkerNode(workerNodeConfiguration core.WorkerNodeConfiguration) *emptyWorker {
+func NewEmptyWorkerNode(workerNodeConfiguration core.WorkerNodeConfiguration) core.WorkerNodeInterface {
 	return &emptyWorker{}
 }
 

@@ -6,6 +6,9 @@ placementPolicy: "random"
 persistence: false
 reconstruct: false
 
+removeWorkerNode: false
+removeDataplane: false
+
 profiler:
   enable: false
   mutex: false

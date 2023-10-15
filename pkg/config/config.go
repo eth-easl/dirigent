@@ -17,6 +17,8 @@ type ControlPlaneConfig struct {
 	Profiler          ProfilerConfig `mapstructure:"profiler"`
 	RedisConf         RedisConf      `mapstructure:"redis"`
 	Reconstruct       bool           `mapstructure:"reconstruct"`
+	RemoveWorkerNode  bool           `mapstructure:"removeWorkerNode"`
+	RemoveDataplane   bool           `mapstructure:"removeDataplane"`
 }
 
 type DataPlaneConfig struct {
