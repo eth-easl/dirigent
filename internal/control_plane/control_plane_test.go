@@ -4,8 +4,10 @@ import (
 	"cluster_manager/api/proto"
 	"cluster_manager/internal/control_plane/core"
 	"cluster_manager/internal/control_plane/data_plane"
+	"cluster_manager/internal/control_plane/data_plane/empty_dataplane"
 	"cluster_manager/internal/control_plane/placement_policy"
 	"cluster_manager/internal/control_plane/workers"
+	"cluster_manager/internal/control_plane/workers/empty_worker"
 	"cluster_manager/mock/mock_core"
 	"cluster_manager/mock/mock_persistence"
 	"cluster_manager/pkg/config"
@@ -185,7 +187,127 @@ func TestStressRegisterServices(t *testing.T) {
 
 	assert.Zero(t, controlPlane.GetNumberConnectedWorkers(), "Number of connected workers should be 0")
 	assert.Zero(t, controlPlane.GetNumberDataplanes(), "Number of connected data planes should be 0")
-	assert.Equal(t, size, controlPlane.GetNumberServices(), "Number of registered services should be 0")
+	assert.Equal(t, size, controlPlane.GetNumberServices(), "Number of registered services should be equal")
+
+	logrus.Infof("Took %s seconds to reconstruct", elapsed)
+}
+
+func TestStressRegisterNodes(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	persistenceLayer := mock_persistence.NewMockPersistenceLayer(ctrl)
+
+	persistenceLayer.EXPECT().GetWorkerNodeInformation(gomock.Any()).DoAndReturn(func(_ context.Context) ([]*proto.WorkerNodeInformation, error) {
+		return make([]*proto.WorkerNodeInformation, 0), nil
+	}).Times(1)
+
+	persistenceLayer.EXPECT().GetServiceInformation(gomock.Any()).DoAndReturn(func(_ context.Context) ([]*proto.ServiceInfo, error) {
+		return []*proto.ServiceInfo{}, nil
+	}).Times(1)
+
+	persistenceLayer.EXPECT().GetDataPlaneInformation(gomock.Any()).DoAndReturn(func(_ context.Context) ([]*proto.DataplaneInformation, error) {
+		return make([]*proto.DataplaneInformation, 0), nil
+	}).Times(1)
+
+	size := 10000
+
+	persistenceLayer.EXPECT().StoreWorkerNodeInformation(gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(func(ctx context.Context, workerNodeInfo *proto.WorkerNodeInformation, timestamp time.Time) error {
+		return nil
+	}).Times(size)
+
+	controlPlane := NewControlPlane(persistenceLayer, "", placement_policy.NewRandomPolicy(), empty_dataplane.NewDataplaneConnectionEmpty, empty_worker.NewEmptyWorkerNode)
+
+	start := time.Now()
+	assert.NoError(t, controlPlane.ReconstructState(context.Background(), mockConfig))
+
+	elapsed := time.Since(start)
+
+	cnt := 0
+
+	wg := sync.WaitGroup{}
+	wg.Add(size)
+
+	for cnt < size {
+		go func() {
+			status, err := controlPlane.RegisterNode(context.Background(), &proto.NodeInfo{
+				NodeID:     uuid.New().String(),
+				IP:         uuid.New().String(),
+				Port:       0,
+				CpuCores:   0,
+				MemorySize: 0,
+			})
+			assert.NotNil(t, status)
+			assert.NoError(t, err)
+			wg.Done()
+		}()
+		cnt++
+	}
+
+	wg.Wait()
+
+	assert.Equal(t, size, controlPlane.GetNumberConnectedWorkers(), "Number of connected workers should be equal")
+	assert.Zero(t, controlPlane.GetNumberDataplanes(), "Number of connected data planes should be 0")
+	assert.Zero(t, controlPlane.GetNumberServices(), "Number of registered services should be 0")
+
+	logrus.Infof("Took %s seconds to reconstruct", elapsed)
+}
+
+func TestStressRegisterDataplanes(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	persistenceLayer := mock_persistence.NewMockPersistenceLayer(ctrl)
+
+	persistenceLayer.EXPECT().GetWorkerNodeInformation(gomock.Any()).DoAndReturn(func(_ context.Context) ([]*proto.WorkerNodeInformation, error) {
+		return make([]*proto.WorkerNodeInformation, 0), nil
+	}).Times(1)
+
+	persistenceLayer.EXPECT().GetServiceInformation(gomock.Any()).DoAndReturn(func(_ context.Context) ([]*proto.ServiceInfo, error) {
+		return []*proto.ServiceInfo{}, nil
+	}).Times(1)
+
+	persistenceLayer.EXPECT().GetDataPlaneInformation(gomock.Any()).DoAndReturn(func(_ context.Context) ([]*proto.DataplaneInformation, error) {
+		return make([]*proto.DataplaneInformation, 0), nil
+	}).Times(1)
+
+	size := 10000
+
+	persistenceLayer.EXPECT().StoreDataPlaneInformation(gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(func(ctx context.Context, dataplaneInfo *proto.DataplaneInformation, timestamp time.Time) error {
+		return nil
+	}).Times(size)
+
+	controlPlane := NewControlPlane(persistenceLayer, "", placement_policy.NewRandomPolicy(), empty_dataplane.NewDataplaneConnectionEmpty, empty_worker.NewEmptyWorkerNode)
+
+	start := time.Now()
+	assert.NoError(t, controlPlane.ReconstructState(context.Background(), mockConfig))
+
+	elapsed := time.Since(start)
+
+	cnt := 0
+
+	wg := sync.WaitGroup{}
+	wg.Add(size)
+
+	for cnt < size {
+		go func() {
+			status, err := controlPlane.RegisterDataplane(context.Background(), &proto.DataplaneInfo{
+				IP:        uuid.New().String(),
+				APIPort:   0,
+				ProxyPort: 0,
+			})
+			assert.NotNil(t, status)
+			assert.NoError(t, err)
+			wg.Done()
+		}()
+		cnt++
+	}
+
+	wg.Wait()
+
+	assert.Zero(t, controlPlane.GetNumberConnectedWorkers(), "Number of connected workers should be 0")
+	assert.Equal(t, size, controlPlane.GetNumberDataplanes(), "Number of connected data planes should be equal")
+	assert.Zero(t, controlPlane.GetNumberServices(), "Number of registered services should be 0")
 
 	logrus.Infof("Took %s seconds to reconstruct", elapsed)
 }
