@@ -1,6 +1,6 @@
 #!/bin/bash
 
-DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" > /dev/null 2>&1 && pwd)"
+readonly DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" > /dev/null 2>&1 && pwd)"
 source $DIR/common.sh
 
 # Extracting control plane and data plane nodes and worker nodes
@@ -13,48 +13,86 @@ readonly VERBOSITY="--verbosity debug"
 readonly CP_IP_ADDRESS=$(RemoteExec $CONTROL_PLANE "netstat -ie | grep -B1 '10.0.1' | sed -n 2p | tr -s ' ' | cut -d ' ' -f 3")
 echo "Control plane IP is ${CP_IP_ADDRESS}"
 
-function SetupControlPlane() {
-    RemoteExec $CONTROL_PLANE "cd ~/cluster_manager; git pull"
+########################################
+## CLUSTER TERMINATION
+########################################
+
+function KillControlPlane() {
+    local PID_TO_KILL=$(RemoteExec $CONTROL_PLANE "ps -aux | grep cmd/master_node | awk '{print \$2}' | tr '\n' ' '")
+
+    RemoteExec $CONTROL_PLANE "sudo kill -9 ${PID_TO_KILL}"
     RemoteExec $CONTROL_PLANE "tmux kill-session -t control_plane"
-    RemoteExec $CONTROL_PLANE "tmux new -s control_plane -d"
 
     RemoteExec $CONTROL_PLANE "docker stop \$(docker ps -aq)"
     RemoteExec $CONTROL_PLANE "docker rm \$(docker ps -a -q)"
     RemoteExec $CONTROL_PLANE "docker run -d --name redis-stack-server -p 6379:6379 redis/redis-stack-server:latest"
+}
 
-    ARGS="--configPath cmd/master_node/config_cluster.yaml"
-    CMD="cd ~/cluster_manager; go run cmd/master_node/main.go ${ARGS}"
+function KillDataPlane() {
+    local PID_TO_KILL=$(RemoteExec $DATA_PLANE "ps -aux | grep cmd/data_plane | awk '{print \$2}' | tr '\n' ' '")
+
+    RemoteExec $DATA_PLANE "sudo kill -9 ${PID_TO_KILL}"
+    RemoteExec $DATA_PLANE "tmux kill-session -t data_plane"
+}
+
+function KillWorkerNodes() {
+    function internal_kill() {
+        local PID_TO_KILL=$(RemoteExec $1 "ps -aux | grep cmd/worker_node | awk '{print \$2}' | tr '\n' ' '")
+
+        RemoteExec $1 "sudo kill -9 ${PID_TO_KILL}"
+        RemoteExec $1 "tmux kill-session -t worker_daemon"
+    }
+
+    for NODE in "$@"
+    do
+        internal_kill $NODE &
+    done
+
+    wait
+}
+
+########################################
+## CLUSTER CREATION
+########################################
+
+function SetupControlPlane() {
+    RemoteExec $CONTROL_PLANE "cd ~/cluster_manager; git pull"
+
+    local ARGS="--configPath cmd/master_node/config_cluster.yaml"
+    local CMD="cd ~/cluster_manager; go run cmd/master_node/main.go ${ARGS}"
+
+    RemoteExec $CONTROL_PLANE "tmux new -s control_plane -d"
     RemoteExec $CONTROL_PLANE "tmux send -t control_plane \"$CMD\" ENTER"
 }
 
 function SetupDataPlane() {
     RemoteExec $DATA_PLANE "cd ~/cluster_manager; git pull"
 
-    IP_ADDRESS=$(RemoteExec $DATA_PLANE "netstat -ie | grep -B1 '10.0.1' | sed -n 2p | tr -s ' ' | cut -d ' ' -f 3")
+    local IP_ADDRESS=$(RemoteExec $DATA_PLANE "netstat -ie | grep -B1 '10.0.1' | sed -n 2p | tr -s ' ' | cut -d ' ' -f 3")
     RemoteExec $DATA_PLANE 'export DATA_PLANE_IP=\"'$IP_ADDRESS'\"; cd cluster_manager; cat cmd/data_plane/config_cluster.yaml | envsubst > cmd/data_plane/tmp && mv cmd/data_plane/tmp cmd/data_plane/config_cluster.yaml'
 
-    RemoteExec $DATA_PLANE "tmux kill-session -t data_plane"
-    RemoteExec $DATA_PLANE "tmux new -s data_plane -d"
+    local ARGS="--configPath cmd/data_plane/config_cluster.yaml"
+    local CMD="cd ~/cluster_manager; go run cmd/data_plane/main.go ${ARGS}"
 
-    ARGS="--configPath cmd/data_plane/config_cluster.yaml"
-    CMD="cd ~/cluster_manager; go run cmd/data_plane/main.go ${ARGS}"
+    RemoteExec $DATA_PLANE "tmux new -s data_plane -d"
     RemoteExec $DATA_PLANE "tmux send -t data_plane \"$CMD\" ENTER"
 }
 
 function SetupWorkerNodes() {
-    ARGS="--configPath cmd/worker_node/config_cluster.yaml"
-    CMD="cd ~/cluster_manager; sudo env 'PATH=\$PATH:/usr/local/bin/firecracker' /usr/local/go/bin/go run cmd/worker_node/main.go ${ARGS}"
+    local ARGS="--configPath cmd/worker_node/config_cluster.yaml"
+    local CMD="cd ~/cluster_manager; sudo env 'PATH=\$PATH:/usr/local/bin/firecracker' /usr/local/go/bin/go run cmd/worker_node/main.go ${ARGS}"
 
     function internal_setup() {
         # LFS pull for VM kernel image and rootfs
         RemoteExec $1 "cd ~/cluster_manager; git pull; git lfs pull"
 
-        IP_ADDRESS=$(RemoteExec $1 "netstat -ie | grep -B1 '10.0.1' | sed -n 2p | tr -s ' ' | cut -d ' ' -f 3")
+        # to allow network probing
+        RemoteExec $1 "sudo sysctl -w net.ipv4.conf.all.route_localnet=1"
+
+        local IP_ADDRESS=$(RemoteExec $1 "netstat -ie | grep -B1 '10.0.1' | sed -n 2p | tr -s ' ' | cut -d ' ' -f 3")
         RemoteExec $1 'export WORKER_NODE_IP=\"'$IP_ADDRESS'\"; cd cluster_manager; cat cmd/worker_node/config_cluster.yaml | envsubst > cmd/worker_node/tmp && mv cmd/worker_node/tmp cmd/worker_node/config_cluster.yaml'
 
-        RemoteExec $1 "tmux kill-session -t worker_daemon"
         RemoteExec $1 "tmux new -s worker_daemon -d"
-
         RemoteExec $1 "tmux send -t worker_daemon \"$CMD\" ENTER"
     }
 
@@ -66,7 +104,13 @@ function SetupWorkerNodes() {
     wait
 }
 
-# Starting processes
+# Kill processes
+KillControlPlane &
+KillDataPlane &
+KillWorkerNodes $@ &
+wait
+
+# Start processes
 SetupControlPlane
 SetupDataPlane
 SetupWorkerNodes $@
