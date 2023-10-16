@@ -6,6 +6,7 @@ import (
 	_map "cluster_manager/pkg/map"
 	"container/list"
 	"context"
+	"errors"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -129,88 +130,79 @@ func createThrottlerChannel(capacity uint) RequestThrottler {
 	return ccChannel
 }
 
-func (m *FunctionMetadata) mergeEndpointLists(data []*proto.EndpointInfo) []*UpstreamEndpoint {
+func (m *FunctionMetadata) updateEndpointList(data []*proto.EndpointInfo) {
 	oldURLs, mmOld := _map.ExtractField[*UpstreamEndpoint](m.upstreamEndpoints, func(info *UpstreamEndpoint) string { return info.URL })
 	newURLs, mmNew := _map.ExtractField[*proto.EndpointInfo](data, func(info *proto.EndpointInfo) string { return info.URL })
 
 	toAdd := _map.Difference(newURLs, oldURLs)
 	toRemove := _map.Difference(oldURLs, newURLs)
 
-	var toProbe []*UpstreamEndpoint
 	for i := 0; i < len(toAdd); i++ {
-		endpoint := &UpstreamEndpoint{
+		m.upstreamEndpoints = append(m.upstreamEndpoints, &UpstreamEndpoint{
 			ID:       mmNew[toAdd[i]].ID,
 			URL:      mmNew[toAdd[i]].URL,
 			Capacity: createThrottlerChannel(m.sandboxParallelism),
-		}
-
-		toProbe = append(toProbe, endpoint)
+		})
 	}
-
-	m.Lock()
-	defer m.Unlock()
 
 	for i := 0; i < len(toRemove); i++ {
 		for j := 0; j < len(m.upstreamEndpoints); j++ {
 			if mmOld[toRemove[i]].URL == m.upstreamEndpoints[j].URL {
 				m.upstreamEndpoints = append(m.upstreamEndpoints[:j], m.upstreamEndpoints[j+1:]...)
-				atomic.AddInt32(&m.upstreamEndpointsCount, -1)
 				break
 			}
 		}
 	}
-
-	return toProbe
 }
 
-func (m *FunctionMetadata) SetUpstreamURLs(endpoints []*proto.EndpointInfo) {
-	toProbe := m.mergeEndpointLists(endpoints)
+func (m *FunctionMetadata) SetUpstreamURLs(endpoints []*proto.EndpointInfo) error {
+	m.Lock()
+	defer m.Unlock()
 
-	for _, endpoint := range toProbe {
-		e := endpoint
+	logrus.Debug("Updated endpoint list for ", m.identifier)
+	m.updateEndpointList(endpoints)
+	atomic.StoreInt32(&m.upstreamEndpointsCount, int32(len(m.upstreamEndpoints)))
 
-		go func() {
-			readinessProbeDelay, passed := SendReadinessProbe(e.URL)
+	if len(m.upstreamEndpoints) > 0 {
+		dequeueCnt := 0
 
-			if passed {
-				var oldValue int32
+		for m.queue.Len() > 0 {
+			dequeue := m.queue.Front()
+			m.queue.Remove(dequeue)
 
-				swapped := false
-				for !swapped {
-					oldValue = atomic.LoadInt32(&m.upstreamEndpointsCount)
-					newValue := oldValue + 1
-
-					swapped = atomic.CompareAndSwapInt32(&m.upstreamEndpointsCount, oldValue, newValue)
-				}
-
-				if oldValue == 0 {
-					m.dequeueRequests(readinessProbeDelay)
-				}
-
-				m.Lock()
-				m.upstreamEndpoints = append(m.upstreamEndpoints, e)
-				m.Unlock()
-
-				logrus.Debug("Added endpoint for ", m.identifier, " (count: ", int32(len(m.upstreamEndpoints)), ")")
+			signal, ok := dequeue.Value.(chan struct{})
+			if !ok {
+				return errors.New("Failed to convert dequeue into channel")
 			}
-		}()
+
+			signal <- struct{}{}
+			close(signal)
+
+			dequeueCnt++
+		}
+
+		if dequeueCnt > 0 {
+			logrus.Debug("Dequeued ", dequeueCnt, " requests for ", m.identifier)
+		}
 	}
+
+	return nil
 }
 
-func (m *FunctionMetadata) dequeueRequests(readinessProbeDelay time.Duration) {
+func (m *FunctionMetadata) dequeueRequests() {
 	dequeueCnt := 0
 
 	for m.queue.Len() > 0 {
 		dequeue := m.queue.Front()
 		m.queue.Remove(dequeue)
 
-		signal, ok := dequeue.Value.(chan time.Duration)
+		signal, ok := dequeue.Value.(chan struct{})
 		if !ok {
 			logrus.Fatal("Failed to convert dequeue into channel")
 		}
 
 		// unblock proxy request
-		signal <- readinessProbeDelay
+		signal <- struct{}{}
 		close(signal)
 
 		dequeueCnt++
@@ -229,7 +221,7 @@ func (m *FunctionMetadata) DecreaseInflight() {
 	atomic.AddInt32(&m.metrics.inflightRequests, -1)
 }
 
-func (m *FunctionMetadata) TryWarmStart(cp *proto.CpiInterfaceClient) (chan time.Duration, time.Duration) {
+func (m *FunctionMetadata) TryWarmStart(cp *proto.CpiInterfaceClient) (chan struct{}, time.Duration) {
 	start := time.Now()
 
 	// autoscaling metric
@@ -239,7 +231,7 @@ func (m *FunctionMetadata) TryWarmStart(cp *proto.CpiInterfaceClient) (chan time
 
 	endpointCount := atomic.LoadInt32(&m.upstreamEndpointsCount)
 	if endpointCount == 0 {
-		waitChannel := make(chan time.Duration, 1)
+		waitChannel := make(chan struct{}, 1)
 
 		m.Lock()
 		defer m.Unlock()

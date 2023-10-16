@@ -91,17 +91,13 @@ func (ps *ProxyingService) createInvocationHandler(next http.Handler, cache *com
 		coldStartChannel, durationColdStart := metadata.TryWarmStart(cp)
 		defer metadata.DecreaseInflight()
 
-		coldStartPause := time.Duration(0)
-
 		if coldStartChannel != nil {
 			logrus.Debug("Enqueued invocation for ", serviceName)
 
 			// wait until a cold start is resolved
 			coldStartWaitTime := time.Now()
-
-			coldStartPause = <-coldStartChannel
-
-			durationColdStart = time.Since(coldStartWaitTime) - coldStartPause
+			<-coldStartChannel
+			durationColdStart = time.Since(coldStartWaitTime)
 		}
 
 		///////////////////////////////////////////////
@@ -129,15 +125,14 @@ func (ps *ProxyingService) createInvocationHandler(next http.Handler, cache *com
 		///////////////////////////////////////////////
 
 		ps.Tracing.InputChannel <- tracing.ProxyLogEntry{
-			ServiceName:    serviceName,
-			ContainerID:    endpoint.ID,
-			Total:          time.Since(start),
-			GetMetadata:    durationGetDeployment,
-			ColdStart:      durationColdStart,
-			ReadinessProbe: coldStartPause,
-			LoadBalancing:  durationLB,
-			CCThrottling:   durationCC,
-			Proxying:       time.Since(startProxy),
+			ServiceName:   serviceName,
+			ContainerID:   endpoint.ID,
+			Total:         time.Since(start),
+			GetMetadata:   durationGetDeployment,
+			ColdStart:     durationColdStart,
+			LoadBalancing: durationLB,
+			CCThrottling:  durationCC,
+			Proxying:      time.Since(startProxy),
 		}
 
 		defer metadata.DecrementLocalQueueLength(endpoint)

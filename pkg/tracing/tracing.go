@@ -12,8 +12,8 @@ import (
 )
 
 const (
-	coldStartLogHeader = "time,service_name,container_id,success,image_fetch,sandbox_create,sandbox_start,network_setup,iptables,data_plane_propagation,other_worker_node\n"
-	proxyLogHeader     = "time,service_name,container_id,get_metadata,cold_start,readiness_probe,load_balancing,cc_throttling,proxying,other\n"
+	coldStartLogHeader = "time,service_name,container_id,success,image_fetch,sandbox_create,sandbox_start,network_setup,iptables,readiness_probe,data_plane_propagation,other_worker_node\n"
+	proxyLogHeader     = "time,service_name,container_id,get_metadata,cold_start,load_balancing,cc_throttling,proxying,other\n"
 )
 
 type ColdStartLogEntry struct {
@@ -28,13 +28,12 @@ type ProxyLogEntry struct {
 	ServiceName string
 	ContainerID string
 
-	Total          time.Duration
-	GetMetadata    time.Duration
-	ColdStart      time.Duration
-	ReadinessProbe time.Duration
-	LoadBalancing  time.Duration
-	CCThrottling   time.Duration
-	Proxying       time.Duration
+	Total         time.Duration
+	GetMetadata   time.Duration
+	ColdStart     time.Duration
+	LoadBalancing time.Duration
+	CCThrottling  time.Duration
+	Proxying      time.Duration
 }
 
 type TracingService[T any] struct {
@@ -118,9 +117,10 @@ func coldStartWriteFunction(f *os.File, msg ColdStartLogEntry) {
 	// DB should not be included in 'other' as 'LatencyBreakdown.Total' is only the worker node part
 	other := msg.LatencyBreakdown.Total.AsDuration() - (msg.LatencyBreakdown.ImageFetch.AsDuration() +
 		msg.LatencyBreakdown.SandboxCreate.AsDuration() + msg.LatencyBreakdown.SandboxStart.AsDuration() +
-		msg.LatencyBreakdown.NetworkSetup.AsDuration() + msg.LatencyBreakdown.Iptables.AsDuration())
+		msg.LatencyBreakdown.NetworkSetup.AsDuration() + msg.LatencyBreakdown.Iptables.AsDuration() +
+		msg.LatencyBreakdown.ReadinessProbing.AsDuration() + msg.LatencyBreakdown.DataplanePropagation.AsDuration())
 
-	_, _ = f.WriteString(fmt.Sprintf("%d,%s,%s,%t,%d,%d,%d,%d,%d,%d,%d\n",
+	_, _ = f.WriteString(fmt.Sprintf("%d,%s,%s,%t,%d,%d,%d,%d,%d,%d,%d,%d\n",
 		time.Now().UnixNano(),
 		msg.ServiceName,
 		msg.ContainerID,
@@ -130,21 +130,21 @@ func coldStartWriteFunction(f *os.File, msg ColdStartLogEntry) {
 		msg.LatencyBreakdown.SandboxStart.AsDuration().Microseconds(),
 		msg.LatencyBreakdown.NetworkSetup.AsDuration().Microseconds(),
 		msg.LatencyBreakdown.Iptables.AsDuration().Microseconds(),
+		msg.LatencyBreakdown.ReadinessProbing.AsDuration().Microseconds(),
 		msg.LatencyBreakdown.DataplanePropagation.AsDuration().Microseconds(),
 		other.Microseconds(),
 	))
 }
 
 func proxyWriteFunction(f *os.File, msg ProxyLogEntry) {
-	other := msg.Total - (msg.GetMetadata + msg.ColdStart + msg.ReadinessProbe + msg.LoadBalancing + msg.CCThrottling + msg.Proxying)
+	other := msg.Total - (msg.GetMetadata + msg.ColdStart + msg.LoadBalancing + msg.CCThrottling + msg.Proxying)
 
-	_, _ = f.WriteString(fmt.Sprintf("%d,%s,%s,%d,%d,%d,%d,%d,%d,%d\n",
+	_, _ = f.WriteString(fmt.Sprintf("%d,%s,%s,%d,%d,%d,%d,%d,%d\n",
 		time.Now().UnixNano(),
 		msg.ServiceName,
 		msg.ContainerID,
 		msg.GetMetadata.Microseconds(),
 		msg.ColdStart.Microseconds(),
-		msg.ReadinessProbe.Microseconds(),
 		msg.LoadBalancing.Microseconds(),
 		msg.CCThrottling.Microseconds(),
 		msg.Proxying.Microseconds(),

@@ -1,22 +1,14 @@
-import pandas as pd
-
 from common import *
 
 rootPath = './francois'
-load = [100,150,200,250,300,350,400,450]
+load = [1, 50, 100, 200, 400]
+
+labels = []
+[labels.append(f'{x}  colds starts per second') for x in load]
 
 plotClusteredStackedBarchart(getResult(load, rootPath),
                              title='',
-                             clusterLabels=[
-                                 '100 colds starts per second',
-                                 '150 colds starts per second',
-                                 '200 colds starts per second',
-                                 '250 colds starts per second',
-                                 '300 colds starts per second',
-                                 '350 colds starts per second',
-                                 '400 colds starts per second',
-                                 '450 colds starts per second',
-                             ],
+                             clusterLabels=labels,
                              clusterLabelPosition=(-0.15, 1.1),
                              categoryLabelPosition=(-0.35, 0.65))
 
@@ -27,4 +19,4 @@ plt.ylabel('Latency [ms]')
 plt.grid()
 plt.tight_layout()
 
-plt.savefig(f"{rootPath}/breakdown_sweep.png",dpi=160)
+plt.savefig(f"{rootPath}/breakdown_sweep.png", dpi=160)

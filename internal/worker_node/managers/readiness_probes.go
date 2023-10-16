@@ -1,4 +1,4 @@
-package function_metadata
+package managers
 
 import (
 	"context"

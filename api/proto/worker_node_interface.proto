@@ -26,7 +26,8 @@ message SandboxCreationBreakdown {
   google.protobuf.Duration NetworkSetup = 4;
   google.protobuf.Duration SandboxStart = 5;
   google.protobuf.Duration Iptables = 6;
-  google.protobuf.Duration DataplanePropagation = 7;
+  google.protobuf.Duration ReadinessProbing = 7;
+  google.protobuf.Duration DataplanePropagation = 8;
 }
 
 message EndpointsList {

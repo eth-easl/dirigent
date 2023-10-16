@@ -72,6 +72,7 @@ func (fcr *Runtime) CreateSandbox(_ context.Context, in *proto.ServiceInfo) (*pr
 
 	err, tapCreation, vmCreate, vmStart := StartFirecrackerVM(vmcs, fcr.VMDebugMode)
 	if err != nil {
+		// TODO: deallocate resources
 		return &proto.SandboxCreationStatus{Success: false}, err
 	}
 
@@ -92,6 +93,7 @@ func (fcr *Runtime) CreateSandbox(_ context.Context, in *proto.ServiceInfo) (*pr
 	// VM process monitoring
 	vmPID, err := vmcs.vm.PID()
 	if err != nil {
+		// TODO: deallocate resources
 		logrus.Debug(err)
 		return &proto.SandboxCreationStatus{Success: false}, err
 	}
@@ -112,19 +114,31 @@ func (fcr *Runtime) CreateSandbox(_ context.Context, in *proto.ServiceInfo) (*pr
 
 	logrus.Debug("Worker node part: ", time.Since(start).Milliseconds(), " ms")
 
-	return &proto.SandboxCreationStatus{
-		Success:      true,
-		ID:           vmcs.SandboxID,
-		PortMappings: in.PortForwarding,
-		LatencyBreakdown: &proto.SandboxCreationBreakdown{
-			Total:         durationpb.New(time.Since(start)),
-			ImageFetch:    durationpb.New(0),
-			SandboxCreate: durationpb.New(vmCreate),
-			NetworkSetup:  durationpb.New(tapCreation),
-			SandboxStart:  durationpb.New(vmStart),
-			Iptables:      durationpb.New(iptablesDuration),
-		},
-	}, nil
+	// blocking call
+	timeToPass, passed := managers.SendReadinessProbe(fmt.Sprintf("localhost:%d", metadata.HostPort))
+
+	if passed {
+		return &proto.SandboxCreationStatus{
+			Success:      true,
+			ID:           vmcs.SandboxID,
+			PortMappings: in.PortForwarding,
+			LatencyBreakdown: &proto.SandboxCreationBreakdown{
+				Total:            durationpb.New(time.Since(start)),
+				ImageFetch:       durationpb.New(0),
+				SandboxCreate:    durationpb.New(vmCreate),
+				NetworkSetup:     durationpb.New(tapCreation),
+				SandboxStart:     durationpb.New(vmStart),
+				ReadinessProbing: durationpb.New(timeToPass),
+				Iptables:         durationpb.New(iptablesDuration),
+			},
+		}, nil
+	} else {
+		// TODO: deallocate resources
+		return &proto.SandboxCreationStatus{
+			Success: false,
+			ID:      vmcs.SandboxID,
+		}, nil
+	}
 }
 
 func (fcr *Runtime) DeleteSandbox(_ context.Context, in *proto.SandboxID) (*proto.ActionStatus, error) {
