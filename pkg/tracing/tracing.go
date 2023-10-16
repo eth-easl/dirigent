@@ -118,7 +118,7 @@ func coldStartWriteFunction(f *os.File, msg ColdStartLogEntry) {
 	other := msg.LatencyBreakdown.Total.AsDuration() - (msg.LatencyBreakdown.ImageFetch.AsDuration() +
 		msg.LatencyBreakdown.SandboxCreate.AsDuration() + msg.LatencyBreakdown.SandboxStart.AsDuration() +
 		msg.LatencyBreakdown.NetworkSetup.AsDuration() + msg.LatencyBreakdown.Iptables.AsDuration() +
-		msg.LatencyBreakdown.ReadinessProbing.AsDuration() + msg.LatencyBreakdown.DataplanePropagation.AsDuration())
+		msg.LatencyBreakdown.ReadinessProbing.AsDuration())
 
 	_, _ = f.WriteString(fmt.Sprintf("%d,%s,%s,%t,%d,%d,%d,%d,%d,%d,%d,%d\n",
 		time.Now().UnixNano(),
