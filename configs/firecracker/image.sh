@@ -59,7 +59,7 @@ build_go_function(){
 
 TMP_ROOTFS="/tmp/${ROOTFS:1}"
 
-dd if=/dev/zero of="$ROOTFS" bs=1M count=128
+dd if=/dev/zero of="$ROOTFS" bs=1M count=64
 mkfs.ext4 "$ROOTFS"
 mkdir -p "$TMP_ROOTFS"
 mount "$ROOTFS" "$TMP_ROOTFS"
