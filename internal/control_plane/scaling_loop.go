@@ -129,7 +129,12 @@ func (ss *ServiceInfoStorage) doUpscaling(toCreateCount int, nodeList *atomic_ma
 
 			resp, err := node.CreateSandbox(ctx, ss.ServiceInfo)
 			if err != nil || !resp.Success {
-				logrus.Warnf("Failed to start a sandbox on worker node %s (error %s)", node.GetName(), err.Error())
+				msg := ""
+				if err != nil {
+					msg = err.Error()
+				}
+
+				logrus.Warnf("Failed to start a sandbox on worker node %s (error %s)", node.GetName(), msg)
 
 				atomic.AddInt64(&ss.Controller.ScalingMetadata.ActualScale, -1)
 				return

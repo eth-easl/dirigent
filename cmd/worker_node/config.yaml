@@ -8,7 +8,7 @@ criPath: "/run/containerd/containerd.sock"
 cniConfigPath: "configs/cni.conf"
 prefetchImage: false
 
-firecrackerKernel: "configs/firecracker/vmlinux-4.14.bin"
+firecrackerKernel: "configs/firecracker/vmlinux-6.1.bin"
 firecrackerFileSystem: "configs/firecracker/rootfs.ext4"
 firecrackerIPPrefix: "169.254"
 firecrackerVMDebugMode: false
