@@ -1,6 +1,6 @@
 port: "9090"
 portRegistration: "9091"
-verbosity: "trace"
+verbosity: "debug"
 traceOutputFolder: "data"
 placementPolicy: "random"
 persistence: false
@@ -8,6 +8,8 @@ reconstruct: false
 
 removeWorkerNode: true
 removeDataplane: true
+
+traceCreation: true
 
 profiler:
   enable: false

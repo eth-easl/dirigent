@@ -14,6 +14,7 @@ import (
 	"fmt"
 	"github.com/sirupsen/logrus"
 	"google.golang.org/protobuf/types/known/durationpb"
+	"os"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -32,6 +33,9 @@ type ServiceInfoStorage struct {
 	NodeInformation synchronization.SyncStructure[string, core.WorkerNodeInterface]
 
 	StartTime time.Time
+
+	ShouldTrace bool
+	TracingFile *os.File
 }
 
 func (ss *ServiceInfoStorage) GetAllURLs() []string {
@@ -85,6 +89,7 @@ func (ss *ServiceInfoStorage) ScalingControllerLoop(nodeList synchronization.Syn
 			toEvict := make(map[*core.Endpoint]struct{})
 
 			for i := 0; i < actualScale-desiredCount; i++ {
+				// TODO: Report no endpoint to evict
 				endpoint, newState := eviction_policy.EvictionPolicy(currentState)
 
 				if _, ok := toEvict[endpoint]; ok {
@@ -103,7 +108,13 @@ func (ss *ServiceInfoStorage) ScalingControllerLoop(nodeList synchronization.Syn
 			go ss.doDownscaling(toEvict, ss.prepareUrlList(), dpiClients)
 		}
 
-		ss.Controller.EndpointLock.Unlock() // for all cases (>, ==, <)
+		ss.Controller.EndpointLock.Unlock() // for all cases (>, ==, <) // TODO: Fix this
+	}
+
+	if ss.ShouldTrace {
+		if err := ss.TracingFile.Close(); err != nil {
+			logrus.Errorf("Failed to close tracing file : (%s)", err.Error())
+		}
 	}
 }
 
@@ -137,12 +148,11 @@ func (ss *ServiceInfoStorage) doUpscaling(toCreateCount int, nodeList synchroniz
 
 			resp, err := node.CreateSandbox(ctx, ss.ServiceInfo)
 			if err != nil || !resp.Success {
-				msg := ""
+				text := ""
 				if err != nil {
-					msg = err.Error()
+					text += err.Error()
 				}
-
-				logrus.Warnf("Failed to start a sandbox on worker node %s (error %s)", node.GetName(), msg)
+				logrus.Warnf("Failed to start a sandbox on worker node %s (error %s)", node.GetName(), text)
 
 				atomic.AddInt64(&ss.Controller.ScalingMetadata.ActualScale, -1)
 				return
@@ -168,11 +178,7 @@ func (ss *ServiceInfoStorage) doUpscaling(toCreateCount int, nodeList synchroniz
 			}
 
 			// Update worker node structure
-			//workerEndpointMap, present := ss.WorkerEndpoints.AtomicGet(node.GetName())
-			// TODO: Review this line François ==> Is it correct?
-			// TODO: Poential race condition ==> Check this as well
-			ss.NodeInformation.GetNoCheck(node.GetName()).GetEndpointMap().AtomicSet(newEndpoint, ss.ServiceInfo.Name)
-			//workerEndpointMap.AtomicSet(newEndpoint, ss.ServiceInfo.Name)
+			ss.NodeInformation.AtomicGetNoCheck(node.GetName()).GetEndpointMap().AtomicSet(newEndpoint, ss.ServiceInfo.Name)
 
 			endpointMutex.Lock()
 			finalEndpoint = append(finalEndpoint, newEndpoint)
@@ -204,6 +210,10 @@ func (ss *ServiceInfoStorage) doUpscaling(toCreateCount int, nodeList synchroniz
 	durationUpdateEndpoints := time.Since(updateEndpointTimeStart)
 	logrus.Debug("Endpoints updated.")
 
+	if ss.ShouldTrace {
+		ss.TracingFile.WriteString(fmt.Sprint(time.Now().Unix()) + "\n")
+	}
+
 	for _, endpoint := range finalEndpoint {
 		endpoint.CreationHistory.LatencyBreakdown.DataplanePropagation = durationpb.New(durationUpdateEndpoints)
 		*ss.ColdStartTracingChannel <- endpoint.CreationHistory
@@ -215,7 +225,7 @@ func (ss *ServiceInfoStorage) removeEndpointFromWNStruct(e *core.Endpoint) {
 	ss.NodeInformation.GetNoCheck(e.Node.GetName()).GetEndpointMap().Lock()
 	defer ss.NodeInformation.GetNoCheck(e.Node.GetName()).GetEndpointMap().Unlock()
 
-	ss.NodeInformation.GetNoCheck(e.Node.GetName()).GetEndpointMap().AtomicRemove(e)
+	ss.NodeInformation.GetNoCheck(e.Node.GetName()).GetEndpointMap().Remove(e)
 }
 
 func (ss *ServiceInfoStorage) doDownscaling(toEvict map[*core.Endpoint]struct{}, urls []*proto.EndpointInfo, dpiClients synchronization.SyncStructure[string, core.DataPlaneInterface]) {
@@ -227,7 +237,7 @@ func (ss *ServiceInfoStorage) doDownscaling(toEvict map[*core.Endpoint]struct{},
 		victim := key
 
 		if victim == nil {
-			logrus.Debug("Victim null - should not have happened")
+			logrus.Error("Victim null - should not have happened")
 			continue // why this happens?
 		}
 

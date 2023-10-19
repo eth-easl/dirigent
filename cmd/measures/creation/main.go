@@ -4,6 +4,7 @@ import (
 	proto2 "cluster_manager/api/proto"
 	common "cluster_manager/pkg/grpc_helpers"
 	"cluster_manager/pkg/utils"
+	"cluster_manager/tests/shared"
 	"context"
 	"fmt"
 	"github.com/sirupsen/logrus"
@@ -11,43 +12,26 @@ import (
 	"time"
 )
 
-const (
-	ControlPlaneAddress string = "localhost"
-	MockIp              string = "mockIP"
-)
-
 func main() {
+	nbServices := 1
+	DeployWorkers(5, 0)
+	shared.DeployServiceMultiThread(nbServices, 0)
 
-	times := 0
-
-	for times < 1 {
-		counter := 0
-		nbWorkers := 1
-		// Measures
-		for nbWorkers <= 10000 {
-			start := time.Now()
-
-			DeployWorkers(nbWorkers, counter)
-
-			delta := time.Since(start)
-			fmt.Printf("%d,", delta)
-
-			counter += nbWorkers
-			nbWorkers *= 10
-
-		}
-		fmt.Println()
-
-		times++
+	for j := 0; j < 3; j++ {
+		shared.FireColdstartMultiThread(nbServices, 0, 1)
+		time.Sleep(1 * time.Second)
+		shared.FireColdstartMultiThread(nbServices, 0, 0)
+		time.Sleep(time.Second)
 	}
 
 }
 
+// TODO: Remove duplicate code
 func DeployWorkers(nbDeploys, offset int) {
 	logrus.SetLevel(logrus.ErrorLevel)
 	logrus.SetFormatter(&logrus.TextFormatter{TimestampFormat: time.StampMilli, FullTimestamp: true})
 
-	cpApi, err := common.InitializeControlPlaneConnection(ControlPlaneAddress, utils.DefaultControlPlanePort, "", -1, -1)
+	cpApi, err := common.InitializeControlPlaneConnection("localhost", utils.DefaultControlPlanePort, "", -1, -1)
 	if err != nil {
 		logrus.Fatalf("Failed to start control plane connection (error %s)", err.Error())
 	}
@@ -60,7 +44,7 @@ func DeployWorkers(nbDeploys, offset int) {
 
 	for i := 0; i < nbDeploys; i++ {
 		go func(i int, offset int) {
-			id := fmt.Sprintf("%s %d %d", MockIp, i, offset)
+			id := fmt.Sprintf("%s %d %d", "mockIp", i, offset)
 			resp, err := cpApi.RegisterNode(ctx, &proto2.NodeInfo{
 				NodeID:     id, // Unique id while registering
 				IP:         id,

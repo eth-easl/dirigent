@@ -9,6 +9,8 @@ reconstruct: false
 removeWorkerNode: false
 removeDataplane: false
 
+traceCreation: false
+
 profiler:
   enable: false
   mutex: false

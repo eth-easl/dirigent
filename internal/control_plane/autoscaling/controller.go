@@ -52,7 +52,7 @@ func (as *PFStateController) ScalingLoop() {
 
 	for ; true; <-ticker.C {
 		desiredScale := as.ScalingMetadata.KnativeScaling(isScaleFromZero)
-		logrus.Debug("Desired scale: ", desiredScale)
+		logrus.Debugf("Desired scale: %d", desiredScale)
 
 		as.DesiredStateChannel <- desiredScale
 
@@ -60,7 +60,7 @@ func (as *PFStateController) ScalingLoop() {
 
 		if desiredScale == 0 {
 			atomic.StoreInt32(&as.AutoscalingRunning, 0)
-			logrus.Debug("Existed scaling loop")
+			logrus.Debug("Exited scaling loop")
 
 			break
 		}

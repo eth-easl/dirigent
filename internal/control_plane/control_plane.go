@@ -13,6 +13,8 @@ import (
 	"errors"
 	"github.com/sirupsen/logrus"
 	"google.golang.org/protobuf/types/known/emptypb"
+	"log"
+	"os"
 	"strconv"
 	"time"
 )
@@ -28,9 +30,24 @@ type ControlPlane struct {
 
 	dataPlaneCreator  core.DataplaneFactory
 	workerNodeCreator core.WorkerNodeFactory
+
+	shouldTrace bool
+	tracingFile *os.File
 }
 
-func NewControlPlane(client persistence.PersistenceLayer, outputFile string, placementPolicy placement_policy.PlacementPolicy, dataplaneCreator core.DataplaneFactory, workerNodeCreator core.WorkerNodeFactory) *ControlPlane {
+func NewControlPlane(client persistence.PersistenceLayer, outputFile string, placementPolicy placement_policy.PlacementPolicy, dataplaneCreator core.DataplaneFactory, workerNodeCreator core.WorkerNodeFactory, shouldTrace bool) *ControlPlane {
+	var (
+		file *os.File
+		err  error
+	)
+
+	if shouldTrace {
+		file, err = os.OpenFile("notes.txt", os.O_RDWR|os.O_CREATE|os.O_TRUNC, 0755)
+		if err != nil {
+			log.Fatal(err)
+		}
+	}
+
 	return &ControlPlane{
 		NIStorage:            synchronization.NewControlPlaneSyncStructure[string, core.WorkerNodeInterface](),
 		SIStorage:            synchronization.NewControlPlaneSyncStructure[string, *ServiceInfoStorage](),
@@ -40,6 +57,8 @@ func NewControlPlane(client persistence.PersistenceLayer, outputFile string, pla
 		PersistenceLayer:     client,
 		dataPlaneCreator:     dataplaneCreator,
 		workerNodeCreator:    workerNodeCreator,
+		shouldTrace:          shouldTrace,
+		tracingFile:          file,
 	}
 }
 
@@ -117,6 +136,9 @@ func (c *ControlPlane) RegisterNode(ctx context.Context, in *proto.NodeInfo) (*p
 	})
 
 	if enter, timestamp := c.NIStorage.SetIfAbsent(in.NodeID, wn); enter {
+
+		logrus.Warnf("Incoming : %s", in.NodeID)
+
 		err := c.PersistenceLayer.StoreWorkerNodeInformation(ctx, &proto.WorkerNodeInformation{
 			Name:     in.NodeID,
 			Ip:       in.IP,

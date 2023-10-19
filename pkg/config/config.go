@@ -8,17 +8,18 @@ import (
 )
 
 type ControlPlaneConfig struct {
-	Port              string         `mapstructure:"port"`
-	PortRegistration  string         `mapstructure:"portRegistration"`
-	Verbosity         string         `mapstructure:"verbosity"`
-	TraceOutputFolder string         `mapstructure:"traceOutputFolder"`
-	PlacementPolicy   string         `mapstructure:"placementPolicy"`
-	Persistence       bool           `mapstructure:"persistence"`
-	Profiler          ProfilerConfig `mapstructure:"profiler"`
-	RedisConf         RedisConf      `mapstructure:"redis"`
-	Reconstruct       bool           `mapstructure:"reconstruct"`
-	RemoveWorkerNode  bool           `mapstructure:"removeWorkerNode"`
-	RemoveDataplane   bool           `mapstructure:"removeDataplane"`
+	Port                string         `mapstructure:"port"`
+	PortRegistration    string         `mapstructure:"portRegistration"`
+	Verbosity           string         `mapstructure:"verbosity"`
+	TraceOutputFolder   string         `mapstructure:"traceOutputFolder"`
+	PlacementPolicy     string         `mapstructure:"placementPolicy"`
+	Persistence         bool           `mapstructure:"persistence"`
+	Profiler            ProfilerConfig `mapstructure:"profiler"`
+	RedisConf           RedisConf      `mapstructure:"redis"`
+	Reconstruct         bool           `mapstructure:"reconstruct"`
+	RemoveWorkerNode    bool           `mapstructure:"removeWorkerNode"`
+	RemoveDataplane     bool           `mapstructure:"removeDataplane"`
+	TraceSanboxCreation bool           `mapstructure:"traceCreation"`
 }
 
 type DataPlaneConfig struct {

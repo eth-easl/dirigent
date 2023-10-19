@@ -3,7 +3,7 @@ controlPlaneIp: "localhost"
 controlPlanePort: "9090"
 port: "10010"
 verbosity: "trace"
-criType: "firecracker"
+criType: "containerd"
 criPath: "/run/containerd/containerd.sock"
 cniConfigPath: "configs/cni.conf"
 prefetchImage: false

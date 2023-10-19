@@ -31,7 +31,7 @@ type WorkerNode struct {
 	SandboxManager *managers.SandboxManager
 	ProcessMonitor *managers.ProcessMonitor
 
-	quitChannel chan bool
+	Name string
 }
 
 func isUserRoot() (int, bool) {
@@ -40,12 +40,17 @@ func isUserRoot() (int, bool) {
 	return uid, uid == 0
 }
 
-func NewWorkerNode(cpApi proto.CpiInterfaceClient, config config.WorkerNodeConfig) *WorkerNode {
+func NewWorkerNode(cpApi proto.CpiInterfaceClient, config config.WorkerNodeConfig, name ...string) *WorkerNode {
 	hostName, err := os.Hostname()
 	if err != nil {
 		logrus.Warn("Error fetching host name.")
 	}
 
+	if len(name) > 0 {
+		hostName = name[0]
+	}
+
+	imageManager := containerd.NewImageManager()
 	sandboxManager := managers.NewSandboxManager(hostName)
 
 	if _, isRoot := isUserRoot(); !isRoot {
@@ -85,6 +90,8 @@ func NewWorkerNode(cpApi proto.CpiInterfaceClient, config config.WorkerNodeConfi
 
 		SandboxManager: sandboxManager,
 		ProcessMonitor: processMonitor,
+
+		Name: hostName,
 	}
 
 	return workerNode
@@ -134,18 +141,13 @@ func (w *WorkerNode) DeregisterNodeFromControlPlane(config config.WorkerNodeConf
 }
 
 func (w *WorkerNode) sendInstructionToControlPlane(config config.WorkerNodeConfig, cpi *proto.CpiInterfaceClient, action int) error {
-	hostName, err := os.Hostname()
-	if err != nil {
-		logrus.Warn("Error fetching host name.")
-	}
-
 	pollContext, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 
 	pollErr := wait.PollUntilContextCancel(pollContext, 5*time.Second, true,
 		func(ctx context.Context) (done bool, err error) {
 			nodeInfo := &proto.NodeInfo{
-				NodeID:     hostName,
+				NodeID:     w.Name,
 				IP:         config.WorkerNodeIP,
 				Port:       int32(config.Port),
 				CpuCores:   hardware.GetNumberCpus(),
@@ -188,13 +190,8 @@ func (w *WorkerNode) SetupHeartbeatLoop(cpApi *proto.CpiInterfaceClient) {
 func (w *WorkerNode) getWorkerStatistics() (*proto.NodeHeartbeatMessage, error) {
 	hardwareUsage := hardware.GetHardwareUsage()
 
-	hostname, err := os.Hostname()
-	if err != nil {
-		return nil, err
-	}
-
 	return &proto.NodeHeartbeatMessage{
-		NodeID:      hostname,
+		NodeID:      w.Name,
 		CpuUsage:    hardwareUsage.CpuUsage,
 		MemoryUsage: hardwareUsage.MemoryUsage,
 	}, nil

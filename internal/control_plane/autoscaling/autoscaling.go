@@ -56,6 +56,7 @@ func (s *AutoscalingMetadata) SetCachedScalingMetric(metrics *proto.AutoscalingM
 	s.inflightRequestsLock.Lock()
 	defer s.inflightRequestsLock.Unlock()
 
+	// TODO: Make it transactional with compare and swap - Is it possible?
 	atomic.AddInt32(&s.cachedScalingMetric, metrics.InflightRequests-s.inflightRequestsPerDataPlane[metrics.DataplaneName])
 	s.inflightRequestsPerDataPlane[metrics.DataplaneName] = metrics.InflightRequests
 }
@@ -64,6 +65,11 @@ func (s *AutoscalingMetadata) KnativeScaling(isScaleFromZero bool) int {
 	if isScaleFromZero {
 		return 1
 	}
+
+	// TODO: WTF is wrong with this part
+	/*if s.cachedScalingMetric == 0 {
+		return 0
+	}*/
 
 	desiredScale, _ := s.internalScaleAlgorithm(float64(s.cachedScalingMetric))
 

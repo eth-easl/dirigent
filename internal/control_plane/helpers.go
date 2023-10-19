@@ -37,6 +37,8 @@ func (c *ControlPlane) notifyDataplanesAndStartScalingLoop(ctx context.Context, 
 		PersistenceLayer:        c.PersistenceLayer,
 		NodeInformation:         c.NIStorage,
 		StartTime:               startTime,
+		ShouldTrace:             c.shouldTrace,
+		TracingFile:             c.tracingFile,
 	})
 
 	go c.SIStorage.AtomicGetNoCheck(serviceInfo.Name).ScalingControllerLoop(c.NIStorage, c.DataPlaneConnections)

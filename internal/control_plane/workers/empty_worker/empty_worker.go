@@ -5,15 +5,24 @@ import (
 	"cluster_manager/internal/control_plane/core"
 	"cluster_manager/pkg/synchronization"
 	"context"
+	"github.com/google/uuid"
+	"github.com/sirupsen/logrus"
 	"google.golang.org/grpc"
+	durationpb "google.golang.org/protobuf/types/known/durationpb"
 	"google.golang.org/protobuf/types/known/emptypb"
 	"time"
 )
 
-type emptyWorker struct{}
+type emptyWorker struct {
+	name              string
+	workerEndPointMap synchronization.SyncStructure[*core.Endpoint, string]
+}
 
 func NewEmptyWorkerNode(workerNodeConfiguration core.WorkerNodeConfiguration) core.WorkerNodeInterface {
-	return &emptyWorker{}
+	return &emptyWorker{
+		name:              workerNodeConfiguration.Name,
+		workerEndPointMap: synchronization.NewControlPlaneSyncStructure[*core.Endpoint, string](),
+	}
 }
 
 func (e *emptyWorker) GetAPI() proto.WorkerNodeInterfaceClient {
@@ -21,11 +30,32 @@ func (e *emptyWorker) GetAPI() proto.WorkerNodeInterfaceClient {
 }
 
 func (e *emptyWorker) CreateSandbox(ctx context.Context, info *proto.ServiceInfo, option ...grpc.CallOption) (*proto.SandboxCreationStatus, error) {
-	return &proto.SandboxCreationStatus{}, nil
+	logrus.Info("Creation sandbox")
+	return &proto.SandboxCreationStatus{
+		Success: true,
+		ID:      uuid.New().String(),
+		PortMappings: &proto.PortMapping{
+			HostPort:  0,
+			GuestPort: 0,
+			Protocol:  0,
+		},
+		LatencyBreakdown: &proto.SandboxCreationBreakdown{
+			Total:                &durationpb.Duration{},
+			ImageFetch:           &durationpb.Duration{},
+			SandboxCreate:        &durationpb.Duration{},
+			NetworkSetup:         &durationpb.Duration{},
+			SandboxStart:         &durationpb.Duration{},
+			Iptables:             &durationpb.Duration{},
+			DataplanePropagation: &durationpb.Duration{},
+		},
+	}, nil
 }
 
 func (e *emptyWorker) DeleteSandbox(ctx context.Context, id *proto.SandboxID, option ...grpc.CallOption) (*proto.ActionStatus, error) {
-	return &proto.ActionStatus{}, nil
+	logrus.Info("Deletion sandbox")
+	return &proto.ActionStatus{
+		Success: true,
+	}, nil
 }
 
 func (e *emptyWorker) ListEndpoints(ctx context.Context, empty *emptypb.Empty, option ...grpc.CallOption) (*proto.EndpointsList, error) {
@@ -33,7 +63,7 @@ func (e *emptyWorker) ListEndpoints(ctx context.Context, empty *emptypb.Empty, o
 }
 
 func (e *emptyWorker) GetName() string {
-	return ""
+	return e.name
 }
 
 func (e *emptyWorker) GetLastHeartBeat() time.Time {
@@ -78,5 +108,5 @@ func (e *emptyWorker) GetPort() string {
 }
 
 func (e *emptyWorker) GetEndpointMap() synchronization.SyncStructure[*core.Endpoint, string] {
-	return synchronization.NewControlPlaneSyncStructure[*core.Endpoint, string]()
+	return e.workerEndPointMap
 }

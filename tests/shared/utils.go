@@ -100,6 +100,42 @@ func DeployServiceMultiThread(nbDeploys, offset int) {
 	wg.Wait()
 }
 
+func FireColdstartMultiThread(nbDeploys, offset int, requests int32) {
+
+	cpApi, err := common.InitializeControlPlaneConnection(ControlPlaneAddress, utils.DefaultControlPlanePort, "", -1, -1)
+	if err != nil {
+		logrus.Fatalf("Failed to start control plane connection (error %s)", err.Error())
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), utils.GRPCFunctionTimeout)
+	defer cancel()
+
+	wg := sync.WaitGroup{}
+	wg.Add(nbDeploys)
+
+	for i := 0; i < nbDeploys; i++ {
+		go func(i int, offset int) {
+			resp, err := cpApi.OnMetricsReceive(ctx, &proto2.AutoscalingMetric{
+				ServiceName:      fmt.Sprintf("%s&%d", DeployedFunctionName, i+offset),
+				DataplaneName:    "mockDataplane",
+				InflightRequests: requests,
+			})
+
+			if err != nil || !resp.Success {
+				text := ""
+				if err != nil {
+					text += err.Error()
+				}
+				logrus.Errorf("Failed to simulate cold start service : (error %s)", text)
+			}
+
+			wg.Done()
+		}(i, offset)
+	}
+
+	wg.Wait()
+}
+
 func Deregister(nbDeploys, offset int) {
 	logrus.SetLevel(logrus.DebugLevel)
 	logrus.SetFormatter(&logrus.TextFormatter{TimestampFormat: time.StampMilli, FullTimestamp: true})
