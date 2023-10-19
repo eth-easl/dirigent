@@ -3,10 +3,13 @@ package main
 import (
 	"cluster_manager/tests/shared"
 	"fmt"
+	"github.com/sirupsen/logrus"
 	"time"
 )
 
 func main() {
+	logrus.SetLevel(logrus.DebugLevel)
+	logrus.SetFormatter(&logrus.TextFormatter{TimestampFormat: time.StampMilli, FullTimestamp: true})
 
 	times := 0
 
@@ -20,7 +23,7 @@ func main() {
 			delta := time.Since(start)
 			fmt.Printf("%d,", delta)
 
-			shared.Deregister(nbServices, counter)
+			shared.DeregisterMultiThread(nbServices, counter)
 
 			counter += nbServices
 			nbServices *= 10

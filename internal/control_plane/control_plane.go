@@ -136,9 +136,6 @@ func (c *ControlPlane) RegisterNode(ctx context.Context, in *proto.NodeInfo) (*p
 	})
 
 	if enter, timestamp := c.NIStorage.SetIfAbsent(in.NodeID, wn); enter {
-
-		logrus.Warnf("Incoming : %s", in.NodeID)
-
 		err := c.PersistenceLayer.StoreWorkerNodeInformation(ctx, &proto.WorkerNodeInformation{
 			Name:     in.NodeID,
 			Ip:       in.IP,

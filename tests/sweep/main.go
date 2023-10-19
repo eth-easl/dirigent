@@ -24,10 +24,13 @@ const (
 )
 
 func main() {
+	logrus.SetLevel(logrus.DebugLevel)
+	logrus.SetFormatter(&logrus.TextFormatter{TimestampFormat: time.StampMilli, FullTimestamp: true})
+
 	flag.Parse()
 
 	logrus.Info("Registering services")
-	shared.DeployService((*duration)*(*nbColdStartsPerSecond), 0)
+	shared.DeployServiceMultiThread((*duration)*(*nbColdStartsPerSecond), 0)
 
 	logrus.Info("Starting sweep test")
 

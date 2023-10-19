@@ -15,10 +15,13 @@ const (
 )
 
 func main() {
+	logrus.SetLevel(logrus.DebugLevel)
+	logrus.SetFormatter(&logrus.TextFormatter{TimestampFormat: time.StampMilli, FullTimestamp: true})
+
 	flag.Parse()
 
 	logrus.Info("Registering services")
-	shared.DeployService(*invocations, 0)
+	shared.DeployServiceMultiThread(*invocations, 0)
 
 	logrus.Info("Starting burst test")
 

@@ -6,7 +6,6 @@ import (
 	"cluster_manager/pkg/synchronization"
 	"context"
 	"github.com/google/uuid"
-	"github.com/sirupsen/logrus"
 	"google.golang.org/grpc"
 	durationpb "google.golang.org/protobuf/types/known/durationpb"
 	"google.golang.org/protobuf/types/known/emptypb"
@@ -30,7 +29,7 @@ func (e *emptyWorker) GetAPI() proto.WorkerNodeInterfaceClient {
 }
 
 func (e *emptyWorker) CreateSandbox(ctx context.Context, info *proto.ServiceInfo, option ...grpc.CallOption) (*proto.SandboxCreationStatus, error) {
-	logrus.Info("Creation sandbox")
+	logrus.Debug("Creation sandbox")
 	return &proto.SandboxCreationStatus{
 		Success: true,
 		ID:      uuid.New().String(),
@@ -52,7 +51,7 @@ func (e *emptyWorker) CreateSandbox(ctx context.Context, info *proto.ServiceInfo
 }
 
 func (e *emptyWorker) DeleteSandbox(ctx context.Context, id *proto.SandboxID, option ...grpc.CallOption) (*proto.ActionStatus, error) {
-	logrus.Info("Deletion sandbox")
+	logrus.Debug("Deletion sandbox")
 	return &proto.ActionStatus{
 		Success: true,
 	}, nil

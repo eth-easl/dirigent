@@ -19,7 +19,7 @@ import (
 )
 
 var (
-	nbWorkers  = flag.Int("workers", 25, "Number of fake workers for the simulation")
+	nbWorkers  = flag.Int("workers", 100, "Number of fake workers for the simulation")
 	dataPlanes = flag.Int("dataplanes", 25, "Number of fake dataplanes for the simulation")
 )
 
