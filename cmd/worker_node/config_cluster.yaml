@@ -12,3 +12,4 @@ firecrackerKernel: "configs/firecracker/vmlinux-4.14.bin"
 firecrackerFileSystem: "configs/firecracker/rootfs.ext4"
 firecrackerIPPrefix: "169.254"
 firecrackerVMDebugMode: false
+firecrackerUseSnapshots: true

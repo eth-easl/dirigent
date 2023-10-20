@@ -27,9 +27,7 @@ type WorkerNode struct {
 	cpApi          proto.CpiInterfaceClient
 	SandboxRuntime sandbox.RuntimeInterface
 
-	ImageManager   *containerd.ImageManager
 	SandboxManager *managers.SandboxManager
-	ProcessMonitor *managers.ProcessMonitor
 
 	quitChannel chan bool
 }
@@ -46,9 +44,7 @@ func NewWorkerNode(cpApi proto.CpiInterfaceClient, config config.WorkerNodeConfi
 		logrus.Warn("Error fetching host name.")
 	}
 
-	imageManager := containerd.NewImageManager()
 	sandboxManager := managers.NewSandboxManager(hostName)
-	processMonitor := managers.NewProcessMonitor()
 
 	if _, isRoot := isUserRoot(); !isRoot {
 		logrus.Fatal("Cannot create a worker daemon without sudo.")
@@ -57,27 +53,34 @@ func NewWorkerNode(cpApi proto.CpiInterfaceClient, config config.WorkerNodeConfi
 	var runtimeInterface sandbox.RuntimeInterface
 	switch config.CRIType {
 	case "containerd":
-		runtimeInterface = containerd.NewContainerdRuntime(cpApi, config, imageManager, sandboxManager, processMonitor)
+		runtimeInterface = containerd.NewContainerdRuntime(
+			cpApi,
+			config,
+			sandboxManager,
+		)
 	case "firecracker":
 		runtimeInterface = firecracker.NewFirecrackerRuntime(
-			hostName,
 			cpApi,
+			sandboxManager,
 			config.FirecrackerKernel,
 			config.FirecrackerFileSystem,
 			config.FirecrackerIPPrefix,
 			config.FirecrackerVMDebugMode,
+			config.FirecrackerUseSnapshots,
 		)
 	default:
 		logrus.Fatal("Unsupported sandbox type.")
+	}
+
+	if !runtimeInterface.ValidateHostConfig() {
+		logrus.Fatal("The host machine configuration is invalid or it does not support required features. Terminating worker daemon.")
 	}
 
 	workerNode := &WorkerNode{
 		cpApi:          cpApi,
 		SandboxRuntime: runtimeInterface,
 
-		ImageManager:   imageManager,
 		SandboxManager: sandboxManager,
-		ProcessMonitor: processMonitor,
 
 		quitChannel: make(chan bool),
 	}

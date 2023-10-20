@@ -37,9 +37,10 @@ type ContainerdMetadata struct {
 	Container containerd.Container
 }
 
-func NewContainerdRuntime(cpApi proto.CpiInterfaceClient, config config.WorkerNodeConfig, imageManager *ImageManager, sandboxManager *managers.SandboxManager, processMonitor *managers.ProcessMonitor) *ContainerdRuntime {
+func NewContainerdRuntime(cpApi proto.CpiInterfaceClient, config config.WorkerNodeConfig, sandboxManager *managers.SandboxManager) *ContainerdRuntime {
 	containerdClient := GetContainerdClient(config.CRIPath)
 
+	imageManager := NewContainerdImageManager()
 	cniClient := GetCNIClient(config.CNIConfigPath)
 	ipt, err := managers.NewIptablesUtil()
 
@@ -65,7 +66,7 @@ func NewContainerdRuntime(cpApi proto.CpiInterfaceClient, config config.WorkerNo
 
 		ImageManager:   imageManager,
 		SandboxManager: sandboxManager,
-		ProcessMonitor: processMonitor,
+		ProcessMonitor: managers.NewProcessMonitor(),
 	}
 }
 

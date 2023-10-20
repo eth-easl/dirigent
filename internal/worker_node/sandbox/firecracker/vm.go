@@ -39,7 +39,7 @@ func getVMCommandBuild(vmcs *VMControlStructure) *exec.Cmd {
 	return vmCommandBuild.Build(vmcs.Context)
 }
 
-func StartFirecrackerVM(vmcs *VMControlStructure, vmDebugMode bool) (error, time.Duration, time.Duration, time.Duration) {
+func StartFirecrackerVM(vmcs *VMControlStructure, vmDebugMode bool, snapshotMetadata *SnapshotMetadata) (error, time.Duration, time.Duration, time.Duration) {
 	startTAP := time.Now()
 	err := createTAPDevice(vmcs)
 	if err != nil {
@@ -66,6 +66,18 @@ func StartFirecrackerVM(vmcs *VMControlStructure, vmDebugMode bool) (error, time
 		newMachineOpts = append(newMachineOpts, firecracker.WithLogger(logrus.NewEntry(logger)))
 	}
 
+	if snapshotMetadata != nil {
+		snapshotsOpts := firecracker.WithSnapshot(snapshotMetadata.MemoryPath, snapshotMetadata.SnapshotPath)
+		newMachineOpts = append(newMachineOpts, snapshotsOpts)
+
+		vmcs.config = &firecracker.Config{
+			SocketPath:        vmcs.config.SocketPath,
+			LogLevel:          vmcs.config.LogLevel,
+			Drives:            vmcs.config.Drives,
+			NetworkInterfaces: vmcs.config.NetworkInterfaces,
+		}
+	}
+
 	machine, err := firecracker.NewMachine(vmcs.Context, *vmcs.config, newMachineOpts...)
 	if err != nil {
 		logrus.Fatal(err)
@@ -84,6 +96,14 @@ func StartFirecrackerVM(vmcs *VMControlStructure, vmDebugMode bool) (error, time
 	if err != nil {
 		logrus.Error(err)
 		return err, tapEnd, vmCreateEnd, time.Since(timeVMStart)
+	}
+
+	if snapshotMetadata != nil {
+		err = machine.ResumeVM(vmcs.Context)
+		if err != nil {
+			logrus.Error("Error creating virtual machine from snapshot - ", err)
+			return err, tapEnd, vmCreateEnd, time.Since(timeVMStart)
+		}
 	}
 
 	vmStartEnd := time.Since(timeVMStart)

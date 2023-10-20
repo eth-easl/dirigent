@@ -13,6 +13,8 @@ import (
 	"google.golang.org/protobuf/types/known/durationpb"
 	"google.golang.org/protobuf/types/known/emptypb"
 	"math/rand"
+	"os"
+	"path/filepath"
 	"time"
 )
 
@@ -21,15 +23,17 @@ type Runtime struct {
 
 	cpApi proto.CpiInterfaceClient
 
-	VMDebugMode bool
+	VMDebugMode  bool
+	UseSnapshots bool
 
 	KernelPath     string
 	FileSystemPath string
 	IpManager      *IPManager
 
-	SandboxManager *managers.SandboxManager
-	ProcessMonitor *managers.ProcessMonitor
-	IPT            *iptables.IPTables
+	SandboxManager  *managers.SandboxManager
+	ProcessMonitor  *managers.ProcessMonitor
+	SnapshotManager *SnapshotManager
+	IPT             *iptables.IPTables
 }
 
 type FirecrackerMetadata struct {
@@ -38,29 +42,29 @@ type FirecrackerMetadata struct {
 	VMCS *VMControlStructure
 }
 
-func NewFirecrackerRuntime(hostname string, cpApi proto.CpiInterfaceClient, kernelPath string, fileSystemPath string, ipPrefix string, vmDebugMode bool) *Runtime {
+func NewFirecrackerRuntime(cpApi proto.CpiInterfaceClient, sandboxManager *managers.SandboxManager, kernelPath string, fileSystemPath string, ipPrefix string, vmDebugMode bool, useSnapshots bool) *Runtime {
 	_ = DeleteFirecrackerTAPDevices()
 	ipt, _ := managers.NewIptablesUtil()
 
 	return &Runtime{
 		cpApi: cpApi,
 
-		VMDebugMode: vmDebugMode,
+		VMDebugMode:  vmDebugMode,
+		UseSnapshots: useSnapshots,
 
 		KernelPath:     kernelPath,
 		FileSystemPath: fileSystemPath,
 		IpManager:      NewIPManager(ipPrefix),
 
-		SandboxManager: managers.NewSandboxManager(hostname),
-		ProcessMonitor: managers.NewProcessMonitor(),
-		IPT:            ipt,
+		SandboxManager:  sandboxManager,
+		ProcessMonitor:  managers.NewProcessMonitor(),
+		SnapshotManager: NewFirecrackerSnapshotManager(),
+		IPT:             ipt,
 	}
 }
 
-func (fcr *Runtime) CreateSandbox(_ context.Context, in *proto.ServiceInfo) (*proto.SandboxCreationStatus, error) {
-	start := time.Now()
-
-	vmcs := &VMControlStructure{
+func (fcr *Runtime) createVMCS() *VMControlStructure {
+	return &VMControlStructure{
 		Context: context.Background(),
 
 		KernelPath:     fcr.KernelPath,
@@ -69,14 +73,10 @@ func (fcr *Runtime) CreateSandbox(_ context.Context, in *proto.ServiceInfo) (*pr
 
 		SandboxID: fmt.Sprintf("firecracker-%d", rand.Int()),
 	}
+}
 
-	err, tapCreation, vmCreate, vmStart := StartFirecrackerVM(vmcs, fcr.VMDebugMode)
-	if err != nil {
-		// TODO: deallocate resources
-		return &proto.SandboxCreationStatus{Success: false}, err
-	}
-
-	metadata := &managers.Metadata{
+func createMetadata(in *proto.ServiceInfo, vmcs *VMControlStructure) *managers.Metadata {
+	return &managers.Metadata{
 		ServiceName: in.Name,
 
 		RuntimeMetadata: FirecrackerMetadata{
@@ -89,6 +89,22 @@ func (fcr *Runtime) CreateSandbox(_ context.Context, in *proto.ServiceInfo) (*pr
 
 		ExitStatusChannel: make(chan uint32),
 	}
+}
+
+func (fcr *Runtime) CreateSandbox(ctx context.Context, in *proto.ServiceInfo) (*proto.SandboxCreationStatus, error) {
+	start := time.Now()
+
+	vmcs := fcr.createVMCS()
+
+	snapshot, _ := fcr.SnapshotManager.FindSnapshot(in.Name)
+
+	err, tapCreation, vmCreate, vmStart := StartFirecrackerVM(vmcs, fcr.VMDebugMode, snapshot)
+	if err != nil {
+		// TODO: deallocate resources
+		return &proto.SandboxCreationStatus{Success: false}, err
+	}
+
+	metadata := createMetadata(in, vmcs)
 
 	// VM process monitoring
 	vmPID, err := vmcs.vm.PID()
@@ -117,6 +133,28 @@ func (fcr *Runtime) CreateSandbox(_ context.Context, in *proto.ServiceInfo) (*pr
 	// blocking call
 	timeToPass, passed := managers.SendReadinessProbe(fmt.Sprintf("localhost:%d", metadata.HostPort))
 
+	// create a snapshot for the service if it does not exist
+	if fcr.UseSnapshots && !fcr.SnapshotManager.Exists(in.Name) {
+		ok, paths := createVMSnapshot(ctx, vmcs)
+		if !ok {
+			logrus.Warn("Due to failure, bypassing snapshot creation for service ", in.Name)
+		} else {
+			fcr.SnapshotManager.AddSnapshot(in.Name, paths)
+
+			err = vmcs.vm.ResumeVM(ctx)
+			if err != nil {
+				logrus.Errorf("Error creating a sandbox %s due to error resuming virtual machine.", vmcs.SandboxID)
+
+				return &proto.SandboxCreationStatus{
+					Success: false,
+					ID:      vmcs.SandboxID,
+				}, nil
+			}
+
+			logrus.Debug("Snapshot successfully created for service ", in.Name)
+		}
+	}
+
 	if passed {
 		return &proto.SandboxCreationStatus{
 			Success:      true,
@@ -139,6 +177,33 @@ func (fcr *Runtime) CreateSandbox(_ context.Context, in *proto.ServiceInfo) (*pr
 			ID:      vmcs.SandboxID,
 		}, nil
 	}
+}
+
+func createVMSnapshot(ctx context.Context, vmcs *VMControlStructure) (bool, *SnapshotMetadata) {
+	err := vmcs.vm.PauseVM(ctx)
+	if err != nil {
+		logrus.Error("Error pausing virtual machine ", vmcs.SandboxID)
+		return false, nil
+	}
+
+	tmpDir, err := os.MkdirTemp(os.TempDir(), "firecracker")
+	if err != nil {
+		logrus.Error("Error creating a directory for snapshot storage")
+		return false, nil
+	}
+
+	snapshotPaths := &SnapshotMetadata{
+		MemoryPath:   filepath.Join(tmpDir, "memory"),
+		SnapshotPath: filepath.Join(tmpDir, "snapshot"),
+	}
+
+	err = vmcs.vm.CreateSnapshot(ctx, snapshotPaths.MemoryPath, snapshotPaths.SnapshotPath)
+	if err != nil {
+		logrus.Error("Error creating a snapshot out of virtual machine ", vmcs.SandboxID)
+		return false, nil
+	}
+
+	return true, snapshotPaths
 }
 
 func (fcr *Runtime) DeleteSandbox(_ context.Context, in *proto.SandboxID) (*proto.ActionStatus, error) {

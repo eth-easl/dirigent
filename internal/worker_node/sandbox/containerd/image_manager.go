@@ -1,7 +1,7 @@
 package containerd
 
 import (
-	"cluster_manager/pkg/atomic_map"
+	"cluster_manager/internal/worker_node/managers"
 	"context"
 	"time"
 
@@ -9,19 +9,17 @@ import (
 )
 
 type ImageManager struct {
-	imageCache *atomic_map.AtomicMap[string, containerd.Image]
+	managers.RootFsManager[containerd.Image]
 }
 
-func NewImageManager() *ImageManager {
-	return &ImageManager{
-		imageCache: atomic_map.NewAtomicMap[string, containerd.Image](),
-	}
+func NewContainerdImageManager() *ImageManager {
+	return &ImageManager{}
 }
 
 func (m *ImageManager) GetImage(ctx context.Context, containerdClient *containerd.Client, url string) (containerd.Image, error, time.Duration) {
 	start := time.Now()
 
-	image, ok := m.imageCache.Get(url)
+	image, ok := m.Get(url)
 	if !ok {
 		var err error
 
@@ -30,7 +28,7 @@ func (m *ImageManager) GetImage(ctx context.Context, containerdClient *container
 			return image, err, time.Since(start)
 		}
 
-		m.imageCache.Set(url, image)
+		m.Set(url, image)
 
 		return image, nil, time.Since(start)
 	}
