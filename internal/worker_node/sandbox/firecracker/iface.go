@@ -19,8 +19,8 @@ func makeSocketPath(vmmID string) string {
 	return filepath.Join(os.TempDir(), vmmID)
 }
 
-func makeFirecrackerConfig(vmcs *VMControlStructure, vmDebugMode bool) {
-	if vmcs.tapLink == nil {
+func makeFirecrackerConfig(vmcs *VMControlStructure, vmDebugMode bool, metadata *SnapshotMetadata) {
+	if vmcs.TapLink == nil {
 		logrus.Error("Network must be created before creating a Firecracker config.")
 		return
 	}
@@ -29,9 +29,9 @@ func makeFirecrackerConfig(vmcs *VMControlStructure, vmDebugMode bool) {
 	if vmDebugMode {
 		kernelArgs = debugKernelArgs
 	}
-	kernelArgs += fmt.Sprintf(ipKernelArg, vmcs.tapLink.VmIP, vmcs.tapLink.GatewayIP)
+	kernelArgs += fmt.Sprintf(ipKernelArg, vmcs.TapLink.VmIP, vmcs.TapLink.GatewayIP)
 
-	vmcs.config = &firecracker.Config{
+	vmcs.Config = &firecracker.Config{
 		SocketPath:      makeSocketPath(vmcs.SandboxID),
 		KernelImagePath: vmcs.KernelPath,
 		KernelArgs:      kernelArgs,
@@ -43,23 +43,28 @@ func makeFirecrackerConfig(vmcs *VMControlStructure, vmDebugMode bool) {
 			IsReadOnly:   firecracker.Bool(false),
 			IsRootDevice: firecracker.Bool(true),
 		}},
-		NetworkInterfaces: []firecracker.NetworkInterface{{
-			StaticConfiguration: &firecracker.StaticNetworkConfiguration{
-				HostDevName: vmcs.tapLink.Device,
-				MacAddress:  vmcs.tapLink.MAC,
-			},
-		}},
 		// TODO: add resource requests/limits
 		MachineCfg: models.MachineConfiguration{
 			MemSizeMib: firecracker.Int64(128),
 			VcpuCount:  firecracker.Int64(1),
 			Smt:        firecracker.Bool(false),
 		},
-		// TODO: integrate jailer with Firecracker
-		JailerCfg: nil,
-		// TODO: integrate separate network ns with Firecracker
-		NetNS: "",
-		// TODO: integrate seccomp filters with Firecracker
-		Seccomp: firecracker.SeccompConfig{},
+		NetNS: fmt.Sprintf("/var/run/netns/%s", vmcs.NetworkNS),
+	}
+
+	if metadata == nil {
+		vmcs.Config.NetworkInterfaces = []firecracker.NetworkInterface{{
+			StaticConfiguration: &firecracker.StaticNetworkConfiguration{
+				HostDevName: vmcs.TapLink.Device,
+				MacAddress:  vmcs.TapLink.MAC,
+			},
+		}}
+	} else {
+		vmcs.Config.NetworkInterfaces = []firecracker.NetworkInterface{{
+			StaticConfiguration: &firecracker.StaticNetworkConfiguration{
+				HostDevName: metadata.HostDevName,
+				MacAddress:  metadata.MacAddress,
+			},
+		}}
 	}
 }

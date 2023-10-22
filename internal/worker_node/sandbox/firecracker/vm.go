@@ -13,11 +13,12 @@ import (
 type VMControlStructure struct {
 	Context context.Context
 
-	vm      *firecracker.Machine
-	config  *firecracker.Config
-	tapLink *TAPLink
+	VM      *firecracker.Machine
+	Config  *firecracker.Config
+	TapLink *TAPLink
 
 	SandboxID string
+	NetworkNS string
 
 	KernelPath     string
 	FileSystemPath string
@@ -27,7 +28,7 @@ type VMControlStructure struct {
 func getVMCommandBuild(vmcs *VMControlStructure) *exec.Cmd {
 	vmCommandBuild := firecracker.VMCommandBuilder{}.
 		WithBin("firecracker").
-		WithSocketPath(vmcs.config.SocketPath)
+		WithSocketPath(vmcs.Config.SocketPath)
 
 	if logrus.GetLevel() != logrus.InfoLevel {
 		vmCommandBuild = vmCommandBuild.
@@ -41,7 +42,7 @@ func getVMCommandBuild(vmcs *VMControlStructure) *exec.Cmd {
 
 func StartFirecrackerVM(vmcs *VMControlStructure, vmDebugMode bool, snapshotMetadata *SnapshotMetadata) (error, time.Duration, time.Duration, time.Duration) {
 	startTAP := time.Now()
-	err := createTAPDevice(vmcs)
+	err := createTAPDevice(vmcs, snapshotMetadata)
 	if err != nil {
 		logrus.Error("Error setting up network for a microVM - ", err)
 		return err, time.Since(startTAP), time.Duration(0), time.Duration(0)
@@ -51,14 +52,14 @@ func StartFirecrackerVM(vmcs *VMControlStructure, vmDebugMode bool, snapshotMeta
 
 	logrus.Debugf("VM %s allocated host gateway IP = %s, VM IP = %s, MAC = %s",
 		vmcs.SandboxID,
-		vmcs.tapLink.GatewayIP,
-		vmcs.tapLink.VmIP,
-		vmcs.tapLink.MAC,
+		vmcs.TapLink.GatewayIP,
+		vmcs.TapLink.VmIP,
+		vmcs.TapLink.MAC,
 	)
 
 	startVMCreation := time.Now()
 
-	makeFirecrackerConfig(vmcs, vmDebugMode)
+	makeFirecrackerConfig(vmcs, vmDebugMode, snapshotMetadata)
 	newMachineOpts := []firecracker.Opt{firecracker.WithProcessRunner(getVMCommandBuild(vmcs))}
 	if vmDebugMode {
 		logger := logrus.New()
@@ -70,25 +71,26 @@ func StartFirecrackerVM(vmcs *VMControlStructure, vmDebugMode bool, snapshotMeta
 		snapshotsOpts := firecracker.WithSnapshot(snapshotMetadata.MemoryPath, snapshotMetadata.SnapshotPath)
 		newMachineOpts = append(newMachineOpts, snapshotsOpts)
 
-		vmcs.config = &firecracker.Config{
-			SocketPath:        vmcs.config.SocketPath,
-			LogLevel:          vmcs.config.LogLevel,
-			Drives:            vmcs.config.Drives,
-			NetworkInterfaces: vmcs.config.NetworkInterfaces,
+		vmcs.Config = &firecracker.Config{
+			SocketPath:        vmcs.Config.SocketPath,
+			LogLevel:          vmcs.Config.LogLevel,
+			Drives:            vmcs.Config.Drives,
+			NetworkInterfaces: vmcs.Config.NetworkInterfaces,
+			NetNS:             vmcs.Config.NetNS,
 		}
 	}
 
-	machine, err := firecracker.NewMachine(vmcs.Context, *vmcs.config, newMachineOpts...)
+	machine, err := firecracker.NewMachine(vmcs.Context, *vmcs.Config, newMachineOpts...)
 	if err != nil {
 		logrus.Fatal(err)
 		return err, tapEnd, time.Since(startVMCreation), time.Duration(0)
 	}
-	vmcs.vm = machine
+	vmcs.VM = machine
 
 	vmCreateEnd := time.Since(startVMCreation)
 	logrus.Debug("VM creation time: ", vmCreateEnd.Milliseconds(), " ms")
 
-	logrus.Debug("Starting VM with IP = ", vmcs.tapLink.VmIP, " (MAC = ", vmcs.tapLink.MAC, ")")
+	logrus.Debug("Starting VM with IP = ", vmcs.TapLink.VmIP, " (MAC = ", vmcs.TapLink.MAC, ")")
 
 	timeVMStart := time.Now()
 
@@ -113,7 +115,7 @@ func StartFirecrackerVM(vmcs *VMControlStructure, vmDebugMode bool, snapshotMeta
 }
 
 func StopFirecrackerVM(vmcs *VMControlStructure) error {
-	pid, err := vmcs.vm.PID()
+	pid, err := vmcs.VM.PID()
 	if err != nil {
 		return err
 	}

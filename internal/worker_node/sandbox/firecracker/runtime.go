@@ -12,7 +12,6 @@ import (
 	"golang.org/x/sys/unix"
 	"google.golang.org/protobuf/types/known/durationpb"
 	"google.golang.org/protobuf/types/known/emptypb"
-	"math/rand"
 	"os"
 	"path/filepath"
 	"time"
@@ -21,7 +20,8 @@ import (
 type Runtime struct {
 	sandbox.RuntimeInterface
 
-	cpApi proto.CpiInterfaceClient
+	cpApi       proto.CpiInterfaceClient
+	idGenerator *managers.ThreadSafeRandomGenerator
 
 	VMDebugMode  bool
 	UseSnapshots bool
@@ -47,7 +47,8 @@ func NewFirecrackerRuntime(cpApi proto.CpiInterfaceClient, sandboxManager *manag
 	ipt, _ := managers.NewIptablesUtil()
 
 	return &Runtime{
-		cpApi: cpApi,
+		cpApi:       cpApi,
+		idGenerator: managers.NewThreadSafeRandomGenerator(),
 
 		VMDebugMode:  vmDebugMode,
 		UseSnapshots: useSnapshots,
@@ -64,6 +65,8 @@ func NewFirecrackerRuntime(cpApi proto.CpiInterfaceClient, sandboxManager *manag
 }
 
 func (fcr *Runtime) createVMCS() *VMControlStructure {
+	id := fcr.idGenerator.Int()
+
 	return &VMControlStructure{
 		Context: context.Background(),
 
@@ -71,7 +74,8 @@ func (fcr *Runtime) createVMCS() *VMControlStructure {
 		FileSystemPath: fcr.FileSystemPath,
 		IpManager:      fcr.IpManager,
 
-		SandboxID: fmt.Sprintf("firecracker-%d", rand.Int()),
+		SandboxID: fmt.Sprintf("firecracker-%d", id),
+		NetworkNS: fmt.Sprintf("firecracker-%d", id),
 	}
 }
 
@@ -84,7 +88,7 @@ func createMetadata(in *proto.ServiceInfo, vmcs *VMControlStructure) *managers.M
 		},
 
 		HostPort:  containerd.AssignRandomPort(),
-		IP:        vmcs.tapLink.VmIP,
+		IP:        vmcs.TapLink.VmIP,
 		GuestPort: int(in.PortForwarding.GuestPort),
 
 		ExitStatusChannel: make(chan uint32),
@@ -95,7 +99,6 @@ func (fcr *Runtime) CreateSandbox(ctx context.Context, in *proto.ServiceInfo) (*
 	start := time.Now()
 
 	vmcs := fcr.createVMCS()
-
 	snapshot, _ := fcr.SnapshotManager.FindSnapshot(in.Name)
 
 	err, tapCreation, vmCreate, vmStart := StartFirecrackerVM(vmcs, fcr.VMDebugMode, snapshot)
@@ -107,7 +110,7 @@ func (fcr *Runtime) CreateSandbox(ctx context.Context, in *proto.ServiceInfo) (*
 	metadata := createMetadata(in, vmcs)
 
 	// VM process monitoring
-	vmPID, err := vmcs.vm.PID()
+	vmPID, err := vmcs.VM.PID()
 	if err != nil {
 		// TODO: deallocate resources
 		logrus.Debug(err)
@@ -135,13 +138,13 @@ func (fcr *Runtime) CreateSandbox(ctx context.Context, in *proto.ServiceInfo) (*
 
 	// create a snapshot for the service if it does not exist
 	if fcr.UseSnapshots && !fcr.SnapshotManager.Exists(in.Name) {
-		ok, paths := createVMSnapshot(ctx, vmcs)
+		ok, paths := CreateVMSnapshot(ctx, vmcs)
 		if !ok {
 			logrus.Warn("Due to failure, bypassing snapshot creation for service ", in.Name)
 		} else {
 			fcr.SnapshotManager.AddSnapshot(in.Name, paths)
 
-			err = vmcs.vm.ResumeVM(ctx)
+			err = vmcs.VM.ResumeVM(ctx)
 			if err != nil {
 				logrus.Errorf("Error creating a sandbox %s due to error resuming virtual machine.", vmcs.SandboxID)
 
@@ -179,8 +182,8 @@ func (fcr *Runtime) CreateSandbox(ctx context.Context, in *proto.ServiceInfo) (*
 	}
 }
 
-func createVMSnapshot(ctx context.Context, vmcs *VMControlStructure) (bool, *SnapshotMetadata) {
-	err := vmcs.vm.PauseVM(ctx)
+func CreateVMSnapshot(ctx context.Context, vmcs *VMControlStructure) (bool, *SnapshotMetadata) {
+	err := vmcs.VM.PauseVM(ctx)
 	if err != nil {
 		logrus.Error("Error pausing virtual machine ", vmcs.SandboxID)
 		return false, nil
@@ -195,9 +198,13 @@ func createVMSnapshot(ctx context.Context, vmcs *VMControlStructure) (bool, *Sna
 	snapshotPaths := &SnapshotMetadata{
 		MemoryPath:   filepath.Join(tmpDir, "memory"),
 		SnapshotPath: filepath.Join(tmpDir, "snapshot"),
+		HostDevName:  vmcs.TapLink.Device,
+		MacAddress:   vmcs.TapLink.MAC,
+		GatewayIP:    vmcs.TapLink.GatewayIP,
+		VMIP:         vmcs.TapLink.VmIP,
 	}
 
-	err = vmcs.vm.CreateSnapshot(ctx, snapshotPaths.MemoryPath, snapshotPaths.SnapshotPath)
+	err = vmcs.VM.CreateSnapshot(ctx, snapshotPaths.MemoryPath, snapshotPaths.SnapshotPath)
 	if err != nil {
 		logrus.Error("Error creating a snapshot out of virtual machine ", vmcs.SandboxID)
 		return false, nil

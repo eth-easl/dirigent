@@ -21,13 +21,27 @@ type TAPLink struct {
 	VmIP      string
 }
 
-func createTAPDevice(vmcs *VMControlStructure) error {
+func createTAPDevice(vmcs *VMControlStructure, snapshotMetadata *SnapshotMetadata) error {
 	// TODO: make a pool of TAPs and remove TAP creation from the critical path
 
-	gatewayIP, vmip, mac := vmcs.IpManager.GenerateIPMACPair()
-	dev := fmt.Sprintf("%s%d%s", tapDevicePrefix, rand.Int()%1_000_000, tapDeviceSuffix)
+	var gatewayIP, vmip, mac, dev string
+	if snapshotMetadata == nil {
+		gatewayIP, vmip, mac = vmcs.IpManager.GenerateIPMACPair()
+		dev = fmt.Sprintf("%s%d%s", tapDevicePrefix, rand.Int()%1_000_000, tapDeviceSuffix)
+	} else {
+		gatewayIP = snapshotMetadata.GatewayIP
+		vmip = snapshotMetadata.VMIP
+		mac = snapshotMetadata.MacAddress
+		dev = snapshotMetadata.HostDevName
+	}
 
-	err := exec.Command("sudo", "ip", "tuntap", "add", "dev", dev, "mode", "tap").Run()
+	err := exec.Command("sudo", "ip", "netns", "add", vmcs.NetworkNS).Run()
+	if err != nil {
+		logrus.Errorf("failed to create network namespace %s - %v", vmcs.NetworkNS, err)
+		return err
+	}
+
+	err = exec.Command("sudo", "ip", "netns", "exec", vmcs.NetworkNS, "ip", "tuntap", "add", "dev", dev, "mode", "tap").Run()
 	if err != nil {
 		logrus.Errorf("failed to create a TUN/TAP device %s - %v", dev, err)
 		return err
@@ -45,13 +59,13 @@ func createTAPDevice(vmcs *VMControlStructure) error {
 		return err
 	}
 
-	err = exec.Command("sudo", "ip", "addr", "add", gatewayIP+"/30", "dev", dev).Run()
+	err = exec.Command("sudo", "ip", "netns", "exec", vmcs.NetworkNS, "ip", "addr", "add", gatewayIP+"/30", "dev", dev).Run()
 	if err != nil {
 		logrus.Errorf("failed to assign IP address to device %s - %v", dev, err)
 		return err
 	}
 
-	err = exec.Command("sudo", "ip", "link", "set", "dev", dev, "up").Run()
+	err = exec.Command("sudo", "ip", "netns", "exec", vmcs.NetworkNS, "ip", "link", "set", "dev", dev, "up").Run()
 	if err != nil {
 		logrus.Errorf("failed to bring up the device %s - %v", dev, err)
 		return err
@@ -64,7 +78,7 @@ func createTAPDevice(vmcs *VMControlStructure) error {
 	}
 	logrus.Debug("ARP table entry inserted ", vmip, " ", mac)
 
-	vmcs.tapLink = &TAPLink{
+	vmcs.TapLink = &TAPLink{
 		Device:    dev,
 		MAC:       mac,
 		GatewayIP: gatewayIP,
