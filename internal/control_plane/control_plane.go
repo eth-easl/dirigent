@@ -151,7 +151,7 @@ func (c *ControlPlane) RegisterNode(ctx context.Context, in *proto.NodeInfo) (*p
 
 		go wn.GetAPI()
 
-		logrus.Info("Node '", in.NodeID, "' has been successfully register with the control plane")
+		logrus.Info("Node '", in.NodeID, "' has been successfully registered with the control plane")
 
 		return &proto.ActionStatus{Success: true}, nil
 	}
