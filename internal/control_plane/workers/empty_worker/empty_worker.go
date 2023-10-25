@@ -6,6 +6,7 @@ import (
 	"cluster_manager/pkg/synchronization"
 	"context"
 	"github.com/google/uuid"
+	"github.com/sirupsen/logrus"
 	"google.golang.org/grpc"
 	durationpb "google.golang.org/protobuf/types/known/durationpb"
 	"google.golang.org/protobuf/types/known/emptypb"
