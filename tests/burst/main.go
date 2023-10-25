@@ -4,6 +4,7 @@ import (
 	"cluster_manager/tests/shared"
 	"flag"
 	"github.com/sirupsen/logrus"
+	"time"
 )
 
 var (
