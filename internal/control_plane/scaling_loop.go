@@ -48,17 +48,6 @@ func (ss *ServiceInfoStorage) GetAllURLs() []string {
 	return res
 }
 
-// Sequential code at this point - thread safe
-func (ss *ServiceInfoStorage) reconstructEndpointInController(endpoint *core.Endpoint, dpiClients synchronization.SyncStructure[string, core.DataPlaneInterface]) {
-	ss.Controller.EndpointLock.Lock()
-	defer ss.Controller.EndpointLock.Unlock()
-
-	ss.Controller.Endpoints = append(ss.Controller.Endpoints, endpoint)
-	atomic.AddInt64(&ss.Controller.ScalingMetadata.ActualScale, 1)
-
-	ss.updateEndpoints(dpiClients, ss.prepareUrlList())
-}
-
 func (ss *ServiceInfoStorage) ScalingControllerLoop(nodeList synchronization.SyncStructure[string, core.WorkerNodeInterface], dpiClients synchronization.SyncStructure[string, core.DataPlaneInterface]) {
 	ok := true
 	desiredCount := 0
@@ -302,25 +291,9 @@ func (ss *ServiceInfoStorage) excludeEndpoints(total []*core.Endpoint, toExclude
 	var result []*core.Endpoint
 
 	for _, endpoint := range total {
-		_, ok := toExclude[endpoint]
-
-		if !ok {
+		if _, ok := toExclude[endpoint]; !ok {
 			result = append(result, endpoint)
 		}
-	}
-
-	return result
-}
-
-func (ss *ServiceInfoStorage) excludeSingleEndpoint(total []*core.Endpoint, toExclude *core.Endpoint) []*core.Endpoint {
-	result := make([]*core.Endpoint, 0, len(total))
-
-	for _, endpoint := range total {
-		if endpoint == toExclude {
-			continue
-		}
-
-		result = append(result, endpoint)
 	}
 
 	return result

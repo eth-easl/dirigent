@@ -9,6 +9,7 @@ import (
 	"errors"
 	"github.com/sirupsen/logrus"
 	"google.golang.org/protobuf/types/known/emptypb"
+	"sync/atomic"
 	"time"
 )
 
@@ -138,14 +139,15 @@ func (c *ControlPlane) reconstructEndpointsState(ctx context.Context, dpiClients
 			HostPort:  endpoint.HostPort,
 		}
 
-		val, found := c.SIStorage.Get(endpoint.ServiceName)
+		ss, found := c.SIStorage.Get(endpoint.ServiceName)
 		if !found {
 			return errors.New("element not found in map")
 		}
 
-		controlPlaneEndpoint = controlPlaneEndpoint
+		ss.Controller.Endpoints = append(ss.Controller.Endpoints, controlPlaneEndpoint)
+		atomic.AddInt64(&ss.Controller.ScalingMetadata.ActualScale, 1)
 
-		val.reconstructEndpointInController(controlPlaneEndpoint, dpiClients)
+		ss.updateEndpoints(dpiClients, ss.prepareUrlList())
 	}
 
 	return nil

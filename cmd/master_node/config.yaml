@@ -6,8 +6,8 @@ placementPolicy: "random"
 persistence: false
 reconstruct: false
 
-removeWorkerNode: true
-removeDataplane: true
+removeWorkerNode: false
+removeDataplane: false
 
 traceCreation: true
 
