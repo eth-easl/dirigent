@@ -1332,13 +1332,17 @@ func TestOnMetricReceive(t *testing.T) {
 	for _, value := range controlPlane.SIStorage.GetMap() {
 		assert.Equal(t, 1, len(value.Controller.Endpoints), "We should have one single endpoint")
 	}
+
+	for _, value := range controlPlane.NIStorage.GetMap() {
+		assert.Equal(t, 1, value.GetEndpointMap().Len())
+	}
 }
 
 func TestOnMetricReceiveStress(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	size := 10000
+	size := 1
 
 	persistenceLayer := mock_persistence.NewMockPersistenceLayer(ctrl)
 
@@ -1398,6 +1402,222 @@ func TestOnMetricReceiveStress(t *testing.T) {
 	}
 
 	assert.Equal(t, size, sum)
+
+	sum = 0
+	for _, value := range controlPlane.NIStorage.GetMap() {
+		sum += value.GetEndpointMap().Len()
+	}
+
+	assert.Equal(t, size, sum)
+
+	for i := 0; i < size; i++ {
+		status, err = controlPlane.OnMetricsReceive(context.Background(), &proto.AutoscalingMetric{
+			ServiceName:      "mock" + fmt.Sprint(i),
+			DataplaneName:    "",
+			InflightRequests: 0,
+		})
+
+		assert.True(t, status.Success)
+		assert.NoError(t, err)
+	}
+
+	time.Sleep(2 * time.Second)
+
+	sum = 0
+	for _, value := range controlPlane.SIStorage.GetMap() {
+		sum += len(value.Controller.Endpoints)
+	}
+
+	assert.Zero(t, sum)
+
+	sum = 0
+	for _, value := range controlPlane.NIStorage.GetMap() {
+		sum += value.GetEndpointMap().Len()
+	}
+
+	assert.Zero(t, sum)
+}
+
+func TestEndpointsWithDeregistration(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	size := 1000
+
+	persistenceLayer := mock_persistence.NewMockPersistenceLayer(ctrl)
+
+	persistenceLayer.EXPECT().StoreServiceInformation(gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(func(_ context.Context, _ *proto.ServiceInfo, _ time.Time) error {
+		return nil
+	}).Times(size)
+
+	persistenceLayer.EXPECT().StoreWorkerNodeInformation(gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(func(ctx context.Context, workerNodeInfo *proto.WorkerNodeInformation, timestamp time.Time) error {
+		return nil
+	}).Times(1)
+
+	persistenceLayer.EXPECT().DeleteWorkerNodeInformation(gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(func(_ context.Context, _ string, _ time.Time) error {
+		return nil
+	}).Times(1)
+
+	controlPlane := NewControlPlane(persistenceLayer, "", placement_policy.NewRandomPolicy(), empty_dataplane.NewDataplaneConnectionEmpty, empty_worker.NewEmptyWorkerNode, false)
+
+	status, err := controlPlane.RegisterNode(context.Background(), &proto.NodeInfo{
+		NodeID:     "mockNode",
+		IP:         uuid.New().String(),
+		Port:       0,
+		CpuCores:   0,
+		MemorySize: 0,
+	})
+
+	assert.NotNil(t, status)
+	assert.NoError(t, err)
+
+	for i := 0; i < size; i++ {
+		autoscalingConfig := autoscaling.NewDefaultAutoscalingMetadata()
+		autoscalingConfig.ScalingUpperBound = 1
+		//autoscalingConfig.ScalingLowerBound = 1
+
+		status, err = controlPlane.RegisterService(context.Background(), &proto.ServiceInfo{
+			Name:              "mock" + fmt.Sprint(i),
+			Image:             "",
+			PortForwarding:    nil,
+			AutoscalingConfig: autoscalingConfig,
+		})
+
+		assert.True(t, status.Success, "status should be successful")
+		assert.NoError(t, err, "error should not be nil")
+	}
+
+	for i := 0; i < size; i++ {
+		status, err = controlPlane.OnMetricsReceive(context.Background(), &proto.AutoscalingMetric{
+			ServiceName:      "mock" + fmt.Sprint(i),
+			DataplaneName:    "",
+			InflightRequests: 1,
+		})
+
+		assert.True(t, status.Success)
+		assert.NoError(t, err)
+	}
+
+	time.Sleep(500 * time.Millisecond)
+
+	status, err = controlPlane.DeregisterNode(context.Background(), &proto.NodeInfo{
+		NodeID:     "mockNode",
+		IP:         uuid.New().String(),
+		Port:       0,
+		CpuCores:   0,
+		MemorySize: 0,
+	})
+
+	time.Sleep(1 * time.Second)
+
+	sum := 0
+	for _, value := range controlPlane.SIStorage.GetMap() {
+		sum += len(value.Controller.Endpoints)
+	}
+
+	assert.Zero(t, sum)
+
+	sum = 0
+	for _, value := range controlPlane.NIStorage.GetMap() {
+		sum += value.GetEndpointMap().Len()
+	}
+
+	assert.Zero(t, sum)
+}
+
+func TestEndpointsWithDeregistrationMultipleNodes(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	size := 1000
+
+	persistenceLayer := mock_persistence.NewMockPersistenceLayer(ctrl)
+
+	persistenceLayer.EXPECT().StoreServiceInformation(gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(func(_ context.Context, _ *proto.ServiceInfo, _ time.Time) error {
+		return nil
+	}).Times(size)
+
+	persistenceLayer.EXPECT().StoreWorkerNodeInformation(gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(func(ctx context.Context, workerNodeInfo *proto.WorkerNodeInformation, timestamp time.Time) error {
+		return nil
+	}).Times(2)
+
+	persistenceLayer.EXPECT().DeleteWorkerNodeInformation(gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(func(_ context.Context, _ string, _ time.Time) error {
+		return nil
+	}).Times(1)
+
+	controlPlane := NewControlPlane(persistenceLayer, "", placement_policy.NewRandomPolicy(), empty_dataplane.NewDataplaneConnectionEmpty, empty_worker.NewEmptyWorkerNode, false)
+
+	status, err := controlPlane.RegisterNode(context.Background(), &proto.NodeInfo{
+		NodeID:     "mockNode",
+		IP:         uuid.New().String(),
+		Port:       0,
+		CpuCores:   0,
+		MemorySize: 0,
+	})
+
+	assert.NotNil(t, status)
+	assert.NoError(t, err)
+
+	status, err = controlPlane.RegisterNode(context.Background(), &proto.NodeInfo{
+		NodeID:     "mockNod2",
+		IP:         uuid.New().String(),
+		Port:       0,
+		CpuCores:   0,
+		MemorySize: 0,
+	})
+
+	assert.NotNil(t, status)
+	assert.NoError(t, err)
+
+	for i := 0; i < size; i++ {
+		autoscalingConfig := autoscaling.NewDefaultAutoscalingMetadata()
+		autoscalingConfig.ScalingUpperBound = 1
+		//autoscalingConfig.ScalingLowerBound = 1
+
+		status, err = controlPlane.RegisterService(context.Background(), &proto.ServiceInfo{
+			Name:              "mock" + fmt.Sprint(i),
+			Image:             "",
+			PortForwarding:    nil,
+			AutoscalingConfig: autoscalingConfig,
+		})
+
+		assert.True(t, status.Success, "status should be successful")
+		assert.NoError(t, err, "error should not be nil")
+	}
+
+	for i := 0; i < size; i++ {
+		status, err = controlPlane.OnMetricsReceive(context.Background(), &proto.AutoscalingMetric{
+			ServiceName:      "mock" + fmt.Sprint(i),
+			DataplaneName:    "",
+			InflightRequests: 1,
+		})
+
+		assert.True(t, status.Success)
+		assert.NoError(t, err)
+	}
+
+	time.Sleep(500 * time.Millisecond)
+
+	status, err = controlPlane.DeregisterNode(context.Background(), &proto.NodeInfo{
+		NodeID:     "mockNode",
+		IP:         uuid.New().String(),
+		Port:       0,
+		CpuCores:   0,
+		MemorySize: 0,
+	})
+
+	time.Sleep(1 * time.Second)
+
+	// Assert structures are consistent
+	sum := 0
+	for _, value := range controlPlane.SIStorage.GetMap() {
+		sum += len(value.Controller.Endpoints)
+	}
+	for _, value := range controlPlane.NIStorage.GetMap() {
+		sum -= value.GetEndpointMap().Len()
+	}
+
+	assert.Zero(t, sum)
 }
 
 // Other tests

@@ -169,8 +169,9 @@ func (c *ControlPlane) DeregisterNode(ctx context.Context, in *proto.NodeInfo) (
 			logrus.Errorf("Failed to disconnect registered worker (error : %s)", err.Error())
 			return &proto.ActionStatus{Success: false}, err
 		}
+		// TODO: Fix concurrency here
+		c.removeEndointsAssociatedWithNode(in.NodeID)
 
-		// TODO: Remove the endpoints from the deregistered node - François Costa
 		logrus.Info("Node '", in.NodeID, "' has been successfully deregistered with the control plane")
 		return &proto.ActionStatus{Success: true}, nil
 	}
@@ -215,7 +216,7 @@ func (c *ControlPlane) RegisterService(ctx context.Context, serviceInfo *proto.S
 		if err != nil {
 			logrus.Warnf("Failed to connect registered service (error : %s)", err.Error())
 			c.SIStorage.AtomicRemove(serviceInfo.Name)
-			// TODO: Add delete service operation - François Costa
+
 			return &proto.ActionStatus{Success: false}, err
 		}
 

@@ -59,6 +59,23 @@ func (c *ControlPlane) removeServiceFromDataplaneAndStopLoop(ctx context.Context
 	return nil
 }
 
+func (c *ControlPlane) removeEndointsAssociatedWithNode(nodeID string) {
+	c.SIStorage.Lock()
+	for _, value := range c.SIStorage.GetMap() {
+		toExclude := make(map[*core.Endpoint]struct{})
+		value.Controller.EndpointLock.Lock()
+		for _, endpoint := range value.Controller.Endpoints {
+			if endpoint.Node.GetName() == nodeID {
+				toExclude[endpoint] = struct{}{}
+			}
+		}
+
+		value.excludeEndpoints(toExclude)
+		value.Controller.EndpointLock.Unlock()
+	}
+	c.SIStorage.Unlock()
+}
+
 func searchEndpointByContainerName(endpoints []*core.Endpoint, cid string) *core.Endpoint {
 	for _, e := range endpoints {
 		if e.SandboxID == cid {

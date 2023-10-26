@@ -92,7 +92,7 @@ func (ss *ServiceInfoStorage) ScalingControllerLoop(nodeList synchronization.Syn
 				logrus.Warn("downscaling reference error")
 			}
 
-			ss.Controller.Endpoints = ss.excludeEndpoints(ss.Controller.Endpoints, toEvict)
+			ss.excludeEndpoints(toEvict)
 
 			go ss.doDownscaling(toEvict, ss.prepareUrlList(), dpiClients)
 		}
@@ -288,16 +288,16 @@ func (ss *ServiceInfoStorage) updateEndpoints(dpiClients synchronization.SyncStr
 	dpiClients.Unlock()
 }
 
-func (ss *ServiceInfoStorage) excludeEndpoints(total []*core.Endpoint, toExclude map[*core.Endpoint]struct{}) []*core.Endpoint {
+func (ss *ServiceInfoStorage) excludeEndpoints(toExclude map[*core.Endpoint]struct{}) {
 	var result []*core.Endpoint
 
-	for _, endpoint := range total {
+	for _, endpoint := range ss.Controller.Endpoints {
 		if _, ok := toExclude[endpoint]; !ok {
 			result = append(result, endpoint)
 		}
 	}
 
-	return result
+	ss.Controller.Endpoints = result
 }
 
 func (ss *ServiceInfoStorage) prepareUrlList() []*proto.EndpointInfo {
