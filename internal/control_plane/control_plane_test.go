@@ -1529,7 +1529,7 @@ func TestEndpointsWithDeregistrationMultipleNodes(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	size := 1000
+	size := 10000
 
 	persistenceLayer := mock_persistence.NewMockPersistenceLayer(ctrl)
 
@@ -1543,7 +1543,7 @@ func TestEndpointsWithDeregistrationMultipleNodes(t *testing.T) {
 
 	persistenceLayer.EXPECT().DeleteWorkerNodeInformation(gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(func(_ context.Context, _ string, _ time.Time) error {
 		return nil
-	}).Times(1)
+	}).Times(2)
 
 	controlPlane := NewControlPlane(persistenceLayer, "", placement_policy.NewRandomPolicy(), empty_dataplane.NewDataplaneConnectionEmpty, empty_worker.NewEmptyWorkerNode, false)
 
@@ -1559,14 +1559,14 @@ func TestEndpointsWithDeregistrationMultipleNodes(t *testing.T) {
 	assert.NoError(t, err)
 
 	status, err = controlPlane.RegisterNode(context.Background(), &proto.NodeInfo{
-		NodeID:     "mockNod2",
+		NodeID:     "mockNode2",
 		IP:         uuid.New().String(),
 		Port:       0,
 		CpuCores:   0,
 		MemorySize: 0,
 	})
 
-	assert.NotNil(t, status)
+	assert.True(t, status.Success)
 	assert.NoError(t, err)
 
 	for i := 0; i < size; i++ {
@@ -1606,7 +1606,11 @@ func TestEndpointsWithDeregistrationMultipleNodes(t *testing.T) {
 		MemorySize: 0,
 	})
 
-	time.Sleep(1 * time.Second)
+	assert.True(t, status.Success)
+	assert.NoError(t, err)
+
+	controlPlane.NIStorage.Lock()
+	controlPlane.SIStorage.Lock()
 
 	// Assert structures are consistent
 	sum := 0
@@ -1616,8 +1620,57 @@ func TestEndpointsWithDeregistrationMultipleNodes(t *testing.T) {
 	for _, value := range controlPlane.NIStorage.GetMap() {
 		sum -= value.GetEndpointMap().Len()
 	}
+	controlPlane.NIStorage.Unlock()
+	controlPlane.SIStorage.Unlock()
 
 	assert.Zero(t, sum)
+
+	time.Sleep(2 * time.Second)
+
+	// Make sure scaling loop reconstructs as expected
+	sum = 0
+	for _, value := range controlPlane.SIStorage.GetMap() {
+		sum += len(value.Controller.Endpoints)
+	}
+
+	assert.Equal(t, size, sum)
+
+	sum = 0
+	for _, value := range controlPlane.NIStorage.GetMap() {
+		sum += value.GetEndpointMap().Len()
+	}
+
+	assert.Equal(t, size, sum)
+
+	status, err = controlPlane.DeregisterNode(context.Background(), &proto.NodeInfo{
+		NodeID:     "mockNode2",
+		IP:         uuid.New().String(),
+		Port:       0,
+		CpuCores:   0,
+		MemorySize: 0,
+	})
+
+	assert.True(t, status.Success)
+	assert.NoError(t, err)
+
+	controlPlane.NIStorage.Lock()
+	controlPlane.SIStorage.Lock()
+
+	// Assert structures are consistent
+	sum = 0
+	for _, value := range controlPlane.SIStorage.GetMap() {
+		sum += len(value.Controller.Endpoints)
+	}
+	assert.Zero(t, sum)
+
+	sum = 0
+	for _, value := range controlPlane.NIStorage.GetMap() {
+		sum -= value.GetEndpointMap().Len()
+	}
+	assert.Zero(t, sum)
+
+	controlPlane.NIStorage.Unlock()
+	controlPlane.SIStorage.Unlock()
 }
 
 // Other tests

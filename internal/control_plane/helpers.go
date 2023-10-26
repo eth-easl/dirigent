@@ -5,6 +5,7 @@ import (
 	"cluster_manager/internal/control_plane/autoscaling"
 	"cluster_manager/internal/control_plane/core"
 	"context"
+	"sync/atomic"
 	"time"
 )
 
@@ -72,6 +73,8 @@ func (c *ControlPlane) removeEndointsAssociatedWithNode(nodeID string) {
 
 		value.excludeEndpoints(toExclude)
 		value.Controller.EndpointLock.Unlock()
+
+		atomic.AddInt64(&value.Controller.ScalingMetadata.ActualScale, int64(-len(toExclude)))
 	}
 	c.SIStorage.Unlock()
 }
