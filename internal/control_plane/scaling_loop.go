@@ -82,7 +82,7 @@ func (ss *ServiceInfoStorage) ScalingControllerLoop(nodeList synchronization.Syn
 				endpoint, newState := eviction_policy.EvictionPolicy(currentState)
 
 				if _, ok := toEvict[endpoint]; ok {
-					logrus.Warn("Endpoint repetition - this is a bug.")
+					logrus.Error("Endpoint repetition - this is a bug.")
 				}
 				toEvict[endpoint] = struct{}{}
 				currentState = newState
@@ -226,6 +226,7 @@ func (ss *ServiceInfoStorage) doDownscaling(toEvict map[*core.Endpoint]struct{},
 		victim := key
 
 		if victim == nil {
+			panic("test")
 			logrus.Error("Victim null - should not have happened")
 			continue // why this happens?
 		}

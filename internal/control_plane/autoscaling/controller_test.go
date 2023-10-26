@@ -4,6 +4,7 @@ import (
 	"cluster_manager/api/proto"
 	"github.com/stretchr/testify/assert"
 	"testing"
+	"time"
 )
 
 func getScalingChannel() chan int {
@@ -34,7 +35,7 @@ func TestSimpleController(t *testing.T) {
 	scalingChannel := getScalingChannel()
 	serviceInfo := getServiceInfo()
 
-	pfStateController := NewPerFunctionStateController(scalingChannel, serviceInfo)
+	pfStateController := NewPerFunctionStateController(scalingChannel, serviceInfo, time.Millisecond*100)
 
 	assert.True(t, pfStateController.Start(), "Start should return true")
 }
@@ -43,7 +44,7 @@ func TestMultipleStarts(t *testing.T) {
 	scalingChannel := getScalingChannel()
 	serviceInfo := getServiceInfo()
 
-	pfStateController := NewPerFunctionStateController(scalingChannel, serviceInfo)
+	pfStateController := NewPerFunctionStateController(scalingChannel, serviceInfo, time.Millisecond*100)
 	assert.True(t, pfStateController.Start(), "Start should return true")
 	for i := 0; i < 10000; i++ {
 		assert.False(t, pfStateController.Start(), "Start should return false")

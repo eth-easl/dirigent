@@ -31,7 +31,7 @@ func (c *ControlPlane) notifyDataplanesAndStartScalingLoop(ctx context.Context, 
 	c.SIStorage.AtomicSet(serviceInfo.Name, &ServiceInfoStorage{
 		ServiceInfo:             serviceInfo,
 		ControlPlane:            c,
-		Controller:              autoscaling.NewPerFunctionStateController(make(chan int), serviceInfo),
+		Controller:              autoscaling.NewPerFunctionStateController(make(chan int), serviceInfo, 2*time.Second),
 		ColdStartTracingChannel: &c.ColdStartTracing.InputChannel,
 		PlacementPolicy:         c.PlacementPolicy,
 		PersistenceLayer:        c.PersistenceLayer,
