@@ -1,9 +1,9 @@
 [Unit]
-Description=Control plane service
+Description=Data plane service
 After=multi-user.target
 [Service]
 Type=simple
 Restart=always
-ExecStart=cd ~/cluster_manager; go run cmd/master_node/main.go --configPath cmd/master_node/config_cluster.yaml
+ExecStart=/cluster_manager/cmd/data_plane/main --configPath /cluster_manager/cmd/data_plane/config_cluster.yaml
 [Install]
 WantedBy=multi-user.target

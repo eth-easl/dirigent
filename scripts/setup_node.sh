@@ -39,4 +39,4 @@ sudo mv /usr/local/bin/firecracker/firecracker-${latest}-${ARCH} /usr/local/bin/
 sudo sh -c  "echo 'export PATH=\$PATH:/usr/local/bin/firecracker' >> /etc/profile"
 
 # Load systemd files
-sudo cp ~/cluster_manager/scripts/systemd/* /etc/systemd/system/*
+sudo cp -a ~/cluster_manager/scripts/systemd/. /etc/systemd/system/

@@ -4,6 +4,6 @@ After=multi-user.target
 [Service]
 Type=simple
 Restart=always
-ExecStart=cd ~/cluster_manager; sudo env 'PATH=\$PATH:/usr/local/bin/firecracker' /usr/local/go/bin/go run cmd/worker_node/main.go --configPath cmd/worker_node/config_cluster.yaml
+ExecStart=/cluster_manager/cmd/worker_node/main --configPath /cluster_manager/cmd/worker_node/config_cluster.yaml
 [Install]
 WantedBy=multi-user.target
