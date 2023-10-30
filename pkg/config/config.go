@@ -41,11 +41,12 @@ type WorkerNodeConfig struct {
 	CNIConfigPath    string `mapstructure:"cniConfigPath"`
 	PrefetchImage    bool   `mapstructure:"prefetchImage"`
 
-	FirecrackerKernel       string `mapstructure:"firecrackerKernel"`
-	FirecrackerFileSystem   string `mapstructure:"firecrackerFileSystem"`
-	FirecrackerIPPrefix     string `mapstructure:"firecrackerIPPrefix"`
-	FirecrackerVMDebugMode  bool   `mapstructure:"firecrackerVMDebugMode"`
-	FirecrackerUseSnapshots bool   `mapstructure:"firecrackerUseSnapshots"`
+	FirecrackerKernel           string `mapstructure:"firecrackerKernel"`
+	FirecrackerFileSystem       string `mapstructure:"firecrackerFileSystem"`
+	FirecrackerInternalIPPrefix string `mapstructure:"firecrackerInternalIPPrefix"`
+	FirecrackerExposedIPPrefix  string `mapstructure:"firecrackerExposedIPPrefix"`
+	FirecrackerVMDebugMode      bool   `mapstructure:"firecrackerVMDebugMode"`
+	FirecrackerUseSnapshots     bool   `mapstructure:"firecrackerUseSnapshots"`
 }
 
 type ProfilerConfig struct {

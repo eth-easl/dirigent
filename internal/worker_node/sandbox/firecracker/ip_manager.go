@@ -30,7 +30,7 @@ func (ipm *IPManager) getUniqueCounterValue() uint32 {
 
 		// We need four IP addresses per VM - gateway, 2 TAPs, broadcast.
 		// Hence, there are enough IP addresses for 16 384 VMs
-		newValue := oldValue + 4
+		newValue := oldValue + 1
 
 		swapped = atomic.CompareAndSwapUint32(&ipm.allocationCounter, oldValue, newValue)
 	}
@@ -41,17 +41,35 @@ func (ipm *IPManager) getUniqueCounterValue() uint32 {
 func (ipm *IPManager) generateRawGatewayIP() (uint32, uint32) {
 	val := ipm.getUniqueCounterValue()
 
-	return extractThirdField(val), extractFourthField(val)
+	thirdField := extractThirdField(val)
+	fourthField := extractFourthField(val)
+
+	if thirdField > 255 || fourthField > 255 {
+		logrus.Errorf("Invalid IP generated.")
+		return 256, 256
+	}
+
+	return thirdField, fourthField
 }
 
-func (ipm *IPManager) GenerateIPMACPair() (string, string, string) {
+func (ipm *IPManager) GenerateSingleIP() string {
+	var c, d uint32
+	for d == 0 || d == 255 {
+		c, d = ipm.generateRawGatewayIP()
+	}
+
+	ip := fmt.Sprintf("%s.%d.%d", ipm.networkPrefix, c, d)
+
+	return ip
+}
+
+func (ipm *IPManager) GenerateIPMACPair() (string, string) {
 	c, d := ipm.generateRawGatewayIP()
 
-	ip := fmt.Sprintf("%s.%d.%d", ipm.networkPrefix, c, d+1)
-	vmip := fmt.Sprintf("%s.%d.%d", ipm.networkPrefix, c, d+2)
-	mac := fmt.Sprintf("02:FC:00:00:%02x:%02x", c, d)
+	ip := fmt.Sprintf("%s.%d.%d.1", ipm.networkPrefix, c, d)
+	vmip := fmt.Sprintf("%s.%d.%d.2", ipm.networkPrefix, c, d)
 
-	return ip, vmip, mac
+	return ip, vmip
 }
 
 func extractThirdField(counterValue uint32) uint32 {

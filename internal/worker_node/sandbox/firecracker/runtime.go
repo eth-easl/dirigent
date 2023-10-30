@@ -26,9 +26,10 @@ type Runtime struct {
 	VMDebugMode  bool
 	UseSnapshots bool
 
-	KernelPath     string
-	FileSystemPath string
-	IpManager      *IPManager
+	KernelPath        string
+	FileSystemPath    string
+	InternalIPManager *IPManager
+	ExternalIPManager *IPManager
 
 	SandboxManager  *managers.SandboxManager
 	ProcessMonitor  *managers.ProcessMonitor
@@ -42,8 +43,11 @@ type FirecrackerMetadata struct {
 	VMCS *VMControlStructure
 }
 
-func NewFirecrackerRuntime(cpApi proto.CpiInterfaceClient, sandboxManager *managers.SandboxManager, kernelPath string, fileSystemPath string, ipPrefix string, vmDebugMode bool, useSnapshots bool) *Runtime {
-	_ = DeleteFirecrackerTAPDevices()
+func NewFirecrackerRuntime(cpApi proto.CpiInterfaceClient, sandboxManager *managers.SandboxManager,
+	kernelPath string, fileSystemPath string, internalIPPrefix string, externalIPPrefix string,
+	vmDebugMode bool, useSnapshots bool) *Runtime {
+
+	_ = DeleteUnusedNetworkDevices()
 	ipt, _ := managers.NewIptablesUtil()
 
 	return &Runtime{
@@ -53,9 +57,10 @@ func NewFirecrackerRuntime(cpApi proto.CpiInterfaceClient, sandboxManager *manag
 		VMDebugMode:  vmDebugMode,
 		UseSnapshots: useSnapshots,
 
-		KernelPath:     kernelPath,
-		FileSystemPath: fileSystemPath,
-		IpManager:      NewIPManager(ipPrefix),
+		KernelPath:        kernelPath,
+		FileSystemPath:    fileSystemPath,
+		InternalIPManager: NewIPManager(internalIPPrefix),
+		ExternalIPManager: NewIPManager(externalIPPrefix),
 
 		SandboxManager:  sandboxManager,
 		ProcessMonitor:  managers.NewProcessMonitor(),
@@ -72,7 +77,6 @@ func (fcr *Runtime) createVMCS() *VMControlStructure {
 
 		KernelPath:     fcr.KernelPath,
 		FileSystemPath: fcr.FileSystemPath,
-		IpManager:      fcr.IpManager,
 
 		SandboxID: fmt.Sprintf("firecracker-%d", id),
 		NetworkNS: fmt.Sprintf("firecracker-%d", id),
@@ -87,7 +91,6 @@ func createMetadata(in *proto.ServiceInfo, vmcs *VMControlStructure) *managers.M
 			VMCS: vmcs,
 		},
 
-		HostPort:  containerd.AssignRandomPort(),
 		IP:        vmcs.TapLink.VmIP,
 		GuestPort: int(in.PortForwarding.GuestPort),
 
@@ -101,13 +104,20 @@ func (fcr *Runtime) CreateSandbox(ctx context.Context, in *proto.ServiceInfo) (*
 	vmcs := fcr.createVMCS()
 	snapshot, _ := fcr.SnapshotManager.FindSnapshot(in.Name)
 
-	err, tapCreation, vmCreate, vmStart := StartFirecrackerVM(vmcs, fcr.VMDebugMode, snapshot)
+	hostPort := containerd.AssignRandomPort()
+
+	vmcs.HostPort = hostPort
+	vmcs.GuestPort = int(in.PortForwarding.GuestPort)
+
+	err, tapCreation, vmCreate, vmStart := StartFirecrackerVM(fcr.InternalIPManager, fcr.ExternalIPManager, vmcs, fcr.VMDebugMode, snapshot)
 	if err != nil {
 		// TODO: deallocate resources
 		return &proto.SandboxCreationStatus{Success: false}, err
 	}
 
 	metadata := createMetadata(in, vmcs)
+	metadata.HostPort = hostPort
+	metadata.IP = vmcs.TapLink.ExposedIP
 
 	// VM process monitoring
 	vmPID, err := vmcs.VM.PID()

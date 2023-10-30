@@ -64,7 +64,8 @@ func NewWorkerNode(cpApi proto.CpiInterfaceClient, config config.WorkerNodeConfi
 			sandboxManager,
 			config.FirecrackerKernel,
 			config.FirecrackerFileSystem,
-			config.FirecrackerIPPrefix,
+			config.FirecrackerInternalIPPrefix,
+			config.FirecrackerExposedIPPrefix,
 			config.FirecrackerVMDebugMode,
 			config.FirecrackerUseSnapshots,
 		)

@@ -23,6 +23,7 @@ func AddRules(ipt *iptables.IPTables, sourcePort int, destIP string, destPort in
 	if err != nil {
 		logrus.Errorf("Error adding a PREROUTING rule for %d->%s:%d - %s", sourcePort, destIP, destPort, err.Error())
 	}
+	logrus.Debugf("Added IP table rule for external traffic any:%d -> %s:%d", sourcePort, destIP, destPort)
 
 	err = ipt.Append(
 		"nat",
@@ -33,6 +34,7 @@ func AddRules(ipt *iptables.IPTables, sourcePort int, destIP string, destPort in
 	if err != nil {
 		logrus.Errorf("Error adding an OUTPUT rule for %d->%s:%d - %s", sourcePort, destIP, destPort, err.Error())
 	}
+	logrus.Debugf("Added IP table rule for localhost traffic any:%d -> %s:%d", sourcePort, destIP, destPort)
 
 	err = ipt.AppendUnique(
 		"nat",

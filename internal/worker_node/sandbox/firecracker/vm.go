@@ -22,7 +22,9 @@ type VMControlStructure struct {
 
 	KernelPath     string
 	FileSystemPath string
-	IpManager      *IPManager
+
+	HostPort  int
+	GuestPort int
 }
 
 func getVMCommandBuild(vmcs *VMControlStructure) *exec.Cmd {
@@ -40,9 +42,9 @@ func getVMCommandBuild(vmcs *VMControlStructure) *exec.Cmd {
 	return vmCommandBuild.Build(vmcs.Context)
 }
 
-func StartFirecrackerVM(vmcs *VMControlStructure, vmDebugMode bool, snapshotMetadata *SnapshotMetadata) (error, time.Duration, time.Duration, time.Duration) {
+func StartFirecrackerVM(internalIPManager *IPManager, externalIPManager *IPManager, vmcs *VMControlStructure, vmDebugMode bool, snapshotMetadata *SnapshotMetadata) (error, time.Duration, time.Duration, time.Duration) {
 	startTAP := time.Now()
-	err := createTAPDevice(vmcs, snapshotMetadata)
+	err := createTAPDevice(internalIPManager, externalIPManager, vmcs, snapshotMetadata)
 	if err != nil {
 		logrus.Error("Error setting up network for a microVM - ", err)
 		return err, time.Since(startTAP), time.Duration(0), time.Duration(0)
