@@ -11,12 +11,11 @@ import (
 )
 
 const (
-	tapDevicePrefix = "fc-"
-	tapDeviceSuffix = "-tap"
-	vethPrefix      = "fc-"
-	vethSuffix      = "-veth"
+	vethPrefix = "fc-"
+	vethSuffix = "-veth"
 
-	MaximumPoolSize = 32
+	// MaxNetworkPoolSize Should be divisible by 16
+	MaxNetworkPoolSize = 16
 )
 
 type NetworkConfig struct {
@@ -33,39 +32,69 @@ type NetworkConfig struct {
 	ExposedIP string
 }
 
-type NetworkManager struct {
+type NetworkPoolManager struct {
+	sync.Mutex
+
 	InternalIPManager *managers.IPManager
 	ExposedIPManager  *managers.IPManager
 
 	InterfaceNameGenerator *managers.VETHNameGenerator
 	NetNSNameGenerator     *managers.ThreadSafeRandomGenerator
 
-	PoolMutex       *sync.Mutex
-	CurrentPoolSize int
-	MaxPoolSize     int
+	pool []*NetworkConfig
 }
 
-func NewNetworkManager(internalPrefix, externalPrefix string) *NetworkManager {
-	return &NetworkManager{
-		InternalIPManager: managers.NewIPManager(internalPrefix),
-		ExposedIPManager:  managers.NewIPManager(externalPrefix),
+func NewNetworkPoolManager(internalPrefix, externalPrefix string) *NetworkPoolManager {
+	internalIPManager := managers.NewIPManager(internalPrefix)
+	externalIPManager := managers.NewIPManager(externalPrefix)
+
+	pool := &NetworkPoolManager{
+		InternalIPManager: internalIPManager,
+		ExposedIPManager:  externalIPManager,
 
 		InterfaceNameGenerator: managers.NewVETHNameGenerator(),
 		NetNSNameGenerator:     managers.NewThreadSafeRandomGenerator(),
+	}
 
-		PoolMutex:       &sync.Mutex{},
-		CurrentPoolSize: 0,
-		MaxPoolSize:     MaximumPoolSize,
+	pool.populate()
+
+	return pool
+}
+
+func (np *NetworkPoolManager) populate() {
+	np.Lock()
+	defer np.Unlock()
+
+	for len(np.pool) < MaxNetworkPoolSize {
+		config, err := np.createNetwork()
+		if err != nil {
+			logrus.Errorf("Error creating a network - %v", err)
+		}
+
+		np.pool = append(np.pool, config)
 	}
 }
 
-func (nm *NetworkManager) GetTAPDevice() {
-	nm.PoolMutex.Lock()
-	//if
-	nm.PoolMutex.Unlock()
+func (np *NetworkPoolManager) GetOneConfig() *NetworkConfig {
+	np.Lock()
+	defer np.Unlock()
+
+	if len(np.pool) == 0 {
+		logrus.Fatal("The network pool should not be empty. Assertion failed")
+	}
+
+	cfg := np.pool[0]
+	np.pool = np.pool[1:]
+
+	if len(np.pool) == MaxNetworkPoolSize/4 {
+		// asynchronous repopulation
+		go np.populate()
+	}
+
+	return cfg
 }
 
-func (nm *NetworkManager) CreateTAPDevice() (*NetworkConfig, error) {
+func (np *NetworkPoolManager) createNetwork() (*NetworkConfig, error) {
 	// Networking for clones -- guide:
 	// https://github.com/firecracker-microvm/firecracker/blob/main/docs/snapshotting/network-for-clones.md
 
@@ -73,7 +102,7 @@ func (nm *NetworkManager) CreateTAPDevice() (*NetworkConfig, error) {
 	gatewayIP, vmip, mac, dev := "169.254.0.1", "169.254.0.2", "02:FC:00:00:00:00", "fc-tap"
 
 	config := &NetworkConfig{
-		NetNS: fmt.Sprintf("firecracker-%d", nm.NetNSNameGenerator.Int()),
+		NetNS: fmt.Sprintf("firecracker-%d", np.NetNSNameGenerator.Int()),
 
 		TapDeviceName: dev,
 		TapMAC:        mac,
@@ -117,7 +146,7 @@ func (nm *NetworkManager) CreateTAPDevice() (*NetworkConfig, error) {
 		return nil, err
 	}
 
-	exposedIP, vethInternalIP, vethExternalIP, err := nm.createVETHPair(config, vmip)
+	exposedIP, vethInternalIP, vethExternalIP, err := np.createVETHPair(config, vmip)
 	if err != nil {
 		logrus.Errorf("failed to create and configure veth pair - %v", err)
 		return nil, err
@@ -130,21 +159,17 @@ func (nm *NetworkManager) CreateTAPDevice() (*NetworkConfig, error) {
 	return config, nil
 }
 
-func (nm *NetworkManager) createVETHPair(config *NetworkConfig, guestTAP string) (string, string, string, error) {
-	id := nm.InterfaceNameGenerator.Generate()
+func (np *NetworkPoolManager) createVETHPair(config *NetworkConfig, guestTAP string) (string, string, string, error) {
+	id := np.InterfaceNameGenerator.Generate()
 
 	guestSidePairName := fmt.Sprintf("%s%d%s", vethPrefix, id, vethSuffix)
 	hostSidePairName := fmt.Sprintf("%s%d%s", vethPrefix, id+1, vethSuffix)
 
-	hostSideIpAddress, workloadIpAddress := nm.InternalIPManager.GenerateIPMACPair()
+	hostSideIpAddress, workloadIpAddress := np.InternalIPManager.GenerateIPMACPair()
 	hostSideIpAddressWithMask := hostSideIpAddress + "/24"
 	workloadIpAddressWithMask := workloadIpAddress + "/24"
 
-	logrus.Debugf("Host-side IP address: %s", hostSideIpAddress)
-	logrus.Debugf("Guest-side IP address: %s", workloadIpAddress)
-
-	exposedIP := nm.ExposedIPManager.GenerateSingleIP()
-	logrus.Debugf("Exposed IP address: %s", exposedIP)
+	exposedIP := np.ExposedIPManager.GenerateSingleIP()
 
 	//hostSideIpAddress := "10.0.0.1"
 	//workloadIpAddress := "10.0.0.2"
@@ -232,8 +257,7 @@ func DeleteUnusedNetworkDevices() error {
 	}
 
 	for _, dev := range devices {
-		if !((strings.HasPrefix(dev.Name, tapDevicePrefix) && strings.HasSuffix(dev.Name, tapDeviceSuffix)) ||
-			(strings.HasPrefix(dev.Name, vethPrefix) && strings.HasSuffix(dev.Name, vethSuffix))) {
+		if !(strings.HasPrefix(dev.Name, vethPrefix) && strings.HasSuffix(dev.Name, vethSuffix)) {
 			continue
 		}
 

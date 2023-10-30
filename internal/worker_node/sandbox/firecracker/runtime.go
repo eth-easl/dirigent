@@ -28,7 +28,7 @@ type Runtime struct {
 
 	KernelPath     string
 	FileSystemPath string
-	NetworkManager *NetworkManager
+	NetworkManager *NetworkPoolManager
 
 	SandboxManager  *managers.SandboxManager
 	ProcessMonitor  *managers.ProcessMonitor
@@ -58,7 +58,7 @@ func NewFirecrackerRuntime(cpApi proto.CpiInterfaceClient, sandboxManager *manag
 
 		KernelPath:     kernelPath,
 		FileSystemPath: fileSystemPath,
-		NetworkManager: NewNetworkManager(internalIPPrefix, externalIPPrefix),
+		NetworkManager: NewNetworkPoolManager(internalIPPrefix, externalIPPrefix),
 
 		SandboxManager:  sandboxManager,
 		ProcessMonitor:  managers.NewProcessMonitor(),

@@ -41,22 +41,20 @@ func getVMCommandBuild(vmcs *VMControlStructure) *exec.Cmd {
 	return vmCommandBuild.Build(vmcs.Context)
 }
 
-func StartFirecrackerVM(networkManager *NetworkManager, vmcs *VMControlStructure, vmDebugMode bool, snapshotMetadata *SnapshotMetadata) (error, time.Duration, time.Duration, time.Duration) {
-	startTAP := time.Now()
-	networkConfig, err := networkManager.CreateTAPDevice()
-	vmcs.TapLink = networkConfig
-	if err != nil {
-		logrus.Error("Error setting up network for a microVM - ", err)
-		return err, time.Since(startTAP), time.Duration(0), time.Duration(0)
-	}
-	tapEnd := time.Since(startTAP)
-	logrus.Debug("TAP creation time: ", tapEnd.Milliseconds(), " ms")
+func StartFirecrackerVM(networkManager *NetworkPoolManager, vmcs *VMControlStructure, vmDebugMode bool, snapshotMetadata *SnapshotMetadata) (error, time.Duration, time.Duration, time.Duration) {
+	networkCreation := time.Now()
+	vmcs.TapLink = networkManager.GetOneConfig()
+	tapEnd := time.Since(networkCreation)
+	logrus.Debug("Time to create network: ", tapEnd.Milliseconds(), " ms")
 
-	logrus.Debugf("VM %s allocated host gateway IP = %s, VM IP = %s, TapMAC = %s",
+	logrus.Debugf("VM %s TAP external = %s, TAP internal = %s, TAP MAC = %s, VETH external = %s, VETH internal = %s, and exposed through %s",
 		vmcs.SandboxID,
 		vmcs.TapLink.TapExternalIP,
 		vmcs.TapLink.TapInternalIP,
 		vmcs.TapLink.TapMAC,
+		vmcs.TapLink.VETHExternalIP,
+		vmcs.TapLink.VETHInternalIP,
+		vmcs.TapLink.ExposedIP,
 	)
 
 	startVMCreation := time.Now()
