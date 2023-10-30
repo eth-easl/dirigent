@@ -26,10 +26,9 @@ type Runtime struct {
 	VMDebugMode  bool
 	UseSnapshots bool
 
-	KernelPath        string
-	FileSystemPath    string
-	InternalIPManager *IPManager
-	ExternalIPManager *IPManager
+	KernelPath     string
+	FileSystemPath string
+	NetworkManager *NetworkManager
 
 	SandboxManager  *managers.SandboxManager
 	ProcessMonitor  *managers.ProcessMonitor
@@ -57,10 +56,13 @@ func NewFirecrackerRuntime(cpApi proto.CpiInterfaceClient, sandboxManager *manag
 		VMDebugMode:  vmDebugMode,
 		UseSnapshots: useSnapshots,
 
-		KernelPath:        kernelPath,
-		FileSystemPath:    fileSystemPath,
-		InternalIPManager: NewIPManager(internalIPPrefix),
-		ExternalIPManager: NewIPManager(externalIPPrefix),
+		KernelPath:     kernelPath,
+		FileSystemPath: fileSystemPath,
+		NetworkManager: &NetworkManager{
+			InternalIPManager:      managers.NewIPManager(internalIPPrefix),
+			ExposedIPManager:       managers.NewIPManager(externalIPPrefix),
+			InterfaceNameGenerator: managers.NewVETHNameGenerator(),
+		},
 
 		SandboxManager:  sandboxManager,
 		ProcessMonitor:  managers.NewProcessMonitor(),
@@ -79,7 +81,7 @@ func (fcr *Runtime) createVMCS() *VMControlStructure {
 		FileSystemPath: fcr.FileSystemPath,
 
 		SandboxID: fmt.Sprintf("firecracker-%d", id),
-		NetworkNS: fmt.Sprintf("firecracker-%d", id),
+		TapLink:   &NetworkConfig{NetNS: fmt.Sprintf("firecracker-%d", id)},
 	}
 }
 
@@ -91,7 +93,7 @@ func createMetadata(in *proto.ServiceInfo, vmcs *VMControlStructure) *managers.M
 			VMCS: vmcs,
 		},
 
-		IP:        vmcs.TapLink.VmIP,
+		IP:        vmcs.TapLink.TapInternalIP,
 		GuestPort: int(in.PortForwarding.GuestPort),
 
 		ExitStatusChannel: make(chan uint32),
@@ -109,7 +111,7 @@ func (fcr *Runtime) CreateSandbox(ctx context.Context, in *proto.ServiceInfo) (*
 	vmcs.HostPort = hostPort
 	vmcs.GuestPort = int(in.PortForwarding.GuestPort)
 
-	err, tapCreation, vmCreate, vmStart := StartFirecrackerVM(fcr.InternalIPManager, fcr.ExternalIPManager, vmcs, fcr.VMDebugMode, snapshot)
+	err, tapCreation, vmCreate, vmStart := StartFirecrackerVM(fcr.NetworkManager, vmcs, fcr.VMDebugMode, snapshot)
 	if err != nil {
 		// TODO: deallocate resources
 		return &proto.SandboxCreationStatus{Success: false}, err
@@ -208,10 +210,10 @@ func CreateVMSnapshot(ctx context.Context, vmcs *VMControlStructure) (bool, *Sna
 	snapshotPaths := &SnapshotMetadata{
 		MemoryPath:   filepath.Join(tmpDir, "memory"),
 		SnapshotPath: filepath.Join(tmpDir, "snapshot"),
-		HostDevName:  vmcs.TapLink.Device,
-		MacAddress:   vmcs.TapLink.MAC,
-		GatewayIP:    vmcs.TapLink.GatewayIP,
-		VMIP:         vmcs.TapLink.VmIP,
+		HostDevName:  vmcs.TapLink.TapDeviceName,
+		MacAddress:   vmcs.TapLink.TapMAC,
+		GatewayIP:    vmcs.TapLink.TapExternalIP,
+		VMIP:         vmcs.TapLink.TapInternalIP,
 	}
 
 	err = vmcs.VM.CreateSnapshot(ctx, snapshotPaths.MemoryPath, snapshotPaths.SnapshotPath)

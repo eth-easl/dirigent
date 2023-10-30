@@ -15,10 +15,9 @@ type VMControlStructure struct {
 
 	VM      *firecracker.Machine
 	Config  *firecracker.Config
-	TapLink *TAPLink
+	TapLink *NetworkConfig
 
 	SandboxID string
-	NetworkNS string
 
 	KernelPath     string
 	FileSystemPath string
@@ -42,9 +41,9 @@ func getVMCommandBuild(vmcs *VMControlStructure) *exec.Cmd {
 	return vmCommandBuild.Build(vmcs.Context)
 }
 
-func StartFirecrackerVM(internalIPManager *IPManager, externalIPManager *IPManager, vmcs *VMControlStructure, vmDebugMode bool, snapshotMetadata *SnapshotMetadata) (error, time.Duration, time.Duration, time.Duration) {
+func StartFirecrackerVM(networkManager *NetworkManager, vmcs *VMControlStructure, vmDebugMode bool, snapshotMetadata *SnapshotMetadata) (error, time.Duration, time.Duration, time.Duration) {
 	startTAP := time.Now()
-	err := createTAPDevice(internalIPManager, externalIPManager, vmcs, snapshotMetadata)
+	err := networkManager.CreateTAPDevice(vmcs, snapshotMetadata)
 	if err != nil {
 		logrus.Error("Error setting up network for a microVM - ", err)
 		return err, time.Since(startTAP), time.Duration(0), time.Duration(0)
@@ -52,11 +51,11 @@ func StartFirecrackerVM(internalIPManager *IPManager, externalIPManager *IPManag
 	tapEnd := time.Since(startTAP)
 	logrus.Debug("TAP creation time: ", tapEnd.Milliseconds(), " ms")
 
-	logrus.Debugf("VM %s allocated host gateway IP = %s, VM IP = %s, MAC = %s",
+	logrus.Debugf("VM %s allocated host gateway IP = %s, VM IP = %s, TapMAC = %s",
 		vmcs.SandboxID,
-		vmcs.TapLink.GatewayIP,
-		vmcs.TapLink.VmIP,
-		vmcs.TapLink.MAC,
+		vmcs.TapLink.TapExternalIP,
+		vmcs.TapLink.TapInternalIP,
+		vmcs.TapLink.TapMAC,
 	)
 
 	startVMCreation := time.Now()
@@ -92,7 +91,7 @@ func StartFirecrackerVM(internalIPManager *IPManager, externalIPManager *IPManag
 	vmCreateEnd := time.Since(startVMCreation)
 	logrus.Debug("VM creation time: ", vmCreateEnd.Milliseconds(), " ms")
 
-	logrus.Debug("Starting VM with IP = ", vmcs.TapLink.VmIP, " (MAC = ", vmcs.TapLink.MAC, ")")
+	logrus.Debug("Starting VM with IP = ", vmcs.TapLink.TapInternalIP, " (TapMAC = ", vmcs.TapLink.TapMAC, ")")
 
 	timeVMStart := time.Now()
 

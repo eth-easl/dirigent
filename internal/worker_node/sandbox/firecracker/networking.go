@@ -17,16 +17,27 @@ const (
 	vethSuffix      = "-veth"
 )
 
-type TAPLink struct {
-	Device    string
-	MAC       string
-	GatewayIP string
-	VmIP      string
+type NetworkConfig struct {
+	NetNS string
+
+	TapDeviceName string
+	TapMAC        string
+	TapExternalIP string
+	TapInternalIP string
+
+	VETHInternalIP string
+	VETHExternalIP string
+
 	ExposedIP string
 }
 
-func createTAPDevice(internalIPManager *IPManager, exposedIPManager *IPManager,
-	vmcs *VMControlStructure, snapshotMetadata *SnapshotMetadata) error {
+type NetworkManager struct {
+	InternalIPManager      *managers.IPManager
+	ExposedIPManager       *managers.IPManager
+	InterfaceNameGenerator *managers.VETHNameGenerator
+}
+
+func (nm *NetworkManager) CreateTAPDevice(vmcs *VMControlStructure, snapshotMetadata *SnapshotMetadata) error {
 	// Networking for clones -- guide:
 	// https://github.com/firecracker-microvm/firecracker/blob/main/docs/snapshotting/network-for-clones.md
 
@@ -44,13 +55,13 @@ func createTAPDevice(internalIPManager *IPManager, exposedIPManager *IPManager,
 		dev = snapshotMetadata.HostDevName
 	}
 
-	err := exec.Command("sudo", "ip", "netns", "add", vmcs.NetworkNS).Run()
+	err := exec.Command("sudo", "ip", "netns", "add", vmcs.TapLink.NetNS).Run()
 	if err != nil {
-		logrus.Errorf("failed to create network namespace %s - %v", vmcs.NetworkNS, err)
+		logrus.Errorf("failed to create network namespace %s - %v", vmcs.TapLink.NetNS, err)
 		return err
 	}
 
-	err = exec.Command("sudo", "ip", "netns", "exec", vmcs.NetworkNS, "ip", "tuntap", "add", "dev", dev, "mode", "tap").Run()
+	err = exec.Command("sudo", "ip", "netns", "exec", vmcs.TapLink.NetNS, "ip", "tuntap", "add", "dev", dev, "mode", "tap").Run()
 	if err != nil {
 		logrus.Errorf("failed to create a TUN/TAP device %s - %v", dev, err)
 		return err
@@ -68,51 +79,52 @@ func createTAPDevice(internalIPManager *IPManager, exposedIPManager *IPManager,
 		return err
 	}
 
-	err = exec.Command("sudo", "ip", "netns", "exec", vmcs.NetworkNS, "ip", "addr", "add", gatewayIP+"/30", "dev", dev).Run()
+	err = exec.Command("sudo", "ip", "netns", "exec", vmcs.TapLink.NetNS, "ip", "addr", "add", gatewayIP+"/30", "dev", dev).Run()
 	if err != nil {
 		logrus.Errorf("failed to assign IP address to device %s - %v", dev, err)
 		return err
 	}
 
-	err = exec.Command("sudo", "ip", "netns", "exec", vmcs.NetworkNS, "ip", "link", "set", "dev", dev, "up").Run()
+	err = exec.Command("sudo", "ip", "netns", "exec", vmcs.TapLink.NetNS, "ip", "link", "set", "dev", dev, "up").Run()
 	if err != nil {
 		logrus.Errorf("failed to bring up the device %s - %v", dev, err)
 		return err
 	}
 
-	exposedIP, err := createVETHPair(internalIPManager, exposedIPManager, vmcs, vmip)
+	exposedIP, vethInternalIP, vethExternalIP, err := nm.createVETHPair(vmcs, vmip)
 	if err != nil {
 		logrus.Errorf("failed to create and configure veth pair - %v", err)
 		return err
 	}
 
-	vmcs.TapLink = &TAPLink{
-		Device:    dev,
-		MAC:       mac,
-		GatewayIP: gatewayIP,
-		VmIP:      vmip,
-		ExposedIP: exposedIP,
+	vmcs.TapLink = &NetworkConfig{
+		NetNS:          vmcs.TapLink.NetNS,
+		TapDeviceName:  dev,
+		TapMAC:         mac,
+		TapExternalIP:  gatewayIP,
+		TapInternalIP:  vmip,
+		VETHInternalIP: vethInternalIP,
+		VETHExternalIP: vethExternalIP,
+		ExposedIP:      exposedIP,
 	}
 
 	return nil
 }
 
-var ethGenerator = managers.NewVETHNameGenerator()
-
-func createVETHPair(internalIPGenerator *IPManager, exposedIPGenerator *IPManager, vmcs *VMControlStructure, guestTAP string) (string, error) {
-	id := ethGenerator.Generate()
+func (nm *NetworkManager) createVETHPair(vmcs *VMControlStructure, guestTAP string) (string, string, string, error) {
+	id := nm.InterfaceNameGenerator.Generate()
 
 	guestSidePairName := fmt.Sprintf("%s%d%s", vethPrefix, id, vethSuffix)
 	hostSidePairName := fmt.Sprintf("%s%d%s", vethPrefix, id+1, vethSuffix)
 
-	hostSideIpAddress, workloadIpAddress := internalIPGenerator.GenerateIPMACPair()
+	hostSideIpAddress, workloadIpAddress := nm.InternalIPManager.GenerateIPMACPair()
 	hostSideIpAddressWithMask := hostSideIpAddress + "/24"
 	workloadIpAddressWithMask := workloadIpAddress + "/24"
 
 	logrus.Debugf("Host-side IP address: %s", hostSideIpAddress)
 	logrus.Debugf("Guest-side IP address: %s", workloadIpAddress)
 
-	exposedIP := exposedIPGenerator.GenerateSingleIP()
+	exposedIP := nm.ExposedIPManager.GenerateSingleIP()
 	logrus.Debugf("Exposed IP address: %s", exposedIP)
 
 	//hostSideIpAddress := "10.0.0.1"
@@ -121,76 +133,76 @@ func createVETHPair(internalIPGenerator *IPManager, exposedIPGenerator *IPManage
 	//exposedIP := "192.168.0.3"
 
 	// create a vETH pair - both created in the netNS namespace
-	err := exec.Command("sudo", "ip", "netns", "exec", vmcs.NetworkNS, "ip", "link", "add", hostSidePairName, "type", "veth", "peer", "name", guestSidePairName).Run()
+	err := exec.Command("sudo", "ip", "netns", "exec", vmcs.TapLink.NetNS, "ip", "link", "add", hostSidePairName, "type", "veth", "peer", "name", guestSidePairName).Run()
 	if err != nil {
 		logrus.Error("Error creating a virtual Ethernet pair - ", err)
-		return exposedIP, err
+		return exposedIP, hostSideIpAddress, workloadIpAddress, err
 	}
 
 	// move the host-side of te pair to the root namespace
-	err = exec.Command("sudo", "ip", "netns", "exec", vmcs.NetworkNS, "ip", "link", "set", hostSidePairName, "netns", "1").Run()
+	err = exec.Command("sudo", "ip", "netns", "exec", vmcs.TapLink.NetNS, "ip", "link", "set", hostSidePairName, "netns", "1").Run()
 	if err != nil {
 		logrus.Error("Error moving host-side of the pair to the root namespace - ", err)
-		return exposedIP, err
+		return exposedIP, hostSideIpAddress, workloadIpAddress, err
 	}
 
 	// assign an IP address to the guest-side pair
-	err = exec.Command("sudo", "ip", "netns", "exec", vmcs.NetworkNS, "ip", "addr", "add", workloadIpAddressWithMask, "dev", guestSidePairName).Run()
+	err = exec.Command("sudo", "ip", "netns", "exec", vmcs.TapLink.NetNS, "ip", "addr", "add", workloadIpAddressWithMask, "dev", guestSidePairName).Run()
 	if err != nil {
 		logrus.Error("Error assigning an IP address to the guest-side of the pair - ", err)
-		return exposedIP, err
+		return exposedIP, hostSideIpAddress, workloadIpAddress, err
 	}
 
 	// bringing the guest-side pair up
-	err = exec.Command("sudo", "ip", "netns", "exec", vmcs.NetworkNS, "ip", "link", "set", "dev", guestSidePairName, "up").Run()
+	err = exec.Command("sudo", "ip", "netns", "exec", vmcs.TapLink.NetNS, "ip", "link", "set", "dev", guestSidePairName, "up").Run()
 	if err != nil {
 		logrus.Error("Error bringing the guest-end of the pair up - ", err)
-		return exposedIP, err
+		return exposedIP, hostSideIpAddress, workloadIpAddress, err
 	}
 
 	// assigning an IP address to the host-side of the pair
 	err = exec.Command("sudo", "ip", "addr", "add", hostSideIpAddressWithMask, "dev", hostSidePairName).Run()
 	if err != nil {
 		logrus.Error("Error assigning an IP address to the host-end of the pair - ", err)
-		return exposedIP, err
+		return exposedIP, hostSideIpAddress, workloadIpAddress, err
 	}
 
 	// bringing the host-side pair up
 	err = exec.Command("sudo", "ip", "link", "set", "dev", hostSidePairName, "up").Run()
 	if err != nil {
 		logrus.Error("Error bringing the host-end of the pair up - ", err)
-		return exposedIP, err
+		return exposedIP, hostSideIpAddress, workloadIpAddress, err
 	}
 
 	// assigning default gateway of the namespace
-	err = exec.Command("sudo", "ip", "netns", "exec", vmcs.NetworkNS, "ip", "route", "add", "default", "via", hostSideIpAddress).Run()
+	err = exec.Command("sudo", "ip", "netns", "exec", vmcs.TapLink.NetNS, "ip", "route", "add", "default", "via", hostSideIpAddress).Run()
 	if err != nil {
-		logrus.Error("Error assigning default gateway of the namespace - ", vmcs.NetworkNS)
-		return exposedIP, err
+		logrus.Error("Error assigning default gateway of the namespace - ", vmcs.TapLink.NetNS)
+		return exposedIP, hostSideIpAddress, workloadIpAddress, err
 	}
 
 	// NAT for outgoing traffic from the namespace
-	err = exec.Command("sudo", "ip", "netns", "exec", vmcs.NetworkNS, "iptables", "-t", "nat", "-A", "POSTROUTING", "-o", guestSidePairName, "-s", guestTAP, "-j", "SNAT", "--to", exposedIP).Run()
+	err = exec.Command("sudo", "ip", "netns", "exec", vmcs.TapLink.NetNS, "iptables", "-t", "nat", "-A", "POSTROUTING", "-o", guestSidePairName, "-s", guestTAP, "-j", "SNAT", "--to", exposedIP).Run()
 	if err != nil {
 		logrus.Error("Error adding a NAT rule for the outgoing traffic from the namespace - ", err)
-		return exposedIP, err
+		return exposedIP, hostSideIpAddress, workloadIpAddress, err
 	}
 
 	// NAT for incoming traffic to the namespace
-	err = exec.Command("sudo", "ip", "netns", "exec", vmcs.NetworkNS, "iptables", "-t", "nat", "-A", "PREROUTING", "-i", guestSidePairName, "-d", exposedIP, "-j", "DNAT", "--to", guestTAP).Run()
+	err = exec.Command("sudo", "ip", "netns", "exec", vmcs.TapLink.NetNS, "iptables", "-t", "nat", "-A", "PREROUTING", "-i", guestSidePairName, "-d", exposedIP, "-j", "DNAT", "--to", guestTAP).Run()
 	if err != nil {
 		logrus.Error("Error adding a NAT rule for the incoming traffic to the namespace - ", err)
-		return exposedIP, err
+		return exposedIP, hostSideIpAddress, workloadIpAddress, err
 	}
 
 	// adding route to the workload
 	err = exec.Command("sudo", "ip", "route", "add", exposedIP, "via", workloadIpAddress).Run()
 	if err != nil {
 		logrus.Error("Error adding route to the workload - ", err)
-		return exposedIP, err
+		return exposedIP, hostSideIpAddress, workloadIpAddress, err
 	}
 
-	return exposedIP, nil
+	return exposedIP, hostSideIpAddress, workloadIpAddress, err
 }
 
 func DeleteUnusedNetworkDevices() error {

@@ -29,7 +29,7 @@ func makeFirecrackerConfig(vmcs *VMControlStructure, vmDebugMode bool, metadata 
 	if vmDebugMode {
 		kernelArgs = debugKernelArgs
 	}
-	kernelArgs += fmt.Sprintf(ipKernelArg, vmcs.TapLink.VmIP, vmcs.TapLink.GatewayIP)
+	kernelArgs += fmt.Sprintf(ipKernelArg, vmcs.TapLink.TapInternalIP, vmcs.TapLink.TapExternalIP)
 
 	vmcs.Config = &firecracker.Config{
 		SocketPath:      makeSocketPath(vmcs.SandboxID),
@@ -49,14 +49,14 @@ func makeFirecrackerConfig(vmcs *VMControlStructure, vmDebugMode bool, metadata 
 			VcpuCount:  firecracker.Int64(1),
 			Smt:        firecracker.Bool(false),
 		},
-		NetNS: fmt.Sprintf("/var/run/netns/%s", vmcs.NetworkNS),
+		NetNS: fmt.Sprintf("/var/run/netns/%s", vmcs.TapLink.NetNS),
 	}
 
 	if metadata == nil {
 		vmcs.Config.NetworkInterfaces = []firecracker.NetworkInterface{{
 			StaticConfiguration: &firecracker.StaticNetworkConfiguration{
-				HostDevName: vmcs.TapLink.Device,
-				MacAddress:  vmcs.TapLink.MAC,
+				HostDevName: vmcs.TapLink.TapDeviceName,
+				MacAddress:  vmcs.TapLink.TapMAC,
 			},
 		}}
 	} else {
