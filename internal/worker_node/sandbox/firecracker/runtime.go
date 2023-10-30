@@ -205,10 +205,6 @@ func CreateVMSnapshot(ctx context.Context, vmcs *VMControlStructure) (bool, *Sna
 	snapshotPaths := &SnapshotMetadata{
 		MemoryPath:   filepath.Join(tmpDir, "memory"),
 		SnapshotPath: filepath.Join(tmpDir, "snapshot"),
-		HostDevName:  vmcs.TapLink.TapDeviceName,
-		MacAddress:   vmcs.TapLink.TapMAC,
-		GatewayIP:    vmcs.TapLink.TapExternalIP,
-		VMIP:         vmcs.TapLink.TapInternalIP,
 	}
 
 	err = vmcs.VM.CreateSnapshot(ctx, snapshotPaths.MemoryPath, snapshotPaths.SnapshotPath)

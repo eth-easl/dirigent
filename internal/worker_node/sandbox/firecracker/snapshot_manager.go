@@ -11,11 +11,6 @@ type SnapshotManager struct {
 type SnapshotMetadata struct {
 	MemoryPath   string
 	SnapshotPath string
-
-	HostDevName string
-	MacAddress  string
-	GatewayIP   string
-	VMIP        string
 }
 
 func NewFirecrackerSnapshotManager() *SnapshotManager {

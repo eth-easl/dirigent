@@ -49,22 +49,12 @@ func makeFirecrackerConfig(vmcs *VMControlStructure, vmDebugMode bool, metadata 
 			VcpuCount:  firecracker.Int64(1),
 			Smt:        firecracker.Bool(false),
 		},
-		NetNS: fmt.Sprintf("/var/run/netns/%s", vmcs.TapLink.NetNS),
-	}
-
-	if metadata == nil {
-		vmcs.Config.NetworkInterfaces = []firecracker.NetworkInterface{{
+		NetworkInterfaces: []firecracker.NetworkInterface{{
 			StaticConfiguration: &firecracker.StaticNetworkConfiguration{
 				HostDevName: vmcs.TapLink.TapDeviceName,
 				MacAddress:  vmcs.TapLink.TapMAC,
 			},
-		}}
-	} else {
-		vmcs.Config.NetworkInterfaces = []firecracker.NetworkInterface{{
-			StaticConfiguration: &firecracker.StaticNetworkConfiguration{
-				HostDevName: metadata.HostDevName,
-				MacAddress:  metadata.MacAddress,
-			},
-		}}
+		}},
+		NetNS: fmt.Sprintf("/var/run/netns/%s", vmcs.TapLink.NetNS),
 	}
 }

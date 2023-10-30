@@ -43,7 +43,8 @@ func getVMCommandBuild(vmcs *VMControlStructure) *exec.Cmd {
 
 func StartFirecrackerVM(networkManager *NetworkManager, vmcs *VMControlStructure, vmDebugMode bool, snapshotMetadata *SnapshotMetadata) (error, time.Duration, time.Duration, time.Duration) {
 	startTAP := time.Now()
-	err := networkManager.CreateTAPDevice(vmcs, snapshotMetadata)
+	networkConfig, err := networkManager.CreateTAPDevice()
+	vmcs.TapLink = networkConfig
 	if err != nil {
 		logrus.Error("Error setting up network for a microVM - ", err)
 		return err, time.Since(startTAP), time.Duration(0), time.Duration(0)
