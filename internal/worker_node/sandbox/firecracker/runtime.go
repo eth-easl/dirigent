@@ -58,11 +58,7 @@ func NewFirecrackerRuntime(cpApi proto.CpiInterfaceClient, sandboxManager *manag
 
 		KernelPath:     kernelPath,
 		FileSystemPath: fileSystemPath,
-		NetworkManager: &NetworkManager{
-			InternalIPManager:      managers.NewIPManager(internalIPPrefix),
-			ExposedIPManager:       managers.NewIPManager(externalIPPrefix),
-			InterfaceNameGenerator: managers.NewVETHNameGenerator(),
-		},
+		NetworkManager: NewNetworkManager(internalIPPrefix, externalIPPrefix),
 
 		SandboxManager:  sandboxManager,
 		ProcessMonitor:  managers.NewProcessMonitor(),
@@ -81,7 +77,6 @@ func (fcr *Runtime) createVMCS() *VMControlStructure {
 		FileSystemPath: fcr.FileSystemPath,
 
 		SandboxID: fmt.Sprintf("firecracker-%d", id),
-		TapLink:   &NetworkConfig{NetNS: fmt.Sprintf("firecracker-%d", id)},
 	}
 }
 

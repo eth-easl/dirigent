@@ -8,6 +8,7 @@ import (
 	"net"
 	"os/exec"
 	"strings"
+	"sync"
 )
 
 const (
@@ -15,6 +16,8 @@ const (
 	tapDeviceSuffix = "-tap"
 	vethPrefix      = "fc-"
 	vethSuffix      = "-veth"
+
+	MaximumPoolSize = 32
 )
 
 type NetworkConfig struct {
@@ -32,9 +35,29 @@ type NetworkConfig struct {
 }
 
 type NetworkManager struct {
-	InternalIPManager      *managers.IPManager
-	ExposedIPManager       *managers.IPManager
+	InternalIPManager *managers.IPManager
+	ExposedIPManager  *managers.IPManager
+
 	InterfaceNameGenerator *managers.VETHNameGenerator
+	NetNSNameGenerator     *managers.ThreadSafeRandomGenerator
+
+	PoolMutex       *sync.Mutex
+	CurrentPoolSize int
+	MaxPoolSize     int
+}
+
+func NewNetworkManager(internalPrefix, externalPrefix string) *NetworkManager {
+	return &NetworkManager{
+		InternalIPManager: managers.NewIPManager(internalPrefix),
+		ExposedIPManager:  managers.NewIPManager(externalPrefix),
+
+		InterfaceNameGenerator: managers.NewVETHNameGenerator(),
+		NetNSNameGenerator:     managers.NewThreadSafeRandomGenerator(),
+
+		PoolMutex:       &sync.Mutex{},
+		CurrentPoolSize: 0,
+		MaxPoolSize:     MaximumPoolSize,
+	}
 }
 
 func (nm *NetworkManager) CreateTAPDevice(vmcs *VMControlStructure, snapshotMetadata *SnapshotMetadata) error {
@@ -53,6 +76,14 @@ func (nm *NetworkManager) CreateTAPDevice(vmcs *VMControlStructure, snapshotMeta
 		vmip = snapshotMetadata.VMIP
 		mac = snapshotMetadata.MacAddress
 		dev = snapshotMetadata.HostDevName
+	}
+
+	vmcs.TapLink = &NetworkConfig{
+		NetNS:         fmt.Sprintf("firecracker-%d", nm.NetNSNameGenerator.Int()),
+		TapDeviceName: dev,
+		TapMAC:        mac,
+		TapExternalIP: gatewayIP,
+		TapInternalIP: vmip,
 	}
 
 	err := exec.Command("sudo", "ip", "netns", "add", vmcs.TapLink.NetNS).Run()
@@ -97,16 +128,9 @@ func (nm *NetworkManager) CreateTAPDevice(vmcs *VMControlStructure, snapshotMeta
 		return err
 	}
 
-	vmcs.TapLink = &NetworkConfig{
-		NetNS:          vmcs.TapLink.NetNS,
-		TapDeviceName:  dev,
-		TapMAC:         mac,
-		TapExternalIP:  gatewayIP,
-		TapInternalIP:  vmip,
-		VETHInternalIP: vethInternalIP,
-		VETHExternalIP: vethExternalIP,
-		ExposedIP:      exposedIP,
-	}
+	vmcs.TapLink.VETHInternalIP = vethInternalIP
+	vmcs.TapLink.VETHExternalIP = vethExternalIP
+	vmcs.TapLink.ExposedIP = exposedIP
 
 	return nil
 }
