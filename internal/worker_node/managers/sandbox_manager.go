@@ -40,7 +40,7 @@ func (m *SandboxManager) AddSandbox(key string, metadata *Metadata) {
 func (m *SandboxManager) DeleteSandbox(key string) *Metadata {
 	res, ok := m.Metadata.Get(key)
 	if !ok {
-		panic("value not present in map")
+		return nil
 	}
 
 	m.Metadata.Delete(key)

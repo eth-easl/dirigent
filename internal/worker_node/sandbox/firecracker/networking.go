@@ -26,6 +26,7 @@ type NetworkConfig struct {
 	TapExternalIP string
 	TapInternalIP string
 
+	VETHHostName   string
 	VETHInternalIP string
 	VETHExternalIP string
 
@@ -80,16 +81,24 @@ func (np *NetworkPoolManager) GetOneConfig() *NetworkConfig {
 	defer np.Unlock()
 
 	if len(np.pool) == 0 {
-		logrus.Fatal("The network pool should not be empty. Assertion failed")
+		config, err := np.createNetwork()
+		if err != nil {
+			logrus.Error("Error creating network on the critical path.")
+			return nil
+		}
+
+		logrus.Warn("Trying to repopulating the network pool as it's empty.")
+		// asynchronous repopulation
+		go np.populate()
+
+		return config
+	} else if len(np.pool) == MaxNetworkPoolSize/4 {
+		// asynchronous repopulation
+		go np.populate()
 	}
 
 	cfg := np.pool[0]
 	np.pool = np.pool[1:]
-
-	if len(np.pool) == MaxNetworkPoolSize/4 {
-		// asynchronous repopulation
-		go np.populate()
-	}
 
 	return cfg
 }
@@ -156,6 +165,8 @@ func (np *NetworkPoolManager) createVETHPair(config *NetworkConfig, guestTAP str
 
 	guestSidePairName := fmt.Sprintf("%s%d%s", vethPrefix, id, vethSuffix)
 	hostSidePairName := fmt.Sprintf("%s%d%s", vethPrefix, id+1, vethSuffix)
+
+	config.VETHHostName = hostSidePairName
 
 	hostSideIpAddress, workloadIpAddress := np.InternalIPManager.GenerateIPMACPair()
 	hostSideIpAddressWithMask := hostSideIpAddress + "/24"

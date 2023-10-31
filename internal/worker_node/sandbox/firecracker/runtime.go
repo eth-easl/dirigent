@@ -222,23 +222,28 @@ func CreateVMSnapshot(ctx context.Context, vmcs *VMControlStructure) (bool, *Sna
 func (fcr *Runtime) DeleteSandbox(_ context.Context, in *proto.SandboxID) (*proto.ActionStatus, error) {
 	metadata := fcr.SandboxManager.DeleteSandbox(in.ID)
 	if metadata == nil {
-		logrus.Warn("Tried to delete non-existing sandbox ", in.ID)
+		logrus.Errorf("Error while deleting sandbox from the manager. Invalid name %d.", in.ID)
 		return &proto.ActionStatus{Success: false}, nil
 	}
 
 	start := time.Now()
 
+	sandboxMetadata := metadata.RuntimeMetadata.(FirecrackerMetadata)
+
+	// delete networking rules
 	managers.DeleteRules(fcr.IPT, metadata.HostPort, metadata.IP, metadata.GuestPort)
 	containerd.UnassignPort(metadata.HostPort)
 	logrus.Debug("IP tables configuration (remove rule(s)) took ", time.Since(start).Microseconds(), " μs")
 
-	start = time.Now()
-
-	err := StopFirecrackerVM(metadata.RuntimeMetadata.(FirecrackerMetadata).VMCS)
+	// destroy the VM
+	err := StopFirecrackerVM(sandboxMetadata.VMCS)
 	if err != nil {
-		logrus.Error(err)
-		return &proto.ActionStatus{Success: false}, err
+		logrus.Errorf("Error deleting a sandbox - %v", err)
 	}
+
+	// delete the network associated with the VM
+	deleteNetworkNamespaceByName(sandboxMetadata.VMCS.TapLink.NetNS)
+	deleteDeviceByName(sandboxMetadata.VMCS.TapLink.VETHHostName)
 
 	logrus.Debug("Sandbox deletion took ", time.Since(start).Microseconds(), " μs")
 	return &proto.ActionStatus{Success: true}, nil

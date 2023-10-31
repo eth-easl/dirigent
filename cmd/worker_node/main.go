@@ -4,6 +4,7 @@ import (
 	"cluster_manager/api"
 	"cluster_manager/api/proto"
 	"cluster_manager/internal/worker_node"
+	"cluster_manager/internal/worker_node/sandbox/firecracker"
 	"cluster_manager/pkg/config"
 	"cluster_manager/pkg/grpc_helpers"
 	"cluster_manager/pkg/logger"
@@ -58,5 +59,10 @@ func main() {
 	select {
 	case <-ctx.Done():
 		logrus.Info("Received interruption signal, try to gracefully stop")
+
+		err = firecracker.DeleteUnusedNetworkDevices()
+		if err != nil {
+			logrus.Warn("Interruption received, but failed to delete leftover network devices.")
+		}
 	}
 }
