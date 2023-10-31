@@ -9,10 +9,6 @@ shift
 readonly DATA_PLANE=$1
 shift
 
-readonly VERBOSITY="--verbosity debug"
-readonly CP_IP_ADDRESS=$(RemoteExec $CONTROL_PLANE "netstat -ie | grep -B1 '10.0.1' | sed -n 2p | tr -s ' ' | cut -d ' ' -f 3")
-echo "Control plane IP is ${CP_IP_ADDRESS}"
-
 function SetupControlPlane() {
     RemoteExec $CONTROL_PLANE "cd ~/cluster_manager; git pull"
 
@@ -45,9 +41,6 @@ function SetupDataPlane() {
 }
 
 function SetupWorkerNodes() {
-    ARGS="--configPath cmd/worker_node/config_cluster.yaml"
-    CMD="cd ~/cluster_manager; sudo env 'PATH=\$PATH:/usr/local/bin/firecracker' /usr/local/go/bin/go run cmd/worker_node/main.go ${ARGS}"
-
     function internal_setup() {
         # LFS pull for VM kernel image and rootfs
         RemoteExec $1 "cd ~/cluster_manager; git pull; git lfs pull"
