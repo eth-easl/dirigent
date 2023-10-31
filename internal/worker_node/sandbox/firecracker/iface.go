@@ -20,7 +20,7 @@ func makeSocketPath(vmmID string) string {
 }
 
 func makeFirecrackerConfig(vmcs *VMControlStructure, vmDebugMode bool, metadata *SnapshotMetadata) {
-	if vmcs.TapLink == nil {
+	if vmcs.NetworkConfiguration == nil {
 		logrus.Error("Network must be created before creating a Firecracker config.")
 		return
 	}
@@ -29,9 +29,9 @@ func makeFirecrackerConfig(vmcs *VMControlStructure, vmDebugMode bool, metadata 
 	if vmDebugMode {
 		kernelArgs = debugKernelArgs
 	}
-	kernelArgs += fmt.Sprintf(ipKernelArg, vmcs.TapLink.TapInternalIP, vmcs.TapLink.TapExternalIP)
+	kernelArgs += fmt.Sprintf(ipKernelArg, vmcs.NetworkConfiguration.TapInternalIP, vmcs.NetworkConfiguration.TapExternalIP)
 
-	vmcs.Config = &firecracker.Config{
+	vmcs.VMConfig = &firecracker.Config{
 		SocketPath:      makeSocketPath(vmcs.SandboxID),
 		KernelImagePath: vmcs.KernelPath,
 		KernelArgs:      kernelArgs,
@@ -51,10 +51,10 @@ func makeFirecrackerConfig(vmcs *VMControlStructure, vmDebugMode bool, metadata 
 		},
 		NetworkInterfaces: []firecracker.NetworkInterface{{
 			StaticConfiguration: &firecracker.StaticNetworkConfiguration{
-				HostDevName: vmcs.TapLink.TapDeviceName,
-				MacAddress:  vmcs.TapLink.TapMAC,
+				HostDevName: vmcs.NetworkConfiguration.TapDeviceName,
+				MacAddress:  vmcs.NetworkConfiguration.TapMAC,
 			},
 		}},
-		NetNS: fmt.Sprintf("/var/run/netns/%s", vmcs.TapLink.NetNS),
+		NetNS: fmt.Sprintf("/var/run/netns/%s", vmcs.NetworkConfiguration.NetNS),
 	}
 }

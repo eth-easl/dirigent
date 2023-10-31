@@ -2,6 +2,7 @@ package firecracker
 
 import (
 	"context"
+	"errors"
 	"github.com/firecracker-microvm/firecracker-go-sdk"
 	"github.com/sirupsen/logrus"
 	"os"
@@ -13,9 +14,9 @@ import (
 type VMControlStructure struct {
 	Context context.Context
 
-	VM      *firecracker.Machine
-	Config  *firecracker.Config
-	TapLink *NetworkConfig
+	VM                   *firecracker.Machine
+	VMConfig             *firecracker.Config
+	NetworkConfiguration *NetworkConfig
 
 	SandboxID string
 
@@ -29,7 +30,7 @@ type VMControlStructure struct {
 func getVMCommandBuild(vmcs *VMControlStructure) *exec.Cmd {
 	vmCommandBuild := firecracker.VMCommandBuilder{}.
 		WithBin("firecracker").
-		WithSocketPath(vmcs.Config.SocketPath)
+		WithSocketPath(vmcs.VMConfig.SocketPath)
 
 	if logrus.GetLevel() != logrus.InfoLevel {
 		vmCommandBuild = vmCommandBuild.
@@ -43,18 +44,22 @@ func getVMCommandBuild(vmcs *VMControlStructure) *exec.Cmd {
 
 func StartFirecrackerVM(networkManager *NetworkPoolManager, vmcs *VMControlStructure, vmDebugMode bool, snapshotMetadata *SnapshotMetadata) (error, time.Duration, time.Duration, time.Duration) {
 	networkCreation := time.Now()
-	vmcs.TapLink = networkManager.GetOneConfig()
+	vmcs.NetworkConfiguration = networkManager.GetOneConfig()
+	if vmcs.NetworkConfiguration == nil {
+		return errors.New("error getting a network interface"), time.Duration(0), time.Duration(0), time.Duration(0)
+	}
 	tapEnd := time.Since(networkCreation)
 	logrus.Debug("Time to create network: ", tapEnd.Milliseconds(), " ms")
 
-	logrus.Debugf("VM %s TAP external = %s, TAP internal = %s, TAP MAC = %s, VETH external = %s, VETH internal = %s, and exposed through %s",
+	logrus.Debugf("VM %s TAP external = %s, TAP internal = %s, TAP MAC = %s, VETH external (%s) = %s, VETH internal = %s, and exposed through %s",
 		vmcs.SandboxID,
-		vmcs.TapLink.TapExternalIP,
-		vmcs.TapLink.TapInternalIP,
-		vmcs.TapLink.TapMAC,
-		vmcs.TapLink.VETHExternalIP,
-		vmcs.TapLink.VETHInternalIP,
-		vmcs.TapLink.ExposedIP,
+		vmcs.NetworkConfiguration.TapExternalIP,
+		vmcs.NetworkConfiguration.TapInternalIP,
+		vmcs.NetworkConfiguration.TapMAC,
+		vmcs.NetworkConfiguration.VETHHostName,
+		vmcs.NetworkConfiguration.VETHExternalIP,
+		vmcs.NetworkConfiguration.VETHInternalIP,
+		vmcs.NetworkConfiguration.ExposedIP,
 	)
 
 	startVMCreation := time.Now()
@@ -71,18 +76,21 @@ func StartFirecrackerVM(networkManager *NetworkPoolManager, vmcs *VMControlStruc
 		snapshotsOpts := firecracker.WithSnapshot(snapshotMetadata.MemoryPath, snapshotMetadata.SnapshotPath)
 		newMachineOpts = append(newMachineOpts, snapshotsOpts)
 
-		vmcs.Config = &firecracker.Config{
-			SocketPath:        vmcs.Config.SocketPath,
-			LogLevel:          vmcs.Config.LogLevel,
-			Drives:            vmcs.Config.Drives,
-			NetworkInterfaces: vmcs.Config.NetworkInterfaces,
-			NetNS:             vmcs.Config.NetNS,
+		vmcs.VMConfig = &firecracker.Config{
+			SocketPath:        vmcs.VMConfig.SocketPath,
+			LogLevel:          vmcs.VMConfig.LogLevel,
+			Drives:            vmcs.VMConfig.Drives,
+			NetworkInterfaces: vmcs.VMConfig.NetworkInterfaces,
+			NetNS:             vmcs.VMConfig.NetNS,
 		}
 	}
 
-	machine, err := firecracker.NewMachine(vmcs.Context, *vmcs.Config, newMachineOpts...)
+	machine, err := firecracker.NewMachine(vmcs.Context, *vmcs.VMConfig, newMachineOpts...)
 	if err != nil {
-		logrus.Fatal(err)
+		logrus.Errorf("Failed creating a new virtual machine - %v", err)
+		deleteNetworkNamespaceByName(vmcs.NetworkConfiguration.NetNS)
+		deleteDeviceByName(vmcs.NetworkConfiguration.VETHHostName)
+
 		return err, tapEnd, time.Since(startVMCreation), time.Duration(0)
 	}
 	vmcs.VM = machine
@@ -90,20 +98,24 @@ func StartFirecrackerVM(networkManager *NetworkPoolManager, vmcs *VMControlStruc
 	vmCreateEnd := time.Since(startVMCreation)
 	logrus.Debug("VM creation time: ", vmCreateEnd.Milliseconds(), " ms")
 
-	logrus.Debug("Starting VM with IP = ", vmcs.TapLink.TapInternalIP, " (TapMAC = ", vmcs.TapLink.TapMAC, ")")
-
 	timeVMStart := time.Now()
 
 	err = machine.Start(vmcs.Context)
 	if err != nil {
-		logrus.Error(err)
+		logrus.Errorf("Error starting a virtual machine - %v", err)
+		deleteNetworkNamespaceByName(vmcs.NetworkConfiguration.NetNS)
+		deleteDeviceByName(vmcs.NetworkConfiguration.VETHHostName)
+
 		return err, tapEnd, vmCreateEnd, time.Since(timeVMStart)
 	}
 
 	if snapshotMetadata != nil {
 		err = machine.ResumeVM(vmcs.Context)
 		if err != nil {
-			logrus.Error("Error creating virtual machine from snapshot - ", err)
+			logrus.Errorf("Error creating virtual machine from snapshot - %v", err)
+			deleteNetworkNamespaceByName(vmcs.NetworkConfiguration.NetNS)
+			deleteDeviceByName(vmcs.NetworkConfiguration.VETHHostName)
+
 			return err, tapEnd, vmCreateEnd, time.Since(timeVMStart)
 		}
 	}

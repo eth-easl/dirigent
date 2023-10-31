@@ -93,7 +93,7 @@ func createMetadata(in *proto.ServiceInfo, vmcs *VMControlStructure) *managers.M
 			VMCS: vmcs,
 		},
 
-		IP:        vmcs.TapLink.TapInternalIP,
+		IP:        vmcs.NetworkConfiguration.TapInternalIP,
 		GuestPort: int(in.PortForwarding.GuestPort),
 
 		ExitStatusChannel: make(chan uint32),
@@ -111,18 +111,20 @@ func (fcr *Runtime) CreateSandbox(ctx context.Context, in *proto.ServiceInfo) (*
 
 	err, netCreateDuration, vmCreateDuration, vmStartDuration := StartFirecrackerVM(fcr.NetworkManager, vmcs, fcr.VMDebugMode, snapshot)
 	if err != nil {
-		// TODO: deallocate resources
+		// resource deallocation already done in StartFirecrackerVM
 		return &proto.SandboxCreationStatus{Success: false}, err
 	}
 
 	metadata := createMetadata(in, vmcs)
 	metadata.HostPort = containerd.AssignRandomPort()
-	metadata.IP = vmcs.TapLink.ExposedIP
+	metadata.IP = vmcs.NetworkConfiguration.ExposedIP
 
 	// VM process monitoring
 	vmPID, err := vmcs.VM.PID()
 	if err != nil {
-		// TODO: deallocate resources
+		deleteNetworkNamespaceByName(vmcs.NetworkConfiguration.NetNS)
+		deleteDeviceByName(vmcs.NetworkConfiguration.VETHHostName)
+
 		logrus.Debugf("Failed to get PID of the virtual machine - %v", err)
 		return &proto.SandboxCreationStatus{Success: false}, err
 	}
@@ -158,6 +160,9 @@ func (fcr *Runtime) CreateSandbox(ctx context.Context, in *proto.ServiceInfo) (*
 			if err != nil {
 				logrus.Errorf("Error creating a sandbox %s due to error resuming virtual machine.", vmcs.SandboxID)
 
+				deleteNetworkNamespaceByName(vmcs.NetworkConfiguration.NetNS)
+				deleteDeviceByName(vmcs.NetworkConfiguration.VETHHostName)
+
 				return &proto.SandboxCreationStatus{
 					Success: false,
 					ID:      vmcs.SandboxID,
@@ -184,7 +189,8 @@ func (fcr *Runtime) CreateSandbox(ctx context.Context, in *proto.ServiceInfo) (*
 			},
 		}, nil
 	} else {
-		// TODO: deallocate resources
+		_, _ = fcr.DeleteSandbox(context.Background(), &proto.SandboxID{ID: vmcs.SandboxID})
+
 		return &proto.SandboxCreationStatus{
 			Success: false,
 			ID:      vmcs.SandboxID,
@@ -242,8 +248,8 @@ func (fcr *Runtime) DeleteSandbox(_ context.Context, in *proto.SandboxID) (*prot
 	}
 
 	// delete the network associated with the VM
-	deleteNetworkNamespaceByName(sandboxMetadata.VMCS.TapLink.NetNS)
-	deleteDeviceByName(sandboxMetadata.VMCS.TapLink.VETHHostName)
+	deleteNetworkNamespaceByName(sandboxMetadata.VMCS.NetworkConfiguration.NetNS)
+	deleteDeviceByName(sandboxMetadata.VMCS.NetworkConfiguration.VETHHostName)
 
 	logrus.Debug("Sandbox deletion took ", time.Since(start).Microseconds(), " μs")
 	return &proto.ActionStatus{Success: true}, nil
