@@ -46,8 +46,15 @@ func NewFirecrackerRuntime(cpApi proto.CpiInterfaceClient, sandboxManager *manag
 	kernelPath string, fileSystemPath string, internalIPPrefix string, externalIPPrefix string,
 	vmDebugMode bool, useSnapshots bool) *Runtime {
 
-	_ = DeleteUnusedNetworkDevices()
-	ipt, _ := managers.NewIptablesUtil()
+	err := DeleteUnusedNetworkDevices()
+	if err != nil {
+		logrus.Error("Failed to remove some or all network devices.")
+	}
+
+	ipt, err := managers.NewIptablesUtil()
+	if err != nil {
+		logrus.Fatal("Failed to start iptables utility. Terminating worker daemon.")
+	}
 
 	return &Runtime{
 		cpApi:       cpApi,
@@ -68,15 +75,13 @@ func NewFirecrackerRuntime(cpApi proto.CpiInterfaceClient, sandboxManager *manag
 }
 
 func (fcr *Runtime) createVMCS() *VMControlStructure {
-	id := fcr.idGenerator.Int()
-
 	return &VMControlStructure{
 		Context: context.Background(),
 
 		KernelPath:     fcr.KernelPath,
 		FileSystemPath: fcr.FileSystemPath,
 
-		SandboxID: fmt.Sprintf("firecracker-%d", id),
+		SandboxID: fmt.Sprintf("firecracker-%d", fcr.idGenerator.Int()),
 	}
 }
 
@@ -100,27 +105,25 @@ func (fcr *Runtime) CreateSandbox(ctx context.Context, in *proto.ServiceInfo) (*
 
 	vmcs := fcr.createVMCS()
 	snapshot, _ := fcr.SnapshotManager.FindSnapshot(in.Name)
+	if snapshot != nil {
+		logrus.Infof("Snapshot found for service %s", in.Name)
+	}
 
-	hostPort := containerd.AssignRandomPort()
-
-	vmcs.HostPort = hostPort
-	vmcs.GuestPort = int(in.PortForwarding.GuestPort)
-
-	err, tapCreation, vmCreate, vmStart := StartFirecrackerVM(fcr.NetworkManager, vmcs, fcr.VMDebugMode, snapshot)
+	err, netCreateDuration, vmCreateDuration, vmStartDuration := StartFirecrackerVM(fcr.NetworkManager, vmcs, fcr.VMDebugMode, snapshot)
 	if err != nil {
 		// TODO: deallocate resources
 		return &proto.SandboxCreationStatus{Success: false}, err
 	}
 
 	metadata := createMetadata(in, vmcs)
-	metadata.HostPort = hostPort
+	metadata.HostPort = containerd.AssignRandomPort()
 	metadata.IP = vmcs.TapLink.ExposedIP
 
 	// VM process monitoring
 	vmPID, err := vmcs.VM.PID()
 	if err != nil {
 		// TODO: deallocate resources
-		logrus.Debug(err)
+		logrus.Debugf("Failed to get PID of the virtual machine - %v", err)
 		return &proto.SandboxCreationStatus{Success: false}, err
 	}
 
@@ -173,9 +176,9 @@ func (fcr *Runtime) CreateSandbox(ctx context.Context, in *proto.ServiceInfo) (*
 			LatencyBreakdown: &proto.SandboxCreationBreakdown{
 				Total:            durationpb.New(time.Since(start)),
 				ImageFetch:       durationpb.New(0),
-				SandboxCreate:    durationpb.New(vmCreate),
-				NetworkSetup:     durationpb.New(tapCreation),
-				SandboxStart:     durationpb.New(vmStart),
+				SandboxCreate:    durationpb.New(vmCreateDuration),
+				NetworkSetup:     durationpb.New(netCreateDuration),
+				SandboxStart:     durationpb.New(vmStartDuration),
 				ReadinessProbing: durationpb.New(timeToPass),
 				Iptables:         durationpb.New(iptablesDuration),
 			},
@@ -249,7 +252,7 @@ func (fcr *Runtime) ValidateHostConfig() bool {
 	// Check for KVM access
 	err := unix.Access("/dev/kvm", unix.W_OK)
 	if err != nil {
-		logrus.Error("KVM access denied - ", err)
+		logrus.Errorf("KVM access denied - %v", err)
 		return false
 	}
 

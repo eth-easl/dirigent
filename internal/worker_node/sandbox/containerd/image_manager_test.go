@@ -11,7 +11,7 @@ import (
 func TestImageManager(t *testing.T) {
 	t.Skip()
 
-	imageManager := NewImageManager()
+	imageManager := NewContainerdImageManager()
 
 	containerdClient := GetContainerdClient("/run/containerd/containerd.sock")
 	defer containerdClient.Close()

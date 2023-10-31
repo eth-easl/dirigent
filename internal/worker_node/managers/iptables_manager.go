@@ -67,12 +67,13 @@ func DeleteRules(ipt *iptables.IPTables, sourcePort int, destIP string, destPort
 		logrus.Errorf("Error deleting an OUTPUT rule for %d->%s:%d - %s", sourcePort, destIP, destPort, err.Error())
 	}
 
-	err = ipt.Delete(
+	// TODO: make sure it's deleted only after the last sandbox is deleted
+	/*err = ipt.Delete(
 		"nat",
 		"POSTROUTING",
 		"-j", "MASQUERADE",
 	)
 	if err != nil {
 		logrus.Errorf("Error deleting a POSTROUTING MASQUERADE - %s", err.Error())
-	}
+	}*/
 }

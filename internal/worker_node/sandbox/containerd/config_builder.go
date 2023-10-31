@@ -2,13 +2,8 @@ package containerd
 
 import (
 	"cluster_manager/api/proto"
-	"errors"
-	"fmt"
 	"math/rand"
-	"strconv"
 	"sync"
-
-	"github.com/docker/go-connections/nat"
 )
 
 var portsInUse = make(map[int]struct{})
@@ -56,28 +51,4 @@ func UnassignPort(port int) {
 	defer portsInUseMutex.Unlock()
 
 	delete(portsInUse, port)
-}
-
-func createPortMappings(r *proto.PortMapping) (nat.PortMap, nat.PortSet, error) {
-	host := make(nat.PortMap)
-	guest := make(nat.PortSet)
-
-	if !validatePort(r.GuestPort) {
-		return nil, nil, errors.New("Invalid service info port mapping specification.")
-	}
-
-	common := nat.Port(fmt.Sprintf("%d/%s", r.GuestPort, l4ProtocolToString(r.Protocol)))
-
-	hostPort := AssignRandomPort()
-
-	r.HostPort = int32(hostPort)
-	host[common] = []nat.PortBinding{
-		{
-			HostIP:   "0.0.0.0", // TODO: hardcoded while VXLAN not implemented
-			HostPort: strconv.Itoa(hostPort),
-		},
-	}
-	guest[common] = struct{}{}
-
-	return host, guest, nil
 }

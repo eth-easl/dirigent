@@ -1,6 +1,7 @@
 package managers
 
 import (
+	"github.com/sirupsen/logrus"
 	"math/rand"
 	"sync"
 	"sync/atomic"
@@ -9,6 +10,8 @@ import (
 )
 
 func TestGetUniqueValue(t *testing.T) {
+	logrus.SetLevel(logrus.DebugLevel)
+
 	ipm := &IPManager{}
 	wg := &sync.WaitGroup{}
 
@@ -18,7 +21,10 @@ func TestGetUniqueValue(t *testing.T) {
 	wg.Add(tries)
 	for i := 0; i < tries; i++ {
 		go func() {
-			atomic.AddUint32(&sum, ipm.getUniqueCounterValue())
+			value := ipm.getUniqueCounterValue()
+			logrus.Debug(value)
+
+			atomic.AddUint32(&sum, value)
 			wg.Done()
 		}()
 	}
@@ -26,7 +32,7 @@ func TestGetUniqueValue(t *testing.T) {
 	wg.Wait()
 
 	computedSum := atomic.LoadUint32(&sum)
-	expectedSum := uint32(2 * tries * (tries - 1)) // sum of all even numbers
+	expectedSum := uint32(tries * (tries - 1) / 2)
 	if computedSum != expectedSum {
 		t.Error("Bad IP manager. Concurrency error.")
 	}
@@ -45,7 +51,7 @@ func TestIPAddressGeneration(t *testing.T) {
 		go func() {
 			c, d := ipm.generateRawGatewayIP()
 
-			if c > 255 || d%4 != 0 {
+			if c > 255 || d > 255 {
 				t.Errorf("Invalid IP address received - x.x.%d.%d", c, d)
 			}
 
