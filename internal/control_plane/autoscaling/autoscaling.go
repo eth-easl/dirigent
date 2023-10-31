@@ -66,11 +66,6 @@ func (s *AutoscalingMetadata) KnativeScaling(isScaleFromZero bool) int {
 		return 1
 	}
 
-	// TODO: WTF is wrong with this part
-	/*if s.cachedScalingMetric == 0 {
-		return 0
-	}*/
-
 	desiredScale, _ := s.internalScaleAlgorithm(float64(s.cachedScalingMetric))
 
 	return mathutil.Clamp(desiredScale, int(s.AutoscalingConfig.ScalingLowerBound), int(s.AutoscalingConfig.ScalingUpperBound))

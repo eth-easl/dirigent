@@ -13,3 +13,5 @@ cmd/test
 configs/firecracker/app
 configs/firecracker/rootfs.ext4
 configs/firecracker/vmlinux*
+
+notes.txt
