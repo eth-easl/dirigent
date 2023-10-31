@@ -80,7 +80,6 @@ func main() {
 			PrefetchImage:          false,
 			FirecrackerKernel:      "",
 			FirecrackerFileSystem:  "",
-			FirecrackerIPPrefix:    "",
 			FirecrackerVMDebugMode: false,
 		}
 

@@ -50,7 +50,6 @@ func NewWorkerNode(cpApi proto.CpiInterfaceClient, config config.WorkerNodeConfi
 		hostName = name[0]
 	}
 
-	imageManager := containerd.NewImageManager()
 	sandboxManager := managers.NewSandboxManager(hostName)
 
 	if _, isRoot := isUserRoot(); !isRoot {
@@ -89,7 +88,6 @@ func NewWorkerNode(cpApi proto.CpiInterfaceClient, config config.WorkerNodeConfi
 		SandboxRuntime: runtimeInterface,
 
 		SandboxManager: sandboxManager,
-		ProcessMonitor: processMonitor,
 
 		Name: hostName,
 	}
