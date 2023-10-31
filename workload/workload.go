@@ -25,6 +25,5 @@
 package main
 
 func main() {
-	//StartGRPCServer("", 80, EmptyFunction)
 	StartHTTPServer()
 }

@@ -1,7 +1,6 @@
 package managers
 
 import (
-	"github.com/sirupsen/logrus"
 	"math/rand"
 	"sync"
 	"sync/atomic"
@@ -10,8 +9,6 @@ import (
 )
 
 func TestGetUniqueValue(t *testing.T) {
-	logrus.SetLevel(logrus.DebugLevel)
-
 	ipm := &IPManager{}
 	wg := &sync.WaitGroup{}
 
@@ -21,10 +18,7 @@ func TestGetUniqueValue(t *testing.T) {
 	wg.Add(tries)
 	for i := 0; i < tries; i++ {
 		go func() {
-			value := ipm.getUniqueCounterValue()
-			logrus.Debug(value)
-
-			atomic.AddUint32(&sum, value)
+			atomic.AddUint32(&sum, ipm.getUniqueCounterValue())
 			wg.Done()
 		}()
 	}

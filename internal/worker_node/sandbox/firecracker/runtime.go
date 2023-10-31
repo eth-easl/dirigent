@@ -228,7 +228,7 @@ func CreateVMSnapshot(ctx context.Context, vmcs *VMControlStructure) (bool, *Sna
 func (fcr *Runtime) DeleteSandbox(_ context.Context, in *proto.SandboxID) (*proto.ActionStatus, error) {
 	metadata := fcr.SandboxManager.DeleteSandbox(in.ID)
 	if metadata == nil {
-		logrus.Errorf("Error while deleting sandbox from the manager. Invalid name %d.", in.ID)
+		logrus.Errorf("Error while deleting sandbox from the manager. Invalid name %s.", in.ID)
 		return &proto.ActionStatus{Success: false}, nil
 	}
 

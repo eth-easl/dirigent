@@ -8,13 +8,77 @@ import (
 	"io"
 	"net/http"
 	"os"
+	"strconv"
+	"time"
 )
+
+// static double SQRTSD (double x) {
+//     double r;
+//     __asm__ ("sqrtsd %1, %0" : "=x" (r) : "x" (x));
+//     return r;
+// }
+import "C"
+
+const EXEC_UNIT int = 1e2
 
 var machineName string
 
-func rootHandler(w http.ResponseWriter, r *http.Request) {
-	io.WriteString(w, fmt.Sprintf("OK - EMPTY - %s", machineName))
-	w.WriteHeader(http.StatusOK)
+func takeSqrts() C.double {
+	var tmp C.double // Circumvent compiler optimizations
+	for i := 0; i < EXEC_UNIT; i++ {
+		tmp = C.SQRTSD(C.double(10))
+	}
+	return tmp
+}
+
+func busySpin(multiplier, runtimeMilli uint32) {
+	totalIterations := int(multiplier * runtimeMilli)
+
+	for i := 0; i < totalIterations; i++ {
+		takeSqrts()
+	}
+}
+
+func rootHandler(w http.ResponseWriter, req *http.Request) {
+	workload := req.Header.Get("workload")
+	requested_cpu := req.Header.Get("requested_cpu")
+	multiplier := req.Header.Get("multiplier")
+
+	switch workload {
+	case "empty":
+		_, _ = io.WriteString(w, fmt.Sprintf("OK - EMPTY - %s", machineName))
+
+		w.WriteHeader(http.StatusOK)
+	case "trace":
+		tlm, err := strconv.Atoi(requested_cpu)
+		if err != nil {
+			w.WriteHeader(http.StatusBadRequest)
+			return
+		}
+
+		mpl, err := strconv.Atoi(multiplier)
+		if err != nil {
+			w.WriteHeader(http.StatusBadRequest)
+			return
+		}
+
+		start := time.Now()
+		timeLeftMilliseconds := uint32(tlm)
+
+		timeConsumedMilliseconds := uint32(time.Since(start).Milliseconds())
+		if timeConsumedMilliseconds < timeLeftMilliseconds {
+			timeLeftMilliseconds -= timeConsumedMilliseconds
+			if timeLeftMilliseconds > 0 {
+				busySpin(uint32(mpl), timeLeftMilliseconds)
+			}
+		}
+
+		_, _ = io.WriteString(w, fmt.Sprintf("OK - %s", machineName))
+		w.WriteHeader(http.StatusOK)
+	default:
+		w.WriteHeader(http.StatusBadRequest)
+	}
+
 }
 
 func healthHandler(w http.ResponseWriter, r *http.Request) {
