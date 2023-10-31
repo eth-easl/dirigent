@@ -32,14 +32,14 @@ func (c *ControlPlane) notifyDataplanesAndStartScalingLoop(ctx context.Context, 
 	c.SIStorage.AtomicSet(serviceInfo.Name, &ServiceInfoStorage{
 		ServiceInfo:             serviceInfo,
 		ControlPlane:            c,
-		Controller:              autoscaling.NewPerFunctionStateController(make(chan int), serviceInfo, 2*time.Second),
+		Controller:              autoscaling.NewPerFunctionStateController(make(chan int), serviceInfo, 2*time.Second), // TODO: Hardcoded autoscaling for now
 		ColdStartTracingChannel: &c.ColdStartTracing.InputChannel,
 		PlacementPolicy:         c.PlacementPolicy,
 		PersistenceLayer:        c.PersistenceLayer,
 		NodeInformation:         c.NIStorage,
 		StartTime:               startTime,
 		ShouldTrace:             c.shouldTrace,
-		TracingFile:             c.tracingFile,
+		TracingFile:             c.traceSandboxCreationsInTxtFile,
 	})
 
 	go c.SIStorage.AtomicGetNoCheck(serviceInfo.Name).ScalingControllerLoop(c.NIStorage, c.DataPlaneConnections)

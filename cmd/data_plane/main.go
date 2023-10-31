@@ -8,6 +8,7 @@ import (
 	"cluster_manager/pkg/config"
 	"cluster_manager/pkg/grpc_helpers"
 	"cluster_manager/pkg/logger"
+	"cluster_manager/pkg/network"
 	"context"
 	"flag"
 	"os/signal"
@@ -32,6 +33,10 @@ func main() {
 	}
 
 	logger.SetupLogger(cfg.Verbosity)
+
+	if cfg.DataPlaneIp == "dynamic" {
+		cfg.DataPlaneIp = network.GetLocalIP()
+	}
 
 	cache := function_metadata.NewDeploymentList()
 	dataPlane := data_plane.NewDataplane(cfg, cache)

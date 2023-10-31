@@ -226,7 +226,6 @@ func (ss *ServiceInfoStorage) doDownscaling(toEvict map[*core.Endpoint]struct{},
 		victim := key
 
 		if victim == nil {
-			panic("test")
 			logrus.Error("Victim null - should not have happened")
 			continue // why this happens?
 		}
@@ -237,9 +236,9 @@ func (ss *ServiceInfoStorage) doDownscaling(toEvict map[*core.Endpoint]struct{},
 			ctx, cancel := context.WithTimeout(context.Background(), utils.WorkerNodeTrafficTimeout)
 			defer cancel()
 
-			resp, err := victim.Node.DeleteSandbox(ctx, &proto.SandboxID{
-				ID:       victim.SandboxID,
-				HostPort: victim.HostPort,
+			resp, err := key.Node.DeleteSandbox(ctx, &proto.SandboxID{
+				ID:       key.SandboxID,
+				HostPort: key.HostPort,
 			})
 			if err != nil || !resp.Success {
 				errText := ""

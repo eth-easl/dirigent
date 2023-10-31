@@ -5,10 +5,12 @@ import (
 	"cluster_manager/internal/control_plane/autoscaling"
 	common "cluster_manager/pkg/grpc_helpers"
 	"cluster_manager/pkg/utils"
+	"cluster_manager/tests/proto"
 	"context"
 	"crypto/tls"
 	"fmt"
 	"golang.org/x/net/http2"
+	"google.golang.org/grpc"
 	"io"
 	"net"
 	"net/http"
@@ -20,8 +22,8 @@ import (
 
 const (
 	DeployedFunctionName  string = "test"
-	ControlPlaneAddress   string = "localhost"
-	DataPlaneAddress      string = "localhost"
+	ControlPlaneAddress   string = "10.0.1.2"
+	DataPlaneAddress      string = "10.0.1.3"
 	FunctionNameFormatter string = "%s%d"
 )
 
@@ -137,6 +139,33 @@ func DeregisterMultiThread(nbDeploys, offset int) {
 
 			wg.Done()
 		}(i, offset)
+	}
+
+	wg.Wait()
+}
+
+func PerformXInvocationsContainerd(nbInvocations, offset int) {
+	wg := sync.WaitGroup{}
+	wg.Add(nbInvocations)
+
+	for i := 0; i < nbInvocations; i++ {
+		go func(i int) {
+			conn := common.EstablishGRPCConnectionPoll(DataPlaneAddress, "8080", grpc.WithAuthority(fmt.Sprintf("%s&%d", DeployedFunctionName, i+offset)))
+			if conn == nil {
+				logrus.Fatal("Failed to establish gRPC connection with the data plane")
+			}
+
+			logrus.Info("Connection with the gRPC server has been established")
+
+			executorClient := proto.NewExecutorClient(conn)
+			err := FireInvocation(executorClient)
+
+			if err != nil {
+				logrus.Errorf("Invocation failed - %s", err)
+			}
+
+			wg.Done()
+		}(i)
 	}
 
 	wg.Wait()

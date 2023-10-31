@@ -31,8 +31,8 @@ type ControlPlane struct {
 	dataPlaneCreator  core.DataplaneFactory
 	workerNodeCreator core.WorkerNodeFactory
 
-	shouldTrace bool
-	tracingFile *os.File
+	shouldTrace                    bool
+	traceSandboxCreationsInTxtFile *os.File
 }
 
 func NewControlPlane(client persistence.PersistenceLayer, outputFile string, placementPolicy placement_policy.PlacementPolicy, dataplaneCreator core.DataplaneFactory, workerNodeCreator core.WorkerNodeFactory, shouldTrace bool) *ControlPlane {
@@ -49,23 +49,23 @@ func NewControlPlane(client persistence.PersistenceLayer, outputFile string, pla
 	}
 
 	return &ControlPlane{
-		NIStorage:            synchronization.NewControlPlaneSyncStructure[string, core.WorkerNodeInterface](),
-		SIStorage:            synchronization.NewControlPlaneSyncStructure[string, *ServiceInfoStorage](),
-		DataPlaneConnections: synchronization.NewControlPlaneSyncStructure[string, core.DataPlaneInterface](),
-		ColdStartTracing:     tracing.NewColdStartTracingService(outputFile),
-		PlacementPolicy:      placementPolicy,
-		PersistenceLayer:     client,
-		dataPlaneCreator:     dataplaneCreator,
-		workerNodeCreator:    workerNodeCreator,
-		shouldTrace:          shouldTrace,
-		tracingFile:          file,
+		NIStorage:                      synchronization.NewControlPlaneSyncStructure[string, core.WorkerNodeInterface](),
+		SIStorage:                      synchronization.NewControlPlaneSyncStructure[string, *ServiceInfoStorage](),
+		DataPlaneConnections:           synchronization.NewControlPlaneSyncStructure[string, core.DataPlaneInterface](),
+		ColdStartTracing:               tracing.NewColdStartTracingService(outputFile),
+		PlacementPolicy:                placementPolicy,
+		PersistenceLayer:               client,
+		dataPlaneCreator:               dataplaneCreator,
+		workerNodeCreator:              workerNodeCreator,
+		shouldTrace:                    shouldTrace,
+		traceSandboxCreationsInTxtFile: file,
 	}
 }
 
 // Dataplanes functions
 
 func (c *ControlPlane) RegisterDataplane(ctx context.Context, in *proto.DataplaneInfo) (*proto.ActionStatus, error) {
-	logrus.Trace("Received a control plane registration")
+	logrus.Tracef("Received a data plane registration with ip : %s", in.IP)
 
 	dataplaneInfo := proto.DataplaneInformation{
 		Address:   in.IP,

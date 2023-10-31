@@ -6,6 +6,7 @@ import (
 	_map "cluster_manager/pkg/map"
 	"container/list"
 	"context"
+	"errors"
 	"os"
 	"sync"
 	"sync/atomic"
@@ -239,7 +240,7 @@ func (m *FunctionMetadata) TryWarmStart(cp *proto.CpiInterfaceClient) (chan stru
 
 	endpointCount := atomic.LoadInt32(&m.upstreamEndpointsCount)
 	if endpointCount == 0 {
-		waitChannel := make(chan time.Duration, 1)
+		waitChannel := make(chan struct{}, 1)
 
 		m.Lock()
 		defer m.Unlock()

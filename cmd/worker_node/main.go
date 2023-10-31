@@ -8,6 +8,7 @@ import (
 	"cluster_manager/pkg/config"
 	"cluster_manager/pkg/grpc_helpers"
 	"cluster_manager/pkg/logger"
+	"cluster_manager/pkg/network"
 	"cluster_manager/pkg/utils"
 	"context"
 	"flag"
@@ -34,6 +35,10 @@ func main() {
 	}
 
 	logger.SetupLogger(cfg.Verbosity)
+
+	if cfg.WorkerNodeIP == "dynamic" {
+		cfg.WorkerNodeIP = network.GetLocalIP()
+	}
 
 	cpApi, err := grpc_helpers.InitializeControlPlaneConnection(cfg.ControlPlaneIp, cfg.ControlPlanePort, "", -1, -1)
 	if err != nil {

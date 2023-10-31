@@ -26,7 +26,7 @@ func main() {
 
 	logrus.Info("Starting burst test")
 
-	shared.PerformXInvocationsContainerd(*invocations, 0)
+	shared.PerformXInvocations(*invocations, 0)
 
 	logrus.Info("End burst test")
 }

@@ -25,7 +25,7 @@ type PFStateController struct {
 func NewPerFunctionStateController(scalingChannel chan int, serviceInfo *proto.ServiceInfo, period time.Duration) *PFStateController {
 	return &PFStateController{
 		DesiredStateChannel: scalingChannel,
-		Period:              period, // TODO: hardcoded autoscaling period for now
+		Period:              period,
 		ScalingMetadata: AutoscalingMetadata{
 			AutoscalingConfig:            serviceInfo.AutoscalingConfig,
 			inflightRequestsPerDataPlane: make(map[string]int32),
