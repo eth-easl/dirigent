@@ -17,15 +17,8 @@ function AddSshKeys() {
 
 function SetupNode() {
     AddSshKeys $1
-    RemoteExec $1 'if [ ! -d ~/cluster_manager ];then git clone git@github.com:eth-easl/cluster_manager.git; fi'
+    RemoteExec $1 'if [ ! -d ~/cluster_manager ];then git clone --branch=merge git@github.com:eth-easl/cluster_manager.git; fi'
     RemoteExec $1 'bash ~/cluster_manager/scripts/setup_node.sh'
-    RemoteExec $1 'cd ~/cluster_manager/cmd/master_node/; /usr/local/go/bin/go build main.go'
-    RemoteExec $1 'cd ~/cluster_manager/cmd/data_plane/; /usr/local/go/bin/go build main.go'
-    RemoteExec $1 'cd ~/cluster_manager/cmd/worker_node/; /usr/local/go/bin/go build main.go'
-    RemoteExec $1 'sudo cp -r ~/cluster_manager /'
-    RemoteExec $1 'sudo cp /cluster_manager/scripts/systemd/control_plane.service /etc/systemd/system/control_plane.service'
-    RemoteExec $1 'sudo cp -r /cluster_manager/scripts/systemd/data_plane.service /etc/systemd/system/data_plane.service'
-    RemoteExec $1 'sudo cp -r /cluster_manager/scripts/systemd/worker_node.service /etc/systemd/system/worker_node.service'
 }
 
 for NODE in "$@"
