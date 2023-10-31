@@ -111,8 +111,7 @@ func (cr *ContainerdRuntime) CreateSandbox(grpcCtx context.Context, in *proto.Se
 		ExitStatusChannel: make(chan uint32),
 	}
 
-	// TODO: Fix this part
-	// cr.ProcessMonitor.AddChannel(task.Pid(), metadata.ExitStatusChannel)
+	cr.ProcessMonitor.AddChannel(task.Pid(), metadata.ExitStatusChannel)
 	cr.SandboxManager.AddSandbox(container.ID(), metadata)
 
 	logrus.Debug("Sandbox creation took ", time.Since(start).Microseconds(), " μs (", container.ID(), ")")

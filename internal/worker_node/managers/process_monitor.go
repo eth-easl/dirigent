@@ -19,7 +19,6 @@ type ProcessMonitor struct {
 }
 
 func NewProcessMonitor() *ProcessMonitor {
-	return &ProcessMonitor{}
 	var cn garlic.CnConn
 	var err error
 
