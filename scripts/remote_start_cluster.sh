@@ -50,6 +50,9 @@ function SetupWorkerNodes() {
         RemoteExec $1 "cd ~/cluster_manager/cmd/worker_node/; /usr/local/go/bin/go build main.go"
         RemoteExec $1 "sudo cp -r ~/cluster_manager/* /cluster_manager"
 
+        # For readiness probe
+        RemoteExec $1 "sudo sysctl -w net.ipv4.conf.all.route_localnet=1"
+
         # Start worker node daemon
         RemoteExec $1 "sudo systemctl daemon-reload && sudo systemctl start worker_node.service"
     }
