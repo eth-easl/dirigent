@@ -51,6 +51,8 @@ func NewFirecrackerRuntime(cpApi proto.CpiInterfaceClient, sandboxManager *manag
 		logrus.Error("Failed to remove some or all network devices.")
 	}
 
+	DeleteAllSnapshots()
+
 	ipt, err := managers.NewIptablesUtil()
 	if err != nil {
 		logrus.Fatal("Failed to start iptables utility. Terminating worker daemon.")
@@ -205,15 +207,17 @@ func CreateVMSnapshot(ctx context.Context, vmcs *VMControlStructure) (bool, *Sna
 		return false, nil
 	}
 
-	tmpDir, err := os.MkdirTemp(os.TempDir(), "firecracker")
+	snapshotDir := filepath.Join(os.TempDir(), "snapshots")
+
+	err = os.MkdirAll(snapshotDir, os.ModePerm)
 	if err != nil {
 		logrus.Error("Error creating a directory for snapshot storage")
 		return false, nil
 	}
 
 	snapshotPaths := &SnapshotMetadata{
-		MemoryPath:   filepath.Join(tmpDir, "memory"),
-		SnapshotPath: filepath.Join(tmpDir, "snapshot"),
+		MemoryPath:   filepath.Join(snapshotDir, fmt.Sprintf("memory-firecracker-%s", vmcs.SandboxID)),
+		SnapshotPath: filepath.Join(snapshotDir, fmt.Sprintf("snapshot-firecracker-%s", vmcs.SandboxID)),
 	}
 
 	err = vmcs.VM.CreateSnapshot(ctx, snapshotPaths.MemoryPath, snapshotPaths.SnapshotPath)
@@ -250,6 +254,7 @@ func (fcr *Runtime) DeleteSandbox(_ context.Context, in *proto.SandboxID) (*prot
 	// delete the network associated with the VM
 	deleteNetworkNamespaceByName(sandboxMetadata.VMCS.NetworkConfiguration.NetNS)
 	deleteDeviceByName(sandboxMetadata.VMCS.NetworkConfiguration.VETHHostName)
+	deleteLogs(sandboxMetadata.VMCS)
 
 	logrus.Debug("Sandbox deletion took ", time.Since(start).Microseconds(), " μs")
 	return &proto.ActionStatus{Success: true}, nil
@@ -268,4 +273,9 @@ func (fcr *Runtime) ValidateHostConfig() bool {
 	}
 
 	return true
+}
+
+func DeleteAllSnapshots() {
+	// don't handle error because the directory may not exist
+	_ = os.RemoveAll(filepath.Join(os.TempDir(), "snapshots"))
 }

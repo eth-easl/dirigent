@@ -3,6 +3,7 @@ package firecracker
 import (
 	"context"
 	"errors"
+	"fmt"
 	"github.com/firecracker-microvm/firecracker-go-sdk"
 	"github.com/sirupsen/logrus"
 	"os"
@@ -134,4 +135,9 @@ func StopFirecrackerVM(vmcs *VMControlStructure) error {
 
 	err = syscall.Kill(pid, syscall.SIGKILL)
 	return err
+}
+
+func deleteLogs(vmcs *VMControlStructure) {
+	// don't handle error because the file may not exist
+	_ = os.Remove(fmt.Sprintf(pathToLog, vmcs.SandboxID))
 }

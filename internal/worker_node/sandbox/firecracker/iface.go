@@ -13,6 +13,7 @@ const (
 	noDebugKernelArgs = "panic=1 pci=off nomodule reboot=k tsc=reliable quiet i8042.nokbd i8042.noaux 8250.nr_uarts=0 ipv6.disable=1"
 	debugKernelArgs   = "panic=1 pci=off nomodule reboot=k tsc=reliable quiet i8042.noaux ipv6.disable=1 console=ttyS0 random.trust_cpu=on"
 	ipKernelArg       = " ip=%s::%s:255.255.255.252::eth0:off"
+	pathToLog         = "/tmp/%s.log"
 )
 
 func makeSocketPath(vmmID string) string {
@@ -35,7 +36,7 @@ func makeFirecrackerConfig(vmcs *VMControlStructure, vmDebugMode bool, metadata 
 		SocketPath:      makeSocketPath(vmcs.SandboxID),
 		KernelImagePath: vmcs.KernelPath,
 		KernelArgs:      kernelArgs,
-		LogPath:         fmt.Sprintf("/tmp/%s.log", vmcs.SandboxID),
+		LogPath:         fmt.Sprintf(pathToLog, vmcs.SandboxID),
 		LogLevel:        "Info",
 		Drives: []models.Drive{{
 			DriveID:      firecracker.String("1"),

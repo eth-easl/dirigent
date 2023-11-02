@@ -65,6 +65,7 @@ func main() {
 	case <-ctx.Done():
 		logrus.Info("Received interruption signal, try to gracefully stop")
 
+		firecracker.DeleteAllSnapshots()
 		err = firecracker.DeleteUnusedNetworkDevices()
 		if err != nil {
 			logrus.Warn("Interruption received, but failed to delete leftover network devices.")
