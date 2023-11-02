@@ -98,7 +98,10 @@ func NewWorkerNode(cpApi proto.CpiInterfaceClient, config config.WorkerNodeConfi
 func (w *WorkerNode) RegisterNodeWithControlPlane(config config.WorkerNodeConfig, cpApi *proto.CpiInterfaceClient) {
 	logrus.Info("Trying to register the node with the control plane")
 
-	err := w.sendInstructionToControlPlane(config, cpApi, RegisterAction)
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	err := w.sendInstructionToControlPlane(ctx, config, cpApi, RegisterAction)
 	if err != nil {
 		logrus.Fatal("Failed to register from the control plane")
 	}
@@ -130,7 +133,10 @@ func (w *WorkerNode) CleanResources() {
 func (w *WorkerNode) DeregisterNodeFromControlPlane(config config.WorkerNodeConfig, cpApi *proto.CpiInterfaceClient) {
 	logrus.Info("Trying to deregister the node with the control plane")
 
-	err := w.sendInstructionToControlPlane(config, cpApi, DeregisterAction)
+	pollContext, cancel := context.WithTimeout(context.Background(), 1*time.Second)
+	defer cancel()
+
+	err := w.sendInstructionToControlPlane(pollContext, config, cpApi, DeregisterAction)
 	if err != nil {
 		logrus.Fatal("Failed to deregister from the control plane")
 	}
@@ -138,11 +144,8 @@ func (w *WorkerNode) DeregisterNodeFromControlPlane(config config.WorkerNodeConf
 	logrus.Info("Successfully registered the node with the control plane")
 }
 
-func (w *WorkerNode) sendInstructionToControlPlane(config config.WorkerNodeConfig, cpi *proto.CpiInterfaceClient, action int) error {
-	pollContext, cancel := context.WithTimeout(context.Background(), 30*time.Second)
-	defer cancel()
-
-	pollErr := wait.PollUntilContextCancel(pollContext, 5*time.Second, true,
+func (w *WorkerNode) sendInstructionToControlPlane(ctx context.Context, config config.WorkerNodeConfig, cpi *proto.CpiInterfaceClient, action int) error {
+	pollErr := wait.PollUntilContextCancel(ctx, 5*time.Second, true,
 		func(ctx context.Context) (done bool, err error) {
 			nodeInfo := &proto.NodeInfo{
 				NodeID:     w.Name,
