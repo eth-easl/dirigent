@@ -134,7 +134,10 @@ func DeregisterControlPlaneConnection(cfg *config.DataPlaneConfig) error {
 	conn := EstablishGRPCConnectionPoll(cfg.ControlPlaneIp, cfg.ControlPlanePort)
 	cpApi := proto.NewCpiInterfaceClient(conn)
 
-	resp, err := cpApi.DeregisterDataplane(context.Background(), &proto.DataplaneInfo{
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	defer cancel()
+
+	resp, err := cpApi.DeregisterDataplane(ctx, &proto.DataplaneInfo{
 		IP:        cfg.DataPlaneIp,
 		APIPort:   int32(grpcPort),
 		ProxyPort: int32(proxyPort),
