@@ -38,31 +38,31 @@ func SendReadinessProbe(url string) (time.Duration, bool) {
 	wg.Add(1)
 
 	// empirically determined
-	/*	1 :  0.02
-		2 :  0.045
-		3 :  0.0675
-		4 :  0.10125
-		5 :  0.151875
-		6 :  0.2278125
-		7 :  0.34171875
-		8 :  0.512578125
-		9 :  0.7688671875
-		10 :  1.15330078125
-		11 :  1.729951171875
-		12 :  2.5949267578125
-		13 :  -1
-		14 :  -1
-		15 :  -1
-		16 :  -1
-		17 :  -1
-		18 :  -1
-		19 :  -1
-		20 :  -1 */
+	/*	1 :  0.01
+		2 :  0.018225
+		3 :  0.024603750000000004
+		4 :  0.03321506250000001
+		5 :  0.04484033437500002
+		6 :  0.06053445140625002
+		7 :  0.08172150939843753
+		8 :  0.11032403768789069
+		9 :  0.14893745087865243
+		10 :  0.2010655586861808
+		11 :  0.2714385042263441
+		12 :  0.36644198070556455
+		13 :  0.4946966739525122
+		14 :  0.6678405098358916
+		15 :  0.9015846882784535
+		16 :  1.2171393291759125
+		17 :  1.643138094387482
+		18 :  2.2182364274231006
+		19 :  2.994619177021186
+		20 :  4.042735888978601 */
 	expBackoff := ExponentialBackoff{
-		Interval:        0.020,
-		ExponentialRate: 1.5,
+		Interval:        0.01,
+		ExponentialRate: 1.35,
 		RetryNumber:     0,
-		MaxDifference:   1,
+		MaxDifference:   2,
 	}
 
 	passed := true
@@ -98,6 +98,8 @@ func SendReadinessProbe(url string) (time.Duration, bool) {
 
 	elapsed := time.Since(start)
 
-	logrus.Trace("Passed readiness probe for ", url, " from ", tries, " attempt in ", elapsed.Milliseconds(), " ms")
+	if passed {
+		logrus.Trace("Passed readiness probe for ", url, " from ", tries, " attempt in ", elapsed.Milliseconds(), " ms")
+	}
 	return elapsed, passed
 }

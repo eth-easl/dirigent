@@ -151,27 +151,21 @@ func (fcr *Runtime) CreateSandbox(ctx context.Context, in *proto.ServiceInfo) (*
 	timeToPass, passed := managers.SendReadinessProbe(fmt.Sprintf("localhost:%d", metadata.HostPort))
 
 	// create a snapshot for the service if it does not exist
-	if fcr.UseSnapshots && !fcr.SnapshotManager.Exists(in.Name) {
+	if passed && fcr.UseSnapshots && !fcr.SnapshotManager.Exists(in.Name) {
 		ok, paths := CreateVMSnapshot(ctx, vmcs)
+
 		if !ok {
 			logrus.Warn("Due to failure, bypassing snapshot creation for service ", in.Name)
 		} else {
 			fcr.SnapshotManager.AddSnapshot(in.Name, paths)
 
-			err = vmcs.VM.ResumeVM(ctx)
-			if err != nil {
-				logrus.Errorf("Error creating a sandbox %s due to error resuming virtual machine.", vmcs.SandboxID)
-
-				deleteNetworkNamespaceByName(vmcs.NetworkConfiguration.NetNS)
-				deleteDeviceByName(vmcs.NetworkConfiguration.VETHHostName)
-
-				return &proto.SandboxCreationStatus{
-					Success: false,
-					ID:      vmcs.SandboxID,
-				}, nil
-			}
-
 			logrus.Debug("Snapshot successfully created for service ", in.Name)
+		}
+
+		err = vmcs.VM.ResumeVM(ctx)
+		if err != nil {
+			logrus.Errorf("Failed to create a sandbox %s due to error resuming virtual machine.", vmcs.SandboxID)
+			passed = false // let the following code below take care of deletion
 		}
 	}
 
