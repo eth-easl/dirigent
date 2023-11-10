@@ -17,6 +17,7 @@ import (
 	"log"
 	"os"
 	"strconv"
+	"sync"
 	"time"
 )
 
@@ -375,21 +376,31 @@ func (c *ControlPlane) precreateSnapshots(info *proto.ServiceInfo) {
 
 	ss, _ := c.SIStorage.Get(info.Name)
 
+	wg := &sync.WaitGroup{}
+
 	for _, node := range c.NIStorage.GetMap() {
-		sandboxInfo, err := node.CreateSandbox(context.Background(), ss.ServiceInfo)
-		if err != nil {
-			logrus.Warnf("Failed to create a image prewarming sandbox for function %s on node %s.", info.Name, node.GetName())
-			continue
-		}
+		wg.Add(1)
 
-		msg, err := node.DeleteSandbox(context.Background(), &proto.SandboxID{
-			ID:       sandboxInfo.ID,
-			HostPort: sandboxInfo.PortMappings.HostPort,
-		})
-		if err != nil || !msg.Success {
-			logrus.Warnf("Failed to delete an image prewarming sandbox for function %s on node %s.", info.Name, node.GetName())
-		}
+		go func() {
+			sandboxInfo, err := node.CreateSandbox(context.Background(), ss.ServiceInfo)
+			if err != nil {
+				logrus.Warnf("Failed to create a image prewarming sandbox for function %s on node %s.", info.Name, node.GetName())
+				return
+			}
 
-		logrus.Debugf("Successfully created an image prewarming sandbox for function %s on node %s.", info.Name, node.GetName())
+			msg, err := node.DeleteSandbox(context.Background(), &proto.SandboxID{
+				ID:       sandboxInfo.ID,
+				HostPort: sandboxInfo.PortMappings.HostPort,
+			})
+			if err != nil || !msg.Success {
+				logrus.Warnf("Failed to delete an image prewarming sandbox for function %s on node %s.", info.Name, node.GetName())
+			}
+
+			logrus.Debugf("Successfully created an image prewarming sandbox for function %s on node %s.", info.Name, node.GetName())
+
+			wg.Done()
+		}()
 	}
+
+	wg.Wait()
 }
