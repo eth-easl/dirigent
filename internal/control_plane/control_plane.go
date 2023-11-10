@@ -382,6 +382,8 @@ func (c *ControlPlane) precreateSnapshots(info *proto.ServiceInfo) {
 		wg.Add(1)
 
 		go func() {
+			defer wg.Done()
+
 			sandboxInfo, err := node.CreateSandbox(context.Background(), ss.ServiceInfo)
 			if err != nil {
 				logrus.Warnf("Failed to create a image prewarming sandbox for function %s on node %s.", info.Name, node.GetName())
@@ -397,8 +399,6 @@ func (c *ControlPlane) precreateSnapshots(info *proto.ServiceInfo) {
 			}
 
 			logrus.Debugf("Successfully created an image prewarming sandbox for function %s on node %s.", info.Name, node.GetName())
-
-			wg.Done()
 		}()
 	}
 
