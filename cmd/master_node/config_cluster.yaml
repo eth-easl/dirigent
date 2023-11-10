@@ -2,7 +2,7 @@ port: "9090"
 portRegistration: "9091"
 verbosity: "trace"
 traceOutputFolder: "data"
-placementPolicy: "random"
+placementPolicy: "round-robin"
 persistence: false
 reconstruct: false
 

@@ -6,6 +6,7 @@ import (
 	"cluster_manager/pkg/synchronization"
 	"math/rand"
 	"sort"
+	"sync/atomic"
 
 	"github.com/sirupsen/logrus"
 )
@@ -28,7 +29,7 @@ func NewRoundRobinPolicy() *RoundRobinPolicy {
 }
 
 type RoundRobinPolicy struct {
-	schedulingCounterRoundRobin int
+	schedulingCounterRoundRobin int32
 }
 
 func NewKubernetesPolicy() *KubernetesPolicy {
@@ -142,10 +143,16 @@ func (policy *RoundRobinPolicy) Place(storage synchronization.SyncStructure[stri
 		return nil
 	}
 
-	index := policy.schedulingCounterRoundRobin % nbNodes
-	policy.schedulingCounterRoundRobin = (policy.schedulingCounterRoundRobin + 1) % nbNodes
+	var index int32
+	swapped := false
+	for !swapped {
+		index = atomic.LoadInt32(&policy.schedulingCounterRoundRobin) % int32(nbNodes)
+		newIndex := (index + 1) % int32(nbNodes)
 
-	return nodeFromIndex(storage, index)
+		swapped = atomic.CompareAndSwapInt32(&policy.schedulingCounterRoundRobin, int32(index), int32(newIndex))
+	}
+
+	return nodeFromIndex(storage, int(index))
 }
 
 func (policy *KubernetesPolicy) Place(storage synchronization.SyncStructure[string, core.WorkerNodeInterface], requested *ResourceMap) core.WorkerNodeInterface {
