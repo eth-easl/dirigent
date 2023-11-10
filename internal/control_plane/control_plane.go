@@ -5,6 +5,7 @@ import (
 	"cluster_manager/internal/control_plane/core"
 	"cluster_manager/internal/control_plane/persistence"
 	"cluster_manager/internal/control_plane/placement_policy"
+	"cluster_manager/pkg/config"
 	_map "cluster_manager/pkg/map"
 	"cluster_manager/pkg/synchronization"
 	"cluster_manager/pkg/tracing"
@@ -33,15 +34,18 @@ type ControlPlane struct {
 
 	shouldTrace                    bool
 	traceSandboxCreationsInTxtFile *os.File
+
+	config *config.ControlPlaneConfig
 }
 
-func NewControlPlane(client persistence.PersistenceLayer, outputFile string, placementPolicy placement_policy.PlacementPolicy, dataplaneCreator core.DataplaneFactory, workerNodeCreator core.WorkerNodeFactory, shouldTrace bool) *ControlPlane {
+func NewControlPlane(client persistence.PersistenceLayer, outputFile string, placementPolicy placement_policy.PlacementPolicy,
+	dataplaneCreator core.DataplaneFactory, workerNodeCreator core.WorkerNodeFactory, cfg *config.ControlPlaneConfig) *ControlPlane {
 	var (
 		file *os.File
 		err  error
 	)
 
-	if shouldTrace {
+	if cfg.TraceSandboxCreation {
 		file, err = os.OpenFile("notes.txt", os.O_RDWR|os.O_CREATE|os.O_TRUNC, 0755)
 		if err != nil {
 			log.Fatal(err)
@@ -57,8 +61,9 @@ func NewControlPlane(client persistence.PersistenceLayer, outputFile string, pla
 		PersistenceLayer:               client,
 		dataPlaneCreator:               dataplaneCreator,
 		workerNodeCreator:              workerNodeCreator,
-		shouldTrace:                    shouldTrace,
+		shouldTrace:                    cfg.TraceSandboxCreation,
 		traceSandboxCreationsInTxtFile: file,
+		config:                         cfg,
 	}
 }
 
@@ -203,7 +208,6 @@ func (c *ControlPlane) NodeHeartbeat(_ context.Context, in *proto.NodeHeartbeatM
 // Service functions
 
 func (c *ControlPlane) RegisterService(ctx context.Context, serviceInfo *proto.ServiceInfo) (*proto.ActionStatus, error) {
-
 	if enter, timestamp := c.SIStorage.SetIfAbsent(serviceInfo.Name, &ServiceInfoStorage{}); enter {
 		err := c.PersistenceLayer.StoreServiceInformation(ctx, serviceInfo, timestamp)
 		if err != nil {
@@ -218,6 +222,10 @@ func (c *ControlPlane) RegisterService(ctx context.Context, serviceInfo *proto.S
 			c.SIStorage.AtomicRemove(serviceInfo.Name)
 
 			return &proto.ActionStatus{Success: false}, err
+		}
+
+		if c.config.PrecreateSnapshots {
+			c.precreateSnapshots(serviceInfo)
 		}
 
 		return &proto.ActionStatus{Success: true}, nil
@@ -359,4 +367,29 @@ func (c *ControlPlane) getServicesOnWorkerNode(ss *ServiceInfoStorage, wn core.W
 
 func (c *ControlPlane) handleNodeFailure(wn core.WorkerNodeInterface) {
 	c.HandleFailure(c.createWorkerNodeFailureEvents(wn))
+}
+
+func (c *ControlPlane) precreateSnapshots(info *proto.ServiceInfo) {
+	c.SIStorage.Lock()
+	defer c.SIStorage.Unlock()
+
+	ss, _ := c.SIStorage.Get(info.Name)
+
+	for _, node := range c.NIStorage.GetMap() {
+		sandboxInfo, err := node.CreateSandbox(context.Background(), ss.ServiceInfo)
+		if err != nil {
+			logrus.Warnf("Failed to create a image prewarming sandbox for function %s on node %s.", info.Name, node.GetName())
+			continue
+		}
+
+		msg, err := node.DeleteSandbox(context.Background(), &proto.SandboxID{
+			ID:       sandboxInfo.ID,
+			HostPort: sandboxInfo.PortMappings.HostPort,
+		})
+		if err != nil || !msg.Success {
+			logrus.Warnf("Failed to delete an image prewarming sandbox for function %s on node %s.", info.Name, node.GetName())
+		}
+
+		logrus.Debugf("Successfully created an image prewarming sandbox for function %s on node %s.", info.Name, node.GetName())
+	}
 }

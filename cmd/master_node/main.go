@@ -66,7 +66,7 @@ func main() {
 		dataplaneCreator = empty_dataplane.NewDataplaneConnectionEmpty
 	}
 
-	cpApiServer := api.CreateNewCpApiServer(persistenceLayer, path.Join(cfg.TraceOutputFolder, "cold_start_trace.csv"), parsePlacementPolicy(cfg), dataplaneCreator, workerNodeCreator, cfg.TraceSanboxCreation)
+	cpApiServer := api.CreateNewCpApiServer(persistenceLayer, path.Join(cfg.TraceOutputFolder, "cold_start_trace.csv"), parsePlacementPolicy(cfg), dataplaneCreator, workerNodeCreator, &cfg)
 
 	start := time.Now()
 

@@ -13,12 +13,16 @@ import (
 
 type CpApiServer struct {
 	proto.UnimplementedCpiInterfaceServer
+
 	ControlPlane *control_plane.ControlPlane
 }
 
-func CreateNewCpApiServer(client persistence.PersistenceLayer, outputFile string, placementPolicy placement_policy.PlacementPolicy, dataplaneCreator core.DataplaneFactory, workerNodeCreator core.WorkerNodeFactory, shouldTrace bool) *CpApiServer {
+func CreateNewCpApiServer(client persistence.PersistenceLayer, outputFile string,
+	placementPolicy placement_policy.PlacementPolicy, dataplaneCreator core.DataplaneFactory,
+	workerNodeCreator core.WorkerNodeFactory, cfg *config2.ControlPlaneConfig) *CpApiServer {
+
 	return &CpApiServer{
-		ControlPlane: control_plane.NewControlPlane(client, outputFile, placementPolicy, dataplaneCreator, workerNodeCreator, shouldTrace),
+		ControlPlane: control_plane.NewControlPlane(client, outputFile, placementPolicy, dataplaneCreator, workerNodeCreator, cfg),
 	}
 }
 

@@ -10,6 +10,7 @@ removeWorkerNode: false
 removeDataplane: false
 
 traceCreation: true
+precreateSnapshots: true
 
 profiler:
   enable: false
