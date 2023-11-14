@@ -51,14 +51,14 @@ type FunctionMetadata struct {
 	beingDrained *chan struct{} // TODO: implement this feature
 	metrics      ScalingMetric
 
-	autoscalingTriggered bool
+	// autoscalingTriggered - 0 = not running; other = running
+	autoscalingTriggered int32
 }
 
 type ScalingMetric struct {
 	timestamp      time.Time
 	timeWindowSize time.Duration
 
-	totalRequests    uint32
 	inflightRequests int32
 }
 
@@ -228,6 +228,7 @@ func (m *FunctionMetadata) SetEndpoints(newEndpoints []*UpstreamEndpoint) {
 
 func (m *FunctionMetadata) DecreaseInflight() {
 	atomic.AddInt32(&m.metrics.inflightRequests, -1)
+	//logrus.Trace("Decreased scaling metric.")
 }
 
 func (m *FunctionMetadata) TryWarmStart(cp *proto.CpiInterfaceClient) (chan struct{}, time.Duration) {
@@ -235,8 +236,9 @@ func (m *FunctionMetadata) TryWarmStart(cp *proto.CpiInterfaceClient) (chan stru
 
 	// autoscaling metric
 	atomic.AddInt32(&m.metrics.inflightRequests, 1)
-	// runtime statistics
-	atomic.AddUint32(&m.metrics.totalRequests, 1)
+	//logrus.Trace("Increased scaling metric.")
+
+	m.triggerAutoscaling(cp)
 
 	endpointCount := atomic.LoadInt32(&m.upstreamEndpointsCount)
 	if endpointCount == 0 {
@@ -247,17 +249,26 @@ func (m *FunctionMetadata) TryWarmStart(cp *proto.CpiInterfaceClient) (chan stru
 
 		m.queue.PushBack(waitChannel)
 
-		// trigger autoscaling
-		if !m.autoscalingTriggered {
-			m.autoscalingTriggered = true
-			m.metrics.timestamp = time.Now()
-
-			go m.sendMetricsToAutoscaler(cp)
-		}
-
 		return waitChannel, time.Since(start)
 	} else {
 		return nil, 0 // assume 0 for warm starts
+	}
+}
+
+func (m *FunctionMetadata) triggerAutoscaling(cp *proto.CpiInterfaceClient) {
+	swapped := false
+	for !swapped {
+		oldValue := atomic.LoadInt32(&m.autoscalingTriggered)
+		if oldValue == 0 {
+			swapped = atomic.CompareAndSwapInt32(&m.autoscalingTriggered, oldValue, 1)
+		} else {
+			break
+		}
+	}
+
+	if swapped {
+		m.metrics.timestamp = time.Now()
+		go m.sendMetricsToAutoscaler(cp)
 	}
 }
 
@@ -286,7 +297,7 @@ func (m *FunctionMetadata) sendMetricsToAutoscaler(cp *proto.CpiInterfaceClient)
 
 		toBreak := inflightRequests == 0
 		if toBreak {
-			m.autoscalingTriggered = false
+			atomic.StoreInt32(&m.autoscalingTriggered, 0)
 		}
 
 		m.Unlock()

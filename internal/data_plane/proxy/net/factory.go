@@ -5,6 +5,7 @@ import (
 	"crypto/tls"
 	"errors"
 	"fmt"
+	"github.com/sirupsen/logrus"
 	"net"
 	"net/http"
 	"net/http/httputil"
@@ -88,5 +89,8 @@ func NewProxy() *httputil.ReverseProxy {
 		},
 		BufferPool:    NewBufferPool(),
 		FlushInterval: 0,
+		ErrorHandler: func(writer http.ResponseWriter, request *http.Request, err error) {
+			logrus.Errorf("Proxy error - %s - %v", request.Host, err)
+		},
 	}
 }

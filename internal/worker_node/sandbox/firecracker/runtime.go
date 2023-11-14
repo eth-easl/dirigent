@@ -46,12 +46,11 @@ func NewFirecrackerRuntime(cpApi proto.CpiInterfaceClient, sandboxManager *manag
 	kernelPath string, fileSystemPath string, internalIPPrefix string, externalIPPrefix string,
 	vmDebugMode bool, useSnapshots bool) *Runtime {
 
+	DeleteAllSnapshots()
 	err := DeleteUnusedNetworkDevices()
 	if err != nil {
 		logrus.Error("Failed to remove some or all network devices.")
 	}
-
-	DeleteAllSnapshots()
 
 	ipt, err := managers.NewIptablesUtil()
 	if err != nil {
