@@ -267,8 +267,6 @@ func (m *FunctionMetadata) sendMetricsToAutoscaler(cp *proto.CpiInterfaceClient)
 	logrus.Debug("Started metrics loop")
 
 	for ; true; <-timer.C {
-		logrus.Debug("Timer ticked.")
-
 		m.Lock()
 
 		inflightRequests := atomic.LoadInt32(&m.metrics.inflightRequests)

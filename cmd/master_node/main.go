@@ -66,6 +66,10 @@ func main() {
 		dataplaneCreator = empty_dataplane.NewDataplaneConnectionEmpty
 	}
 
+	if cfg.PrecreateSnapshots {
+		logrus.Warn("Firecracker snapshot precreation is enabled. Make sure snapshots are enabled on each worker node.")
+	}
+
 	cpApiServer := api.CreateNewCpApiServer(persistenceLayer, path.Join(cfg.TraceOutputFolder, "cold_start_trace.csv"), parsePlacementPolicy(cfg), dataplaneCreator, workerNodeCreator, &cfg)
 
 	start := time.Now()

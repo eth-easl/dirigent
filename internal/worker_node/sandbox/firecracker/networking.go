@@ -232,7 +232,7 @@ func (np *NetworkPoolManager) createVETHPair(config *NetworkConfig, guestTAP str
 	// assigning default gateway of the namespace
 	err = exec.Command("sudo", "ip", "netns", "exec", config.NetNS, "ip", "route", "add", "default", "via", hostSideIpAddress).Run()
 	if err != nil {
-		logrus.Error("Error assigning default gateway of the namespace - ", config.NetNS)
+		logrus.Errorf("Error assigning default gateway of the namespace %s - %v", config.NetNS, err)
 		deleteNetworkNamespaceByName(config.NetNS)
 		deleteDeviceByName(hostSidePairName)
 		return exposedIP, hostSideIpAddress, workloadIpAddress, err
@@ -241,7 +241,7 @@ func (np *NetworkPoolManager) createVETHPair(config *NetworkConfig, guestTAP str
 	// NAT for outgoing traffic from the namespace
 	err = exec.Command("sudo", "ip", "netns", "exec", config.NetNS, "iptables", "-t", "nat", "-A", "POSTROUTING", "-o", guestSidePairName, "-s", guestTAP, "-j", "SNAT", "--to", exposedIP).Run()
 	if err != nil {
-		logrus.Error("Error adding a NAT rule for the outgoing traffic from the namespace - ", err)
+		logrus.Errorf("Error adding a NAT rule for the outgoing traffic from the namespace - %v", err)
 		deleteNetworkNamespaceByName(config.NetNS)
 		deleteDeviceByName(hostSidePairName)
 		return exposedIP, hostSideIpAddress, workloadIpAddress, err
@@ -250,7 +250,7 @@ func (np *NetworkPoolManager) createVETHPair(config *NetworkConfig, guestTAP str
 	// NAT for incoming traffic to the namespace
 	err = exec.Command("sudo", "ip", "netns", "exec", config.NetNS, "iptables", "-t", "nat", "-A", "PREROUTING", "-i", guestSidePairName, "-d", exposedIP, "-j", "DNAT", "--to", guestTAP).Run()
 	if err != nil {
-		logrus.Error("Error adding a NAT rule for the incoming traffic to the namespace - ", err)
+		logrus.Errorf("Error adding a NAT rule for the incoming traffic to the namespace - %v", err)
 		deleteNetworkNamespaceByName(config.NetNS)
 		deleteDeviceByName(hostSidePairName)
 		return exposedIP, hostSideIpAddress, workloadIpAddress, err
@@ -259,7 +259,7 @@ func (np *NetworkPoolManager) createVETHPair(config *NetworkConfig, guestTAP str
 	// adding route to the workload
 	err = exec.Command("sudo", "ip", "route", "add", exposedIP, "via", workloadIpAddress).Run()
 	if err != nil {
-		logrus.Error("Error adding route to the workload - ", err)
+		logrus.Errorf("Error adding route to the workload - %v", err)
 		deleteNetworkNamespaceByName(config.NetNS)
 		deleteDeviceByName(hostSidePairName)
 		return exposedIP, hostSideIpAddress, workloadIpAddress, err
@@ -271,7 +271,7 @@ func (np *NetworkPoolManager) createVETHPair(config *NetworkConfig, guestTAP str
 func DeleteUnusedNetworkDevices() error {
 	devices, err := net.Interfaces()
 	if err != nil {
-		logrus.Error("Error listing network devices.")
+		logrus.Errorf("Error listing network devices - %v.", err)
 		return err
 	}
 
@@ -285,7 +285,7 @@ func DeleteUnusedNetworkDevices() error {
 
 	err = exec.Command("sudo", "ip", "-all", "netns", "delete").Run()
 	if err != nil {
-		logrus.Error("Error deleting network network namespaces.")
+		logrus.Errorf("Error deleting network network namespaces - %v.", err)
 	}
 
 	return err
@@ -294,13 +294,13 @@ func DeleteUnusedNetworkDevices() error {
 func deleteDeviceByName(name string) {
 	err := exec.Command("sudo", "ip", "link", "del", name).Run()
 	if err != nil {
-		logrus.Errorf("Failed to delete network device %s.", name)
+		logrus.Errorf("Failed to delete network device %s - %v.", name, err)
 	}
 }
 
 func deleteNetworkNamespaceByName(name string) {
 	err := exec.Command("sudo", "ip", "netns", "delete", name).Run()
 	if err != nil {
-		logrus.Errorf("Failed to delete namespace %s.", name)
+		logrus.Errorf("Failed to delete namespace %s - %v.", name, err)
 	}
 }

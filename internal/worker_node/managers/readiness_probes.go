@@ -79,8 +79,6 @@ func SendReadinessProbe(url string) (time.Duration, bool) {
 			if err != nil || res == nil || (res != nil && res.StatusCode != http.StatusOK) {
 				toSleep := expBackoff.Next()
 				if toSleep < 0 {
-					logrus.Error("Failed to pass readiness probe for ", url, ".")
-
 					passed = false
 					break
 				}
@@ -100,6 +98,9 @@ func SendReadinessProbe(url string) (time.Duration, bool) {
 
 	if passed {
 		logrus.Trace("Passed readiness probe for ", url, " from ", tries, " attempt in ", elapsed.Milliseconds(), " ms")
+	} else {
+		logrus.Error("Failed to pass readiness probe for ", url, ".")
 	}
+
 	return elapsed, passed
 }
