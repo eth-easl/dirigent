@@ -14,6 +14,7 @@ type DataPlaneInterface interface {
 	AddDeployment(context.Context, *proto.ServiceInfo) (*proto.DeploymentUpdateSuccess, error)
 	UpdateEndpointList(context.Context, *proto.DeploymentEndpointPatch) (*proto.DeploymentUpdateSuccess, error)
 	DeleteDeployment(context.Context, *proto.ServiceInfo) (*proto.DeploymentUpdateSuccess, error)
+	DrainSandbox(context.Context, *proto.DeploymentEndpointPatch) (*proto.DeploymentUpdateSuccess, error)
 	ResetMeasurements(context.Context, *emptypb.Empty) (*proto.ActionStatus, error)
 	GetLastHeartBeat() time.Time
 	UpdateHeartBeat()

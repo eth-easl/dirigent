@@ -115,7 +115,7 @@ func (c *ControlPlane) reconstructServiceState(ctx context.Context) error {
 	return nil
 }
 
-// Single threaded function - reconstruction happend before starting the control plane
+// Single threaded function - reconstruction happens before starting the control plane
 func (c *ControlPlane) reconstructEndpointsState(ctx context.Context, dpiClients synchronization.SyncStructure[string, core.DataPlaneInterface]) error {
 	endpoints := make([]*proto.Endpoint, 0)
 
@@ -147,7 +147,7 @@ func (c *ControlPlane) reconstructEndpointsState(ctx context.Context, dpiClients
 		ss.Controller.Endpoints = append(ss.Controller.Endpoints, controlPlaneEndpoint)
 		atomic.AddInt64(&ss.Controller.ScalingMetadata.ActualScale, 1)
 
-		ss.updateEndpoints(dpiClients, ss.prepareUrlList())
+		ss.updateEndpoints(dpiClients, ss.prepareEndpointInfo(ss.Controller.Endpoints))
 	}
 
 	return nil

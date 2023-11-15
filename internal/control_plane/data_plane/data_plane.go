@@ -52,6 +52,10 @@ func (d *DataPlaneConnectionInfo) DeleteDeployment(ctx context.Context, in *prot
 	return d.Iface.DeleteDeployment(ctx, in)
 }
 
+func (d *DataPlaneConnectionInfo) DrainSandbox(ctx context.Context, patch *proto.DeploymentEndpointPatch) (*proto.DeploymentUpdateSuccess, error) {
+	return d.Iface.DrainSandbox(ctx, patch)
+}
+
 func (d *DataPlaneConnectionInfo) ResetMeasurements(ctx context.Context, in *emptypb.Empty) (*proto.ActionStatus, error) {
 	return d.ResetMeasurements(ctx, in)
 }

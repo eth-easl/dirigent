@@ -22,20 +22,14 @@ func (d *Deployments) AddDeployment(name string) bool {
 	d.Lock()
 	defer d.Unlock()
 
-	if m, ok := d.data[name]; ok {
-		if m.beingDrained != nil {
-			logrus.Warn("Failed registering a deployment. The deployment exists and is being drained.")
-		} else {
-			logrus.Warn("Failed registering a deployment. Name already taken.")
-		}
-
+	if _, ok := d.data[name]; ok {
+		logrus.Errorf("Failed registering a deployment %s. Name already taken.", name)
 		return false
 	}
 
 	d.data[name] = NewFunctionMetadata(name)
 
-	logrus.Info("Service with name '", name, "' has been registered")
-
+	logrus.Debugf("Service with name %s has been registered.", name)
 	return true
 }
 
@@ -47,7 +41,7 @@ func (d *Deployments) GetDeployment(name string) (*FunctionMetadata, time.Durati
 
 	data, ok := d.data[name]
 
-	if !ok || (ok && data.beingDrained != nil) {
+	if !ok {
 		return nil, time.Since(start)
 	} else {
 		return data, time.Since(start)
@@ -58,19 +52,10 @@ func (d *Deployments) DeleteDeployment(name string) bool {
 	d.Lock()
 	defer d.Unlock()
 
-	metadata, ok := d.data[name]
-	if ok {
-		// deployment cannot be modified while there is at least one
-		// HTTP request associated with that deployment
-		metadata.Lock()
-		defer metadata.Unlock()
-
-		if metadata.beingDrained != nil {
-			<-*metadata.beingDrained
-		}
+	if _, ok := d.data[name]; ok {
+		// TODO: implement draining here
 
 		delete(d.data, name)
-
 		return true
 	}
 

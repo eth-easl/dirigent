@@ -47,5 +47,5 @@ func (c *ControlPlane) removeEndpoints(ss *ServiceInfoStorage, dpConns synchroni
 	atomic.AddInt64(&ss.Controller.ScalingMetadata.ActualScale, -int64(len(toRemove)))
 	ss.excludeEndpoints(toRemove)
 
-	ss.updateEndpoints(dpConns, ss.prepareUrlList())
+	ss.updateEndpoints(dpConns, ss.prepareEndpointInfo(ss.Controller.Endpoints))
 }

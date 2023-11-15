@@ -62,10 +62,9 @@ func (ss *ServiceInfoStorage) ScalingControllerLoop(nodeList synchronization.Syn
 
 		ss.Controller.EndpointLock.Lock()
 
-		swapped := false
-
 		var actualScale int
 
+		swapped := false
 		for !swapped {
 			actualScale = int(ss.Controller.ScalingMetadata.ActualScale)
 			swapped = atomic.CompareAndSwapInt64(&ss.Controller.ScalingMetadata.ActualScale, int64(actualScale), int64(desiredCount))
@@ -78,10 +77,14 @@ func (ss *ServiceInfoStorage) ScalingControllerLoop(nodeList synchronization.Syn
 			toEvict := make(map[*core.Endpoint]struct{})
 
 			for i := 0; i < actualScale-desiredCount; i++ {
-				// TODO: Report no endpoint to evict
 				endpoint, newState := eviction_policy.EvictionPolicy(currentState)
+				if len(currentState) == 0 || endpoint == nil {
+					// TODO: this is a bug
+					logrus.Warnf("No endpoint to evict in the downscaling loop despite the actual scale is %d.", actualScale)
+					continue
+				}
 
-				if _, ok := toEvict[endpoint]; ok {
+				if _, okk := toEvict[endpoint]; okk {
 					logrus.Error("Endpoint repetition - this is a bug.")
 				}
 				toEvict[endpoint] = struct{}{}
@@ -94,10 +97,10 @@ func (ss *ServiceInfoStorage) ScalingControllerLoop(nodeList synchronization.Syn
 
 			ss.excludeEndpoints(toEvict)
 
-			go ss.doDownscaling(toEvict, ss.prepareUrlList(), dpiClients)
+			go ss.doDownscaling(toEvict, dpiClients)
 		}
 
-		ss.Controller.EndpointLock.Unlock() // for all cases (>, ==, <) // TODO: Fix this
+		ss.Controller.EndpointLock.Unlock() // for all cases (>, ==, <)
 	}
 
 	if ss.ShouldTrace {
@@ -184,7 +187,7 @@ func (ss *ServiceInfoStorage) doUpscaling(toCreateCount int, nodeList synchroniz
 	oldEndpointCount := len(ss.Controller.Endpoints)
 	// no need for 'endpointMutex' as the barrier has already been passed
 	ss.Controller.Endpoints = append(ss.Controller.Endpoints, finalEndpoint...)
-	urls := ss.prepareUrlList()
+	urls := ss.prepareEndpointInfo(finalEndpoint) // prepare delta for sending
 
 	ss.Controller.EndpointLock.Unlock()
 
@@ -200,7 +203,7 @@ func (ss *ServiceInfoStorage) doUpscaling(toCreateCount int, nodeList synchroniz
 	logrus.Debug("Endpoints updated.")
 
 	if ss.ShouldTrace {
-		ss.TracingFile.WriteString(fmt.Sprint(time.Now().Unix()) + "\n")
+		_, _ = ss.TracingFile.WriteString(fmt.Sprint(time.Now().Unix()) + "\n")
 	}
 
 	for _, endpoint := range finalEndpoint {
@@ -217,74 +220,107 @@ func (ss *ServiceInfoStorage) removeEndpointFromWNStruct(e *core.Endpoint) {
 	ss.NodeInformation.GetNoCheck(e.Node.GetName()).GetEndpointMap().Remove(e)
 }
 
-func (ss *ServiceInfoStorage) doDownscaling(toEvict map[*core.Endpoint]struct{}, urls []*proto.EndpointInfo, dpiClients synchronization.SyncStructure[string, core.DataPlaneInterface]) {
-	wg := sync.WaitGroup{}
+func (ss *ServiceInfoStorage) doDownscaling(toEvict map[*core.Endpoint]struct{}, dpiClients synchronization.SyncStructure[string, core.DataPlaneInterface]) {
+	///////////////////////////////////////////////////////////////////////////
+	// Firstly, drain the sandboxes and remove them from the data plane(s)
+	///////////////////////////////////////////////////////////////////////////
+	ss.drainSandbox(dpiClients, toEvict)
 
+	///////////////////////////////////////////////////////////////////////////
+	// Secondly, kill sandboxes on the worker node(s)
+	///////////////////////////////////////////////////////////////////////////
+	wg := sync.WaitGroup{}
 	wg.Add(len(toEvict))
 
 	for key := range toEvict {
-		victim := key
-
-		if victim == nil {
+		if key == nil {
 			logrus.Error("Victim null - should not have happened")
 			continue // why this happens?
 		}
 
-		go func(key *core.Endpoint) {
+		go func(victim *core.Endpoint) {
 			defer wg.Done()
 
-			ctx, cancel := context.WithTimeout(context.Background(), utils.WorkerNodeTrafficTimeout)
-			defer cancel()
-
-			resp, err := key.Node.DeleteSandbox(ctx, &proto.SandboxID{
-				ID:       key.SandboxID,
-				HostPort: key.HostPort,
-			})
-			if err != nil || !resp.Success {
-				errText := ""
-				if err != nil {
-					errText = err.Error()
-				}
-				logrus.Warnf("Failed to delete a sandbox with ID %s on worker node %s. (error : %s)", victim.SandboxID, victim.Node.GetName(), errText)
-				return
-			}
-
-			ss.removeEndpointFromWNStruct(key)
+			deleteSandbox(victim)
+			ss.removeEndpointFromWNStruct(victim)
 		}(key)
 	}
 
 	// batch update of endpoints
 	wg.Wait()
+}
 
-	ss.updateEndpoints(dpiClients, urls)
+func (ss *ServiceInfoStorage) drainSandbox(dataPlanes synchronization.SyncStructure[string, core.DataPlaneInterface], toEvict map[*core.Endpoint]struct{}) {
+	////////////////////////////////////////////////////////
+	var toDrain []*core.Endpoint
+	for elem := range toEvict {
+		toDrain = append(toDrain, elem)
+	}
+	////////////////////////////////////////////////////////
+	dataPlanes.Lock()
+
+	wg := sync.WaitGroup{}
+	wg.Add(len(dataPlanes.GetMap()))
+
+	for _, dp := range dataPlanes.GetMap() {
+		go func(dataPlane core.DataPlaneInterface) {
+			defer wg.Done()
+
+			ctx, cancel := context.WithTimeout(context.Background(), utils.WorkerNodeTrafficTimeout)
+			defer cancel()
+
+			_, err := dataPlane.DrainSandbox(ctx, &proto.DeploymentEndpointPatch{
+				Service:   ss.ServiceInfo,
+				Endpoints: ss.prepareEndpointInfo(toDrain),
+			})
+			if err != nil {
+				logrus.Errorf("Error draining endpoints for service %s.", ss.ServiceInfo.Name)
+			}
+		}(dp)
+	}
+
+	dataPlanes.Unlock()
+	wg.Wait()
+}
+
+func deleteSandbox(key *core.Endpoint) {
+	ctx, cancel := context.WithTimeout(context.Background(), utils.WorkerNodeTrafficTimeout)
+	defer cancel()
+
+	_, err := key.Node.DeleteSandbox(ctx, &proto.SandboxID{
+		ID:       key.SandboxID,
+		HostPort: key.HostPort,
+	})
+	if err != nil {
+		logrus.Warnf("Failed to delete a sandbox with ID %s on worker node %s. (error : %v)", key.SandboxID, key.Node.GetName(), err)
+	}
 }
 
 func (ss *ServiceInfoStorage) updateEndpoints(dpiClients synchronization.SyncStructure[string, core.DataPlaneInterface], endpoints []*proto.EndpointInfo) {
 	wg := &sync.WaitGroup{}
-
 	wg.Add(dpiClients.Len())
 
 	dpiClients.Lock()
-	for _, c := range dpiClients.GetMap() {
-		go func(c core.DataPlaneInterface) {
-			resp, err := c.UpdateEndpointList(context.Background(), &proto.DeploymentEndpointPatch{
+
+	for _, dp := range dpiClients.GetMap() {
+		go func(dataPlane core.DataPlaneInterface) {
+			defer wg.Done()
+
+			ctx, cancel := context.WithTimeout(context.Background(), utils.WorkerNodeTrafficTimeout)
+			defer cancel()
+
+			_, err := dataPlane.UpdateEndpointList(ctx, &proto.DeploymentEndpointPatch{
 				Service:   ss.ServiceInfo,
 				Endpoints: endpoints,
 			})
-			if err != nil || !resp.Success {
-				errText := ""
-				if err != nil {
-					errText = err.Error()
-				}
-				logrus.Warnf("Failed to update endpoint list in the data plane : %s", errText)
+			if err != nil {
+				logrus.Warnf("Failed to update endpoint list in the data plane - %v", err)
 			}
-
-			wg.Done()
-		}(c)
+		}(dp)
 	}
-	wg.Wait()
 
 	dpiClients.Unlock()
+	wg.Wait()
 }
 
 func (ss *ServiceInfoStorage) excludeEndpoints(toExclude map[*core.Endpoint]struct{}) {
@@ -299,13 +335,13 @@ func (ss *ServiceInfoStorage) excludeEndpoints(toExclude map[*core.Endpoint]stru
 	ss.Controller.Endpoints = result
 }
 
-func (ss *ServiceInfoStorage) prepareUrlList() []*proto.EndpointInfo {
+func (ss *ServiceInfoStorage) prepareEndpointInfo(endpoints []*core.Endpoint) []*proto.EndpointInfo {
 	var res []*proto.EndpointInfo
 
-	for i := 0; i < len(ss.Controller.Endpoints); i++ {
+	for i := 0; i < len(endpoints); i++ {
 		res = append(res, &proto.EndpointInfo{
-			ID:  ss.Controller.Endpoints[i].SandboxID,
-			URL: ss.Controller.Endpoints[i].URL,
+			ID:  endpoints[i].SandboxID,
+			URL: endpoints[i].URL,
 		})
 	}
 

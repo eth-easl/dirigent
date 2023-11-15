@@ -23,8 +23,10 @@ message DeploymentUpdateSuccess {
 
 service DpiInterface {
   rpc AddDeployment(ServiceInfo) returns (DeploymentUpdateSuccess);
-  rpc UpdateEndpointList(DeploymentEndpointPatch) returns (DeploymentUpdateSuccess);
   rpc DeleteDeployment(ServiceInfo) returns (DeploymentUpdateSuccess);
+
+  rpc UpdateEndpointList(DeploymentEndpointPatch) returns (DeploymentUpdateSuccess);
+  rpc DrainSandbox(DeploymentEndpointPatch) returns (DeploymentUpdateSuccess);
 
   rpc ResetMeasurements(google.protobuf.Empty) returns (ActionStatus);
 }

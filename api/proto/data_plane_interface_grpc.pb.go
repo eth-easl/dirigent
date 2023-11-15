@@ -20,8 +20,9 @@ const _ = grpc.SupportPackageIsVersion7
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 type DpiInterfaceClient interface {
 	AddDeployment(ctx context.Context, in *ServiceInfo, opts ...grpc.CallOption) (*DeploymentUpdateSuccess, error)
-	UpdateEndpointList(ctx context.Context, in *DeploymentEndpointPatch, opts ...grpc.CallOption) (*DeploymentUpdateSuccess, error)
 	DeleteDeployment(ctx context.Context, in *ServiceInfo, opts ...grpc.CallOption) (*DeploymentUpdateSuccess, error)
+	UpdateEndpointList(ctx context.Context, in *DeploymentEndpointPatch, opts ...grpc.CallOption) (*DeploymentUpdateSuccess, error)
+	DrainSandbox(ctx context.Context, in *DeploymentEndpointPatch, opts ...grpc.CallOption) (*DeploymentUpdateSuccess, error)
 	ResetMeasurements(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*ActionStatus, error)
 }
 
@@ -42,6 +43,15 @@ func (c *dpiInterfaceClient) AddDeployment(ctx context.Context, in *ServiceInfo,
 	return out, nil
 }
 
+func (c *dpiInterfaceClient) DeleteDeployment(ctx context.Context, in *ServiceInfo, opts ...grpc.CallOption) (*DeploymentUpdateSuccess, error) {
+	out := new(DeploymentUpdateSuccess)
+	err := c.cc.Invoke(ctx, "/data_plane.DpiInterface/DeleteDeployment", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 func (c *dpiInterfaceClient) UpdateEndpointList(ctx context.Context, in *DeploymentEndpointPatch, opts ...grpc.CallOption) (*DeploymentUpdateSuccess, error) {
 	out := new(DeploymentUpdateSuccess)
 	err := c.cc.Invoke(ctx, "/data_plane.DpiInterface/UpdateEndpointList", in, out, opts...)
@@ -51,9 +61,9 @@ func (c *dpiInterfaceClient) UpdateEndpointList(ctx context.Context, in *Deploym
 	return out, nil
 }
 
-func (c *dpiInterfaceClient) DeleteDeployment(ctx context.Context, in *ServiceInfo, opts ...grpc.CallOption) (*DeploymentUpdateSuccess, error) {
+func (c *dpiInterfaceClient) DrainSandbox(ctx context.Context, in *DeploymentEndpointPatch, opts ...grpc.CallOption) (*DeploymentUpdateSuccess, error) {
 	out := new(DeploymentUpdateSuccess)
-	err := c.cc.Invoke(ctx, "/data_plane.DpiInterface/DeleteDeployment", in, out, opts...)
+	err := c.cc.Invoke(ctx, "/data_plane.DpiInterface/DrainSandbox", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -74,8 +84,9 @@ func (c *dpiInterfaceClient) ResetMeasurements(ctx context.Context, in *emptypb.
 // for forward compatibility
 type DpiInterfaceServer interface {
 	AddDeployment(context.Context, *ServiceInfo) (*DeploymentUpdateSuccess, error)
-	UpdateEndpointList(context.Context, *DeploymentEndpointPatch) (*DeploymentUpdateSuccess, error)
 	DeleteDeployment(context.Context, *ServiceInfo) (*DeploymentUpdateSuccess, error)
+	UpdateEndpointList(context.Context, *DeploymentEndpointPatch) (*DeploymentUpdateSuccess, error)
+	DrainSandbox(context.Context, *DeploymentEndpointPatch) (*DeploymentUpdateSuccess, error)
 	ResetMeasurements(context.Context, *emptypb.Empty) (*ActionStatus, error)
 	mustEmbedUnimplementedDpiInterfaceServer()
 }
@@ -87,11 +98,14 @@ type UnimplementedDpiInterfaceServer struct {
 func (UnimplementedDpiInterfaceServer) AddDeployment(context.Context, *ServiceInfo) (*DeploymentUpdateSuccess, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method AddDeployment not implemented")
 }
+func (UnimplementedDpiInterfaceServer) DeleteDeployment(context.Context, *ServiceInfo) (*DeploymentUpdateSuccess, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method DeleteDeployment not implemented")
+}
 func (UnimplementedDpiInterfaceServer) UpdateEndpointList(context.Context, *DeploymentEndpointPatch) (*DeploymentUpdateSuccess, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method UpdateEndpointList not implemented")
 }
-func (UnimplementedDpiInterfaceServer) DeleteDeployment(context.Context, *ServiceInfo) (*DeploymentUpdateSuccess, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method DeleteDeployment not implemented")
+func (UnimplementedDpiInterfaceServer) DrainSandbox(context.Context, *DeploymentEndpointPatch) (*DeploymentUpdateSuccess, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method DrainSandbox not implemented")
 }
 func (UnimplementedDpiInterfaceServer) ResetMeasurements(context.Context, *emptypb.Empty) (*ActionStatus, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method ResetMeasurements not implemented")
@@ -127,6 +141,24 @@ func _DpiInterface_AddDeployment_Handler(srv interface{}, ctx context.Context, d
 	return interceptor(ctx, in, info, handler)
 }
 
+func _DpiInterface_DeleteDeployment_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ServiceInfo)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(DpiInterfaceServer).DeleteDeployment(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/data_plane.DpiInterface/DeleteDeployment",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(DpiInterfaceServer).DeleteDeployment(ctx, req.(*ServiceInfo))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 func _DpiInterface_UpdateEndpointList_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(DeploymentEndpointPatch)
 	if err := dec(in); err != nil {
@@ -145,20 +177,20 @@ func _DpiInterface_UpdateEndpointList_Handler(srv interface{}, ctx context.Conte
 	return interceptor(ctx, in, info, handler)
 }
 
-func _DpiInterface_DeleteDeployment_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(ServiceInfo)
+func _DpiInterface_DrainSandbox_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(DeploymentEndpointPatch)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(DpiInterfaceServer).DeleteDeployment(ctx, in)
+		return srv.(DpiInterfaceServer).DrainSandbox(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: "/data_plane.DpiInterface/DeleteDeployment",
+		FullMethod: "/data_plane.DpiInterface/DrainSandbox",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(DpiInterfaceServer).DeleteDeployment(ctx, req.(*ServiceInfo))
+		return srv.(DpiInterfaceServer).DrainSandbox(ctx, req.(*DeploymentEndpointPatch))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -193,12 +225,16 @@ var DpiInterface_ServiceDesc = grpc.ServiceDesc{
 			Handler:    _DpiInterface_AddDeployment_Handler,
 		},
 		{
+			MethodName: "DeleteDeployment",
+			Handler:    _DpiInterface_DeleteDeployment_Handler,
+		},
+		{
 			MethodName: "UpdateEndpointList",
 			Handler:    _DpiInterface_UpdateEndpointList_Handler,
 		},
 		{
-			MethodName: "DeleteDeployment",
-			Handler:    _DpiInterface_DeleteDeployment_Handler,
+			MethodName: "DrainSandbox",
+			Handler:    _DpiInterface_DrainSandbox_Handler,
 		},
 		{
 			MethodName: "ResetMeasurements",

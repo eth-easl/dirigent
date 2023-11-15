@@ -33,7 +33,11 @@ func (api *DpApiServer) DeleteDeployment(_ context.Context, name *proto.ServiceI
 	return api.dataplane.DeleteDeployment(name)
 }
 
-func (api *DpApiServer) ResetMeasurements(ctx context.Context, in *emptypb.Empty) (*proto.ActionStatus, error) {
+func (api *DpApiServer) DrainSandbox(_ context.Context, endpoint *proto.DeploymentEndpointPatch) (*proto.DeploymentUpdateSuccess, error) {
+	return api.dataplane.DrainSandbox(endpoint)
+}
+
+func (api *DpApiServer) ResetMeasurements(_ context.Context, in *emptypb.Empty) (*proto.ActionStatus, error) {
 	api.Proxy.Tracing.ResetTracingService()
 	return &proto.ActionStatus{Success: true}, nil
 }

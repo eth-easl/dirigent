@@ -39,6 +39,13 @@ func (e emptyDataplane) DeleteDeployment(ctx context.Context, info *proto.Servic
 	}, nil
 }
 
+func (e emptyDataplane) DrainSandbox(context.Context, *proto.DeploymentEndpointPatch) (*proto.DeploymentUpdateSuccess, error) {
+	return &proto.DeploymentUpdateSuccess{
+		Success: true,
+		Message: "",
+	}, nil
+}
+
 func (e emptyDataplane) ResetMeasurements(ctx context.Context, empty *emptypb.Empty) (*proto.ActionStatus, error) {
 	return &proto.ActionStatus{
 		Success: true,
