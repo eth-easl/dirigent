@@ -194,7 +194,10 @@ cd scripts/francois; ./burst.sh 1
 In case you get a timeout, try to run the following command before
 
 ```bash
+# For local readiness probes
 sudo sysctl -w net.ipv4.conf.all.route_localnet=1
+# For reachability of sandboxes from other cluster nodes
+sudo sysctl -w net.ipv4.ip_forward=1
 ```
 
 ## Configure Firecracker for local development
