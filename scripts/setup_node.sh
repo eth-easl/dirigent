@@ -40,3 +40,8 @@ sudo sh -c  "echo 'export PATH=\$PATH:/usr/local/bin/firecracker' >> /etc/profil
 
 # Copy systemd services
 sudo cp -a ~/cluster_manager/scripts/systemd/* /etc/systemd/system/
+
+# For local readiness probes
+sudo sysctl -w net.ipv4.conf.all.route_localnet=1
+# For reachability of sandboxes from other cluster nodes
+sudo sysctl -w net.ipv4.ip_forward=1

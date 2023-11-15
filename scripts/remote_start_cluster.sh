@@ -23,6 +23,8 @@ function SetupControlPlane() {
     RemoteExec $CONTROL_PLANE "sudo cp ~/cluster_manager/cmd/master_node/main /cluster_manager/cmd/master_node/"
     RemoteExec $CONTROL_PLANE "sudo cp ~/cluster_manager/cmd/master_node/config_cluster.yaml /cluster_manager/cmd/master_node/"
 
+    # Remove old logs
+    RemoteExec $CONTROL_PLANE "sudo journalctl --vacuum-time=1s && sudo journalctl --vacuum-time=1d"
     # Start control plane
     RemoteExec $CONTROL_PLANE "sudo systemctl daemon-reload && sudo systemctl start control_plane.service"
 }
@@ -36,6 +38,8 @@ function SetupDataPlane() {
     RemoteExec $DATA_PLANE "sudo cp ~/cluster_manager/cmd/data_plane/main /cluster_manager/cmd/data_plane/"
     RemoteExec $DATA_PLANE "sudo cp ~/cluster_manager/cmd/data_plane/config_cluster.yaml /cluster_manager/cmd/data_plane/"
 
+    # Remove old logs
+    RemoteExec $DATA_PLANE "sudo journalctl --vacuum-time=1s && sudo journalctl --vacuum-time=1d"
     # Start data plane
     RemoteExec $DATA_PLANE "sudo systemctl daemon-reload && sudo systemctl start data_plane.service"
 }
@@ -52,7 +56,11 @@ function SetupWorkerNodes() {
 
         # For readiness probe
         RemoteExec $1 "sudo sysctl -w net.ipv4.conf.all.route_localnet=1"
+        # For reachability of sandboxes from other cluster nodes
+        RemoteExec $1 "sudo sysctl -w net.ipv4.ip_forward=1"
 
+        # Remove old logs
+        RemoteExec $1 "sudo journalctl --vacuum-time=1s && sudo journalctl --vacuum-time=1d"
         # Start worker node daemon
         RemoteExec $1 "sudo systemctl daemon-reload && sudo systemctl start worker_node.service"
     }
@@ -67,6 +75,7 @@ function SetupWorkerNodes() {
 
 function KillSystemdServices() {
     function internal_kill() {
+        RemoteExec $1 "sudo killall firecracker"
         RemoteExec $1 "sudo systemctl stop worker_node"
     }
 

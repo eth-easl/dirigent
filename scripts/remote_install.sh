@@ -23,8 +23,6 @@ function SetupNode() {
     RemoteExec $1 'cd ~/cluster_manager; git pull; git lfs pull'
     RemoteExec $1 'sudo cp -r ~/cluster_manager/ /cluster_manager'
     RemoteExec $1 'git clone https://github.com/vhive-serverless/invitro'
-    # For readiness probe
-    RemoteExec $1 "sudo sysctl -w net.ipv4.conf.all.route_localnet=1"
 }
 
 for NODE in "$@"
