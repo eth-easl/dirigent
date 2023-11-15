@@ -6,7 +6,6 @@ import (
 	_map "cluster_manager/pkg/map"
 	"container/list"
 	"context"
-	"errors"
 	"os"
 	"sync"
 	"sync/atomic"
@@ -25,6 +24,10 @@ type UpstreamEndpoint struct {
 	ID       string
 	Capacity RequestThrottler
 	URL      string
+	// Zero equals false; Everything else is true
+	Drained          int32
+	DrainingCallback chan struct{}
+	InFlight         int32
 }
 
 type LoadBalancingMetadata struct {
@@ -42,14 +45,14 @@ type FunctionMetadata struct {
 	identifier         string
 	sandboxParallelism uint
 
-	upstreamEndpoints      []*UpstreamEndpoint
-	upstreamEndpointsCount int32
-	queue                  *list.List
+	upstreamEndpoints []*UpstreamEndpoint
+	// Endpoint is active if it is not being drained.
+	activeEndpointCount int32
+	queue               *list.List
 
 	loadBalancingMetadata LoadBalancingMetadata
 
-	beingDrained *chan struct{} // TODO: implement this feature
-	metrics      ScalingMetric
+	metrics ScalingMetric
 
 	// autoscalingTriggered - 0 = not running; other = running
 	autoscalingTriggered int32
@@ -85,6 +88,10 @@ func NewFunctionMetadata(name string) *FunctionMetadata {
 	}
 }
 
+func (m *FunctionMetadata) GetIdentifier() string {
+	return m.identifier
+}
+
 func (m *FunctionMetadata) GetUpstreamEndpoints() []*UpstreamEndpoint {
 	return m.upstreamEndpoints
 }
@@ -113,7 +120,7 @@ func (m *FunctionMetadata) GetRequestCountPerInstance() *atomic_map.AtomicMapCou
 	return m.loadBalancingMetadata.RequestCountPerInstance
 }
 
-func (m *FunctionMetadata) UpdateRequestMetadata(endpoint *UpstreamEndpoint) {
+func (m *FunctionMetadata) IncrementRequestCountPerInstance(endpoint *UpstreamEndpoint) {
 	m.loadBalancingMetadata.RequestCountPerInstance.AtomicIncrement(endpoint)
 }
 
@@ -139,38 +146,43 @@ func createThrottlerChannel(capacity uint) RequestThrottler {
 	return ccChannel
 }
 
-func (m *FunctionMetadata) updateEndpointList(data []*proto.EndpointInfo) {
-	oldURLs, mmOld := _map.ExtractField[*UpstreamEndpoint](m.upstreamEndpoints, func(info *UpstreamEndpoint) string { return info.URL })
-	newURLs, mmNew := _map.ExtractField[*proto.EndpointInfo](data, func(info *proto.EndpointInfo) string { return info.URL })
+func endpointDelta(oldEndpoints []*UpstreamEndpoint, newEndpoints []*proto.EndpointInfo) (map[string]*UpstreamEndpoint, map[string]*proto.EndpointInfo, []string, []string) {
+	oldURLs, mmOld := _map.ExtractField[*UpstreamEndpoint](oldEndpoints, func(info *UpstreamEndpoint) string { return info.URL })
+	newURLs, mmNew := _map.ExtractField[*proto.EndpointInfo](newEndpoints, func(info *proto.EndpointInfo) string { return info.URL })
 
 	toAdd := _map.Difference(newURLs, oldURLs)
 	toRemove := _map.Difference(oldURLs, newURLs)
+
+	return mmOld, mmNew, toAdd, toRemove
+}
+
+func (m *FunctionMetadata) addToEndpointList(data []*proto.EndpointInfo) int {
+	_, mmNew, toAdd, _ := endpointDelta(m.upstreamEndpoints, data)
 
 	for i := 0; i < len(toAdd); i++ {
 		m.upstreamEndpoints = append(m.upstreamEndpoints, &UpstreamEndpoint{
 			ID:       mmNew[toAdd[i]].ID,
 			URL:      mmNew[toAdd[i]].URL,
 			Capacity: createThrottlerChannel(m.sandboxParallelism),
+			Drained:  0, // not in drain mode
+			InFlight: 0,
 		})
 	}
 
-	for i := 0; i < len(toRemove); i++ {
-		for j := 0; j < len(m.upstreamEndpoints); j++ {
-			if mmOld[toRemove[i]].URL == m.upstreamEndpoints[j].URL {
-				m.upstreamEndpoints = append(m.upstreamEndpoints[:j], m.upstreamEndpoints[j+1:]...)
-				break
-			}
-		}
+	if len(m.upstreamEndpoints) > 1 {
+		logrus.Errorf("ASSERTION - UPSTREAM ENDPOINTS > 1")
 	}
+
+	return len(toAdd)
 }
 
-func (m *FunctionMetadata) SetUpstreamURLs(endpoints []*proto.EndpointInfo) error {
+func (m *FunctionMetadata) AddEndpoints(endpoints []*proto.EndpointInfo) {
 	m.Lock()
 	defer m.Unlock()
 
-	logrus.Debug("Updated endpoint list for ", m.identifier)
-	m.updateEndpointList(endpoints)
-	atomic.StoreInt32(&m.upstreamEndpointsCount, int32(len(m.upstreamEndpoints)))
+	endpointCountDelta := m.addToEndpointList(endpoints)
+	atomic.StoreInt32(&m.activeEndpointCount, int32(len(m.upstreamEndpoints)))
+	logrus.Debugf("Added %d endpoint(s) for %s.", endpointCountDelta, m.identifier)
 
 	if len(m.upstreamEndpoints) > 0 {
 		dequeueCnt := 0
@@ -179,11 +191,7 @@ func (m *FunctionMetadata) SetUpstreamURLs(endpoints []*proto.EndpointInfo) erro
 			dequeue := m.queue.Front()
 			m.queue.Remove(dequeue)
 
-			signal, ok := dequeue.Value.(chan struct{})
-			if !ok {
-				return errors.New("Failed to convert dequeue into channel")
-			}
-
+			signal, _ := dequeue.Value.(chan struct{})
 			signal <- struct{}{}
 			close(signal)
 
@@ -194,8 +202,90 @@ func (m *FunctionMetadata) SetUpstreamURLs(endpoints []*proto.EndpointInfo) erro
 			logrus.Debug("Dequeued ", dequeueCnt, " requests for ", m.identifier)
 		}
 	}
+}
+
+func (m *FunctionMetadata) DrainEndpoints(endpoints []*proto.EndpointInfo) error {
+	m.Lock()
+	barriers := m.markEndpointsAsDraining(endpoints)
+	m.removeEndpoints(endpoints)
+	m.Unlock()
+
+	m.waitForDrainingToComplete(barriers)
 
 	return nil
+}
+
+func (m *FunctionMetadata) removeEndpoints(endpoints []*proto.EndpointInfo) {
+	mmOld, _, _, toRemove := endpointDelta(m.upstreamEndpoints, endpoints)
+	for i := 0; i < len(toRemove); i++ {
+		for j := 0; j < len(m.upstreamEndpoints); j++ {
+			if mmOld[toRemove[i]].URL == m.upstreamEndpoints[j].URL {
+				m.upstreamEndpoints = append(m.upstreamEndpoints[:j], m.upstreamEndpoints[j+1:]...)
+				break
+			}
+		}
+	}
+
+	atomic.StoreInt32(&m.activeEndpointCount, int32(len(m.upstreamEndpoints)))
+
+	if len(m.upstreamEndpoints) != 0 {
+		logrus.Errorf("ASSERTION - DRAIN - UPSTREAM ENDPOINTS != 0")
+	}
+}
+
+func (m *FunctionMetadata) markEndpointsAsDraining(endpoints []*proto.EndpointInfo) []chan struct{} {
+	infos := make(map[string]*proto.EndpointInfo)
+	for _, e := range endpoints {
+		infos[e.ID] = e
+	}
+	///////////////////////////////////////////////
+	var callbackBlocks []chan struct{}
+
+	count := 0
+	for _, endpoint := range m.upstreamEndpoints {
+		if _, ok := infos[endpoint.ID]; ok {
+			swapped := false
+			var oldValue int32
+			for !swapped {
+				oldValue = atomic.LoadInt32(&endpoint.Drained)
+				swapped = atomic.CompareAndSwapInt32(&endpoint.Drained, oldValue, 1)
+			}
+
+			if swapped && oldValue == 0 {
+				endpoint.DrainingCallback = make(chan struct{}, 1)
+				callbackBlocks = append(callbackBlocks, endpoint.DrainingCallback)
+
+				if atomic.LoadInt32(&endpoint.InFlight) == 0 {
+					endpoint.DrainingCallback <- struct{}{}
+					close(endpoint.DrainingCallback)
+				}
+			}
+		} else {
+			// counting endpoints that are not in drain mode
+			count++
+		}
+	}
+
+	return callbackBlocks
+}
+
+func (m *FunctionMetadata) waitForDrainingToComplete(barriers []chan struct{}) {
+	if len(barriers) == 0 {
+		return
+	}
+
+	wg := sync.WaitGroup{}
+	wg.Add(len(barriers))
+
+	for i := 0; i < len(barriers); i++ {
+		go func(endpointBarrier chan struct{}) {
+			defer wg.Done()
+
+			<-endpointBarrier
+		}(barriers[i])
+	}
+
+	wg.Wait()
 }
 
 func (m *FunctionMetadata) dequeueRequests() {
@@ -228,7 +318,6 @@ func (m *FunctionMetadata) SetEndpoints(newEndpoints []*UpstreamEndpoint) {
 
 func (m *FunctionMetadata) DecreaseInflight() {
 	atomic.AddInt32(&m.metrics.inflightRequests, -1)
-	//logrus.Trace("Decreased scaling metric.")
 }
 
 func (m *FunctionMetadata) TryWarmStart(cp *proto.CpiInterfaceClient) (chan struct{}, time.Duration) {
@@ -236,12 +325,10 @@ func (m *FunctionMetadata) TryWarmStart(cp *proto.CpiInterfaceClient) (chan stru
 
 	// autoscaling metric
 	atomic.AddInt32(&m.metrics.inflightRequests, 1)
-	//logrus.Trace("Increased scaling metric.")
 
 	m.triggerAutoscaling(cp)
 
-	endpointCount := atomic.LoadInt32(&m.upstreamEndpointsCount)
-	if endpointCount == 0 {
+	if atomic.LoadInt32(&m.activeEndpointCount) == 0 {
 		waitChannel := make(chan struct{}, 1)
 
 		m.Lock()

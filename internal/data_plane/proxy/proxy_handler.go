@@ -8,6 +8,7 @@ import (
 	"cluster_manager/pkg/tracing"
 	"net"
 	"net/http"
+	"sync/atomic"
 	"time"
 
 	"github.com/sirupsen/logrus"
@@ -69,11 +70,10 @@ func (ps *ProxyingService) createInvocationHandler(next http.Handler, cache *com
 	return func(w http.ResponseWriter, r *http.Request) {
 		start := time.Now()
 
-		serviceName := getServiceName(r)
-
 		///////////////////////////////////////////////
 		// METADATA FETCHING
 		///////////////////////////////////////////////
+		serviceName := getServiceName(r)
 		metadata, durationGetDeployment := cache.GetDeployment(serviceName)
 		if metadata == nil {
 			// Request function has not been deployed
@@ -97,13 +97,16 @@ func (ps *ProxyingService) createInvocationHandler(next http.Handler, cache *com
 			// wait until a cold start is resolved
 			coldStartWaitTime := time.Now()
 			<-coldStartChannel
+			/*if !waitForColdStartOrDie(coldStartChannel, metadata.GetIdentifier()) {
+				w.WriteHeader(http.StatusRequestTimeout)
+				return
+			}*/
 			durationColdStart = time.Since(coldStartWaitTime)
 		}
 
 		///////////////////////////////////////////////
 		// LOAD BALANCING AND ROUTING
 		///////////////////////////////////////////////
-
 		lbSuccess, endpoint, durationLB, durationCC := load_balancing.DoLoadBalancing(r, metadata, ps.LoadBalancingPolicy)
 		if !lbSuccess {
 			w.WriteHeader(http.StatusGone)
@@ -112,7 +115,7 @@ func (ps *ProxyingService) createInvocationHandler(next http.Handler, cache *com
 			return
 		}
 
-		defer giveBackCCCapacity(endpoint.Capacity)
+		defer giveBackCCCapacity(endpoint)
 
 		///////////////////////////////////////////////
 		// PROXYING - LEAVING THE MACHINE
@@ -139,8 +142,25 @@ func (ps *ProxyingService) createInvocationHandler(next http.Handler, cache *com
 	}
 }
 
-func giveBackCCCapacity(cc common.RequestThrottler) {
-	if cc != nil {
-		cc <- struct{}{}
+func waitForColdStartOrDie(coldStartChannel chan struct{}, id string) bool {
+	select {
+	case <-coldStartChannel:
+		logrus.Debug("Passed cold start channel for %s.", id)
+		return true
+	case <-time.After(time.Minute):
+		logrus.Debugf("Canceled invocation for %s. Cold start timeout.", id)
+		return false
+	}
+}
+
+func giveBackCCCapacity(endpoint *common.UpstreamEndpoint) {
+	endpointInflight := atomic.AddInt32(&endpoint.InFlight, -1)
+	if atomic.LoadInt32(&endpoint.Drained) != 0 && endpointInflight == 0 {
+		endpoint.DrainingCallback <- struct{}{}
+		close(endpoint.DrainingCallback)
+	}
+
+	if endpoint.Capacity != nil {
+		endpoint.Capacity <- struct{}{}
 	}
 }

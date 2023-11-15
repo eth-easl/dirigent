@@ -4,6 +4,7 @@ import (
 	"cluster_manager/internal/data_plane/function_metadata"
 	"math/rand"
 	"net/http"
+	"sync/atomic"
 	"time"
 
 	"github.com/sirupsen/logrus"
@@ -47,14 +48,15 @@ func DoLoadBalancing(req *http.Request, metadata *function_metadata.FunctionMeta
 	ccStart := time.Now()
 
 	<-endpoint.Capacity // CC throttler
+	atomic.AddInt32(&endpoint.InFlight, 1)
 
 	ccDuration := time.Since(ccStart)
 
 	req.URL.Scheme = "http"
 	req.URL.Host = endpoint.URL
-	logrus.Debug("Invocation forwarded to ", endpoint.URL)
+	logrus.Debugf("Invocation for %s forwarded to %s.", metadata.GetIdentifier(), endpoint.URL)
 
-	metadata.UpdateRequestMetadata(endpoint)
+	metadata.IncrementRequestCountPerInstance(endpoint)
 
 	return true, endpoint, time.Since(start), ccDuration
 }
