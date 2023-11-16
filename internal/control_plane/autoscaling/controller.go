@@ -13,6 +13,8 @@ import (
 type PFStateController struct {
 	EndpointLock sync.Mutex
 
+	ServiceName string
+
 	AutoscalingRunning  int32
 	DesiredStateChannel chan int
 
@@ -24,6 +26,7 @@ type PFStateController struct {
 
 func NewPerFunctionStateController(scalingChannel chan int, serviceInfo *proto.ServiceInfo, period time.Duration) *PFStateController {
 	return &PFStateController{
+		ServiceName:         serviceInfo.Name,
 		DesiredStateChannel: scalingChannel,
 		Period:              period,
 		ScalingMetadata: AutoscalingMetadata{
@@ -48,11 +51,11 @@ func (as *PFStateController) ScalingLoop() {
 
 	isScaleFromZero := true
 
-	logrus.Debug("Starting scaling loop")
+	logrus.Debugf("Starting scaling loop for %s.", as.ServiceName)
 
 	for ; true; <-ticker.C {
 		desiredScale := as.ScalingMetadata.KnativeScaling(isScaleFromZero)
-		logrus.Debugf("Desired scale: %d", desiredScale)
+		logrus.Debugf("Desired scale for %s is %d", as.ServiceName, desiredScale)
 
 		as.DesiredStateChannel <- desiredScale
 
@@ -60,7 +63,7 @@ func (as *PFStateController) ScalingLoop() {
 
 		if desiredScale == 0 {
 			atomic.StoreInt32(&as.AutoscalingRunning, 0)
-			logrus.Debug("Exited scaling loop")
+			logrus.Debugf("Exited scaling loop for %s.", as.ServiceName)
 
 			break
 		}

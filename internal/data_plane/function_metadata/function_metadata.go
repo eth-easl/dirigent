@@ -156,13 +156,11 @@ func endpointDelta(oldEndpoints []*UpstreamEndpoint, newEndpoints []*proto.Endpo
 	return mmOld, mmNew, toAdd, toRemove
 }
 
-func (m *FunctionMetadata) addToEndpointList(data []*proto.EndpointInfo) int {
-	_, mmNew, toAdd, _ := endpointDelta(m.upstreamEndpoints, data)
-
-	for i := 0; i < len(toAdd); i++ {
+func (m *FunctionMetadata) addToEndpointList(data []*proto.EndpointInfo) {
+	for i := 0; i < len(data); i++ {
 		m.upstreamEndpoints = append(m.upstreamEndpoints, &UpstreamEndpoint{
-			ID:       mmNew[toAdd[i]].ID,
-			URL:      mmNew[toAdd[i]].URL,
+			ID:       data[i].ID,
+			URL:      data[i].URL,
 			Capacity: createThrottlerChannel(m.sandboxParallelism),
 			Drained:  0, // not in drain mode
 			InFlight: 0,
@@ -172,17 +170,15 @@ func (m *FunctionMetadata) addToEndpointList(data []*proto.EndpointInfo) int {
 	if len(m.upstreamEndpoints) > 1 {
 		logrus.Errorf("ASSERTION - UPSTREAM ENDPOINTS > 1")
 	}
-
-	return len(toAdd)
 }
 
 func (m *FunctionMetadata) AddEndpoints(endpoints []*proto.EndpointInfo) {
 	m.Lock()
 	defer m.Unlock()
 
-	endpointCountDelta := m.addToEndpointList(endpoints)
+	m.addToEndpointList(endpoints)
 	atomic.StoreInt32(&m.activeEndpointCount, int32(len(m.upstreamEndpoints)))
-	logrus.Debugf("Added %d endpoint(s) for %s.", endpointCountDelta, m.identifier)
+	logrus.Debugf("Added %d endpoint(s) for %s.", len(endpoints), m.identifier)
 
 	if len(m.upstreamEndpoints) > 0 {
 		dequeueCnt := 0
@@ -216,10 +212,9 @@ func (m *FunctionMetadata) DrainEndpoints(endpoints []*proto.EndpointInfo) error
 }
 
 func (m *FunctionMetadata) removeEndpoints(endpoints []*proto.EndpointInfo) {
-	mmOld, _, _, toRemove := endpointDelta(m.upstreamEndpoints, endpoints)
-	for i := 0; i < len(toRemove); i++ {
+	for i := 0; i < len(endpoints); i++ {
 		for j := 0; j < len(m.upstreamEndpoints); j++ {
-			if mmOld[toRemove[i]].URL == m.upstreamEndpoints[j].URL {
+			if endpoints[i].URL == m.upstreamEndpoints[j].URL {
 				m.upstreamEndpoints = append(m.upstreamEndpoints[:j], m.upstreamEndpoints[j+1:]...)
 				break
 			}
@@ -257,7 +252,6 @@ func (m *FunctionMetadata) markEndpointsAsDraining(endpoints []*proto.EndpointIn
 
 				if atomic.LoadInt32(&endpoint.InFlight) == 0 {
 					endpoint.DrainingCallback <- struct{}{}
-					close(endpoint.DrainingCallback)
 				}
 			}
 		} else {

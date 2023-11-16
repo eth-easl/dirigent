@@ -59,6 +59,9 @@ function SetupWorkerNodes() {
         # For reachability of sandboxes from other cluster nodes
         RemoteExec $1 "sudo sysctl -w net.ipv4.ip_forward=1"
 
+        # Remove old snapshots
+        RemoteExec $1 "sudo rm -rf /tmp/snapshots"
+
         # Remove old logs
         RemoteExec $1 "sudo journalctl --vacuum-time=1s && sudo journalctl --vacuum-time=1d"
         # Start worker node daemon

@@ -273,7 +273,7 @@ func (c *ControlPlane) OnMetricsReceive(_ context.Context, metric *proto.Autosca
 	}
 
 	storage.Controller.ScalingMetadata.SetCachedScalingMetric(metric)
-	logrus.Debug("Scaling metric for '", storage.ServiceInfo.Name, "' is ", storage.Controller.ScalingMetadata.ActualScale)
+	logrus.Debug("Scaling metric for '", storage.ServiceInfo.Name, "' is ", metric.InflightRequests)
 
 	storage.Controller.Start()
 

@@ -157,7 +157,6 @@ func giveBackCCCapacity(endpoint *common.UpstreamEndpoint) {
 	endpointInflight := atomic.AddInt32(&endpoint.InFlight, -1)
 	if atomic.LoadInt32(&endpoint.Drained) != 0 && endpointInflight == 0 {
 		endpoint.DrainingCallback <- struct{}{}
-		close(endpoint.DrainingCallback)
 	}
 
 	if endpoint.Capacity != nil {
