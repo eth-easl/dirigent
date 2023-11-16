@@ -89,15 +89,24 @@ func (ps *ProxyingService) createInvocationHandler(next http.Handler, cache *com
 		// COLD/WARM START
 		///////////////////////////////////////////////
 		coldStartChannel, durationColdStart := metadata.TryWarmStart(cp)
+
 		defer metadata.DecreaseInflight()
+		go contextTerminationHandler(r, coldStartChannel)
 
 		if coldStartChannel != nil {
 			logrus.Debug("Enqueued invocation for ", serviceName)
 
 			// wait until a cold start is resolved
 			coldStartWaitTime := time.Now()
-			<-coldStartChannel
+			waitOutcome := <-coldStartChannel
 			durationColdStart = time.Since(coldStartWaitTime)
+
+			if waitOutcome == common.CanceledColdStart {
+				w.WriteHeader(http.StatusGatewayTimeout)
+				logrus.Warnf("Invocation context canceled for %s.", serviceName)
+
+				return
+			}
 		}
 
 		///////////////////////////////////////////////
@@ -106,7 +115,7 @@ func (ps *ProxyingService) createInvocationHandler(next http.Handler, cache *com
 		lbSuccess, endpoint, durationLB, durationCC := load_balancing.DoLoadBalancing(r, metadata, ps.LoadBalancingPolicy)
 		if !lbSuccess {
 			w.WriteHeader(http.StatusGone)
-			logrus.Debug("Cold start passed, but no sandbox available.")
+			logrus.Warnf("Cold start passed, but no sandbox available for %s.", serviceName)
 
 			return
 		}
@@ -133,8 +142,6 @@ func (ps *ProxyingService) createInvocationHandler(next http.Handler, cache *com
 			CCThrottling:  durationCC,
 			Proxying:      time.Since(startProxy),
 		}
-
-		defer metadata.DecrementLocalQueueLength(endpoint)
 	}
 }
 
@@ -146,5 +153,14 @@ func giveBackCCCapacity(endpoint *common.UpstreamEndpoint) {
 
 	if endpoint.Capacity != nil {
 		endpoint.Capacity <- struct{}{}
+	}
+}
+
+func contextTerminationHandler(r *http.Request, coldStartChannel chan common.ColdStartOutcome) {
+	select {
+	case <-r.Context().Done():
+		if coldStartChannel != nil {
+			coldStartChannel <- common.CanceledColdStart
+		}
 	}
 }

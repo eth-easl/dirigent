@@ -34,7 +34,6 @@ type LoadBalancingMetadata struct {
 	RoundRobinCounter           uint32
 	KubernetesRoundRobinCounter uint32
 	RequestCountPerInstance     *atomic_map.AtomicMapCounter[*UpstreamEndpoint]
-	FAInstanceQueueLength       *atomic_map.AtomicMapCounter[*UpstreamEndpoint]
 }
 
 type FunctionMetadata struct {
@@ -65,6 +64,13 @@ type ScalingMetric struct {
 	inflightRequests int32
 }
 
+type ColdStartOutcome int
+
+const (
+	SuccessfulColdStart ColdStartOutcome = iota
+	CanceledColdStart
+)
+
 func NewFunctionMetadata(name string) *FunctionMetadata {
 	hostName, err := os.Hostname()
 	if err != nil {
@@ -83,7 +89,6 @@ func NewFunctionMetadata(name string) *FunctionMetadata {
 			RoundRobinCounter:           0,
 			KubernetesRoundRobinCounter: 0,
 			RequestCountPerInstance:     atomic_map.NewAtomicMapCounter[*UpstreamEndpoint](),
-			FAInstanceQueueLength:       atomic_map.NewAtomicMapCounter[*UpstreamEndpoint](),
 		},
 	}
 }
@@ -129,11 +134,11 @@ func (m *FunctionMetadata) GetLocalQueueLength(endpoint *UpstreamEndpoint) int64
 }
 
 func (m *FunctionMetadata) IncrementLocalQueueLength(endpoint *UpstreamEndpoint) {
-	m.loadBalancingMetadata.FAInstanceQueueLength.AtomicIncrement(endpoint)
+	atomic.AddInt32(&endpoint.InFlight, 1)
 }
 
 func (m *FunctionMetadata) DecrementLocalQueueLength(endpoint *UpstreamEndpoint) {
-	m.loadBalancingMetadata.FAInstanceQueueLength.AtomicDecrement(endpoint)
+	atomic.AddInt32(&endpoint.InFlight, -1)
 }
 
 func createThrottlerChannel(capacity uint) RequestThrottler {
@@ -187,9 +192,9 @@ func (m *FunctionMetadata) AddEndpoints(endpoints []*proto.EndpointInfo) {
 			dequeue := m.queue.Front()
 			m.queue.Remove(dequeue)
 
-			signal, _ := dequeue.Value.(chan struct{})
-			signal <- struct{}{}
-			close(signal)
+			// ColdStartOutcome channel shouldn't be closed because of context termination listener
+			signal, _ := dequeue.Value.(chan ColdStartOutcome)
+			signal <- SuccessfulColdStart
 
 			dequeueCnt++
 		}
@@ -282,30 +287,6 @@ func (m *FunctionMetadata) waitForDrainingToComplete(barriers []chan struct{}) {
 	wg.Wait()
 }
 
-func (m *FunctionMetadata) dequeueRequests() {
-	dequeueCnt := 0
-
-	for m.queue.Len() > 0 {
-		dequeue := m.queue.Front()
-		m.queue.Remove(dequeue)
-
-		signal, ok := dequeue.Value.(chan struct{})
-		if !ok {
-			logrus.Fatal("Failed to convert dequeue into channel")
-		}
-
-		// unblock proxy request
-		signal <- struct{}{}
-		close(signal)
-
-		dequeueCnt++
-	}
-
-	if dequeueCnt > 0 {
-		logrus.Debug("Dequeued ", dequeueCnt, " requests for ", m.identifier)
-	}
-}
-
 func (m *FunctionMetadata) SetEndpoints(newEndpoints []*UpstreamEndpoint) {
 	m.upstreamEndpoints = newEndpoints
 }
@@ -314,7 +295,7 @@ func (m *FunctionMetadata) DecreaseInflight() {
 	atomic.AddInt32(&m.metrics.inflightRequests, -1)
 }
 
-func (m *FunctionMetadata) TryWarmStart(cp *proto.CpiInterfaceClient) (chan struct{}, time.Duration) {
+func (m *FunctionMetadata) TryWarmStart(cp *proto.CpiInterfaceClient) (chan ColdStartOutcome, time.Duration) {
 	start := time.Now()
 
 	// autoscaling metric
@@ -323,7 +304,7 @@ func (m *FunctionMetadata) TryWarmStart(cp *proto.CpiInterfaceClient) (chan stru
 	m.triggerAutoscaling(cp)
 
 	if atomic.LoadInt32(&m.activeEndpointCount) == 0 {
-		waitChannel := make(chan struct{}, 1)
+		waitChannel := make(chan ColdStartOutcome, 1)
 
 		m.Lock()
 		defer m.Unlock()

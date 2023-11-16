@@ -19,19 +19,16 @@ const (
 	LOAD_BALANCING_KNATIVE
 )
 
-func DoLoadBalancing(req *http.Request, metadata *function_metadata.FunctionMetadata, loadBalancingPolicy LoadBalancingPolicy) (bool, *function_metadata.UpstreamEndpoint, time.Duration, time.Duration) {
-	start := time.Now()
-
+func runLoadBalancingAlgorithm(metadata *function_metadata.FunctionMetadata, loadBalancingPolicy LoadBalancingPolicy) *function_metadata.UpstreamEndpoint {
 	metadata.RLock()
 	defer metadata.RUnlock()
 
 	endpoints := metadata.GetUpstreamEndpoints()
 	if endpoints == nil || len(endpoints) == 0 {
-		return false, nil, time.Since(start), 0
+		return nil
 	}
 
 	var endpoint *function_metadata.UpstreamEndpoint
-
 	switch loadBalancingPolicy {
 	case LOAD_BALANCING_RANDOM:
 		endpoint = randomLoadBalancing(metadata)
@@ -45,10 +42,22 @@ func DoLoadBalancing(req *http.Request, metadata *function_metadata.FunctionMeta
 		endpoint = randomLoadBalancing(metadata)
 	}
 
+	return endpoint
+}
+
+func DoLoadBalancing(req *http.Request, metadata *function_metadata.FunctionMetadata, loadBalancingPolicy LoadBalancingPolicy) (bool, *function_metadata.UpstreamEndpoint, time.Duration, time.Duration) {
+	start := time.Now()
+
+	endpoint := runLoadBalancingAlgorithm(metadata, loadBalancingPolicy)
+	if endpoint == nil {
+		return false, nil, time.Since(start), 0
+	}
+
 	ccStart := time.Now()
 
-	<-endpoint.Capacity // CC throttler
 	atomic.AddInt32(&endpoint.InFlight, 1)
+	// TODO: what if sandbox endpoint fails while request is blocked on this endpoint CC throttler
+	<-endpoint.Capacity // CC throttler
 
 	ccDuration := time.Since(ccStart)
 
