@@ -161,8 +161,6 @@ func bestOfTwoRandoms(metadata *function_metadata.FunctionMetadata) *function_me
 		}
 	}
 
-	metadata.IncrementLocalQueueLength(output)
-
 	return output
 }
 

@@ -133,14 +133,6 @@ func (m *FunctionMetadata) GetLocalQueueLength(endpoint *UpstreamEndpoint) int64
 	return m.loadBalancingMetadata.RequestCountPerInstance.Get(endpoint)
 }
 
-func (m *FunctionMetadata) IncrementLocalQueueLength(endpoint *UpstreamEndpoint) {
-	atomic.AddInt32(&endpoint.InFlight, 1)
-}
-
-func (m *FunctionMetadata) DecrementLocalQueueLength(endpoint *UpstreamEndpoint) {
-	atomic.AddInt32(&endpoint.InFlight, -1)
-}
-
 func createThrottlerChannel(capacity uint) RequestThrottler {
 	ccChannel := make(chan struct{}, capacity)
 
