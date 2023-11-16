@@ -97,10 +97,6 @@ func (ps *ProxyingService) createInvocationHandler(next http.Handler, cache *com
 			// wait until a cold start is resolved
 			coldStartWaitTime := time.Now()
 			<-coldStartChannel
-			/*if !waitForColdStartOrDie(coldStartChannel, metadata.GetIdentifier()) {
-				w.WriteHeader(http.StatusRequestTimeout)
-				return
-			}*/
 			durationColdStart = time.Since(coldStartWaitTime)
 		}
 
@@ -139,17 +135,6 @@ func (ps *ProxyingService) createInvocationHandler(next http.Handler, cache *com
 		}
 
 		defer metadata.DecrementLocalQueueLength(endpoint)
-	}
-}
-
-func waitForColdStartOrDie(coldStartChannel chan struct{}, id string) bool {
-	select {
-	case <-coldStartChannel:
-		logrus.Debug("Passed cold start channel for %s.", id)
-		return true
-	case <-time.After(time.Minute):
-		logrus.Debugf("Canceled invocation for %s. Cold start timeout.", id)
-		return false
 	}
 }
 

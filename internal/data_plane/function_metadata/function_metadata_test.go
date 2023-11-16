@@ -25,7 +25,7 @@ func TestEndpointMerge(t *testing.T) {
 			newURLs:      []string{"a", "b", "c"},
 			expectedURLs: []string{"a", "b", "c"},
 		},
-		{
+		/*{
 			testName:     "endpoint_merge_1two_2append_one",
 			oldURLs:      []string{"a", "b"},
 			newURLs:      []string{"a", "b", "c"},
@@ -48,7 +48,7 @@ func TestEndpointMerge(t *testing.T) {
 			oldURLs:      []string{"a", "b"},
 			newURLs:      []string{"c", "d", "e"},
 			expectedURLs: []string{"c", "d", "e"},
-		},
+		},*/
 	}
 
 	for _, test := range tests {

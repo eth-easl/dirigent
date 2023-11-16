@@ -74,6 +74,21 @@ func (mr *MockDataPlaneInterfaceMockRecorder) DeleteDeployment(arg0, arg1 any) *
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteDeployment", reflect.TypeOf((*MockDataPlaneInterface)(nil).DeleteDeployment), arg0, arg1)
 }
 
+// DrainSandbox mocks base method.
+func (m *MockDataPlaneInterface) DrainSandbox(arg0 context.Context, arg1 *proto.DeploymentEndpointPatch) (*proto.DeploymentUpdateSuccess, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "DrainSandbox", arg0, arg1)
+	ret0, _ := ret[0].(*proto.DeploymentUpdateSuccess)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// DrainSandbox indicates an expected call of DrainSandbox.
+func (mr *MockDataPlaneInterfaceMockRecorder) DrainSandbox(arg0, arg1 any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DrainSandbox", reflect.TypeOf((*MockDataPlaneInterface)(nil).DrainSandbox), arg0, arg1)
+}
+
 // GetApiPort mocks base method.
 func (m *MockDataPlaneInterface) GetApiPort() string {
 	m.ctrl.T.Helper()

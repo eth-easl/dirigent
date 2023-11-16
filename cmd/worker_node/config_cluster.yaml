@@ -13,4 +13,4 @@ firecrackerFileSystem: "/cluster_manager/configs/firecracker/rootfs.ext4"
 firecrackerInternalIPPrefix: "100"
 firecrackerExposedIPPrefix: "192.254"
 firecrackerVMDebugMode: false
-firecrackerUseSnapshots: false
+firecrackerUseSnapshots: true
