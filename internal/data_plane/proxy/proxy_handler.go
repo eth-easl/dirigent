@@ -112,8 +112,8 @@ func (ps *ProxyingService) createInvocationHandler(next http.Handler, cache *com
 		///////////////////////////////////////////////
 		// LOAD BALANCING AND ROUTING
 		///////////////////////////////////////////////
-		lbSuccess, endpoint, durationLB, durationCC := load_balancing.DoLoadBalancing(r, metadata, ps.LoadBalancingPolicy)
-		if !lbSuccess {
+		endpoint, durationLB, durationCC := load_balancing.DoLoadBalancing(r, metadata, ps.LoadBalancingPolicy)
+		if endpoint == nil {
 			w.WriteHeader(http.StatusGone)
 			logrus.Warnf("Cold start passed, but no sandbox available for %s.", serviceName)
 

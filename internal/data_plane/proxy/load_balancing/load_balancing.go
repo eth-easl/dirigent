@@ -45,21 +45,34 @@ func runLoadBalancingAlgorithm(metadata *function_metadata.FunctionMetadata, loa
 	return endpoint
 }
 
-func DoLoadBalancing(req *http.Request, metadata *function_metadata.FunctionMetadata, loadBalancingPolicy LoadBalancingPolicy) (bool, *function_metadata.UpstreamEndpoint, time.Duration, time.Duration) {
-	start := time.Now()
+func DoLoadBalancing(req *http.Request, metadata *function_metadata.FunctionMetadata, loadBalancingPolicy LoadBalancingPolicy) (*function_metadata.UpstreamEndpoint, time.Duration, time.Duration) {
+	lbDuration, ccDuration := time.Duration(0), time.Duration(0)
 
-	endpoint := runLoadBalancingAlgorithm(metadata, loadBalancingPolicy)
-	if endpoint == nil {
-		return false, nil, time.Since(start), 0
+	var endpoint *function_metadata.UpstreamEndpoint
+	loadBalancingRetries := 3
+
+	// trying to get an endpoint and capacity for a couple of times
+	for i := 0; i < loadBalancingRetries; i++ {
+		lbStart := time.Now()
+		endpoint = runLoadBalancingAlgorithm(metadata, loadBalancingPolicy)
+		lbDuration += time.Since(lbStart)
+
+		// CC throttler
+		gotCapacity, ccLength := waitForCapacityOrDie(endpoint.Capacity)
+		ccDuration += ccLength
+
+		if gotCapacity {
+			break
+		} else {
+			endpoint = nil
+		}
 	}
 
-	ccStart := time.Now()
+	if endpoint == nil {
+		return nil, lbDuration, ccDuration
+	}
 
 	atomic.AddInt32(&endpoint.InFlight, 1)
-	// TODO: what if sandbox endpoint fails while request is blocked on this endpoint CC throttler
-	<-endpoint.Capacity // CC throttler
-
-	ccDuration := time.Since(ccStart)
 
 	req.URL.Scheme = "http"
 	req.URL.Host = endpoint.URL
@@ -67,7 +80,18 @@ func DoLoadBalancing(req *http.Request, metadata *function_metadata.FunctionMeta
 
 	metadata.IncrementRequestCountPerInstance(endpoint)
 
-	return true, endpoint, time.Since(start), ccDuration
+	return endpoint, lbDuration, ccDuration
+}
+
+func waitForCapacityOrDie(throttler function_metadata.RequestThrottler) (bool, time.Duration) {
+	start := time.Now()
+
+	select {
+	case <-throttler:
+		return true, time.Since(start)
+	case <-time.After(30 * time.Second):
+		return false, time.Since(start)
+	}
 }
 
 func randomEndpoint(endpoints []*function_metadata.UpstreamEndpoint) *function_metadata.UpstreamEndpoint {
