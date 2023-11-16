@@ -51,6 +51,7 @@ type WorkerNodeConfig struct {
 	FirecrackerExposedIPPrefix  string `mapstructure:"firecrackerExposedIPPrefix"`
 	FirecrackerVMDebugMode      bool   `mapstructure:"firecrackerVMDebugMode"`
 	FirecrackerUseSnapshots     bool   `mapstructure:"firecrackerUseSnapshots"`
+	FirecrackerNetworkPoolSize  int    `mapstructure:"firecrackerNetworkPoolSize"`
 }
 
 type ProfilerConfig struct {

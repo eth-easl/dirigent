@@ -74,6 +74,7 @@ func NewWorkerNode(cpApi proto.CpiInterfaceClient, config config.WorkerNodeConfi
 			config.FirecrackerExposedIPPrefix,
 			config.FirecrackerVMDebugMode,
 			config.FirecrackerUseSnapshots,
+			config.FirecrackerNetworkPoolSize,
 		)
 	default:
 		logrus.Fatal("Unsupported sandbox type.")

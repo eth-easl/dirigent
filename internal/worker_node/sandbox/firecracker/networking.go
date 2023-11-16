@@ -13,9 +13,6 @@ import (
 const (
 	vethPrefix = "fc-"
 	vethSuffix = "-veth"
-
-	// MaxNetworkPoolSize Should be divisible by 16
-	MaxNetworkPoolSize = 16
 )
 
 type NetworkConfig struct {
@@ -42,12 +39,20 @@ type NetworkPoolManager struct {
 	InterfaceNameGenerator *managers.VETHNameGenerator
 	NetNSNameGenerator     *managers.ThreadSafeRandomGenerator
 
+	MaxNetworkPoolSize int
+
 	pool []*NetworkConfig
 }
 
-func NewNetworkPoolManager(internalPrefix, externalPrefix string) *NetworkPoolManager {
+func NewNetworkPoolManager(internalPrefix, externalPrefix string, networkPoolSize int) *NetworkPoolManager {
 	internalIPManager := managers.NewIPManager(internalPrefix)
 	externalIPManager := managers.NewIPManager(externalPrefix)
+
+	// NetworkPoolSize should be divisible by 16
+	networkPoolSize -= (networkPoolSize % 16)
+	if networkPoolSize < 16 {
+		networkPoolSize = 16
+	}
 
 	pool := &NetworkPoolManager{
 		InternalIPManager: internalIPManager,
@@ -55,6 +60,8 @@ func NewNetworkPoolManager(internalPrefix, externalPrefix string) *NetworkPoolMa
 
 		InterfaceNameGenerator: managers.NewVETHNameGenerator(),
 		NetNSNameGenerator:     managers.NewThreadSafeRandomGenerator(),
+
+		MaxNetworkPoolSize: networkPoolSize,
 	}
 
 	pool.populate()
@@ -66,7 +73,7 @@ func (np *NetworkPoolManager) populate() {
 	np.Lock()
 	defer np.Unlock()
 
-	for len(np.pool) < MaxNetworkPoolSize {
+	for len(np.pool) < np.MaxNetworkPoolSize {
 		config, err := np.createNetwork()
 		if err != nil {
 			logrus.Errorf("Error creating a network - %v", err)
@@ -92,7 +99,7 @@ func (np *NetworkPoolManager) GetOneConfig() *NetworkConfig {
 		go np.populate()
 
 		return config
-	} else if len(np.pool) == MaxNetworkPoolSize/4 {
+	} else if len(np.pool) == np.MaxNetworkPoolSize/4 {
 		// asynchronous repopulation
 		go np.populate()
 	}

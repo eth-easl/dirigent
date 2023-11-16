@@ -44,7 +44,7 @@ type FirecrackerMetadata struct {
 
 func NewFirecrackerRuntime(cpApi proto.CpiInterfaceClient, sandboxManager *managers.SandboxManager,
 	kernelPath string, fileSystemPath string, internalIPPrefix string, externalIPPrefix string,
-	vmDebugMode bool, useSnapshots bool) *Runtime {
+	vmDebugMode bool, useSnapshots bool, networkPoolSize int) *Runtime {
 
 	DeleteAllSnapshots()
 	err := DeleteUnusedNetworkDevices()
@@ -66,7 +66,7 @@ func NewFirecrackerRuntime(cpApi proto.CpiInterfaceClient, sandboxManager *manag
 
 		KernelPath:     kernelPath,
 		FileSystemPath: fileSystemPath,
-		NetworkManager: NewNetworkPoolManager(internalIPPrefix, externalIPPrefix),
+		NetworkManager: NewNetworkPoolManager(internalIPPrefix, externalIPPrefix, networkPoolSize),
 
 		SandboxManager:  sandboxManager,
 		ProcessMonitor:  managers.NewProcessMonitor(),

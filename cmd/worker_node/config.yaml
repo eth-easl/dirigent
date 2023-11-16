@@ -14,3 +14,4 @@ firecrackerInternalIPPrefix: "100"
 firecrackerExposedIPPrefix: "192.254"
 firecrackerVMDebugMode: false
 firecrackerUseSnapshots: true
+firecrackerNetworkPoolSize: 128
