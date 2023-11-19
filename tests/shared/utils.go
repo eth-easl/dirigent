@@ -204,7 +204,7 @@ func PerformXInvocations(nbInvocations, offset int) {
 			}
 
 			body, err := io.ReadAll(resp.Body)
-			defer handleBodyClosing(resp.Body)
+			defer handleBodyClosing(resp)
 
 			if err != nil || resp == nil || resp.StatusCode != http.StatusOK {
 				logrus.Debugf("HTTP timeout for function %s", functionName)
@@ -218,8 +218,12 @@ func PerformXInvocations(nbInvocations, offset int) {
 	wg.Wait()
 }
 
-func handleBodyClosing(Body io.ReadCloser) {
-	err := Body.Close()
+func handleBodyClosing(response *http.Response) {
+	if response == nil || response.Body == nil {
+		return
+	}
+
+	err := response.Body.Close()
 	if err != nil {
 		logrus.Errorf("Error closing response body - %v", err)
 	}

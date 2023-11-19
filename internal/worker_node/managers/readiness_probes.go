@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"github.com/sirupsen/logrus"
 	"golang.org/x/net/http2"
+	"io"
 	"net"
 	"net/http"
 	"sync"
@@ -114,8 +115,13 @@ func handleBodyClosing(response *http.Response) {
 		return
 	}
 
-	err := response.Body.Close()
+	_, err := io.Copy(io.Discard, response.Body)
 	if err != nil {
-		logrus.Errorf("Error closing response body - %v", err)
+		logrus.Errorf("Error reading the response body - %v", err)
+	}
+
+	err = response.Body.Close()
+	if err != nil {
+		logrus.Errorf("Error closing the response body - %v", err)
 	}
 }
