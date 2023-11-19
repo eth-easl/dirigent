@@ -1,11 +1,8 @@
 package managers
 
 import (
-	"context"
-	"crypto/tls"
 	"fmt"
 	"github.com/sirupsen/logrus"
-	"golang.org/x/net/http2"
 	"io"
 	"net"
 	"net/http"
@@ -25,12 +22,14 @@ func createProbingDialer(network, addr string) (net.Conn, error) {
 
 var httpProbingClient = http.Client{
 	Timeout: 10 * time.Millisecond,
-	Transport: &http2.Transport{
-		AllowHTTP: true,
-		DialTLSContext: func(ctx context.Context, network, addr string, cfg *tls.Config) (net.Conn, error) {
-			return createProbingDialer(network, addr)
-		},
-		DisableCompression: true,
+	Transport: &http.Transport{
+		DialContext: (&net.Dialer{
+			Timeout: 2 * time.Second,
+		}).DialContext,
+		DisableCompression:  true,
+		IdleConnTimeout:     2 * time.Second,
+		MaxIdleConns:        3000,
+		MaxIdleConnsPerHost: 3000,
 	},
 }
 

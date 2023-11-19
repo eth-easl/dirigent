@@ -7,9 +7,7 @@ import (
 	"cluster_manager/pkg/utils"
 	"cluster_manager/tests/proto"
 	"context"
-	"crypto/tls"
 	"fmt"
-	"golang.org/x/net/http2"
 	"google.golang.org/grpc"
 	"io"
 	"net"
@@ -185,12 +183,14 @@ func PerformXInvocations(nbInvocations, offset int) {
 
 			client := http.Client{
 				Timeout: 10 * time.Second,
-				Transport: &http2.Transport{
-					AllowHTTP: true,
-					DialTLSContext: func(ctx context.Context, network, addr string, cfg *tls.Config) (net.Conn, error) {
-						return net.Dial(network, addr)
-					},
-					DisableCompression: true,
+				Transport: &http.Transport{
+					DialContext: (&net.Dialer{
+						Timeout: 10 * time.Second,
+					}).DialContext,
+					DisableCompression:  true,
+					IdleConnTimeout:     60 * time.Second,
+					MaxIdleConns:        3000,
+					MaxIdleConnsPerHost: 3000,
 				},
 			}
 

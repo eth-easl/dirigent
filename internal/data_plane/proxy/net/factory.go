@@ -11,7 +11,6 @@ import (
 	"net/http/httputil"
 	"time"
 
-	"golang.org/x/net/http2"
 	"k8s.io/apimachinery/pkg/util/wait"
 )
 
@@ -80,12 +79,14 @@ func NewBackoffDialer(backoffConfig wait.Backoff) func(context.Context, string, 
 func NewProxy() *httputil.ReverseProxy {
 	return &httputil.ReverseProxy{
 		Director: EmptyReverseProxyDirector,
-		Transport: &http2.Transport{
-			AllowHTTP: true,
-			DialTLSContext: func(ctx context.Context, network, addr string, cfg *tls.Config) (net.Conn, error) {
-				return DialWithBackOff(context.Background(), network, addr)
-			},
-			DisableCompression: true,
+		Transport: &http.Transport{
+			DialContext: (&net.Dialer{
+				Timeout: 10 * time.Second,
+			}).DialContext,
+			DisableCompression:  true,
+			IdleConnTimeout:     60 * time.Second,
+			MaxIdleConns:        3000,
+			MaxIdleConnsPerHost: 3000,
 		},
 		BufferPool:    NewBufferPool(),
 		FlushInterval: 0,
