@@ -204,6 +204,8 @@ func PerformXInvocations(nbInvocations, offset int) {
 			}
 
 			body, err := io.ReadAll(resp.Body)
+			defer handleBodyClosing(resp.Body)
+
 			if err != nil || resp == nil || resp.StatusCode != http.StatusOK {
 				logrus.Debugf("HTTP timeout for function %s", functionName)
 				return
@@ -214,6 +216,13 @@ func PerformXInvocations(nbInvocations, offset int) {
 	}
 
 	wg.Wait()
+}
+
+func handleBodyClosing(Body io.ReadCloser) {
+	err := Body.Close()
+	if err != nil {
+		logrus.Errorf("Error closing response body - %v", err)
+	}
 }
 
 func DeployDataplanes(nbDeploys, offset int) {

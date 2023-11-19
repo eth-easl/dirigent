@@ -77,6 +77,8 @@ func SendReadinessProbe(url string) (time.Duration, bool) {
 
 			res, err := httpProbingClient.Get(fmt.Sprintf("http://%s/health", url))
 			if err != nil || res == nil || (res != nil && res.StatusCode != http.StatusOK) {
+				handleBodyClosing(res)
+
 				toSleep := expBackoff.Next()
 				if toSleep < 0 {
 					passed = false
@@ -86,6 +88,8 @@ func SendReadinessProbe(url string) (time.Duration, bool) {
 				time.Sleep(time.Duration(int(toSleep*1000)) * time.Millisecond)
 
 				continue
+			} else {
+				handleBodyClosing(res)
 			}
 
 			break
@@ -103,4 +107,15 @@ func SendReadinessProbe(url string) (time.Duration, bool) {
 	}
 
 	return elapsed, passed
+}
+
+func handleBodyClosing(response *http.Response) {
+	if response == nil || response.Body == nil {
+		return
+	}
+
+	err := response.Body.Close()
+	if err != nil {
+		logrus.Errorf("Error closing response body - %v", err)
+	}
 }
