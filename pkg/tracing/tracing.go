@@ -12,7 +12,7 @@ import (
 )
 
 const (
-	coldStartLogHeader = "time,service_name,container_id,success,image_fetch,sandbox_create,sandbox_start,network_setup,iptables,readiness_probe,data_plane_propagation,other_worker_node\n"
+	coldStartLogHeader = "time,service_name,container_id,success,image_fetch,sandbox_create,sandbox_start,network_setup,iptables,readiness_probe,data_plane_propagation,snapshot_creation,configure_monitoring,find_snapshot,other_worker_node\n"
 	proxyLogHeader     = "time,service_name,container_id,get_metadata,cold_start,load_balancing,cc_throttling,proxying,other\n"
 )
 
@@ -118,9 +118,10 @@ func coldStartWriteFunction(f *os.File, msg ColdStartLogEntry) {
 	other := msg.LatencyBreakdown.Total.AsDuration() - (msg.LatencyBreakdown.ImageFetch.AsDuration() +
 		msg.LatencyBreakdown.SandboxCreate.AsDuration() + msg.LatencyBreakdown.SandboxStart.AsDuration() +
 		msg.LatencyBreakdown.NetworkSetup.AsDuration() + msg.LatencyBreakdown.Iptables.AsDuration() +
-		msg.LatencyBreakdown.ReadinessProbing.AsDuration())
+		msg.LatencyBreakdown.ReadinessProbing.AsDuration() + msg.LatencyBreakdown.SnapshotCreation.AsDuration() +
+		msg.LatencyBreakdown.ConfigureMonitoring.AsDuration() + msg.LatencyBreakdown.FindSnapshot.AsDuration())
 
-	_, _ = f.WriteString(fmt.Sprintf("%d,%s,%s,%t,%d,%d,%d,%d,%d,%d,%d,%d\n",
+	_, _ = f.WriteString(fmt.Sprintf("%d,%s,%s,%t,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d\n",
 		time.Now().UnixNano(),
 		msg.ServiceName,
 		msg.ContainerID,
@@ -131,7 +132,10 @@ func coldStartWriteFunction(f *os.File, msg ColdStartLogEntry) {
 		msg.LatencyBreakdown.NetworkSetup.AsDuration().Microseconds(),
 		msg.LatencyBreakdown.Iptables.AsDuration().Microseconds(),
 		msg.LatencyBreakdown.ReadinessProbing.AsDuration().Microseconds(),
-		msg.LatencyBreakdown.DataplanePropagation.AsDuration().Microseconds(),
+		msg.LatencyBreakdown.DataplanePropagation.AsDuration().Microseconds(), // not part of other
+		msg.LatencyBreakdown.SnapshotCreation.AsDuration().Microseconds(),
+		msg.LatencyBreakdown.ConfigureMonitoring.AsDuration().Microseconds(),
+		msg.LatencyBreakdown.FindSnapshot.AsDuration().Microseconds(),
 		other.Microseconds(),
 	))
 }

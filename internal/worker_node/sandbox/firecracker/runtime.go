@@ -105,10 +105,13 @@ func (fcr *Runtime) CreateSandbox(ctx context.Context, in *proto.ServiceInfo) (*
 	start := time.Now()
 
 	vmcs := fcr.createVMCS()
+
+	startFindSnapshot := time.Now()
 	snapshot, _ := fcr.SnapshotManager.FindSnapshot(in.Name)
 	if snapshot != nil {
 		logrus.Infof("Snapshot found for service %s", in.Name)
 	}
+	findSnapshotDuration := time.Since(startFindSnapshot)
 
 	err, netCreateDuration, vmCreateDuration, vmStartDuration := StartFirecrackerVM(fcr.NetworkManager, vmcs, fcr.VMDebugMode, snapshot)
 	if err != nil {
@@ -116,6 +119,7 @@ func (fcr *Runtime) CreateSandbox(ctx context.Context, in *proto.ServiceInfo) (*
 		return &proto.SandboxCreationStatus{Success: false}, err
 	}
 
+	startConfigureMonitoring := time.Now()
 	metadata := createMetadata(in, vmcs)
 	metadata.HostPort = containerd.AssignRandomPort()
 	metadata.IP = vmcs.NetworkConfiguration.ExposedIP
@@ -132,6 +136,7 @@ func (fcr *Runtime) CreateSandbox(ctx context.Context, in *proto.ServiceInfo) (*
 
 	fcr.SandboxManager.AddSandbox(vmcs.SandboxID, metadata)
 	fcr.ProcessMonitor.AddChannel(uint32(vmPID), metadata.ExitStatusChannel)
+	configureMonitoringDuration := time.Since(startConfigureMonitoring)
 
 	// port forwarding
 	iptablesStart := time.Now()
@@ -150,6 +155,7 @@ func (fcr *Runtime) CreateSandbox(ctx context.Context, in *proto.ServiceInfo) (*
 	timeToPass, passed := managers.SendReadinessProbe(fmt.Sprintf("localhost:%d", metadata.HostPort))
 
 	// create a snapshot for the service if it does not exist
+	startSnapshotCreation := time.Now()
 	if passed && fcr.UseSnapshots && !fcr.SnapshotManager.Exists(in.Name) {
 		ok, paths := CreateVMSnapshot(ctx, vmcs)
 
@@ -167,6 +173,7 @@ func (fcr *Runtime) CreateSandbox(ctx context.Context, in *proto.ServiceInfo) (*
 			passed = false // let the following code below take care of deletion
 		}
 	}
+	snapshotCreationDuration := time.Since(startSnapshotCreation)
 
 	if passed {
 		return &proto.SandboxCreationStatus{
@@ -174,13 +181,16 @@ func (fcr *Runtime) CreateSandbox(ctx context.Context, in *proto.ServiceInfo) (*
 			ID:           vmcs.SandboxID,
 			PortMappings: in.PortForwarding,
 			LatencyBreakdown: &proto.SandboxCreationBreakdown{
-				Total:            durationpb.New(time.Since(start)),
-				ImageFetch:       durationpb.New(0),
-				SandboxCreate:    durationpb.New(vmCreateDuration),
-				NetworkSetup:     durationpb.New(netCreateDuration),
-				SandboxStart:     durationpb.New(vmStartDuration),
-				ReadinessProbing: durationpb.New(timeToPass),
-				Iptables:         durationpb.New(iptablesDuration),
+				Total:               durationpb.New(time.Since(start)),
+				ImageFetch:          durationpb.New(0),
+				SandboxCreate:       durationpb.New(vmCreateDuration),
+				NetworkSetup:        durationpb.New(netCreateDuration),
+				SandboxStart:        durationpb.New(vmStartDuration),
+				ReadinessProbing:    durationpb.New(timeToPass),
+				Iptables:            durationpb.New(iptablesDuration),
+				SnapshotCreation:    durationpb.New(snapshotCreationDuration),
+				ConfigureMonitoring: durationpb.New(configureMonitoringDuration),
+				FindSnapshot:        durationpb.New(findSnapshotDuration),
 			},
 		}, nil
 	} else {

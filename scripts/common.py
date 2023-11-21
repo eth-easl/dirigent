@@ -28,7 +28,8 @@ def getResult(load, rootPath):
         data['control_plane'] = data['cold_start'] - \
                                 (data['image_fetch'] + data['sandbox_create'] + data['sandbox_start'] +
                                  data['network_setup'] + data['iptables'] + data['readiness_probe'] +
-                                 data['data_plane_propagation'] + data['other_worker_node'])
+                                 data['data_plane_propagation'] + data['snapshot_creation'] +
+                                 data['configure_monitoring'] + data['find_snapshot'] + data['other_worker_node'])
         data = data.drop(columns=['cold_start'])
 
         p50 = data.quantile(0.5)
@@ -37,6 +38,26 @@ def getResult(load, rootPath):
         dataToPlot = processQuantile(p50, 0.5)
         dataToPlot = pd.concat([dataToPlot, processQuantile(p95, 0.95)])
         dataToPlot = dataToPlot / 1000  # μs -> ms
+
+        dataToPlot = dataToPlot.rename(columns={
+            "get_metadata": "DP - find function",
+            "load_balancing": "DP - load balancing",
+            "cc_throttling": "DP - cc. throttling",
+            "proxying": "DP - proxying",
+            "other": "DP - other",
+            "image_fetch": "WN - image fetch",
+            "sandbox_create": "WN - sandbox create",
+            "sandbox_start": "WN - sandbox start",
+            "network_setup": "WN - get network",
+            "iptables": "WN - iptables",
+            "readiness_probe": "WN - readiness",
+            "snapshot_creation": "WN - create snapshot",
+            "configure_monitoring": "WN - configure monitors",
+            "find_snapshot": "WN - get snapshot",
+            "other_worker_node": "WN - other",
+            "data_plane_propagation": "CP - propagate endpoints",
+            "control_plane": "CP - rest",
+        })
 
         result.append(dataToPlot)
 

@@ -95,6 +95,7 @@ func (cr *ContainerdRuntime) CreateSandbox(grpcCtx context.Context, in *proto.Se
 		return &proto.SandboxCreationStatus{Success: false}, err
 	}
 
+	startConfigureMonitoring := time.Now()
 	metadata := &managers.Metadata{
 		ServiceName: in.Name,
 
@@ -113,6 +114,7 @@ func (cr *ContainerdRuntime) CreateSandbox(grpcCtx context.Context, in *proto.Se
 
 	cr.ProcessMonitor.AddChannel(task.Pid(), metadata.ExitStatusChannel)
 	cr.SandboxManager.AddSandbox(container.ID(), metadata)
+	configureMonitoringDuration := time.Since(startConfigureMonitoring)
 
 	logrus.Debug("Sandbox creation took ", time.Since(start).Microseconds(), " μs (", container.ID(), ")")
 
@@ -135,12 +137,16 @@ func (cr *ContainerdRuntime) CreateSandbox(grpcCtx context.Context, in *proto.Se
 		ID:           container.ID(),
 		PortMappings: in.PortForwarding,
 		LatencyBreakdown: &proto.SandboxCreationBreakdown{
-			Total:         durationpb.New(time.Since(start)),
-			ImageFetch:    durationpb.New(durationFetch),
-			SandboxCreate: durationpb.New(durationContainerCreation),
-			NetworkSetup:  durationpb.New(durationCNI),
-			SandboxStart:  durationpb.New(durationContainerStart),
-			Iptables:      durationpb.New(durationIptables),
+			Total:               durationpb.New(time.Since(start)),
+			ImageFetch:          durationpb.New(durationFetch),
+			SandboxCreate:       durationpb.New(durationContainerCreation),
+			NetworkSetup:        durationpb.New(durationCNI),
+			SandboxStart:        durationpb.New(durationContainerStart),
+			Iptables:            durationpb.New(durationIptables),
+			ReadinessProbing:    durationpb.New(0),
+			SnapshotCreation:    durationpb.New(0),
+			ConfigureMonitoring: durationpb.New(configureMonitoringDuration),
+			FindSnapshot:        durationpb.New(0),
 		},
 	}, nil
 }
