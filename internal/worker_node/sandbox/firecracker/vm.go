@@ -89,8 +89,7 @@ func StartFirecrackerVM(networkManager *NetworkPoolManager, vmcs *VMControlStruc
 	machine, err := firecracker.NewMachine(vmcs.Context, *vmcs.VMConfig, newMachineOpts...)
 	if err != nil {
 		logrus.Errorf("Failed creating a new virtual machine - %v", err)
-		deleteNetworkNamespaceByName(vmcs.NetworkConfiguration.NetNS)
-		deleteDeviceByName(vmcs.NetworkConfiguration.VETHHostName)
+		networkManager.GiveUpNetwork(vmcs.NetworkConfiguration)
 
 		return err, tapEnd, time.Since(startVMCreation), time.Duration(0)
 	}
@@ -104,8 +103,7 @@ func StartFirecrackerVM(networkManager *NetworkPoolManager, vmcs *VMControlStruc
 	err = machine.Start(vmcs.Context)
 	if err != nil {
 		logrus.Errorf("Error starting a virtual machine - %v", err)
-		deleteNetworkNamespaceByName(vmcs.NetworkConfiguration.NetNS)
-		deleteDeviceByName(vmcs.NetworkConfiguration.VETHHostName)
+		networkManager.GiveUpNetwork(vmcs.NetworkConfiguration)
 
 		return err, tapEnd, vmCreateEnd, time.Since(timeVMStart)
 	}
@@ -114,8 +112,7 @@ func StartFirecrackerVM(networkManager *NetworkPoolManager, vmcs *VMControlStruc
 		err = machine.ResumeVM(vmcs.Context)
 		if err != nil {
 			logrus.Errorf("Error creating virtual machine from snapshot - %v", err)
-			deleteNetworkNamespaceByName(vmcs.NetworkConfiguration.NetNS)
-			deleteDeviceByName(vmcs.NetworkConfiguration.VETHHostName)
+			networkManager.GiveUpNetwork(vmcs.NetworkConfiguration)
 
 			return err, tapEnd, vmCreateEnd, time.Since(timeVMStart)
 		}

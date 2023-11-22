@@ -127,8 +127,8 @@ func (fcr *Runtime) CreateSandbox(ctx context.Context, in *proto.ServiceInfo) (*
 	// VM process monitoring
 	vmPID, err := vmcs.VM.PID()
 	if err != nil {
-		deleteNetworkNamespaceByName(vmcs.NetworkConfiguration.NetNS)
-		deleteDeviceByName(vmcs.NetworkConfiguration.VETHHostName)
+		fcr.NetworkManager.GiveUpNetwork(vmcs.NetworkConfiguration)
+		containerd.UnassignPort(metadata.HostPort)
 
 		logrus.Debugf("Failed to get PID of the virtual machine - %v", err)
 		return &proto.SandboxCreationStatus{Success: false}, err
@@ -255,8 +255,8 @@ func (fcr *Runtime) DeleteSandbox(_ context.Context, in *proto.SandboxID) (*prot
 	}
 
 	// delete the network associated with the VM
-	deleteNetworkNamespaceByName(sandboxMetadata.VMCS.NetworkConfiguration.NetNS)
-	deleteDeviceByName(sandboxMetadata.VMCS.NetworkConfiguration.VETHHostName)
+	fcr.NetworkManager.GiveUpNetwork(sandboxMetadata.VMCS.NetworkConfiguration)
+	// delete Firecracker logs
 	deleteLogs(sandboxMetadata.VMCS)
 
 	logrus.Debug("Sandbox deletion took ", time.Since(start).Microseconds(), " μs")

@@ -69,6 +69,22 @@ func NewNetworkPoolManager(internalPrefix, externalPrefix string, networkPoolSiz
 	return pool
 }
 
+func (np *NetworkPoolManager) GiveUpNetwork(config *NetworkConfig) {
+	recycled := false
+
+	np.Lock()
+	if len(np.pool) < np.MaxNetworkPoolSize {
+		np.pool = append(np.pool, config)
+		recycled = true
+	}
+	np.Unlock()
+
+	if !recycled {
+		deleteNetworkNamespaceByName(config.NetNS)
+		deleteDeviceByName(config.VETHHostName)
+	}
+}
+
 func (np *NetworkPoolManager) populate() {
 	np.Lock()
 	defer np.Unlock()
