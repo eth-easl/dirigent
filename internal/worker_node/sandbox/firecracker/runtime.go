@@ -107,9 +107,9 @@ func (fcr *Runtime) CreateSandbox(ctx context.Context, in *proto.ServiceInfo) (*
 	vmcs := fcr.createVMCS()
 
 	startFindSnapshot := time.Now()
-	snapshot, _ := fcr.SnapshotManager.FindSnapshot(in.Name)
+	snapshot, _ := fcr.SnapshotManager.FindSnapshot(in.Image)
 	if snapshot != nil {
-		logrus.Infof("Snapshot found for service %s", in.Name)
+		logrus.Infof("Snapshot found for image %s", in.Image)
 	}
 	findSnapshotDuration := time.Since(startFindSnapshot)
 
@@ -156,15 +156,15 @@ func (fcr *Runtime) CreateSandbox(ctx context.Context, in *proto.ServiceInfo) (*
 
 	// create a snapshot for the service if it does not exist
 	startSnapshotCreation := time.Now()
-	if passed && fcr.UseSnapshots && !fcr.SnapshotManager.Exists(in.Name) {
+	if passed && fcr.UseSnapshots && !fcr.SnapshotManager.Exists(in.Image) {
 		ok, paths := CreateVMSnapshot(ctx, vmcs)
 
 		if !ok {
-			logrus.Warn("Due to failure, bypassing snapshot creation for service ", in.Name)
+			logrus.Warn("Due to failure, bypassing snapshot creation for image ", in.Image)
 		} else {
-			fcr.SnapshotManager.AddSnapshot(in.Name, paths)
+			fcr.SnapshotManager.AddSnapshot(in.Image, paths)
 
-			logrus.Debug("Snapshot successfully created for service ", in.Name)
+			logrus.Debug("Snapshot successfully created for image ", in.Image)
 		}
 
 		err = vmcs.VM.ResumeVM(ctx)
