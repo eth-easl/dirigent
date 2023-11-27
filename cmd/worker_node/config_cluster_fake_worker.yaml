@@ -1,0 +1,17 @@
+workerNodeIp: "dynamic"
+controlPlaneIp: "10.0.1.2"
+controlPlanePort: "9090"
+port: "${DAEMON_PORT}"
+verbosity: "trace"
+criType: "scalability_test"
+criPath: "/run/containerd/containerd.sock"
+cniConfigPath: "configs/cni.conf"
+prefetchImage: false
+
+firecrackerKernel: "/cluster_manager/configs/firecracker/vmlinux-4.14.bin"
+firecrackerFileSystem: "/cluster_manager/configs/firecracker/rootfs.ext4"
+firecrackerInternalIPPrefix: "100"
+firecrackerExposedIPPrefix: "192.254"
+firecrackerVMDebugMode: false
+firecrackerUseSnapshots: true
+firecrackerNetworkPoolSize: 128

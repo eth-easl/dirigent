@@ -5,6 +5,7 @@ import (
 	"cluster_manager/internal/worker_node/managers"
 	"cluster_manager/internal/worker_node/sandbox"
 	"cluster_manager/internal/worker_node/sandbox/containerd"
+	"cluster_manager/internal/worker_node/sandbox/fake_snapshot"
 	"cluster_manager/internal/worker_node/sandbox/firecracker"
 	"cluster_manager/pkg/config"
 	"cluster_manager/pkg/hardware"
@@ -76,6 +77,8 @@ func NewWorkerNode(cpApi proto.CpiInterfaceClient, config config.WorkerNodeConfi
 			config.FirecrackerUseSnapshots,
 			config.FirecrackerNetworkPoolSize,
 		)
+	case "scalability_test":
+		runtimeInterface = fake_snapshot.NewFakeSnapshotRuntime()
 	default:
 		logrus.Fatal("Unsupported sandbox type.")
 	}
