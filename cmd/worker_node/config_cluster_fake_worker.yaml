@@ -1,7 +1,7 @@
 workerNodeIp: "dynamic"
 controlPlaneIp: "10.0.1.2"
 controlPlanePort: "9090"
-port: "${DAEMON_PORT}"
+port: $DAEMON_PORT
 verbosity: "trace"
 criType: "scalability_test"
 criPath: "/run/containerd/containerd.sock"
