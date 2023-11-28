@@ -293,6 +293,8 @@ func (c *ControlPlane) CheckPeriodicallyWorkerNodes() {
 				// Propagate endpoint removal from the data planes
 				c.handleNodeFailure(workerNode)
 				workerNode.SetSchedulability(false)
+
+				logrus.Warnf("Node %s is unschedulable", workerNode.GetName())
 			}
 		}
 		c.NIStorage.Unlock()
