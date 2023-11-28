@@ -12,11 +12,11 @@ import (
 )
 
 func TestRandomPolicy(t *testing.T) {
-	policy := NewRandomPolicy()
+	policy := NewRandomPlacement()
 	storage := synchronization.NewControlPlaneSyncStructure[string, core.WorkerNodeInterface]()
 
-	storage.Set("w1", &workers.WorkerNode{})
-	storage.Set("w2", &workers.WorkerNode{})
+	storage.Set("w1", &workers.WorkerNode{Schedulable: true})
+	storage.Set("w2", &workers.WorkerNode{Schedulable: true})
 
 	requested := &ResourceMap{}
 
@@ -28,14 +28,14 @@ func TestRandomPolicy(t *testing.T) {
 }
 
 func TestRoundRobin(t *testing.T) {
-	policy := NewRoundRobinPolicy()
+	policy := NewRoundRobinPlacement()
 	storage := synchronization.NewControlPlaneSyncStructure[string, core.WorkerNodeInterface]()
 
 	requested := &ResourceMap{}
 
-	storage.Set("w1", &workers.WorkerNode{})
-	storage.Set("w2", &workers.WorkerNode{})
-	storage.Set("w3", &workers.WorkerNode{})
+	storage.Set("w1", &workers.WorkerNode{Schedulable: true})
+	storage.Set("w2", &workers.WorkerNode{Schedulable: true})
+	storage.Set("w3", &workers.WorkerNode{Schedulable: true})
 
 	nodes := sort.StringSlice(_map.Keys(storage.GetMap()))
 	nodes.Sort()

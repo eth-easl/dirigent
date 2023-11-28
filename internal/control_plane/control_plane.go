@@ -156,6 +156,7 @@ func (c *ControlPlane) RegisterNode(ctx context.Context, in *proto.NodeInfo) (*p
 		}
 
 		go wn.GetAPI()
+		wn.SetSchedulability(true)
 
 		logrus.Info("Node '", in.NodeID, "' has been successfully registered with the control plane")
 
@@ -286,16 +287,12 @@ func (c *ControlPlane) CheckPeriodicallyWorkerNodes() {
 	for {
 		c.NIStorage.Lock()
 		for _, workerNode := range c.NIStorage.GetMap() {
+			workerNode.SetSchedulability(true)
+
 			if time.Since(workerNode.GetLastHeartBeat()) > utils.TolerateHeartbeatMisses*utils.HeartbeatInterval {
 				// Propagate endpoint removal from the data planes
 				c.handleNodeFailure(workerNode)
-
-				// Trigger a node deregistration
-				c.NIStorage.Remove(workerNode.GetName())
-				err := c.PersistenceLayer.DeleteWorkerNodeInformation(context.Background(), workerNode.GetName(), time.Now())
-				if err != nil {
-					logrus.Errorf("Failed to deregister node (error : %s)", err.Error())
-				}
+				workerNode.SetSchedulability(false)
 			}
 		}
 		c.NIStorage.Unlock()

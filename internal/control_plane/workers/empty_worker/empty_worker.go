@@ -18,6 +18,13 @@ type emptyWorker struct {
 	workerEndPointMap synchronization.SyncStructure[*core.Endpoint, string]
 }
 
+func (e *emptyWorker) SetSchedulability(b bool) {
+}
+
+func (e *emptyWorker) GetSchedulability() bool {
+	return true
+}
+
 func NewEmptyWorkerNode(workerNodeConfiguration core.WorkerNodeConfiguration) core.WorkerNodeInterface {
 	return &emptyWorker{
 		name:              workerNodeConfiguration.Name,

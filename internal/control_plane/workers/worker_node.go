@@ -26,6 +26,15 @@ type WorkerNode struct {
 	api           proto.WorkerNodeInterfaceClient
 
 	endpointMap synchronization.SyncStructure[*core.Endpoint, string]
+	Schedulable bool
+}
+
+func (w *WorkerNode) SetSchedulability(val bool) {
+	w.Schedulable = val
+}
+
+func (w *WorkerNode) GetSchedulability() bool {
+	return w.Schedulable
 }
 
 func NewWorkerNode(workerNodeConfiguration core.WorkerNodeConfiguration) core.WorkerNodeInterface {

@@ -41,4 +41,6 @@ type WorkerNodeInterface interface {
 	GetIP() string
 	GetPort() string
 	GetEndpointMap() synchronization.SyncStructure[*Endpoint, string]
+	SetSchedulability(bool)
+	GetSchedulability() bool
 }

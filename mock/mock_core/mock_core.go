@@ -404,6 +404,20 @@ func (mr *MockWorkerNodeInterfaceMockRecorder) GetPort() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetPort", reflect.TypeOf((*MockWorkerNodeInterface)(nil).GetPort))
 }
 
+// GetSchedulability mocks base method.
+func (m *MockWorkerNodeInterface) GetSchedulability() bool {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetSchedulability")
+	ret0, _ := ret[0].(bool)
+	return ret0
+}
+
+// GetSchedulability indicates an expected call of GetSchedulability.
+func (mr *MockWorkerNodeInterfaceMockRecorder) GetSchedulability() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetSchedulability", reflect.TypeOf((*MockWorkerNodeInterface)(nil).GetSchedulability))
+}
+
 // GetWorkerNodeConfiguration mocks base method.
 func (m *MockWorkerNodeInterface) GetWorkerNodeConfiguration() core.WorkerNodeConfiguration {
 	m.ctrl.T.Helper()
@@ -460,6 +474,18 @@ func (m *MockWorkerNodeInterface) SetMemoryUsage(arg0 uint64) {
 func (mr *MockWorkerNodeInterfaceMockRecorder) SetMemoryUsage(arg0 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetMemoryUsage", reflect.TypeOf((*MockWorkerNodeInterface)(nil).SetMemoryUsage), arg0)
+}
+
+// SetSchedulability mocks base method.
+func (m *MockWorkerNodeInterface) SetSchedulability(arg0 bool) {
+	m.ctrl.T.Helper()
+	m.ctrl.Call(m, "SetSchedulability", arg0)
+}
+
+// SetSchedulability indicates an expected call of SetSchedulability.
+func (mr *MockWorkerNodeInterfaceMockRecorder) SetSchedulability(arg0 any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetSchedulability", reflect.TypeOf((*MockWorkerNodeInterface)(nil).SetSchedulability), arg0)
 }
 
 // UpdateLastHearBeat mocks base method.
