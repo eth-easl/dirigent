@@ -12,6 +12,7 @@ import (
 	"cluster_manager/pkg/utils"
 	"context"
 	"fmt"
+	"math/rand"
 	"os"
 	"time"
 
@@ -152,7 +153,7 @@ func (w *WorkerNode) sendInstructionToControlPlane(ctx context.Context, config c
 	pollErr := wait.PollUntilContextCancel(ctx, 5*time.Second, true,
 		func(ctx context.Context) (done bool, err error) {
 			nodeInfo := &proto.NodeInfo{
-				NodeID:     w.Name,
+				NodeID:     fmt.Sprintf("%s-%d", w.Name, rand.Int()),
 				IP:         config.WorkerNodeIP,
 				Port:       int32(config.Port),
 				CpuCores:   hardware.GetNumberCpus(),
