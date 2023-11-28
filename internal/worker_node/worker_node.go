@@ -94,7 +94,7 @@ func NewWorkerNode(cpApi proto.CpiInterfaceClient, config config.WorkerNodeConfi
 
 		SandboxManager: sandboxManager,
 
-		Name: hostName,
+		Name: fmt.Sprintf("%s-%d", hostName, rand.Int()),
 	}
 
 	return workerNode
@@ -153,7 +153,7 @@ func (w *WorkerNode) sendInstructionToControlPlane(ctx context.Context, config c
 	pollErr := wait.PollUntilContextCancel(ctx, 5*time.Second, true,
 		func(ctx context.Context) (done bool, err error) {
 			nodeInfo := &proto.NodeInfo{
-				NodeID:     fmt.Sprintf("%s-%d", w.Name, rand.Int()),
+				NodeID:     w.Name,
 				IP:         config.WorkerNodeIP,
 				Port:       int32(config.Port),
 				CpuCores:   hardware.GetNumberCpus(),

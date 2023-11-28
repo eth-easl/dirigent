@@ -5,6 +5,7 @@ import (
 	"cluster_manager/internal/worker_node/sandbox"
 	"context"
 	"fmt"
+	"github.com/sirupsen/logrus"
 	"google.golang.org/protobuf/types/known/durationpb"
 	"google.golang.org/protobuf/types/known/emptypb"
 	"math/rand"
@@ -21,6 +22,7 @@ func NewFakeSnapshotRuntime() *Runtime {
 
 func (fsr *Runtime) CreateSandbox(_ context.Context, in *proto.ServiceInfo) (*proto.SandboxCreationStatus, error) {
 	time.Sleep(40 * time.Millisecond)
+	logrus.Debugf("Fake sandbox created successfully.")
 
 	zeroDuration := durationpb.New(0)
 
