@@ -9,7 +9,7 @@ shift
 readonly DATA_PLANE=$1
 shift
 
-KillSystemdServices $@
+KillSystemdServices $CONTROL_PLANE $DATA_PLANE $@
 
 # Starting processes
 SetupControlPlane $CONTROL_PLANE
