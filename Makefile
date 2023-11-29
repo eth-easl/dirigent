@@ -26,8 +26,14 @@ build_rootfs:
 		-s $(ROOT_DIR)/workload \
 		-r $(ROOT_DIR)/configs/firecracker/rootfs.ext4
 
-empty-container:
+empty_container:
 	docker build \
 		-f Dockerfile \
 		-t cvetkovic/dirigent_empty_function .
 	docker push cvetkovic/dirigent_empty_function:latest
+
+trace_container:
+	docker build \
+		-f Dockerfile \
+		-t cvetkovic/dirigent_trace_function .
+	docker push cvetkovic/dirigent_trace_function:latest

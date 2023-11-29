@@ -88,7 +88,6 @@ func rootHandler(w http.ResponseWriter, req *http.Request) {
 	default:
 		w.WriteHeader(http.StatusBadRequest)
 	}
-
 }
 
 type FunctionResponse struct {
