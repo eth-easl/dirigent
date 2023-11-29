@@ -1,7 +1,7 @@
 port: "9090"
 portRegistration: "9091"
 verbosity: "trace"
-traceOutputFolder: "~/"
+traceOutputFolder: "data"
 placementPolicy: "random"
 persistence: false
 reconstruct: false
