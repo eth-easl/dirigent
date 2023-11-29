@@ -104,8 +104,9 @@ func (c *ControlPlane) RegisterDataplane(ctx context.Context, in *proto.Dataplan
 	logrus.Debugf("Dataplane with ip %s already registered - update last heartbeat timestamp", dataplaneInfo.Address)
 
 	c.DataPlaneConnections.Lock()
+	defer c.DataPlaneConnections.Unlock()
+
 	c.DataPlaneConnections.GetMap()[key].UpdateHeartBeat()
-	c.DataPlaneConnections.Unlock()
 
 	return &proto.ActionStatus{Success: true}, nil
 }
@@ -190,8 +191,9 @@ func (c *ControlPlane) DeregisterNode(ctx context.Context, in *proto.NodeInfo) (
 }
 
 func (c *ControlPlane) NodeHeartbeat(_ context.Context, in *proto.NodeHeartbeatMessage) (*proto.ActionStatus, error) {
-	c.NIStorage.Lock()
-	defer c.NIStorage.Unlock()
+	// TODO: consciou concurrency bug
+	//c.NIStorage.Lock()
+	//defer c.NIStorage.Unlock()
 
 	if present := c.NIStorage.Present(in.NodeID); !present {
 		logrus.Debug("Received a heartbeat for non-registered node")
@@ -201,6 +203,7 @@ func (c *ControlPlane) NodeHeartbeat(_ context.Context, in *proto.NodeHeartbeatM
 	c.NIStorage.GetMap()[in.NodeID].UpdateLastHearBeat()
 	c.NIStorage.GetMap()[in.NodeID].SetCpuUsage(in.CpuUsage)
 	c.NIStorage.GetMap()[in.NodeID].SetMemoryUsage(in.MemoryUsage)
+	c.NIStorage.GetMap()[in.NodeID].SetSchedulability(true)
 
 	logrus.Debugf("Heartbeat received from %s with %d percent cpu usage and %d percent memory usage", in.NodeID, in.CpuUsage, in.MemoryUsage)
 
@@ -285,19 +288,24 @@ func (c *ControlPlane) OnMetricsReceive(_ context.Context, metric *proto.Autosca
 
 func (c *ControlPlane) CheckPeriodicallyWorkerNodes() {
 	for {
+		var events []*proto.Failure
+
 		c.NIStorage.Lock()
 		for _, workerNode := range c.NIStorage.GetMap() {
 			workerNode.SetSchedulability(true)
 
 			if time.Since(workerNode.GetLastHeartBeat()) > utils.TolerateHeartbeatMisses*utils.HeartbeatInterval {
 				// Propagate endpoint removal from the data planes
-				c.handleNodeFailure(workerNode)
+				events = append(events, c.createWorkerNodeFailureEvents(workerNode)...)
 				workerNode.SetSchedulability(false)
 
 				logrus.Warnf("Node %s is unschedulable", workerNode.GetName())
 			}
 		}
 		c.NIStorage.Unlock()
+
+		// the following call requires a lock on NIStorage
+		c.HandleFailure(events)
 
 		time.Sleep(utils.HeartbeatInterval)
 	}
@@ -363,10 +371,6 @@ func (c *ControlPlane) getServicesOnWorkerNode(ss *ServiceInfoStorage, wn core.W
 	toRemove.GetEndpointMap().RUnlock()
 
 	return cIDs
-}
-
-func (c *ControlPlane) handleNodeFailure(wn core.WorkerNodeInterface) {
-	c.HandleFailure(c.createWorkerNodeFailureEvents(wn))
 }
 
 func (c *ControlPlane) precreateSnapshots(info *proto.ServiceInfo) {
