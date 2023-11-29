@@ -1,11 +1,10 @@
 package main
 
 import (
-	"fmt"
+	"encoding/json"
 	log "github.com/sirupsen/logrus"
 	"golang.org/x/net/http2"
 	"golang.org/x/net/http2/h2c"
-	"io"
 	"net/http"
 	"os"
 	"strconv"
@@ -46,8 +45,13 @@ func rootHandler(w http.ResponseWriter, req *http.Request) {
 
 	switch workload {
 	case "empty":
-		_, _ = io.WriteString(w, fmt.Sprintf("OK - EMPTY - %s", machineName))
+		responseBytes, _ := json.Marshal(FunctionResponse{
+			Status:        "OK - EMPTY",
+			MachineName:   machineName,
+			ExecutionTime: 0,
+		})
 
+		_, _ = w.Write(responseBytes)
 		w.WriteHeader(http.StatusOK)
 	case "trace":
 		tlm, err := strconv.Atoi(requested_cpu)
@@ -73,12 +77,24 @@ func rootHandler(w http.ResponseWriter, req *http.Request) {
 			}
 		}
 
-		_, _ = io.WriteString(w, fmt.Sprintf("OK - %s", machineName))
+		responseBytes, _ := json.Marshal(FunctionResponse{
+			Status:        "OK",
+			MachineName:   machineName,
+			ExecutionTime: time.Since(start).Microseconds(),
+		})
+
+		_, _ = w.Write(responseBytes)
 		w.WriteHeader(http.StatusOK)
 	default:
 		w.WriteHeader(http.StatusBadRequest)
 	}
 
+}
+
+type FunctionResponse struct {
+	Status        string `json:"Status"`
+	MachineName   string `json:"MachineName"`
+	ExecutionTime int64  `json:"ExecutionTime"`
 }
 
 func healthHandler(w http.ResponseWriter, r *http.Request) {
