@@ -89,6 +89,7 @@ func (ps *ProxyingService) createInvocationHandler(next http.Handler, cache *com
 		// COLD/WARM START
 		///////////////////////////////////////////////
 		coldStartChannel, durationColdStart := metadata.TryWarmStart(cp)
+		addDeploymentDuration := time.Duration(0)
 
 		defer metadata.DecreaseInflight()
 		go contextTerminationHandler(r, coldStartChannel)
@@ -100,6 +101,7 @@ func (ps *ProxyingService) createInvocationHandler(next http.Handler, cache *com
 			coldStartWaitTime := time.Now()
 			waitOutcome := <-coldStartChannel
 			durationColdStart = time.Since(coldStartWaitTime) - waitOutcome.AddEndpointDuration
+			addDeploymentDuration = waitOutcome.AddEndpointDuration
 
 			if waitOutcome.Outcome == common.CanceledColdStart {
 				w.WriteHeader(http.StatusGatewayTimeout)
@@ -137,6 +139,7 @@ func (ps *ProxyingService) createInvocationHandler(next http.Handler, cache *com
 			ContainerID:   endpoint.ID,
 			Total:         time.Since(start),
 			GetMetadata:   durationGetDeployment,
+			AddDeployment: addDeploymentDuration,
 			ColdStart:     durationColdStart,
 			LoadBalancing: durationLB,
 			CCThrottling:  durationCC,

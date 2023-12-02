@@ -79,7 +79,7 @@ function KillSystemdServices() {
 
     RemoteExec $1 "sudo systemctl stop control_plane"
     shift
-    RemoteExec $2 "sudo systemctl stop data_plane"
+    RemoteExec $1 "sudo systemctl stop data_plane"
     shift
 
     for NODE in "$@"
