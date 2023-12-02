@@ -54,6 +54,7 @@ func (ss *ServiceInfoStorage) ScalingControllerLoop(nodeList synchronization.Syn
 
 	for ok {
 		desiredCount, ok = <-ss.Controller.DesiredStateChannel
+		loopStarted := time.Now()
 
 		// Channel closed ==> We send the instruction to remove all endpoints
 		if !ok {
@@ -71,7 +72,7 @@ func (ss *ServiceInfoStorage) ScalingControllerLoop(nodeList synchronization.Syn
 		}
 
 		if actualScale < desiredCount {
-			go ss.doUpscaling(desiredCount-actualScale, nodeList, dpiClients)
+			go ss.doUpscaling(desiredCount-actualScale, nodeList, dpiClients, loopStarted)
 		} else if !ss.isDownScalingDisabled() && actualScale > desiredCount {
 			currentState := ss.Controller.Endpoints
 			toEvict := make(map[*core.Endpoint]struct{})
@@ -110,12 +111,8 @@ func (ss *ServiceInfoStorage) ScalingControllerLoop(nodeList synchronization.Syn
 	}
 }
 
-func (ss *ServiceInfoStorage) doUpscaling(toCreateCount int, nodeList synchronization.SyncStructure[string, core.WorkerNodeInterface], dpiClients synchronization.SyncStructure[string, core.DataPlaneInterface]) {
+func (ss *ServiceInfoStorage) doUpscaling(toCreateCount int, nodeList synchronization.SyncStructure[string, core.WorkerNodeInterface], dpiClients synchronization.SyncStructure[string, core.DataPlaneInterface], loopStarted time.Time) {
 	wg := sync.WaitGroup{}
-
-	var finalEndpoint []*core.Endpoint
-
-	endpointMutex := sync.Mutex{}
 
 	logrus.Debug("Need to create: ", toCreateCount, " sandboxes")
 
@@ -124,6 +121,9 @@ func (ss *ServiceInfoStorage) doUpscaling(toCreateCount int, nodeList synchroniz
 	for i := 0; i < toCreateCount; i++ {
 		go func() {
 			defer wg.Done()
+
+			//loopDelay := time.Since(loopStarted)
+			//startSandboxCreate := time.Now()
 
 			// TODO : @Lazar, We need to ask some resources
 			requested := placement2.CreateResourceMap(1, 1)
@@ -150,11 +150,12 @@ func (ss *ServiceInfoStorage) doUpscaling(toCreateCount int, nodeList synchroniz
 				return
 			}
 
-			logrus.Debug("Sandbox creation took: ", resp.LatencyBreakdown.Total.AsDuration().Milliseconds(), " ms")
+			//sandboxCreationTook := time.Since(startSandboxCreate)
+			sandboxCreationTook := time.Since(loopStarted)
+			resp.LatencyBreakdown.Total = durationpb.New(sandboxCreationTook)
+			logrus.Debug("Sandbox creation took: ", sandboxCreationTook.Milliseconds(), " ms")
 
-			// Critical section
-
-			logrus.Debug("Endpoint appended: ", resp.ID)
+			startEndpointPropagation := time.Now()
 
 			newEndpoint := &core.Endpoint{
 				SandboxID: resp.ID,
@@ -172,44 +173,23 @@ func (ss *ServiceInfoStorage) doUpscaling(toCreateCount int, nodeList synchroniz
 			// Update worker node structure
 			ss.NodeInformation.AtomicGetNoCheck(node.GetName()).GetEndpointMap().AtomicSet(newEndpoint, ss.ServiceInfo.Name)
 
-			endpointMutex.Lock()
-			finalEndpoint = append(finalEndpoint, newEndpoint)
-			endpointMutex.Unlock()
+			ss.Controller.EndpointLock.Lock()
+			ss.Controller.Endpoints = append(ss.Controller.Endpoints, newEndpoint)
+			urls := ss.prepareEndpointInfo([]*core.Endpoint{newEndpoint}) // prepare delta for sending
+			ss.Controller.EndpointLock.Unlock()
+
+			ss.updateEndpoints(dpiClients, urls)
+			logrus.Debugf("Endpoint has been propagated - %s", resp.ID)
+
+			newEndpoint.CreationHistory.LatencyBreakdown.DataplanePropagation = durationpb.New(time.Since(startEndpointPropagation))
+			*ss.ColdStartTracingChannel <- newEndpoint.CreationHistory
 		}()
 	}
 
-	tt := time.Now()
-	// batch update of endpoints
 	wg.Wait()
-
-	logrus.Debug("All sandboxes have been created. Updating endpoints.")
-
-	ss.Controller.EndpointLock.Lock()
-	oldEndpointCount := len(ss.Controller.Endpoints)
-	// no need for 'endpointMutex' as the barrier has already been passed
-	ss.Controller.Endpoints = append(ss.Controller.Endpoints, finalEndpoint...)
-	urls := ss.prepareEndpointInfo(finalEndpoint) // prepare delta for sending
-
-	ss.Controller.EndpointLock.Unlock()
-
-	if oldEndpointCount == len(finalEndpoint) {
-		// no new updates
-		return
-	}
-
-	logrus.Debug("Propagating endpoints.")
-	//updateEndpointTimeStart := time.Now()
-	ss.updateEndpoints(dpiClients, urls)
-	//durationUpdateEndpoints := time.Since(updateEndpointTimeStart)
-	logrus.Debug("Endpoints updated.")
 
 	if ss.ShouldTrace {
 		_, _ = ss.TracingFile.WriteString(fmt.Sprint(time.Now().Unix()) + "\n")
-	}
-
-	for _, endpoint := range finalEndpoint {
-		endpoint.CreationHistory.LatencyBreakdown.DataplanePropagation = durationpb.New(time.Since(tt))
-		*ss.ColdStartTracingChannel <- endpoint.CreationHistory
 	}
 }
 
