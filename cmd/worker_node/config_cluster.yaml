@@ -5,7 +5,7 @@ port: "10010"
 verbosity: "trace"
 criType: "containerd"
 criPath: "/run/containerd/containerd.sock"
-cniConfigPath: "configs/cni.conf"
+cniConfigPath: "/cluster_manager/configs/cni.conf"
 prefetchImage: false
 
 firecrackerKernel: "/cluster_manager/configs/firecracker/vmlinux-4.14.bin"
