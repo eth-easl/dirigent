@@ -49,7 +49,7 @@ func DoLoadBalancing(req *http.Request, metadata *function_metadata.FunctionMeta
 	lbDuration, ccDuration := time.Duration(0), time.Duration(0)
 
 	var endpoint *function_metadata.UpstreamEndpoint
-	loadBalancingRetries := 3
+	loadBalancingRetries := 60
 
 	// trying to get an endpoint and capacity for a couple of times
 	for i := 0; i < loadBalancingRetries; i++ {
@@ -89,7 +89,7 @@ func waitForCapacityOrDie(throttler function_metadata.RequestThrottler) (bool, t
 	select {
 	case <-throttler:
 		return true, time.Since(start)
-	case <-time.After(30 * time.Second):
+	case <-time.After(500 * time.Millisecond):
 		return false, time.Since(start)
 	}
 }
