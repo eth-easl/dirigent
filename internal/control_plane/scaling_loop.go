@@ -178,6 +178,7 @@ func (ss *ServiceInfoStorage) doUpscaling(toCreateCount int, nodeList synchroniz
 		}()
 	}
 
+	tt := time.Now()
 	// batch update of endpoints
 	wg.Wait()
 
@@ -197,9 +198,9 @@ func (ss *ServiceInfoStorage) doUpscaling(toCreateCount int, nodeList synchroniz
 	}
 
 	logrus.Debug("Propagating endpoints.")
-	updateEndpointTimeStart := time.Now()
+	//updateEndpointTimeStart := time.Now()
 	ss.updateEndpoints(dpiClients, urls)
-	durationUpdateEndpoints := time.Since(updateEndpointTimeStart)
+	//durationUpdateEndpoints := time.Since(updateEndpointTimeStart)
 	logrus.Debug("Endpoints updated.")
 
 	if ss.ShouldTrace {
@@ -207,7 +208,7 @@ func (ss *ServiceInfoStorage) doUpscaling(toCreateCount int, nodeList synchroniz
 	}
 
 	for _, endpoint := range finalEndpoint {
-		endpoint.CreationHistory.LatencyBreakdown.DataplanePropagation = durationpb.New(durationUpdateEndpoints)
+		endpoint.CreationHistory.LatencyBreakdown.DataplanePropagation = durationpb.New(time.Since(tt))
 		*ss.ColdStartTracingChannel <- endpoint.CreationHistory
 	}
 }
