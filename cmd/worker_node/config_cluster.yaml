@@ -3,10 +3,10 @@ controlPlaneIp: "10.0.1.2"
 controlPlanePort: "9090"
 port: "10010"
 verbosity: "trace"
-criType: "containerd"
+criType: "firecracker"
 criPath: "/run/containerd/containerd.sock"
 cniConfigPath: "/cluster_manager/configs/cni.conf"
-prefetchImage: true
+prefetchImage: false
 
 firecrackerKernel: "/cluster_manager/configs/firecracker/vmlinux-4.14.bin"
 firecrackerFileSystem: "/cluster_manager/configs/firecracker/rootfs.ext4"
@@ -14,4 +14,4 @@ firecrackerInternalIPPrefix: "100"
 firecrackerExposedIPPrefix: "192.254"
 firecrackerVMDebugMode: false
 firecrackerUseSnapshots: true
-firecrackerNetworkPoolSize: 128
+firecrackerNetworkPoolSize: 256
