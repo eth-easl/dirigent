@@ -19,6 +19,12 @@ def getResult(load, rootPath):
         cpTrace = pd.read_csv(f'{rootPath}/cold_start_trace_{l}.csv')
         proxyTrace = pd.read_csv(f'{rootPath}/proxy_trace_{l}.csv')
 
+        # filter first 10 minutes
+        minimalTimestamp = proxyTrace['time'].min() # nanoseconds
+        minimalTimestamp += 60 * 10e9 # 10 minutes
+
+        proxyTrace = proxyTrace[proxyTrace['time'] >= minimalTimestamp]
+
         data = pd.merge(proxyTrace, cpTrace, on=['container_id', 'service_name'], how='inner')
         data = data[data['success'] == True]  # keep only successful invocations
 
