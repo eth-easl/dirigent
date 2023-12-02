@@ -21,26 +21,35 @@ def getResult(load, rootPath):
 
         data = pd.merge(proxyTrace, cpTrace, on=['container_id', 'service_name'], how='inner')
         data = data[data['success'] == True]  # keep only successful invocations
-        data = data[data['cold_start'] > 0]  # keep only cold starts
 
         data = data.drop(columns=['time_x', 'time_y', 'success', 'service_name', 'container_id'])
 
-        data['control_plane'] = data['cold_start'] - \
+        data['control_plane_other'] = data['cold_start'] - \
                                 (data['image_fetch'] + data['sandbox_create'] + data['sandbox_start'] +
                                  data['network_setup'] + data['iptables'] + data['readiness_probe'] +
-                                 data['data_plane_propagation'] + data['snapshot_creation'] +
-                                 data['configure_monitoring'] + data['find_snapshot'] + data['other_worker_node'])
+                                 data['snapshot_creation'] + data['configure_monitoring'] +
+                                 data['find_snapshot'] + data['other_worker_node'])
+
+        # make control plane overhead for non-cold starts be zero
+        data.loc[data['cold_start'] == 0, "control_plane_other"] = 0
+        data = data[data['control_plane_other'] >= 0]
+
+        # drop column that was broken down
         data = data.drop(columns=['cold_start'])
 
         p50 = data.quantile(0.5)
-        p95 = data.quantile(0.95)
+        p99 = data.quantile(0.99)
 
         dataToPlot = processQuantile(p50, 0.5)
-        dataToPlot = pd.concat([dataToPlot, processQuantile(p95, 0.95)])
+        dataToPlot = pd.concat([dataToPlot, processQuantile(p99, 0.99)])
         dataToPlot = dataToPlot / 1000  # μs -> ms
+
+        # drop queueing and user code execution
+        dataToPlot = dataToPlot.drop(columns=['cc_throttling', 'proxying'])
 
         dataToPlot = dataToPlot.rename(columns={
             "get_metadata": "DP - find function",
+            "add_deployment": "DP - update endpoints",
             "load_balancing": "DP - load balancing",
             "cc_throttling": "DP - cc. throttling",
             "proxying": "DP - proxying",
@@ -56,7 +65,7 @@ def getResult(load, rootPath):
             "find_snapshot": "WN - get snapshot",
             "other_worker_node": "WN - other",
             "data_plane_propagation": "CP - propagate endpoints",
-            "control_plane": "CP - rest",
+            "control_plane_other": "CP - rest",
         })
 
         result.append(dataToPlot)
