@@ -384,7 +384,7 @@ func (c *ControlPlane) precreateSnapshots(info *proto.ServiceInfo) {
 	for _, node := range c.NIStorage.GetMap() {
 		wg.Add(1)
 
-		go func() {
+		go func(node core.WorkerNodeInterface) {
 			defer wg.Done()
 
 			sandboxInfo, err := node.CreateSandbox(context.Background(), ss.ServiceInfo)
@@ -402,7 +402,7 @@ func (c *ControlPlane) precreateSnapshots(info *proto.ServiceInfo) {
 			}
 
 			logrus.Debugf("Successfully created an image prewarming sandbox for function %s on node %s.", info.Name, node.GetName())
-		}()
+		}(node)
 	}
 
 	wg.Wait()

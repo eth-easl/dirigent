@@ -71,6 +71,11 @@ const (
 	CanceledColdStart
 )
 
+type ColdStartChannelStruct struct {
+	Outcome             ColdStartOutcome
+	AddEndpointDuration time.Duration
+}
+
 func NewFunctionMetadata(name string) *FunctionMetadata {
 	hostName, err := os.Hostname()
 	if err != nil {
@@ -170,6 +175,8 @@ func (m *FunctionMetadata) addToEndpointList(data []*proto.EndpointInfo) {
 }
 
 func (m *FunctionMetadata) AddEndpoints(endpoints []*proto.EndpointInfo) {
+	timeToAddEndpoint := time.Now()
+
 	m.Lock()
 	defer m.Unlock()
 
@@ -185,8 +192,11 @@ func (m *FunctionMetadata) AddEndpoints(endpoints []*proto.EndpointInfo) {
 			m.queue.Remove(dequeue)
 
 			// ColdStartOutcome channel shouldn't be closed because of context termination listener
-			signal, _ := dequeue.Value.(chan ColdStartOutcome)
-			signal <- SuccessfulColdStart
+			signal, _ := dequeue.Value.(chan ColdStartChannelStruct)
+			signal <- ColdStartChannelStruct{
+				Outcome:             SuccessfulColdStart,
+				AddEndpointDuration: time.Since(timeToAddEndpoint),
+			}
 
 			dequeueCnt++
 		}
@@ -287,7 +297,7 @@ func (m *FunctionMetadata) DecreaseInflight() {
 	atomic.AddInt32(&m.metrics.inflightRequests, -1)
 }
 
-func (m *FunctionMetadata) TryWarmStart(cp *proto.CpiInterfaceClient) (chan ColdStartOutcome, time.Duration) {
+func (m *FunctionMetadata) TryWarmStart(cp *proto.CpiInterfaceClient) (chan ColdStartChannelStruct, time.Duration) {
 	start := time.Now()
 
 	// autoscaling metric
@@ -296,7 +306,7 @@ func (m *FunctionMetadata) TryWarmStart(cp *proto.CpiInterfaceClient) (chan Cold
 	m.triggerAutoscaling(cp)
 
 	if atomic.LoadInt32(&m.activeEndpointCount) == 0 {
-		waitChannel := make(chan ColdStartOutcome, 1)
+		waitChannel := make(chan ColdStartChannelStruct, 1)
 
 		m.Lock()
 		defer m.Unlock()

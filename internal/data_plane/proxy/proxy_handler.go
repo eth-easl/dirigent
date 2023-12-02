@@ -99,9 +99,9 @@ func (ps *ProxyingService) createInvocationHandler(next http.Handler, cache *com
 			// wait until a cold start is resolved
 			coldStartWaitTime := time.Now()
 			waitOutcome := <-coldStartChannel
-			durationColdStart = time.Since(coldStartWaitTime)
+			durationColdStart = time.Since(coldStartWaitTime) - waitOutcome.AddEndpointDuration
 
-			if waitOutcome == common.CanceledColdStart {
+			if waitOutcome.Outcome == common.CanceledColdStart {
 				w.WriteHeader(http.StatusGatewayTimeout)
 				logrus.Warnf("Invocation context canceled for %s.", serviceName)
 
@@ -156,11 +156,14 @@ func giveBackCCCapacity(endpoint *common.UpstreamEndpoint) {
 	}
 }
 
-func contextTerminationHandler(r *http.Request, coldStartChannel chan common.ColdStartOutcome) {
+func contextTerminationHandler(r *http.Request, coldStartChannel chan common.ColdStartChannelStruct) {
 	select {
 	case <-r.Context().Done():
 		if coldStartChannel != nil {
-			coldStartChannel <- common.CanceledColdStart
+			coldStartChannel <- common.ColdStartChannelStruct{
+				Outcome:             common.CanceledColdStart,
+				AddEndpointDuration: 0,
+			}
 		}
 	}
 }
