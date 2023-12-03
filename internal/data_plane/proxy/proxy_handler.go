@@ -52,7 +52,6 @@ func (ps *ProxyingService) StartProxyServer() {
 	server := &http.Server{
 		Addr:    proxyRxAddress,
 		Handler: h2c.NewHandler(composedHandler, &http2.Server{}),
-		// TODO: add timeout for each request on the gateway side
 	}
 
 	err := server.ListenAndServe()
