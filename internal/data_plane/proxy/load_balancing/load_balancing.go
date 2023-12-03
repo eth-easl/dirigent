@@ -89,7 +89,7 @@ func waitForCapacityOrDie(throttler function_metadata.RequestThrottler) (bool, t
 	select {
 	case <-throttler:
 		return true, time.Since(start)
-	case <-time.After(500 * time.Millisecond):
+	case <-time.After(250 * time.Millisecond):
 		return false, time.Since(start)
 	}
 }
