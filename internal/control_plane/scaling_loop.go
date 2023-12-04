@@ -194,9 +194,17 @@ func (ss *ServiceInfoStorage) doUpscaling(toCreateCount int, nodeList synchroniz
 }
 
 func (ss *ServiceInfoStorage) removeEndpointFromWNStruct(e *core.Endpoint) {
+	if e.Node == nil {
+		return
+	}
+
 	// Update worker node structure
 	ss.NodeInformation.GetNoCheck(e.Node.GetName()).GetEndpointMap().Lock()
 	defer ss.NodeInformation.GetNoCheck(e.Node.GetName()).GetEndpointMap().Unlock()
+
+	if e.Node.GetEndpointMap() == nil {
+		return
+	}
 
 	ss.NodeInformation.GetNoCheck(e.Node.GetName()).GetEndpointMap().Remove(e)
 }
@@ -265,6 +273,11 @@ func (ss *ServiceInfoStorage) drainSandbox(dataPlanes synchronization.SyncStruct
 }
 
 func deleteSandbox(key *core.Endpoint) {
+	if key.Node == nil {
+		logrus.Warnf("Reference to a node on sandbox deletion not found. Ignoring request.")
+		return
+	}
+
 	ctx, cancel := context.WithTimeout(context.Background(), utils.WorkerNodeTrafficTimeout)
 	defer cancel()
 
