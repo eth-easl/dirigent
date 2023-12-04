@@ -120,7 +120,7 @@ func (c *ControlPlane) reconstructEndpointsState(ctx context.Context, dpiClients
 	endpoints := make([]*proto.Endpoint, 0)
 
 	for _, workerNode := range c.NIStorage.GetMap() {
-		list, err := workerNode.ListEndpoints(ctx, &emptypb.Empty{})
+		list, err := workerNode.GetAPI().ListEndpoints(ctx, &emptypb.Empty{})
 		if err != nil {
 			return err
 		}
