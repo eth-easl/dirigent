@@ -21,7 +21,7 @@ function SetupControlPlane() {
     # Remove old logs
     RemoteExec $1 "sudo journalctl --vacuum-time=1s && sudo journalctl --vacuum-time=1d"
     # Start control plane
-    RemoteExec $1 "sudo systemctl daemon-reload && sudo systemctl start control_plane.service"
+    RemoteExec $1 "sudo systemctl daemon-reload && sudo systemctl restart control_plane.service"
 }
 
 function SetupDataPlane() {
@@ -36,7 +36,7 @@ function SetupDataPlane() {
     # Remove old logs
     RemoteExec $1 "sudo journalctl --vacuum-time=1s && sudo journalctl --vacuum-time=1d"
     # Start data plane
-    RemoteExec $1 "sudo systemctl daemon-reload && sudo systemctl start data_plane.service"
+    RemoteExec $1 "sudo systemctl daemon-reload && sudo systemctl restart data_plane.service"
 }
 
 function SetupWorkerNodes() {
@@ -60,7 +60,7 @@ function SetupWorkerNodes() {
         # Remove old logs
         RemoteExec $1 "sudo journalctl --vacuum-time=1s && sudo journalctl --vacuum-time=1d"
         # Start worker node daemon
-        RemoteExec $1 "sudo systemctl daemon-reload && sudo systemctl start worker_node.service"
+        RemoteExec $1 "sudo systemctl daemon-reload && sudo systemctl restart worker_node.service"
     }
 
     for NODE in "$@"
@@ -73,8 +73,7 @@ function SetupWorkerNodes() {
 
 function KillSystemdServices() {
     function internal_kill() {
-        RemoteExec $1 "sudo killall firecracker"
-        RemoteExec $1 "sudo systemctl stop worker_node"
+        RemoteExec $1 "sudo killall firecracker && sudo systemctl stop worker_node"
     }
 
     RemoteExec $1 "sudo systemctl stop control_plane"

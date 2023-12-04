@@ -5,5 +5,6 @@ After=multi-user.target
 Type=simple
 Restart=always
 ExecStart=/cluster_manager/cmd/data_plane/main --configPath /cluster_manager/cmd/data_plane/config_cluster.yaml
+KillSignal=SIGINT
 [Install]
 WantedBy=multi-user.target

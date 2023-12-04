@@ -25,6 +25,8 @@ def getResult(load, rootPath):
 
         proxyTrace = proxyTrace[proxyTrace['time'] >= minimalTimestamp]
 
+        print(f"Number of sandboxes created over time: {proxyTrace['container_id'].nunique()}")
+
         data = pd.merge(proxyTrace, cpTrace, on=['container_id', 'service_name'], how='inner')
         data = data[data['success'] == True]  # keep only successful invocations
 
