@@ -5,6 +5,6 @@ After=multi-user.target
 Type=simple
 Restart=always
 ExecStart=/cluster_manager/cmd/master_node/main --configPath /cluster_manager/cmd/master_node/config_cluster.yaml
-KillSignal=SIGINT
+KillSignal=SIGKILL
 [Install]
 WantedBy=multi-user.target
