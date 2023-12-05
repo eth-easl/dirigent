@@ -40,6 +40,7 @@ func busySpin(multiplier, runtimeMilli uint32) {
 
 func rootHandler(w http.ResponseWriter, req *http.Request) {
 	workload := req.Header.Get("workload")
+	function := req.Header.Get("function")
 	requested_cpu := req.Header.Get("requested_cpu")
 	multiplier := req.Header.Get("multiplier")
 
@@ -47,6 +48,7 @@ func rootHandler(w http.ResponseWriter, req *http.Request) {
 	case "empty":
 		responseBytes, _ := json.Marshal(FunctionResponse{
 			Status:        "OK - EMPTY",
+			Function:      function,
 			MachineName:   machineName,
 			ExecutionTime: 0,
 		})
@@ -79,6 +81,7 @@ func rootHandler(w http.ResponseWriter, req *http.Request) {
 
 		responseBytes, _ := json.Marshal(FunctionResponse{
 			Status:        "OK",
+			Function:      function,
 			MachineName:   machineName,
 			ExecutionTime: time.Since(start).Microseconds(),
 		})
@@ -92,6 +95,7 @@ func rootHandler(w http.ResponseWriter, req *http.Request) {
 
 type FunctionResponse struct {
 	Status        string `json:"Status"`
+	Function      string `json:"Function"`
 	MachineName   string `json:"MachineName"`
 	ExecutionTime int64  `json:"ExecutionTime"`
 }
