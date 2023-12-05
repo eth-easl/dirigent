@@ -4,13 +4,15 @@ function RemoteExec() {
     ssh -oStrictHostKeyChecking=no -p 22 "$1" "$2";
 }
 
+function SetupRedis() {
+    # Start Redis server
+    RemoteExec $1 "docker stop \$(docker ps -aq)"
+    RemoteExec $1 "docker rm \$(docker ps -a -q)"
+    RemoteExec $1 "docker run -d --name redis-stack-server -p 6379:6379 redis/redis-stack-server:latest"
+}
+
 function SetupControlPlane() {
     RemoteExec $1 "cd ~/cluster_manager; git pull"
-
-    # Start Redis server
-    #RemoteExec $1 "docker stop \$(docker ps -aq)"
-    #RemoteExec $1 "docker rm \$(docker ps -a -q)"
-    #RemoteExec $1 "docker run -d --name redis-stack-server -p 6379:6379 redis/redis-stack-server:latest"
 
     # Compile control plane
     RemoteExec $1 "sudo mkdir -p /cluster_manager/cmd/master_node"

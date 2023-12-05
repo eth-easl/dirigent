@@ -39,13 +39,13 @@ func NewDefaultAutoscalingMetadata() *proto.AutoscalingConfiguration {
 	return &proto.AutoscalingConfiguration{
 		ScalingUpperBound:                    math.MaxInt32,
 		ScalingLowerBound:                    0,
-		PanicThresholdPercentage:             200,
+		PanicThresholdPercentage:             10,
 		MaxScaleUpRate:                       1000.0,
 		MaxScaleDownRate:                     2.0,
 		ContainerConcurrency:                 1,
-		ContainerConcurrencyTargetPercentage: 100,
-		StableWindowWidthSeconds:             60,
-		PanicWindowWidthSeconds:              6,
+		ContainerConcurrencyTargetPercentage: 70,
+		StableWindowWidthSeconds:             6,
+		PanicWindowWidthSeconds:              2,
 		ScalingPeriodSeconds:                 2,
 		ScalingMethod:                        Arithmetic,
 	}
