@@ -52,7 +52,9 @@ func NewWorkerNode(cpApi proto.CpiInterfaceClient, config config.WorkerNodeConfi
 		hostName = name[0]
 	}
 
-	sandboxManager := managers.NewSandboxManager(hostName)
+	nodeName := fmt.Sprintf("%s-%d", hostName, rand.Int())
+
+	sandboxManager := managers.NewSandboxManager(nodeName)
 
 	if _, isRoot := isUserRoot(); !isRoot {
 		logrus.Fatal("Cannot create a worker daemon without sudo.")
@@ -94,7 +96,7 @@ func NewWorkerNode(cpApi proto.CpiInterfaceClient, config config.WorkerNodeConfi
 
 		SandboxManager: sandboxManager,
 
-		Name: fmt.Sprintf("%s-%d", hostName, rand.Int()),
+		Name: nodeName,
 	}
 
 	return workerNode

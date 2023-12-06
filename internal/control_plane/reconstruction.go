@@ -7,9 +7,11 @@ import (
 	synchronization "cluster_manager/pkg/synchronization"
 	"cluster_manager/pkg/utils"
 	"context"
+	"errors"
 	"github.com/sirupsen/logrus"
 	"google.golang.org/protobuf/types/known/emptypb"
 	"sync"
+	"sync/atomic"
 	"time"
 )
 
@@ -152,10 +154,15 @@ func (c *ControlPlane) reconstructEndpointsState(ctx context.Context, dpiClients
 		endpoints = append(endpoints, list.Endpoint...)
 	}
 
-	logrus.Tracef("Found %d endpoints", len(endpoints))
+	logrus.Debugf("Worker nodes reported %d endpoints during reconstruction", len(endpoints))
 
-	/*for _, endpoint := range endpoints {
+	for _, endpoint := range endpoints {
 		node, _ := c.NIStorage.Get(endpoint.NodeName)
+		if node == nil {
+			logrus.Errorf("Node not found during endpoint reconstruction.")
+			continue
+		}
+
 		controlPlaneEndpoint := &core.Endpoint{
 			SandboxID: endpoint.SandboxID,
 			URL:       endpoint.URL,
@@ -168,11 +175,22 @@ func (c *ControlPlane) reconstructEndpointsState(ctx context.Context, dpiClients
 			return errors.New("element not found in map")
 		}
 
+		ss.NodeInformation.AtomicGetNoCheck(node.GetName()).GetEndpointMap().AtomicSet(controlPlaneEndpoint, ss.ServiceInfo.Name)
+
+		ss.Controller.EndpointLock.Lock()
 		ss.Controller.Endpoints = append(ss.Controller.Endpoints, controlPlaneEndpoint)
+		urls := ss.prepareEndpointInfo(ss.Controller.Endpoints)
+		ss.Controller.EndpointLock.Unlock()
+
+		ss.updateEndpoints(dpiClients, urls)
+
+		// do not allow downscaling until the system stabilizes
+		ss.Controller.ScalingMetadata.InPanicMode = true
+		ss.Controller.ScalingMetadata.StartPanickingTimestamp = time.Now()
 		atomic.AddInt64(&ss.Controller.ScalingMetadata.ActualScale, 1)
 
-		ss.updateEndpoints(dpiClients, ss.prepareEndpointInfo(ss.Controller.Endpoints))
-	}*/
+		ss.Controller.Start()
+	}
 
 	return nil
 }
