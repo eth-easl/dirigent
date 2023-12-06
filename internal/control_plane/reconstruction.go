@@ -7,11 +7,9 @@ import (
 	synchronization "cluster_manager/pkg/synchronization"
 	"cluster_manager/pkg/utils"
 	"context"
-	"errors"
 	"github.com/sirupsen/logrus"
 	"google.golang.org/protobuf/types/known/emptypb"
 	"sync"
-	"sync/atomic"
 	"time"
 )
 
@@ -156,7 +154,7 @@ func (c *ControlPlane) reconstructEndpointsState(ctx context.Context, dpiClients
 
 	logrus.Tracef("Found %d endpoints", len(endpoints))
 
-	for _, endpoint := range endpoints {
+	/*for _, endpoint := range endpoints {
 		node, _ := c.NIStorage.Get(endpoint.NodeName)
 		controlPlaneEndpoint := &core.Endpoint{
 			SandboxID: endpoint.SandboxID,
@@ -174,7 +172,7 @@ func (c *ControlPlane) reconstructEndpointsState(ctx context.Context, dpiClients
 		atomic.AddInt64(&ss.Controller.ScalingMetadata.ActualScale, 1)
 
 		ss.updateEndpoints(dpiClients, ss.prepareEndpointInfo(ss.Controller.Endpoints))
-	}
+	}*/
 
 	return nil
 }
