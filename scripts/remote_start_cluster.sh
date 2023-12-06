@@ -3,6 +3,11 @@
 readonly DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" > /dev/null 2>&1 && pwd)"
 source $DIR/common.sh
 
+readonly REDIS_NODE=$1
+shift
+
+SetupRedis $REDIS_NODE
+
 # Extracting control plane and data plane nodes and worker nodes
 readonly CONTROL_PLANE=$1
 shift
