@@ -5,10 +5,12 @@ import (
 	"cluster_manager/internal/control_plane/core"
 	config2 "cluster_manager/pkg/config"
 	synchronization "cluster_manager/pkg/synchronization"
+	"cluster_manager/pkg/utils"
 	"context"
 	"errors"
 	"github.com/sirupsen/logrus"
 	"google.golang.org/protobuf/types/known/emptypb"
+	"sync"
 	"sync/atomic"
 	"time"
 )
@@ -118,6 +120,30 @@ func (c *ControlPlane) reconstructServiceState(ctx context.Context) error {
 // Single threaded function - reconstruction happens before starting the control plane
 func (c *ControlPlane) reconstructEndpointsState(ctx context.Context, dpiClients synchronization.SyncStructure[string, core.DataPlaneInterface]) error {
 	endpoints := make([]*proto.Endpoint, 0)
+	wg := sync.WaitGroup{}
+
+	dpiClients.Lock()
+	for _, dp := range dpiClients.GetMap() {
+		wg.Add(1)
+
+		go func(dataPlane core.DataPlaneInterface) {
+			defer wg.Done()
+
+			ctxOp, cancel := context.WithTimeout(ctx, utils.WorkerNodeTrafficTimeout)
+			defer cancel()
+
+			_, err := dataPlane.UpdateEndpointList(ctxOp, &proto.DeploymentEndpointPatch{
+				Service:   nil,
+				Endpoints: nil,
+			})
+			if err != nil {
+				logrus.Warnf("Failed to remove all endpoints from the data plane %s - %v", dataPlane.GetIP(), err)
+			}
+		}(dp)
+	}
+	dpiClients.Unlock()
+	wg.Wait()
+	logrus.Debugf("Removed all endpoints from all data planes.")
 
 	for _, workerNode := range c.NIStorage.GetMap() {
 		list, err := workerNode.GetAPI().ListEndpoints(ctx, &emptypb.Empty{})

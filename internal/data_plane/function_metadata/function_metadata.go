@@ -218,6 +218,14 @@ func (m *FunctionMetadata) DrainEndpoints(endpoints []*proto.EndpointInfo) error
 	return nil
 }
 
+func (m *FunctionMetadata) RemoveAllEndpoints() {
+	m.Lock()
+	defer m.Unlock()
+
+	m.upstreamEndpoints = nil
+	atomic.StoreInt32(&m.activeEndpointCount, 0)
+}
+
 func (m *FunctionMetadata) removeEndpoints(endpoints []*proto.EndpointInfo) {
 	for i := 0; i < len(endpoints); i++ {
 		for j := 0; j < len(m.upstreamEndpoints); j++ {
@@ -347,6 +355,7 @@ func (m *FunctionMetadata) sendMetricsToAutoscaler(cp *proto.CpiInterfaceClient)
 		inflightRequests := atomic.LoadInt32(&m.metrics.inflightRequests)
 
 		go func() {
+			// TODO: NEED TO IMPLEMENT - the data plane shouldn't stop send metrics until the control plane at least once confirms
 			status, err := (*cp).OnMetricsReceive(context.Background(), &proto.AutoscalingMetric{
 				ServiceName:      m.identifier,
 				DataplaneName:    m.dataPlaneID,

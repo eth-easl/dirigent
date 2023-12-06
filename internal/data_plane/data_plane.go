@@ -70,6 +70,12 @@ func (d *Dataplane) AddDeployment(in *proto.ServiceInfo) (*proto.DeploymentUpdat
 }
 
 func (d *Dataplane) UpdateEndpointList(patch *proto.DeploymentEndpointPatch) (*proto.DeploymentUpdateSuccess, error) {
+	if patch.Service == nil && patch.Endpoints == nil {
+		d.cleanCache()
+
+		return &proto.DeploymentUpdateSuccess{Success: true}, nil
+	}
+
 	deployment, _ := d.deployements.GetDeployment(patch.GetService().GetName())
 	if deployment == nil {
 		return &proto.DeploymentUpdateSuccess{Success: false}, errors.New("deployment does not exists on the data plane side")
@@ -77,6 +83,16 @@ func (d *Dataplane) UpdateEndpointList(patch *proto.DeploymentEndpointPatch) (*p
 
 	deployment.AddEndpoints(patch.Endpoints)
 	return &proto.DeploymentUpdateSuccess{Success: true}, nil
+}
+
+func (d *Dataplane) cleanCache() {
+	metadata := d.deployements.ListDeployments()
+
+	for _, fm := range metadata {
+		fm.RemoveAllEndpoints()
+	}
+
+	logrus.Info("Successfully cleaned the whole cache initiated by the control plane.")
 }
 
 func (d *Dataplane) DeleteDeployment(name *proto.ServiceInfo) (*proto.DeploymentUpdateSuccess, error) {

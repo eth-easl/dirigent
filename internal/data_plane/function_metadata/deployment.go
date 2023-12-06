@@ -61,3 +61,15 @@ func (d *Deployments) DeleteDeployment(name string) bool {
 
 	return false
 }
+
+func (d *Deployments) ListDeployments() []*FunctionMetadata {
+	d.RLock()
+	defer d.RUnlock()
+
+	var result []*FunctionMetadata
+	for _, vm := range d.data {
+		result = append(result, vm)
+	}
+
+	return result
+}
