@@ -122,9 +122,6 @@ func (ss *ServiceInfoStorage) doUpscaling(toCreateCount int, nodeList synchroniz
 		go func() {
 			defer wg.Done()
 
-			//loopDelay := time.Since(loopStarted)
-			//startSandboxCreate := time.Now()
-
 			// TODO : @Lazar, We need to ask some resources
 			requested := placement2.CreateResourceMap(1, 1)
 			node := placement2.ApplyPlacementPolicy(ss.PlacementPolicy, nodeList, requested)
@@ -150,7 +147,6 @@ func (ss *ServiceInfoStorage) doUpscaling(toCreateCount int, nodeList synchroniz
 				return
 			}
 
-			//sandboxCreationTook := time.Since(startSandboxCreate)
 			sandboxCreationTook := time.Since(loopStarted)
 			resp.LatencyBreakdown.Total = durationpb.New(sandboxCreationTook)
 			logrus.Debug("Sandbox creation took: ", sandboxCreationTook.Milliseconds(), " ms")

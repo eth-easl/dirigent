@@ -191,7 +191,7 @@ func (c *ControlPlane) DeregisterNode(ctx context.Context, in *proto.NodeInfo) (
 }
 
 func (c *ControlPlane) NodeHeartbeat(_ context.Context, in *proto.NodeHeartbeatMessage) (*proto.ActionStatus, error) {
-	// TODO: consciou concurrency bug
+	// TODO: conscious concurrency bug
 	//c.NIStorage.Lock()
 	//defer c.NIStorage.Unlock()
 
