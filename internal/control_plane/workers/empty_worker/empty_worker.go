@@ -32,7 +32,7 @@ func NewEmptyWorkerNode(workerNodeConfiguration core.WorkerNodeConfiguration) co
 	}
 }
 
-func (e *emptyWorker) GetAPI() proto.WorkerNodeInterfaceClient {
+func (e *emptyWorker) ConnectToWorker() proto.WorkerNodeInterfaceClient {
 	return NewEmptyInterfaceClient()
 }
 

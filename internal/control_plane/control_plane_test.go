@@ -593,8 +593,6 @@ func TestReconstructionService(t *testing.T) {
 }
 
 func TestReconstructionWorkers(t *testing.T) {
-	t.Skip()
-
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 

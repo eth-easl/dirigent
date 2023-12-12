@@ -93,7 +93,7 @@ func (c *ControlPlane) reconstructWorkersState(ctx context.Context) error {
 
 		c.NIStorage.Set(wn.GetName(), wn)
 
-		go wn.GetAPI()
+		go wn.ConnectToWorker()
 	}
 
 	return nil
@@ -146,7 +146,7 @@ func (c *ControlPlane) reconstructEndpointsState(ctx context.Context, dpiClients
 	logrus.Debugf("Removed all endpoints from all data planes.")
 
 	for _, workerNode := range c.NIStorage.GetMap() {
-		list, err := workerNode.GetAPI().ListEndpoints(ctx, &emptypb.Empty{})
+		list, err := workerNode.ListEndpoints(ctx, &emptypb.Empty{})
 		if err != nil {
 			return err
 		}

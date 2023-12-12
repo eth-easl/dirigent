@@ -156,7 +156,7 @@ func (c *ControlPlane) RegisterNode(ctx context.Context, in *proto.NodeInfo) (*p
 			return &proto.ActionStatus{Success: false}, err
 		}
 
-		go wn.GetAPI()
+		go wn.ConnectToWorker()
 		wn.SetSchedulability(true)
 
 		logrus.Info("Node '", in.NodeID, "' has been successfully registered with the control plane")

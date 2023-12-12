@@ -265,9 +265,9 @@ func (mr *MockWorkerNodeInterfaceMockRecorder) DeleteSandbox(arg0, arg1 any, arg
 }
 
 // GetAPI mocks base method.
-func (m *MockWorkerNodeInterface) GetAPI() proto.WorkerNodeInterfaceClient {
+func (m *MockWorkerNodeInterface) ConnectToWorker() proto.WorkerNodeInterfaceClient {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetAPI")
+	ret := m.ctrl.Call(m, "ConnectToWorker")
 	ret0, _ := ret[0].(proto.WorkerNodeInterfaceClient)
 	return ret0
 }
@@ -275,7 +275,7 @@ func (m *MockWorkerNodeInterface) GetAPI() proto.WorkerNodeInterfaceClient {
 // GetAPI indicates an expected call of GetAPI.
 func (mr *MockWorkerNodeInterfaceMockRecorder) GetAPI() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetAPI", reflect.TypeOf((*MockWorkerNodeInterface)(nil).GetAPI))
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ConnectToWorker", reflect.TypeOf((*MockWorkerNodeInterface)(nil).ConnectToWorker))
 }
 
 // GetCpuCores mocks base method.

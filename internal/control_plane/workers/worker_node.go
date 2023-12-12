@@ -23,7 +23,7 @@ type WorkerNode struct {
 	Memory   uint64
 
 	LastHeartbeat time.Time
-	api           proto.WorkerNodeInterfaceClient
+	wnConnection  proto.WorkerNodeInterfaceClient
 
 	endpointMap synchronization.SyncStructure[*core.Endpoint, string]
 	Schedulable bool
@@ -68,23 +68,23 @@ func (w *WorkerNode) GetLastHeartBeat() time.Time {
 }
 
 func (w *WorkerNode) CreateSandbox(ctx context.Context, info *proto.ServiceInfo, option ...grpc.CallOption) (*proto.SandboxCreationStatus, error) {
-	return w.GetAPI().CreateSandbox(ctx, info, option...)
+	return w.wnConnection.CreateSandbox(ctx, info, option...)
 }
 
 func (w *WorkerNode) DeleteSandbox(ctx context.Context, id *proto.SandboxID, option ...grpc.CallOption) (*proto.ActionStatus, error) {
-	return w.GetAPI().DeleteSandbox(ctx, id, option...)
+	return w.wnConnection.DeleteSandbox(ctx, id, option...)
 }
 
 func (w *WorkerNode) ListEndpoints(ctx context.Context, empty *emptypb.Empty, option ...grpc.CallOption) (*proto.EndpointsList, error) {
-	return w.ListEndpoints(ctx, empty, option...)
+	return w.wnConnection.ListEndpoints(ctx, empty, option...)
 }
 
-func (w *WorkerNode) GetAPI() proto.WorkerNodeInterfaceClient {
-	if w.api == nil {
-		w.api, _ = grpc_helpers.InitializeWorkerNodeConnection(w.IP, w.Port)
+func (w *WorkerNode) ConnectToWorker() proto.WorkerNodeInterfaceClient {
+	if w.wnConnection == nil {
+		w.wnConnection, _ = grpc_helpers.InitializeWorkerNodeConnection(w.IP, w.Port)
 	}
 
-	return w.api
+	return w.wnConnection
 }
 
 func (w *WorkerNode) UpdateLastHearBeat() {

@@ -24,7 +24,7 @@ type DataPlaneInterface interface {
 }
 
 type WorkerNodeInterface interface {
-	GetAPI() proto.WorkerNodeInterfaceClient
+	ConnectToWorker() proto.WorkerNodeInterfaceClient
 	CreateSandbox(context.Context, *proto.ServiceInfo, ...grpc.CallOption) (*proto.SandboxCreationStatus, error)
 	DeleteSandbox(context.Context, *proto.SandboxID, ...grpc.CallOption) (*proto.ActionStatus, error)
 	ListEndpoints(context.Context, *emptypb.Empty, ...grpc.CallOption) (*proto.EndpointsList, error)
