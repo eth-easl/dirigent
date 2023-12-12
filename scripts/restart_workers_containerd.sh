@@ -11,7 +11,7 @@ function RestartWorkers() {
 
         RemoteExec $1 "sudo sysctl -w net.ipv4.conf.all.route_localnet=1"
 
-        CMD=$"cd ~/cluster_manager; git fetch origin;git reset --hard origin/master; cd ~/cluster_manager/; sudo /usr/local/go/bin/go run cmd/worker_node/main.go --configPath cmd/worker_node/config_cluster_containerd.yaml"
+        CMD=$"cd ~/cluster_manager; git fetch origin;git reset --hard origin/master2; cd ~/cluster_manager/; sudo /usr/local/go/bin/go run cmd/worker_node/main.go --configPath cmd/worker_node/config_cluster_containerd.yaml"
 
         RemoteExec $1 "tmux send -t worker \"$CMD\" ENTER"
     }
