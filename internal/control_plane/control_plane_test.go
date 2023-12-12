@@ -654,8 +654,6 @@ func TestReconstructionWorkers(t *testing.T) {
 }
 
 func TestReconstructionDataplanes(t *testing.T) {
-	t.Skip()
-
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
@@ -1775,6 +1773,10 @@ func (t *testStructure) NewMockDataplaneConnection(IP, APIPort, ProxyPort string
 
 	mockInterface.EXPECT().InitializeDataPlaneConnection(gomock.Any(), gomock.Any()).DoAndReturn(func(string, string) error {
 		return nil
+	}).Times(1)
+
+	mockInterface.EXPECT().UpdateEndpointList(gomock.Any(), gomock.Any()).DoAndReturn(func(context.Context, *proto.DeploymentEndpointPatch) (*proto.DeploymentUpdateSuccess, error) {
+		return &proto.DeploymentUpdateSuccess{}, nil
 	}).Times(1)
 
 	return mockInterface
