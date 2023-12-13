@@ -1,8 +1,8 @@
 #!/bin/bash
 
-readonly CONTROLPLANE=Francois@hp156.utah.cloudlab.us
-readonly DATAPLANE=Francois@hp158.utah.cloudlab.us
-readonly INVITRO=Francois@hp156.utah.cloudlab.us
+readonly CONTROLPLANE=Francois@hp185.utah.cloudlab.us
+readonly DATAPLANE=Francois@hp196.utah.cloudlab.us
+readonly INVITRO=Francois@hp185.utah.cloudlab.us
 
 function RemoteExec() {
     ssh -oStrictHostKeyChecking=no -p 22 "$1" "$2";

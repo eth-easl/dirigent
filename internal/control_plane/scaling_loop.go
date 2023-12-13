@@ -72,7 +72,7 @@ func (ss *ServiceInfoStorage) ScalingControllerLoop(nodeList synchronization.Syn
 		}
 
 		if actualScale < desiredCount {
-			go ss.doUpscaling(desiredCount-actualScale, nodeList, dpiClients, loopStarted)
+			ss.doUpscaling(desiredCount-actualScale, nodeList, dpiClients, loopStarted)
 		} else if !ss.isDownScalingDisabled() && actualScale > desiredCount {
 			currentState := ss.Controller.Endpoints
 			toEvict := make(map[*core.Endpoint]struct{})
@@ -81,24 +81,24 @@ func (ss *ServiceInfoStorage) ScalingControllerLoop(nodeList synchronization.Syn
 				endpoint, newState := eviction_policy.EvictionPolicy(currentState)
 				if len(currentState) == 0 || endpoint == nil {
 					// TODO: this is a bug
-					logrus.Warnf("No endpoint to evict in the downscaling loop despite the actual scale is %d.", actualScale)
+					logrus.Fatalf("No endpoint to evict in the downscaling loop despite the actual scale is %d.", actualScale)
 					continue
 				}
 
 				if _, okk := toEvict[endpoint]; okk {
-					logrus.Error("Endpoint repetition - this is a bug.")
+					logrus.Fatalf("Endpoint repetition - this is a bug.")
 				}
 				toEvict[endpoint] = struct{}{}
 				currentState = newState
 			}
 
 			if actualScale-desiredCount != len(toEvict) {
-				logrus.Warn("downscaling reference error")
+				logrus.Fatalf("downscaling reference error")
 			}
 
 			ss.excludeEndpoints(toEvict)
 
-			go ss.doDownscaling(toEvict, dpiClients)
+			ss.doDownscaling(toEvict, dpiClients)
 		}
 
 		ss.Controller.EndpointLock.Unlock() // for all cases (>, ==, <)
@@ -169,10 +169,8 @@ func (ss *ServiceInfoStorage) doUpscaling(toCreateCount int, nodeList synchroniz
 			// Update worker node structure
 			ss.NodeInformation.AtomicGetNoCheck(node.GetName()).GetEndpointMap().AtomicSet(newEndpoint, ss.ServiceInfo.Name)
 
-			ss.Controller.EndpointLock.Lock()
 			ss.Controller.Endpoints = append(ss.Controller.Endpoints, newEndpoint)
 			urls := ss.prepareEndpointInfo([]*core.Endpoint{newEndpoint}) // prepare delta for sending
-			ss.Controller.EndpointLock.Unlock()
 
 			ss.updateEndpoints(dpiClients, urls)
 			logrus.Debugf("Endpoint has been propagated - %s", resp.ID)
