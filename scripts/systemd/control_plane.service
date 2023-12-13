@@ -4,7 +4,7 @@ After=multi-user.target
 [Service]
 Type=simple
 Restart=always
-ExecStart=/cluster_manager/cmd/master_node/main --configPath /cluster_manager/cmd/master_node/config_cluster.yaml
+ExecStart=/cluster_manager/cmd/master_node/main --config /cluster_manager/cmd/master_node/config_cluster.yaml
 KillSignal=SIGKILL
 [Install]
 WantedBy=multi-user.target

@@ -21,7 +21,7 @@ import (
 )
 
 var (
-	configPath = flag.String("configPath", "cmd/worker_node/config.yaml", "Path to the configuration file")
+	configPath = flag.String("config", "cmd/worker_node/config.yaml", "Path to the configuration file")
 )
 
 func main() {

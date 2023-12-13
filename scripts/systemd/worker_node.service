@@ -5,7 +5,7 @@ After=multi-user.target
 Type=simple
 Restart=always
 Environment="PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/games:/usr/local/games:/snap/bin:/usr/local/go/bin:/usr/local/bin/firecracker"
-ExecStart=/cluster_manager/cmd/worker_node/main --configPath /cluster_manager/cmd/worker_node/config_cluster.yaml
+ExecStart=/cluster_manager/cmd/worker_node/main --config /cluster_manager/cmd/worker_node/config_cluster.yaml
 KillSignal=SIGKILL
 [Install]
 WantedBy=multi-user.target

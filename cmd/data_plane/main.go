@@ -19,7 +19,7 @@ import (
 )
 
 var (
-	configPath = flag.String("configPath", "cmd/data_plane/config.yaml", "Path to the configuration file")
+	configPath = flag.String("config", "cmd/data_plane/config.yaml", "Path to the configuration file")
 )
 
 func main() {

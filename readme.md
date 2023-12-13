@@ -168,13 +168,13 @@ sudo docker-compose up
 > launch master node
 
 ```bash
-cd cmd/master_node; go run main.go --configPath config_cluster.yaml
+cd cmd/master_node; go run main.go --config config_cluster.yaml
 ```
 
 > launch data plane
 
 ```bash
-cd cmd/data_plane; go run main.go --configPath config_cluster.yaml
+cd cmd/data_plane; go run main.go --config config_cluster.yaml
 ```
 
 > launch master node
