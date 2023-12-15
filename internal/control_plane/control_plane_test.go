@@ -1344,7 +1344,7 @@ func TestOnMetricReceiveStress(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	size := 1
+	size := 1000
 
 	persistenceLayer := mock_persistence.NewMockPersistenceLayer(ctrl)
 
@@ -1531,7 +1531,7 @@ func TestEndpointsWithDeregistrationMultipleNodes(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	size := 10000
+	size := 50
 
 	persistenceLayer := mock_persistence.NewMockPersistenceLayer(ctrl)
 

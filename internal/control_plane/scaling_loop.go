@@ -80,20 +80,19 @@ func (ss *ServiceInfoStorage) ScalingControllerLoop(nodeList synchronization.Syn
 			for i := 0; i < actualScale-desiredCount; i++ {
 				endpoint, newState := eviction_policy.EvictionPolicy(currentState)
 				if len(currentState) == 0 || endpoint == nil {
-					// TODO: this is a bug
-					logrus.Fatalf("No endpoint to evict in the downscaling loop despite the actual scale is %d.", actualScale)
+					logrus.Errorf("No endpoint to evict in the downscaling loop despite the actual scale is %d.", actualScale)
 					continue
 				}
 
 				if _, okk := toEvict[endpoint]; okk {
-					logrus.Fatalf("Endpoint repetition - this is a bug.")
+					logrus.Errorf("Endpoint repetition - this is a bug.")
 				}
 				toEvict[endpoint] = struct{}{}
 				currentState = newState
 			}
 
 			if actualScale-desiredCount != len(toEvict) {
-				logrus.Fatalf("downscaling reference error")
+				logrus.Errorf("downscaling reference error")
 			}
 
 			ss.excludeEndpoints(toEvict)

@@ -81,7 +81,7 @@ func (ts *TracingService[K]) ResetTracingService() {
 func NewColdStartTracingService(outputFile string) *TracingService[ColdStartLogEntry] {
 	return &TracingService[ColdStartLogEntry]{
 		OutputFile:    outputFile,
-		InputChannel:  make(chan ColdStartLogEntry, 100),
+		InputChannel:  make(chan ColdStartLogEntry, 10000),
 		Header:        coldStartLogHeader,
 		WriteFunction: coldStartWriteFunction,
 	}
@@ -90,7 +90,7 @@ func NewColdStartTracingService(outputFile string) *TracingService[ColdStartLogE
 func NewProxyTracingService(outputFile string) *TracingService[ProxyLogEntry] {
 	return &TracingService[ProxyLogEntry]{
 		OutputFile:    outputFile,
-		InputChannel:  make(chan ProxyLogEntry, 100),
+		InputChannel:  make(chan ProxyLogEntry, 10000),
 		Header:        proxyLogHeader,
 		WriteFunction: proxyWriteFunction,
 	}
