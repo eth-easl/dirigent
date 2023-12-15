@@ -152,7 +152,11 @@ func (ss *ServiceInfoStorage) doUpscaling(toCreateCount int, nodeList synchroniz
 			logrus.Debugf("Endpoint has been propagated - %s", resp.ID)
 
 			newEndpoint.CreationHistory.LatencyBreakdown.DataplanePropagation = durationpb.New(time.Since(startEndpointPropagation))
-			*ss.ColdStartTracingChannel <- newEndpoint.CreationHistory
+
+			select {
+			case *ss.ColdStartTracingChannel <- newEndpoint.CreationHistory:
+			default:
+			}
 		}()
 	}
 
