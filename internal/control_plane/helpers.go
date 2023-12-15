@@ -57,6 +57,8 @@ func (c *ControlPlane) removeServiceFromDataplaneAndStopLoop(ctx context.Context
 	}
 	c.DataPlaneConnections.Unlock()
 
+	// TODO: Close channel in scaling_loop
+
 	return nil
 }
 

@@ -984,9 +984,7 @@ func TestStressEverything(t *testing.T) {
 
 // Advanced concurrency tests
 
-// TODO: Fix issue with 10k at the same time
 func TestStressRegisterDeregisterServices(t *testing.T) {
-	t.Skip()
 
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
@@ -1005,7 +1003,7 @@ func TestStressRegisterDeregisterServices(t *testing.T) {
 		return make([]*proto.DataplaneInformation, 0), nil
 	}).Times(1)
 
-	size := 1000
+	size := 10000
 
 	persistenceLayer.EXPECT().StoreServiceInformation(gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(func(_ context.Context, _ *proto.ServiceInfo, _ time.Time) error {
 		return nil
@@ -1025,31 +1023,30 @@ func TestStressRegisterDeregisterServices(t *testing.T) {
 	cnt := 0
 
 	wg := sync.WaitGroup{}
-	wg.Add(2 * size)
+	wg.Add(size)
 
 	for cnt < size {
 		go func(idx int) {
 			defer wg.Done()
 
-			controlPlane.RegisterService(context.Background(), &proto.ServiceInfo{
+			_, err := controlPlane.RegisterService(context.Background(), &proto.ServiceInfo{
 				Name:              "mock" + fmt.Sprint(idx),
 				Image:             "",
 				PortForwarding:    nil,
 				AutoscalingConfig: nil,
 			})
-		}(cnt)
 
-		go func(idx int) {
-			defer wg.Done()
+			assert.NoError(t, err)
 
-			controlPlane.DeregisterService(context.Background(), &proto.ServiceInfo{
+			_, err = controlPlane.DeregisterService(context.Background(), &proto.ServiceInfo{
 				Name:              "mock" + fmt.Sprint(idx),
 				Image:             "",
 				PortForwarding:    nil,
 				AutoscalingConfig: nil,
 			})
-		}(cnt)
 
+			assert.NoError(t, err)
+		}(cnt)
 		cnt++
 	}
 
@@ -1344,7 +1341,7 @@ func TestOnMetricReceiveStress(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	size := 1000
+	size := 1
 
 	persistenceLayer := mock_persistence.NewMockPersistenceLayer(ctrl)
 

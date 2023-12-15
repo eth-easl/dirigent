@@ -49,19 +49,17 @@ func (ss *ServiceInfoStorage) GetAllURLs() []string {
 }
 
 func (ss *ServiceInfoStorage) ScalingControllerLoop(nodeList synchronization.SyncStructure[string, core.WorkerNodeInterface], dpiClients synchronization.SyncStructure[string, core.DataPlaneInterface]) {
-	ok := true
+	isLoopRunning := true
 	desiredCount := 0
 
-	for ok {
-		desiredCount, ok = <-ss.Controller.DesiredStateChannel
+	for isLoopRunning {
+		desiredCount, isLoopRunning = <-ss.Controller.DesiredStateChannel
 		loopStarted := time.Now()
 
 		// Channel closed ==> We send the instruction to remove all endpoints
-		if !ok {
+		if !isLoopRunning {
 			desiredCount = 0
 		}
-
-		ss.Controller.EndpointLock.Lock()
 
 		var actualScale int
 
@@ -71,33 +69,12 @@ func (ss *ServiceInfoStorage) ScalingControllerLoop(nodeList synchronization.Syn
 			swapped = atomic.CompareAndSwapInt64(&ss.Controller.ScalingMetadata.ActualScale, int64(actualScale), int64(desiredCount))
 		}
 
+		ss.Controller.EndpointLock.Lock()
+
 		if actualScale < desiredCount {
 			ss.doUpscaling(desiredCount-actualScale, nodeList, dpiClients, loopStarted)
 		} else if !ss.isDownScalingDisabled() && actualScale > desiredCount {
-			currentState := ss.Controller.Endpoints
-			toEvict := make(map[*core.Endpoint]struct{})
-
-			for i := 0; i < actualScale-desiredCount; i++ {
-				endpoint, newState := eviction_policy.EvictionPolicy(currentState)
-				if len(currentState) == 0 || endpoint == nil {
-					logrus.Errorf("No endpoint to evict in the downscaling loop despite the actual scale is %d.", actualScale)
-					continue
-				}
-
-				if _, okk := toEvict[endpoint]; okk {
-					logrus.Errorf("Endpoint repetition - this is a bug.")
-				}
-				toEvict[endpoint] = struct{}{}
-				currentState = newState
-			}
-
-			if actualScale-desiredCount != len(toEvict) {
-				logrus.Errorf("downscaling reference error")
-			}
-
-			ss.excludeEndpoints(toEvict)
-
-			ss.doDownscaling(toEvict, dpiClients)
+			ss.doDownscaling(actualScale, desiredCount, dpiClients)
 		}
 
 		ss.Controller.EndpointLock.Unlock() // for all cases (>, ==, <)
@@ -202,7 +179,30 @@ func (ss *ServiceInfoStorage) removeEndpointFromWNStruct(e *core.Endpoint) {
 	ss.NodeInformation.GetNoCheck(e.Node.GetName()).GetEndpointMap().Remove(e)
 }
 
-func (ss *ServiceInfoStorage) doDownscaling(toEvict map[*core.Endpoint]struct{}, dpiClients synchronization.SyncStructure[string, core.DataPlaneInterface]) {
+func (ss *ServiceInfoStorage) doDownscaling(actualScale, desiredCount int, dpiClients synchronization.SyncStructure[string, core.DataPlaneInterface]) {
+	currentState := ss.Controller.Endpoints
+	toEvict := make(map[*core.Endpoint]struct{})
+
+	for i := 0; i < actualScale-desiredCount; i++ {
+		endpoint, newState := eviction_policy.EvictionPolicy(currentState)
+		if len(currentState) == 0 || endpoint == nil {
+			logrus.Errorf("No endpoint to evict in the downscaling loop despite the actual scale is %d.", actualScale)
+			continue
+		}
+
+		if _, okk := toEvict[endpoint]; okk {
+			logrus.Errorf("Endpoint repetition - this is a bug.")
+		}
+		toEvict[endpoint] = struct{}{}
+		currentState = newState
+	}
+
+	if actualScale-desiredCount != len(toEvict) {
+		logrus.Errorf("downscaling reference error")
+	}
+
+	ss.excludeEndpoints(toEvict)
+
 	///////////////////////////////////////////////////////////////////////////
 	// Firstly, drain the sandboxes and remove them from the data plane(s)
 	///////////////////////////////////////////////////////////////////////////
