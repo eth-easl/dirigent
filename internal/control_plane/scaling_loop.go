@@ -56,17 +56,19 @@ func (ss *ServiceInfoStorage) ScalingControllerLoop(nodeList synchronization.Syn
 		desiredCount, isLoopRunning = <-ss.Controller.DesiredStateChannel
 		loopStarted := time.Now()
 
-		// Channel closed ==> We send the instruction to remove all endpoints
-		if !isLoopRunning {
-			desiredCount = 0
-		}
-
 		var actualScale int
 
 		swapped := false
 		for !swapped {
 			actualScale = int(ss.Controller.ScalingMetadata.ActualScale)
 			swapped = atomic.CompareAndSwapInt64(&ss.Controller.ScalingMetadata.ActualScale, int64(actualScale), int64(desiredCount))
+		}
+
+		// Channel closed ==> We send the instruction to remove all endpoints
+		if !isLoopRunning {
+			desiredCount = 0
+			ss.doDownscaling(actualScale, desiredCount, dpiClients)
+			break
 		}
 
 		ss.Controller.EndpointLock.Lock()

@@ -47,7 +47,7 @@ func (c *ControlPlane) notifyDataplanesAndStartScalingLoop(ctx context.Context, 
 	return nil
 }
 
-func (c *ControlPlane) removeServiceFromDataplaneAndStopLoop(ctx context.Context, serviceInfo *proto.ServiceInfo, reconstructFromPersistence bool) error {
+func (c *ControlPlane) removeServiceFromDataplane(ctx context.Context, serviceInfo *proto.ServiceInfo) error {
 	c.DataPlaneConnections.Lock()
 	for _, conn := range c.DataPlaneConnections.GetMap() {
 		_, err := conn.DeleteDeployment(ctx, serviceInfo)
@@ -56,8 +56,6 @@ func (c *ControlPlane) removeServiceFromDataplaneAndStopLoop(ctx context.Context
 		}
 	}
 	c.DataPlaneConnections.Unlock()
-
-	// TODO: Close channel in scaling_loop
 
 	return nil
 }

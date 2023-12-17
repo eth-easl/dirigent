@@ -524,6 +524,8 @@ func TestDeregisterServices(t *testing.T) {
 
 		assert.Equal(t, i-1, controlPlane.GetNumberServices())
 	}
+
+	time.Sleep(500 * time.Millisecond)
 }
 
 // Reconstruction tests

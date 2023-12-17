@@ -241,20 +241,25 @@ func (c *ControlPlane) RegisterService(ctx context.Context, serviceInfo *proto.S
 }
 
 func (c *ControlPlane) DeregisterService(ctx context.Context, serviceInfo *proto.ServiceInfo) (*proto.ActionStatus, error) {
+	c.SIStorage.Lock()
+	defer c.SIStorage.Unlock()
 
-	if enter, timestamp := c.SIStorage.RemoveIfPresent(serviceInfo.Name); enter {
-		err := c.PersistenceLayer.DeleteServiceInformation(ctx, serviceInfo, timestamp)
+	if service, ok := c.SIStorage.Get(serviceInfo.Name); ok {
+
+		err := c.PersistenceLayer.DeleteServiceInformation(ctx, serviceInfo, time.Now())
 		if err != nil {
 			logrus.Errorf("Failed to delete information to persistence layer (error : %s)", err.Error())
 			return &proto.ActionStatus{Success: false}, err
 		}
 
-		err = c.removeServiceFromDataplaneAndStopLoop(ctx, serviceInfo, false)
+		err = c.removeServiceFromDataplane(ctx, serviceInfo)
 		if err != nil {
 			logrus.Warnf("Failed to connect registered service (error : %s)", err.Error())
-			c.SIStorage.AtomicRemove(serviceInfo.Name)
 			return &proto.ActionStatus{Success: false}, err
 		}
+
+		close(service.Controller.DesiredStateChannel)
+		c.SIStorage.Remove(serviceInfo.Name)
 
 		return &proto.ActionStatus{Success: true}, nil
 	}
