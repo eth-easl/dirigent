@@ -14,8 +14,6 @@ import (
 	"errors"
 	"github.com/sirupsen/logrus"
 	"google.golang.org/protobuf/types/known/emptypb"
-	"log"
-	"os"
 	"strconv"
 	"sync"
 	"time"
@@ -33,38 +31,21 @@ type ControlPlane struct {
 	dataPlaneCreator  core.DataplaneFactory
 	workerNodeCreator core.WorkerNodeFactory
 
-	shouldTrace                    bool
-	traceSandboxCreationsInTxtFile *os.File
-
 	config *config.ControlPlaneConfig
 }
 
 func NewControlPlane(client persistence.PersistenceLayer, outputFile string, placementPolicy placement_policy.PlacementPolicy,
 	dataplaneCreator core.DataplaneFactory, workerNodeCreator core.WorkerNodeFactory, cfg *config.ControlPlaneConfig) *ControlPlane {
-	var (
-		file *os.File
-		err  error
-	)
-
-	if cfg.TraceSandboxCreation {
-		file, err = os.OpenFile("notes.txt", os.O_RDWR|os.O_CREATE|os.O_TRUNC, 0755)
-		if err != nil {
-			log.Fatal(err)
-		}
-	}
-
 	return &ControlPlane{
-		NIStorage:                      synchronization.NewControlPlaneSyncStructure[string, core.WorkerNodeInterface](),
-		SIStorage:                      synchronization.NewControlPlaneSyncStructure[string, *ServiceInfoStorage](),
-		DataPlaneConnections:           synchronization.NewControlPlaneSyncStructure[string, core.DataPlaneInterface](),
-		ColdStartTracing:               tracing.NewColdStartTracingService(outputFile),
-		PlacementPolicy:                placementPolicy,
-		PersistenceLayer:               client,
-		dataPlaneCreator:               dataplaneCreator,
-		workerNodeCreator:              workerNodeCreator,
-		shouldTrace:                    cfg.TraceSandboxCreation,
-		traceSandboxCreationsInTxtFile: file,
-		config:                         cfg,
+		NIStorage:            synchronization.NewControlPlaneSyncStructure[string, core.WorkerNodeInterface](),
+		SIStorage:            synchronization.NewControlPlaneSyncStructure[string, *ServiceInfoStorage](),
+		DataPlaneConnections: synchronization.NewControlPlaneSyncStructure[string, core.DataPlaneInterface](),
+		ColdStartTracing:     tracing.NewColdStartTracingService(outputFile),
+		PlacementPolicy:      placementPolicy,
+		PersistenceLayer:     client,
+		dataPlaneCreator:     dataplaneCreator,
+		workerNodeCreator:    workerNodeCreator,
+		config:               cfg,
 	}
 }
 

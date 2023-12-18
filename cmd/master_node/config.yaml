@@ -9,7 +9,6 @@ reconstruct: false
 removeWorkerNode: false
 removeDataplane: false
 
-traceCreation: true
 precreateSnapshots: false
 
 profiler:

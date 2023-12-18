@@ -14,7 +14,6 @@ import (
 	"fmt"
 	"github.com/sirupsen/logrus"
 	"google.golang.org/protobuf/types/known/durationpb"
-	"os"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -33,9 +32,6 @@ type ServiceInfoStorage struct {
 	NodeInformation synchronization.SyncStructure[string, core.WorkerNodeInterface]
 
 	StartTime time.Time
-
-	ShouldTrace bool
-	TracingFile *os.File
 }
 
 func (ss *ServiceInfoStorage) GetAllURLs() []string {
@@ -80,12 +76,6 @@ func (ss *ServiceInfoStorage) ScalingControllerLoop(nodeList synchronization.Syn
 		}
 
 		ss.Controller.EndpointLock.Unlock() // for all cases (>, ==, <)
-	}
-
-	if ss.ShouldTrace {
-		if err := ss.TracingFile.Close(); err != nil {
-			logrus.Errorf("Failed to close tracing file : (%s)", err.Error())
-		}
 	}
 }
 
@@ -163,10 +153,6 @@ func (ss *ServiceInfoStorage) doUpscaling(toCreateCount int, nodeList synchroniz
 	}
 
 	wg.Wait()
-
-	if ss.ShouldTrace {
-		_, _ = ss.TracingFile.WriteString(fmt.Sprint(time.Now().Unix()) + "\n")
-	}
 }
 
 func (ss *ServiceInfoStorage) removeEndpointFromWNStruct(e *core.Endpoint) {
