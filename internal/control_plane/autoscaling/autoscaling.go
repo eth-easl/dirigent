@@ -52,15 +52,11 @@ func NewDefaultAutoscalingMetadata() *proto.AutoscalingConfiguration {
 }
 
 func (s *AutoscalingMetadata) SetCachedScalingMetric(metrics *proto.AutoscalingMetric) {
-	atomic.StoreInt32(&s.cachedScalingMetric, metrics.InflightRequests)
-
-	// TODO: add support for multiple data planes
-	/*s.inflightRequestsLock.Lock()
+	s.inflightRequestsLock.Lock()
 	defer s.inflightRequestsLock.Unlock()
 
-	// TODO: Make it transactional with compare and swap - Is it possible?
 	atomic.AddInt32(&s.cachedScalingMetric, metrics.InflightRequests-s.inflightRequestsPerDataPlane[metrics.DataplaneName])
-	s.inflightRequestsPerDataPlane[metrics.DataplaneName] = metrics.InflightRequests*/
+	s.inflightRequestsPerDataPlane[metrics.DataplaneName] = metrics.InflightRequests
 }
 
 func (s *AutoscalingMetadata) KnativeScaling(isScaleFromZero bool) int {
