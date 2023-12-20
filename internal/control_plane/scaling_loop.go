@@ -63,7 +63,10 @@ func (ss *ServiceInfoStorage) ScalingControllerLoop(nodeList synchronization.Syn
 		// Channel closed ==> We send the instruction to remove all endpoints
 		if !isLoopRunning {
 			desiredCount = 0
+
+			ss.Controller.EndpointLock.Lock()
 			ss.doDownscaling(actualScale, desiredCount, dpiClients)
+			ss.Controller.EndpointLock.Unlock()
 			break
 		}
 
@@ -145,10 +148,7 @@ func (ss *ServiceInfoStorage) doUpscaling(toCreateCount int, nodeList synchroniz
 
 			newEndpoint.CreationHistory.LatencyBreakdown.DataplanePropagation = durationpb.New(time.Since(startEndpointPropagation))
 
-			select {
-			case *ss.ColdStartTracingChannel <- newEndpoint.CreationHistory:
-			default:
-			}
+			*ss.ColdStartTracingChannel <- newEndpoint.CreationHistory
 		}()
 	}
 
