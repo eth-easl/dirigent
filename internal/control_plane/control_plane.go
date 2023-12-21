@@ -107,6 +107,13 @@ func (c *ControlPlane) DeregisterDataplane(ctx context.Context, in *proto.Datapl
 			logrus.Errorf("Failed to store information to persistence layer (error : %s)", err.Error())
 			return &proto.ActionStatus{Success: false}, err
 		}
+
+		c.SIStorage.Lock()
+		for _, value := range c.SIStorage.GetMap() {
+			value.Controller.ScalingMetadata.RemoveDataplane(in.IP)
+		}
+		c.SIStorage.Unlock()
+
 	}
 
 	return &proto.ActionStatus{Success: true}, nil

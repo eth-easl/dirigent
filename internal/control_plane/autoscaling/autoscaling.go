@@ -51,6 +51,14 @@ func NewDefaultAutoscalingMetadata() *proto.AutoscalingConfiguration {
 	}
 }
 
+func (s *AutoscalingMetadata) RemoveDataplane(dataplaneName string) {
+	s.inflightRequestsLock.Lock()
+	defer s.inflightRequestsLock.Unlock()
+
+	atomic.AddInt32(&s.cachedScalingMetric, -s.inflightRequestsPerDataPlane[dataplaneName])
+	delete(s.inflightRequestsPerDataPlane, dataplaneName)
+}
+
 func (s *AutoscalingMetadata) SetCachedScalingMetric(metrics *proto.AutoscalingMetric) {
 	s.inflightRequestsLock.Lock()
 	defer s.inflightRequestsLock.Unlock()
