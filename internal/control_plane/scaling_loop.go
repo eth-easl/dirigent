@@ -195,33 +195,35 @@ func (ss *ServiceInfoStorage) doDownscaling(actualScale, desiredCount int, dpiCl
 
 	ss.excludeEndpoints(toEvict)
 
-	///////////////////////////////////////////////////////////////////////////
-	// Firstly, drain the sandboxes and remove them from the data plane(s)
-	///////////////////////////////////////////////////////////////////////////
-	ss.drainSandbox(dpiClients, toEvict)
+	go func() {
+		///////////////////////////////////////////////////////////////////////////
+		// Firstly, drain the sandboxes and remove them from the data plane(s)
+		///////////////////////////////////////////////////////////////////////////
+		ss.drainSandbox(dpiClients, toEvict)
 
-	///////////////////////////////////////////////////////////////////////////
-	// Secondly, kill sandboxes on the worker node(s)
-	///////////////////////////////////////////////////////////////////////////
-	wg := sync.WaitGroup{}
-	wg.Add(len(toEvict))
+		///////////////////////////////////////////////////////////////////////////
+		// Secondly, kill sandboxes on the worker node(s)
+		///////////////////////////////////////////////////////////////////////////
+		wg := sync.WaitGroup{}
+		wg.Add(len(toEvict))
 
-	for key := range toEvict {
-		if key == nil {
-			logrus.Error("Victim null - should not have happened")
-			continue // why this happens?
+		for key := range toEvict {
+			if key == nil {
+				logrus.Error("Victim null - should not have happened")
+				continue // why this happens?
+			}
+
+			go func(victim *core.Endpoint) {
+				defer wg.Done()
+
+				deleteSandbox(victim)
+				ss.removeEndpointFromWNStruct(victim)
+			}(key)
 		}
 
-		go func(victim *core.Endpoint) {
-			defer wg.Done()
-
-			deleteSandbox(victim)
-			ss.removeEndpointFromWNStruct(victim)
-		}(key)
-	}
-
-	// batch update of endpoints
-	wg.Wait()
+		// batch update of endpoints
+		wg.Wait()
+	}()
 }
 
 func (ss *ServiceInfoStorage) drainSandbox(dataPlanes synchronization.SyncStructure[string, core.DataPlaneInterface], toEvict map[*core.Endpoint]struct{}) {
