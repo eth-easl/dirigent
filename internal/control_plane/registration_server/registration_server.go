@@ -63,6 +63,21 @@ func StartServiceRegistrationServer(cpApi *api.CpApiServer, registrationPort str
 			return
 		}
 
+		runtimeSpec, _ := r.Form["requested_cpu"]
+		memSpec, _ := r.Form["requested_memory"]
+		cpu, err := strconv.Atoi(runtimeSpec[0])
+		if err != nil {
+			http.Error(w, "Invalid CPU value", http.StatusBadRequest)
+			return
+		}
+
+		memory, err := strconv.Atoi(memSpec[0])
+		if err != nil {
+			http.Error(w, "Invalid memory value", http.StatusBadRequest)
+			return
+		}
+		logrus.Debugf("Requested cpu is %s and memory is %s", runtimeSpec, memSpec)
+
 		autoscalingConfig := autoscaling.NewDefaultAutoscalingMetadata()
 
 		if len(r.FormValue("scaling_upper_bound")) != 0 {
@@ -89,6 +104,8 @@ func StartServiceRegistrationServer(cpApi *api.CpApiServer, registrationPort str
 			Image:             image,
 			PortForwarding:    portMapping,
 			AutoscalingConfig: autoscalingConfig,
+			RequestedCpu:      uint64(cpu),
+			RequestedMemory:   uint64(memory),
 		})
 		if err != nil {
 			return

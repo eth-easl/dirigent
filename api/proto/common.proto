@@ -31,8 +31,10 @@ message AutoscalingConfiguration {
 message ServiceInfo {
   string Name = 1;
   string Image = 2;
-  PortMapping PortForwarding = 3;
-  AutoscalingConfiguration AutoscalingConfig = 4;
+  uint64 RequestedCpu = 3;
+  uint64 RequestedMemory = 4;
+  PortMapping PortForwarding = 5;
+  AutoscalingConfiguration AutoscalingConfig = 6;
 }
 
 message ServiceList {

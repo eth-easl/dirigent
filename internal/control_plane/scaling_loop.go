@@ -103,8 +103,7 @@ func (ss *ServiceInfoStorage) doUpscaling(toCreateCount int, nodeList synchroniz
 		go func() {
 			defer wg.Done()
 
-			// TODO : @Lazar, We need to ask some resources
-			requested := placement2.CreateResourceMap(1, 1)
+			requested := placement2.CreateResourceMap(ss.ServiceInfo.GetRequestedCpu(), ss.ServiceInfo.GetRequestedMemory())
 			node := placement2.ApplyPlacementPolicy(ss.PlacementPolicy, nodeList, requested)
 			if node == nil {
 				logrus.Warn("Failed to do placement. No nodes are schedulable.")

@@ -1,5 +1,5 @@
 dataPlaneIp: "dynamic"
-controlPlaneIp: "10.0.1.2"
+controlPlaneIp: "10.0.1.1"
 controlPlanePort: "9090"
 portProxy: "8080"
 portProxyRead: "8082"
