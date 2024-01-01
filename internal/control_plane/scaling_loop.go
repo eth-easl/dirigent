@@ -52,6 +52,16 @@ func (ss *ServiceInfoStorage) ScalingControllerLoop(nodeList synchronization.Syn
 		desiredCount, isLoopRunning = <-ss.Controller.DesiredStateChannel
 		loopStarted := time.Now()
 
+		lastValue := false
+		for !lastValue {
+			select {
+			case desiredCount, isLoopRunning = <-ss.Controller.DesiredStateChannel:
+				lastValue = false
+			default:
+				lastValue = true
+			}
+		}
+
 		var actualScale int
 
 		swapped := false
