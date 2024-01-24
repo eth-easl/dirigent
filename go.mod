@@ -10,7 +10,7 @@ require (
 	github.com/fearful-symmetry/garlic v0.3.0
 	github.com/firecracker-microvm/firecracker-go-sdk v1.0.0
 	github.com/golang/protobuf v1.5.3
-	github.com/google/uuid v1.3.1
+	github.com/google/uuid v1.6.0
 	github.com/pbnjay/memory v0.0.0-20210728143218-7b4eea64cf58
 	github.com/redis/go-redis/v9 v9.0.5
 	github.com/shirou/gopsutil v3.21.11+incompatible
