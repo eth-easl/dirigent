@@ -3,6 +3,8 @@ controlPlaneIp: "localhost"
 controlPlanePort: "9090"
 portProxy: "8080"
 portGRPC: "8081"
+portProxyRead: "8082"
 verbosity: "trace"
 traceOutputFolder: "data"
 loadBalancingPolicy: "random"
+async: true

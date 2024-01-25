@@ -5,6 +5,7 @@ import (
 	"cluster_manager/internal/data_plane"
 	"cluster_manager/internal/data_plane/proxy"
 	"context"
+	"github.com/sirupsen/logrus"
 	"google.golang.org/protobuf/types/known/emptypb"
 )
 
@@ -37,7 +38,8 @@ func (api *DpApiServer) DrainSandbox(_ context.Context, endpoint *proto.Deployme
 	return api.dataplane.DrainSandbox(endpoint)
 }
 
+// TODO: Remove this function
 func (api *DpApiServer) ResetMeasurements(_ context.Context, in *emptypb.Empty) (*proto.ActionStatus, error) {
-	api.Proxy.Tracing.ResetTracingService()
+	logrus.Warn("This function does nothing")
 	return &proto.ActionStatus{Success: true}, nil
 }

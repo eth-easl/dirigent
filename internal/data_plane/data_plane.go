@@ -99,7 +99,7 @@ func (d *Dataplane) DeleteDeployment(name *proto.ServiceInfo) (*proto.Deployment
 	return &proto.DeploymentUpdateSuccess{Success: d.deployements.DeleteDeployment(name.GetName())}, nil
 }
 
-func (d *Dataplane) GetProxyServer() (*proxy.ProxyingService, error) {
+func (d *Dataplane) GetProxyServer(async bool) (proxy.Proxy, error) {
 	var dpConnection proto.CpiInterfaceClient
 
 	grpcPort, _ := strconv.Atoi(d.config.PortGRPC)
@@ -117,7 +117,11 @@ func (d *Dataplane) GetProxyServer() (*proxy.ProxyingService, error) {
 
 	loadBalancingPolicy := d.parseLoadBalancingPolicy(d.config)
 
-	return proxy.NewProxyingService("0.0.0.0", d.config.PortProxy, d.deployements, &dpConnection, path.Join(d.config.TraceOutputFolder, "proxy_trace.csv"), loadBalancingPolicy), nil
+	if !async {
+		return proxy.NewProxyingService(d.config.PortProxy, d.deployements, &dpConnection, path.Join(d.config.TraceOutputFolder, "proxy_trace.csv"), loadBalancingPolicy), nil
+	} else {
+		return proxy.NewAsyncProxyingService(d.config.PortProxy, d.config.PortProxyRead, d.deployements, &dpConnection, path.Join(d.config.TraceOutputFolder, "proxy_trace.csv"), loadBalancingPolicy), nil
+	}
 }
 
 func (d *Dataplane) DeregisterControlPlaneConnection() {

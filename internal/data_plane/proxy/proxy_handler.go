@@ -5,7 +5,9 @@ import (
 	common "cluster_manager/internal/data_plane/function_metadata"
 	"cluster_manager/internal/data_plane/proxy/load_balancing"
 	net2 "cluster_manager/internal/data_plane/proxy/net"
+	"cluster_manager/internal/data_plane/proxy/requests"
 	"cluster_manager/pkg/tracing"
+	"cluster_manager/pkg/utils"
 	"net"
 	"net/http"
 	"sync/atomic"
@@ -26,9 +28,9 @@ type ProxyingService struct {
 	Tracing *tracing.TracingService[tracing.ProxyLogEntry]
 }
 
-func NewProxyingService(host string, port string, cache *common.Deployments, cp *proto.CpiInterfaceClient, outputFile string, loadBalancingPolicy load_balancing.LoadBalancingPolicy) *ProxyingService {
+func NewProxyingService(port string, cache *common.Deployments, cp *proto.CpiInterfaceClient, outputFile string, loadBalancingPolicy load_balancing.LoadBalancingPolicy) *ProxyingService {
 	return &ProxyingService{
-		Host:                host,
+		Host:                utils.Localhost,
 		Port:                port,
 		Cache:               cache,
 		CPInterface:         cp,
@@ -60,9 +62,8 @@ func (ps *ProxyingService) StartProxyServer() {
 	}
 }
 
-func getServiceName(r *http.Request) string {
-	// provided by the gRPC client through WithAuthority(...) call
-	return r.Host
+func (ps *ProxyingService) StartTracingService() {
+	ps.Tracing.StartTracingService()
 }
 
 func (ps *ProxyingService) createInvocationHandler(next http.Handler, cache *common.Deployments, cp *proto.CpiInterfaceClient) http.HandlerFunc {
@@ -72,7 +73,7 @@ func (ps *ProxyingService) createInvocationHandler(next http.Handler, cache *com
 		///////////////////////////////////////////////
 		// METADATA FETCHING
 		///////////////////////////////////////////////
-		serviceName := getServiceName(r)
+		serviceName := requests.GetServiceName(r)
 		metadata, durationGetDeployment := cache.GetDeployment(serviceName)
 		if metadata == nil {
 			// Request function has not been deployed

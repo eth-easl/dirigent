@@ -18,8 +18,8 @@ import (
 	"k8s.io/apimachinery/pkg/util/wait"
 )
 
-func CreateGRPCServer(host, port string, serverSpecific func(sr grpc.ServiceRegistrar), options ...grpc.ServerOption) {
-	lis, err := net.Listen(utils.TCP, net.JoinHostPort(host, port))
+func CreateGRPCServer(port string, serverSpecific func(sr grpc.ServiceRegistrar), options ...grpc.ServerOption) {
+	lis, err := net.Listen(utils.TCP, net.JoinHostPort(utils.Localhost, port))
 	if err != nil {
 		logrus.Fatalf("Failed to create data plane API server socket - %s\n", err)
 	}

@@ -72,6 +72,7 @@ sudo sysctl -w net.ipv4.conf.all.route_localnet=1
 
 kubernetes-cni must be installed.
 
+
 ```bash
 curl -L -o cni-plugins.tgz https://github.com/containernetworking/plugins/releases/download/v0.8.1/cni-plugins-linux-amd64-v0.8.1.tgz
 sudo mkdir -p /opt/cni/bin
@@ -233,6 +234,12 @@ git lfs pull
 - Run control plane and data plane processes. Run worker daemon with `sudo` and by hardcoding environmental variable `PATH` to point to the directory where Firecracker is located.
 ```bash
 sudo env 'PATH=\$PATH:/usr/local/bin/firecracker' /usr/local/go/bin/go run cmd/worker_node/main.go 
+```
+
+## If the network breaks locally
+
+```bash
+sudo iptables -t nat -F
 ```
 
 ## License

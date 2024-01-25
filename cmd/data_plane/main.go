@@ -43,24 +43,19 @@ func main() {
 
 	apiServer := api.NewDpApiServer(dataPlane)
 
-	go grpc_helpers.CreateGRPCServer("0.0.0.0", cfg.PortGRPC, func(sr grpc.ServiceRegistrar) {
+	go grpc_helpers.CreateGRPCServer(cfg.PortGRPC, func(sr grpc.ServiceRegistrar) {
 		proto.RegisterDpiInterfaceServer(sr, apiServer)
 	})
 
-	proxyServer, err := dataPlane.GetProxyServer()
+	proxyServer, err := dataPlane.GetProxyServer(cfg.Async)
 	if err != nil {
 		logrus.Fatalf("Failed to start proxy server (error : %s)", err.Error())
 	}
 
-	apiServer.Proxy = proxyServer
-
-	go proxyServer.Tracing.StartTracingService()
-	defer close(proxyServer.Tracing.InputChannel)
-
-	// TODO: bad heartbeat implementation
-	go dataPlane.SetupHeartbeatLoop()
+	go proxyServer.StartTracingService()
 	go proxyServer.StartProxyServer()
 
+	go dataPlane.SetupHeartbeatLoop()
 	defer dataPlane.DeregisterControlPlaneConnection()
 
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)

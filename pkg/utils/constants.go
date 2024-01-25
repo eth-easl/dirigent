@@ -3,8 +3,7 @@ package utils
 import "time"
 
 const (
-	Localhost       string = "localhost"
-	DockerLocalhost string = "0.0.0.0"
+	Localhost string = "0.0.0.0"
 
 	DefaultDataPlaneProxyPort string = "8080"
 	DefaultDataPlaneApiPort   string = "8081"

@@ -9,9 +9,9 @@ import (
 	"cluster_manager/pkg/grpc_helpers"
 	"cluster_manager/pkg/logger"
 	"cluster_manager/pkg/network"
-	"cluster_manager/pkg/utils"
 	"context"
 	"flag"
+	"os/exec"
 	"os/signal"
 	"strconv"
 	"syscall"
@@ -51,10 +51,11 @@ func main() {
 	defer workerNode.DeregisterNodeFromControlPlane(cfg, &cpApi)
 
 	go workerNode.SetupHeartbeatLoop(&cpApi)
+	defer resetIPTables()
 
 	logrus.Info("Starting API handlers")
 
-	go grpc_helpers.CreateGRPCServer(utils.DockerLocalhost, strconv.Itoa(cfg.Port), func(sr grpc.ServiceRegistrar) {
+	go grpc_helpers.CreateGRPCServer(strconv.Itoa(cfg.Port), func(sr grpc.ServiceRegistrar) {
 		proto.RegisterWorkerNodeInterfaceServer(sr, api.NewWorkerNodeApi(workerNode))
 	})
 
@@ -68,7 +69,12 @@ func main() {
 		firecracker.DeleteAllSnapshots()
 		err = firecracker.DeleteUnusedNetworkDevices()
 		if err != nil {
+
 			logrus.Warn("Interruption received, but failed to delete leftover network devices.")
 		}
 	}
+}
+
+func resetIPTables() {
+	logrus.Warn(exec.Command("sudo", "iptables", "-t", "nat", "-F").Err.Error())
 }

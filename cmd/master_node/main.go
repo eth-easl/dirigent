@@ -14,7 +14,6 @@ import (
 	"cluster_manager/pkg/grpc_helpers"
 	"cluster_manager/pkg/logger"
 	"cluster_manager/pkg/profiler"
-	"cluster_manager/pkg/utils"
 	"context"
 	"flag"
 	"os/signal"
@@ -88,7 +87,7 @@ func main() {
 	defer close(cpApiServer.ControlPlane.ColdStartTracing.InputChannel)
 
 	go registration_server.StartServiceRegistrationServer(cpApiServer, cfg.PortRegistration)
-	go grpc_helpers.CreateGRPCServer(utils.DockerLocalhost, cfg.Port, func(sr grpc.ServiceRegistrar) {
+	go grpc_helpers.CreateGRPCServer(cfg.Port, func(sr grpc.ServiceRegistrar) {
 		proto.RegisterCpiInterfaceServer(sr, cpApiServer)
 	})
 
