@@ -27,7 +27,6 @@ type BufferedRequest struct {
 	MultipartForm    *multipart.Form
 	Trailer          http.Header
 	RemoteAddr       string
-	RequestURI       string
 	// Async parameter
 	Code string
 }
@@ -55,7 +54,6 @@ func BufferedRequestFromRequest(request *http.Request, code string) *BufferedReq
 		MultipartForm:    request.MultipartForm,
 		Trailer:          request.Trailer,
 		RemoteAddr:       request.RemoteAddr,
-		RequestURI:       request.RequestURI,
 		Code:             code,
 	}
 }
@@ -78,7 +76,6 @@ func RequestFromBufferedRequest(bufferedRequest *BufferedRequest) *http.Request 
 		MultipartForm:    bufferedRequest.MultipartForm,
 		Trailer:          bufferedRequest.Trailer,
 		RemoteAddr:       bufferedRequest.RemoteAddr,
-		RequestURI:       bufferedRequest.RequestURI,
 	}
 }
 

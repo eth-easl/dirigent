@@ -50,35 +50,32 @@ func NewAsyncProxyingService(port string, portRead string, cache *common.Deploym
 }
 
 func (ps *AsyncProxyingService) StartProxyServer() {
-
-	composedHandler := ps.createAsyncInvocationHandler()
-	readRequestHandler := ps.createAsyncReadHandler()
-
-	proxyRxAddress := net.JoinHostPort(ps.Host, ps.Port)
-	logrus.Info("Creating a proxy server at ", proxyRxAddress)
-
-	proxyRxReadAddress := net.JoinHostPort(ps.Host, ps.PortRead)
-	logrus.Info("Creating a read proxy server at ", proxyRxReadAddress)
-
-	requestServer := &http.Server{
-		Addr:    proxyRxAddress,
-		Handler: h2c.NewHandler(composedHandler, &http2.Server{}),
-	}
-
-	readServer := http.Server{
-		Addr:    proxyRxReadAddress,
-		Handler: h2c.NewHandler(readRequestHandler, &http2.Server{}),
-	}
-
-	readServer = readServer
-
 	go func() {
+		composedHandler := ps.createAsyncInvocationHandler()
+
+		proxyRxAddress := net.JoinHostPort(ps.Host, ps.Port)
+		logrus.Info("Creating a proxy server at ", proxyRxAddress)
+
+		requestServer := &http.Server{
+			Addr:    proxyRxAddress,
+			Handler: h2c.NewHandler(composedHandler, &http2.Server{}),
+		}
 		if err := requestServer.ListenAndServe(); err != nil {
 			logrus.Fatalf("Failed to create a proxy server : (err : %s)", err.Error())
 		}
 	}()
 
 	go func() {
+		readRequestHandler := ps.createAsyncReadHandler()
+
+		proxyRxReadAddress := net.JoinHostPort(ps.Host, ps.PortRead)
+		logrus.Info("Creating a read proxy server at ", proxyRxReadAddress)
+
+		readServer := http.Server{
+			Addr:    proxyRxReadAddress,
+			Handler: h2c.NewHandler(readRequestHandler, &http2.Server{}),
+		}
+
 		if err := readServer.ListenAndServe(); err != nil {
 			logrus.Fatalf("Failed to create a async proxy server : (err : %s)", err.Error())
 		}
