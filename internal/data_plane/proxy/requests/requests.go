@@ -28,7 +28,8 @@ type BufferedRequest struct {
 	Trailer          http.Header
 	RemoteAddr       string
 	// Async parameter
-	Code string
+	Code        string
+	NumberTries int
 }
 
 type BufferedResponse struct {
@@ -55,6 +56,7 @@ func BufferedRequestFromRequest(request *http.Request, code string) *BufferedReq
 		Trailer:          request.Trailer,
 		RemoteAddr:       request.RemoteAddr,
 		Code:             code,
+		NumberTries:      0,
 	}
 }
 

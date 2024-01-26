@@ -5,9 +5,12 @@ import (
 	"cluster_manager/api/proto"
 	common "cluster_manager/internal/data_plane/function_metadata"
 	"cluster_manager/internal/data_plane/proxy/load_balancing"
+	request_persistence "cluster_manager/internal/data_plane/proxy/persistence"
 	"cluster_manager/internal/data_plane/proxy/requests"
+	"cluster_manager/pkg/config"
 	"cluster_manager/pkg/tracing"
 	"cluster_manager/pkg/utils"
+	"context"
 	"fmt"
 	"github.com/sirupsen/logrus"
 	"golang.org/x/net/http2"
@@ -31,13 +34,21 @@ type AsyncProxyingService struct {
 
 	RequestChannel chan *requests.BufferedRequest
 	Responses      map[string]*requests.BufferedResponse
+
+	Persistence    *request_persistence.RequestRedisClient
+	AllowedRetries int
 }
 
-func NewAsyncProxyingService(port string, portRead string, cache *common.Deployments, cp *proto.CpiInterfaceClient, outputFile string, loadBalancingPolicy load_balancing.LoadBalancingPolicy) *AsyncProxyingService {
+func NewAsyncProxyingService(cfg config.DataPlaneConfig, cache *common.Deployments, cp *proto.CpiInterfaceClient, outputFile string, loadBalancingPolicy load_balancing.LoadBalancingPolicy) *AsyncProxyingService {
+	persistenceLayer, err := request_persistence.CreateRequestRedisClient(context.Background(), cfg.RedisConf)
+	if err != nil {
+		return nil
+	}
+
 	return &AsyncProxyingService{
 		Host:                utils.Localhost,
-		Port:                port,
-		PortRead:            portRead,
+		Port:                cfg.PortProxy,
+		PortRead:            cfg.PortProxyRead,
 		Cache:               cache,
 		CPInterface:         cp,
 		LoadBalancingPolicy: loadBalancingPolicy,
@@ -46,6 +57,9 @@ func NewAsyncProxyingService(port string, portRead string, cache *common.Deploym
 
 		RequestChannel: make(chan *requests.BufferedRequest),
 		Responses:      make(map[string]*requests.BufferedResponse),
+
+		Persistence:    persistenceLayer,
+		AllowedRetries: 3, // TODO: Remove hard code
 	}
 }
 
@@ -90,9 +104,17 @@ func (ps *AsyncProxyingService) StartTracingService() {
 
 func (ps *AsyncProxyingService) createAsyncInvocationHandler() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-
 		code := requests.GetUniqueRequestCode()
-		ps.RequestChannel <- requests.BufferedRequestFromRequest(r, code)
+		bufferedRequest := requests.BufferedRequestFromRequest(r, code)
+
+		err := ps.Persistence.PersistBufferedRequest(context.Background(), bufferedRequest)
+		if err != nil {
+			w.WriteHeader(http.StatusInternalServerError)
+			io.Copy(w, strings.NewReader(err.Error()))
+			return
+		}
+
+		ps.RequestChannel <- bufferedRequest
 
 		logrus.Tracef("[reverse proxy server] received request and generated code :%s\n", code)
 
@@ -106,15 +128,27 @@ func (ps *AsyncProxyingService) asyncRequestHandler() {
 		bufferedRequest := <-ps.RequestChannel
 		go func(bufferedRequest *requests.BufferedRequest) {
 			logrus.Tracef("[reverse proxy server] firing a request")
-			response := ps.fireRequest(requests.RequestFromBufferedRequest(bufferedRequest))
-			ps.Responses[bufferedRequest.Code] = response
+
+			if bufferedRequest.NumberTries >= ps.AllowedRetries {
+				ps.Responses[bufferedRequest.Code] = &requests.BufferedResponse{
+					StatusCode: http.StatusInternalServerError,
+					Body:       "Server failed many times",
+				}
+			} else {
+				response := ps.fireRequest(requests.RequestFromBufferedRequest(bufferedRequest))
+				if response.StatusCode == http.StatusOK || response.StatusCode == http.StatusBadRequest {
+					ps.Responses[bufferedRequest.Code] = response
+				} else {
+					bufferedRequest.NumberTries++
+					ps.RequestChannel <- bufferedRequest
+				}
+			}
 		}(bufferedRequest)
 	}
 }
 
 func (ps *AsyncProxyingService) fireRequest(request *http.Request) *requests.BufferedResponse {
 	start := time.Now()
-
 	///////////////////////////////////////////////
 	// METADATA FETCHING
 	///////////////////////////////////////////////
@@ -123,7 +157,7 @@ func (ps *AsyncProxyingService) fireRequest(request *http.Request) *requests.Buf
 	if metadata == nil {
 		logrus.Trace("Invocation for non-existing service ", serviceName, " has been dumped.")
 		return &requests.BufferedResponse{
-			StatusCode: http.StatusInternalServerError,
+			StatusCode: http.StatusBadRequest,
 			Body:       "Invocation for non-existing service " + serviceName + " has been dumped.",
 		}
 	}
@@ -176,6 +210,7 @@ func (ps *AsyncProxyingService) fireRequest(request *http.Request) *requests.Buf
 	startProxy := time.Now()
 
 	workerResponse, err := http.DefaultClient.Do(request)
+	logrus.Errorf("We are here : %s", err.Error())
 	if err != nil {
 		return &requests.BufferedResponse{
 			StatusCode: http.StatusInternalServerError,

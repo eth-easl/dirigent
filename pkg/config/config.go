@@ -23,16 +23,17 @@ type ControlPlaneConfig struct {
 }
 
 type DataPlaneConfig struct {
-	DataPlaneIp         string `mapstructure:"dataPlaneIp"`
-	ControlPlaneIp      string `mapstructure:"controlPlaneIp"`
-	ControlPlanePort    string `mapstructure:"controlPlanePort"`
-	PortProxy           string `mapstructure:"portProxy"`
-	PortProxyRead       string `mapstructure:"portProxyRead"`
-	PortGRPC            string `mapstructure:"portGRPC"`
-	Verbosity           string `mapstructure:"verbosity"`
-	TraceOutputFolder   string `mapstructure:"traceOutputFolder"`
-	LoadBalancingPolicy string `mapstructure:"loadBalancingPolicy"`
-	Async               bool   `mapstructure:"async"`
+	DataPlaneIp         string    `mapstructure:"dataPlaneIp"`
+	ControlPlaneIp      string    `mapstructure:"controlPlaneIp"`
+	ControlPlanePort    string    `mapstructure:"controlPlanePort"`
+	PortProxy           string    `mapstructure:"portProxy"`
+	PortProxyRead       string    `mapstructure:"portProxyRead"`
+	PortGRPC            string    `mapstructure:"portGRPC"`
+	Verbosity           string    `mapstructure:"verbosity"`
+	TraceOutputFolder   string    `mapstructure:"traceOutputFolder"`
+	LoadBalancingPolicy string    `mapstructure:"loadBalancingPolicy"`
+	Async               bool      `mapstructure:"async"`
+	RedisConf           RedisConf `mapstructure:"redis"`
 }
 
 type WorkerNodeConfig struct {

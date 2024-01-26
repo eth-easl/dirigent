@@ -120,7 +120,7 @@ func (d *Dataplane) GetProxyServer(async bool) (proxy.Proxy, error) {
 	if !async {
 		return proxy.NewProxyingService(d.config.PortProxy, d.deployements, &dpConnection, path.Join(d.config.TraceOutputFolder, "proxy_trace.csv"), loadBalancingPolicy), nil
 	} else {
-		return proxy.NewAsyncProxyingService(d.config.PortProxy, d.config.PortProxyRead, d.deployements, &dpConnection, path.Join(d.config.TraceOutputFolder, "proxy_trace.csv"), loadBalancingPolicy), nil
+		return proxy.NewAsyncProxyingService(d.config, d.deployements, &dpConnection, path.Join(d.config.TraceOutputFolder, "proxy_trace.csv"), loadBalancingPolicy), nil
 	}
 }
 

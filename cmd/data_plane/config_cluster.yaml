@@ -8,3 +8,9 @@ verbosity: "trace"
 traceOutputFolder: "data"
 loadBalancingPolicy: "knative"
 async: false
+
+redis:
+  address: "10.0.1.1:6379"
+  password: ""
+  db: 0
+  fullPersistence: false
