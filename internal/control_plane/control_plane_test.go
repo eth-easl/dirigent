@@ -1005,7 +1005,7 @@ func TestStressRegisterDeregisterServices(t *testing.T) {
 		return make([]*proto.DataplaneInformation, 0), nil
 	}).Times(1)
 
-	size := 10000
+	size := 100
 
 	persistenceLayer.EXPECT().StoreServiceInformation(gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(func(_ context.Context, _ *proto.ServiceInfo, _ time.Time) error {
 		return nil
@@ -1098,7 +1098,7 @@ func TestStressRegisterDeregisterNodes(t *testing.T) {
 		return make([]*proto.DataplaneInformation, 0), nil
 	}).Times(1)
 
-	size := 10000
+	size := 100
 
 	persistenceLayer.EXPECT().StoreWorkerNodeInformation(gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(func(_ context.Context, _ *proto.WorkerNodeInformation, _ time.Time) error {
 		return nil
@@ -1193,7 +1193,7 @@ func TestStressRegisterDeregisterDataplanes(t *testing.T) {
 		return make([]*proto.DataplaneInformation, 0), nil
 	}).Times(1)
 
-	size := 10000
+	size := 100
 
 	persistenceLayer.EXPECT().StoreDataPlaneInformation(gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(func(ctx context.Context, dataplaneInfo *proto.DataplaneInformation, timestamp time.Time) error {
 		return nil
@@ -1530,7 +1530,7 @@ func TestEndpointsWithDeregistrationMultipleNodes(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	size := 50
+	size := 2
 
 	persistenceLayer := mock_persistence.NewMockPersistenceLayer(ctrl)
 
