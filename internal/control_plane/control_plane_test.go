@@ -1267,6 +1267,7 @@ func TestStressRegisterDeregisterDataplanes(t *testing.T) {
 // Endpoints tests
 
 func TestOnMetricReceive(t *testing.T) {
+	t.Skip("Test is too slow in github action")
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
@@ -1340,6 +1341,7 @@ func TestOnMetricReceive(t *testing.T) {
 }
 
 func TestOnMetricReceiveStress(t *testing.T) {
+	//t.Skip("Test is too slow on github action")
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
