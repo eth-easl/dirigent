@@ -9,6 +9,7 @@ traceOutputFolder: "data"
 loadBalancingPolicy: "random"
 async: true
 persistRequests: false
+numberRetries: 3
 
 redis:
   address: "127.0.0.1:6379"

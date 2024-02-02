@@ -66,7 +66,7 @@ func NewAsyncProxyingService(cfg config.DataPlaneConfig, cache *common.Deploymen
 		Responses:      make(map[string]*requests.BufferedResponse),
 
 		Persistence:    persistenceLayer,
-		AllowedRetries: 3, // TODO: Remove hard code
+		AllowedRetries: cfg.NumberRetries,
 	}
 }
 
@@ -154,12 +154,13 @@ func (ps *AsyncProxyingService) asyncRequestHandler() {
 	}
 }
 
+// TODO: Deduplicate code
 func (ps *AsyncProxyingService) fireRequest(request *http.Request) *requests.BufferedResponse {
 	start := time.Now()
 	///////////////////////////////////////////////
 	// METADATA FETCHING
 	///////////////////////////////////////////////
-	serviceName := requests.GetServiceName(request)
+	serviceName := GetServiceName(request)
 	metadata, durationGetDeployment := ps.Cache.GetDeployment(serviceName)
 	if metadata == nil {
 		logrus.Trace("Invocation for non-existing service ", serviceName, " has been dumped.")

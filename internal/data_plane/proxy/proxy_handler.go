@@ -5,12 +5,10 @@ import (
 	common "cluster_manager/internal/data_plane/function_metadata"
 	"cluster_manager/internal/data_plane/proxy/load_balancing"
 	net2 "cluster_manager/internal/data_plane/proxy/net"
-	"cluster_manager/internal/data_plane/proxy/requests"
 	"cluster_manager/pkg/tracing"
 	"cluster_manager/pkg/utils"
 	"net"
 	"net/http"
-	"sync/atomic"
 	"time"
 
 	"github.com/sirupsen/logrus"
@@ -46,7 +44,7 @@ func (ps *ProxyingService) StartProxyServer() {
 	// function composition <=> [cold start handler -> forwarded shim handler -> proxy]
 	var composedHandler http.Handler = proxy
 	//composedHandler = ForwardedShimHandler(composedHandler)
-	composedHandler = ps.createInvocationHandler(composedHandler, ps.Cache, ps.CPInterface)
+	composedHandler = ps.createInvocationHandler(composedHandler)
 
 	proxyRxAddress := net.JoinHostPort(ps.Host, ps.Port)
 	logrus.Info("Creating a proxy server at ", proxyRxAddress)
@@ -66,15 +64,16 @@ func (ps *ProxyingService) StartTracingService() {
 	ps.Tracing.StartTracingService()
 }
 
-func (ps *ProxyingService) createInvocationHandler(next http.Handler, cache *common.Deployments, cp *proto.CpiInterfaceClient) http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
+// TODO: Deduplicate code
+func (ps *ProxyingService) createInvocationHandler(next http.Handler) http.HandlerFunc {
+	return func(w http.ResponseWriter, request *http.Request) {
 		start := time.Now()
 
 		///////////////////////////////////////////////
 		// METADATA FETCHING
 		///////////////////////////////////////////////
-		serviceName := requests.GetServiceName(r)
-		metadata, durationGetDeployment := cache.GetDeployment(serviceName)
+		serviceName := GetServiceName(request)
+		metadata, durationGetDeployment := ps.Cache.GetDeployment(serviceName)
 		if metadata == nil {
 			// Request function has not been deployed
 			w.WriteHeader(http.StatusNotFound)
@@ -88,11 +87,11 @@ func (ps *ProxyingService) createInvocationHandler(next http.Handler, cache *com
 		///////////////////////////////////////////////
 		// COLD/WARM START
 		///////////////////////////////////////////////
-		coldStartChannel, durationColdStart := metadata.TryWarmStart(cp)
+		coldStartChannel, durationColdStart := metadata.TryWarmStart(ps.CPInterface)
 		addDeploymentDuration := time.Duration(0)
 
 		defer metadata.DecreaseInflight()
-		go contextTerminationHandler(r, coldStartChannel)
+		go contextTerminationHandler(request, coldStartChannel)
 
 		if coldStartChannel != nil {
 			logrus.Debug("Enqueued invocation for ", serviceName)
@@ -114,7 +113,7 @@ func (ps *ProxyingService) createInvocationHandler(next http.Handler, cache *com
 		///////////////////////////////////////////////
 		// LOAD BALANCING AND ROUTING
 		///////////////////////////////////////////////
-		endpoint, durationLB, durationCC := load_balancing.DoLoadBalancing(r, metadata, ps.LoadBalancingPolicy)
+		endpoint, durationLB, durationCC := load_balancing.DoLoadBalancing(request, metadata, ps.LoadBalancingPolicy)
 		if endpoint == nil {
 			w.WriteHeader(http.StatusGone)
 			logrus.Warnf("Cold start passed, but no sandbox available for %s.", serviceName)
@@ -129,7 +128,7 @@ func (ps *ProxyingService) createInvocationHandler(next http.Handler, cache *com
 		///////////////////////////////////////////////
 		startProxy := time.Now()
 
-		next.ServeHTTP(w, r)
+		next.ServeHTTP(w, request)
 		///////////////////////////////////////////////
 		// ON THE WAY BACK
 		///////////////////////////////////////////////
@@ -144,29 +143,6 @@ func (ps *ProxyingService) createInvocationHandler(next http.Handler, cache *com
 			LoadBalancing: durationLB,
 			CCThrottling:  durationCC,
 			Proxying:      time.Since(startProxy),
-		}
-	}
-}
-
-func giveBackCCCapacity(endpoint *common.UpstreamEndpoint) {
-	endpointInflight := atomic.AddInt32(&endpoint.InFlight, -1)
-	if atomic.LoadInt32(&endpoint.Drained) != 0 && endpointInflight == 0 {
-		endpoint.DrainingCallback <- struct{}{}
-	}
-
-	if endpoint.Capacity != nil {
-		endpoint.Capacity <- struct{}{}
-	}
-}
-
-func contextTerminationHandler(r *http.Request, coldStartChannel chan common.ColdStartChannelStruct) {
-	select {
-	case <-r.Context().Done():
-		if coldStartChannel != nil {
-			coldStartChannel <- common.ColdStartChannelStruct{
-				Outcome:             common.CanceledColdStart,
-				AddEndpointDuration: 0,
-			}
 		}
 	}
 }

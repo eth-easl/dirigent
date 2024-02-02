@@ -35,6 +35,7 @@ type DataPlaneConfig struct {
 	Async               bool      `mapstructure:"async"`
 	RedisConf           RedisConf `mapstructure:"redis"`
 	PersistRequests     bool      `mapstructure:"persistRequests"`
+	NumberRetries       int       `mapstructure:"numberRetries"`
 }
 
 type WorkerNodeConfig struct {

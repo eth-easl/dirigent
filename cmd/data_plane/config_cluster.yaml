@@ -9,6 +9,7 @@ traceOutputFolder: "data"
 loadBalancingPolicy: "knative"
 async: false
 persistRequests: false
+numberRetries: 3
 
 redis:
   address: "10.0.1.1:6379"
