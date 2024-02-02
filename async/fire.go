@@ -32,7 +32,7 @@ func Deployservice() {
 
 	resp, err := cpApi.RegisterService(ctx, &proto2.ServiceInfo{
 		Name:  "test",
-		Image: "docker.io/cvetkovic/empty_function:latest",
+		Image: "docker.io/cvetkovic/dirigent_trace_function:latest",
 		PortForwarding: &proto2.PortMapping{
 			GuestPort: 80,
 			Protocol:  proto2.L4Protocol_TCP,
@@ -74,7 +74,7 @@ func main() {
 
 	req.Host = "test"
 
-	req.Header.Set("workload", "empty")
+	req.Header.Set("workload", "trace")
 	req.Header.Set("requested_cpu", strconv.Itoa(1))
 	req.Header.Set("requested_memory", strconv.Itoa(1))
 	req.Header.Set("multiplier", strconv.Itoa(80))
@@ -107,7 +107,7 @@ func main() {
 
 	code := string(body[:])
 
-	time.Sleep(30 * time.Second)
+	time.Sleep(10 * time.Second)
 
 	req, err = http.NewRequest("GET", "http://localhost:8082", strings.NewReader(code))
 	if err != nil {
