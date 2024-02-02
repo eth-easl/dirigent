@@ -7,7 +7,7 @@ portProxyRead: "8082"
 verbosity: "trace"
 traceOutputFolder: "data"
 loadBalancingPolicy: "random"
-async: false
+async: true
 persistRequests: false
 numberRetries: 3
 
