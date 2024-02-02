@@ -89,6 +89,7 @@ func main() {
 	go registration_server.StartServiceRegistrationServer(cpApiServer, cfg.PortRegistration)
 	go grpc_helpers.CreateGRPCServer(cfg.Port, func(sr grpc.ServiceRegistrar) {
 		proto.RegisterCpiInterfaceServer(sr, cpApiServer)
+		//proto.RegisterRAFTInterfaceServer(sr)
 	})
 
 	go profiler.SetupProfilerServer(cfg.Profiler)

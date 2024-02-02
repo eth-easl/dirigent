@@ -1,6 +1,7 @@
 package config
 
 import (
+	"github.com/sirupsen/logrus"
 	"path/filepath"
 	"strings"
 
@@ -9,6 +10,7 @@ import (
 
 type ControlPlaneConfig struct {
 	Port               string         `mapstructure:"port"`
+	Replicas           []string       `mapstructure:"replicas"`
 	PortRegistration   string         `mapstructure:"portRegistration"`
 	Verbosity          string         `mapstructure:"verbosity"`
 	TraceOutputFolder  string         `mapstructure:"traceOutputFolder"`
@@ -104,6 +106,10 @@ func ReadControlPlaneConfiguration(configPath string) (ControlPlaneConfig, error
 	err = viper.Unmarshal(&controlPlaneConfig)
 	if err != nil {
 		return ControlPlaneConfig{}, err
+	}
+
+	if len(controlPlaneConfig.Replicas)%2 == 1 {
+		logrus.Fatal("There must be odd number of control plane replicas participating in the leader election.")
 	}
 
 	return controlPlaneConfig, nil

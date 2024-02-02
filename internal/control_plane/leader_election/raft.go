@@ -6,6 +6,8 @@ package leader_election
 // This code is in the public domain.
 
 import (
+	"cluster_manager/api/proto"
+	"context"
 	"fmt"
 	"log"
 	"math/rand"
@@ -51,18 +53,18 @@ type ConsensusModule struct {
 	mu sync.Mutex
 
 	// id is the server ID of this CM.
-	id int
+	id int32
 
 	// peerIds lists the IDs of our peers in the cluster.
 	peerIds []int
 
 	// server is the server containing this CM. It's used to issue RPC calls
 	// to peers.
-	server *Server
+	server *LeaderElectionServer
 
 	// Persistent Raft state on all servers
-	currentTerm int
-	votedFor    int
+	currentTerm int32
+	votedFor    int32
 	log         []LogEntry
 
 	// Volatile Raft state on all servers
@@ -73,7 +75,7 @@ type ConsensusModule struct {
 // NewConsensusModule creates a new CM with the given ID, list of peer IDs and
 // server. The ready channel signals the CM that all peers are connected and
 // it's safe to start its state machine.
-func NewConsensusModule(id int, peerIds []int, server *Server, ready <-chan interface{}) *ConsensusModule {
+func NewConsensusModule(id int32, peerIds []int, server *LeaderElectionServer, ready <-chan interface{}) *ConsensusModule {
 	cm := new(ConsensusModule)
 	cm.id = id
 	cm.peerIds = peerIds
@@ -95,7 +97,7 @@ func NewConsensusModule(id int, peerIds []int, server *Server, ready <-chan inte
 }
 
 // Report reports the state of this CM.
-func (cm *ConsensusModule) Report() (id int, term int, isLeader bool) {
+func (cm *ConsensusModule) Report() (id int32, term int32, isLeader bool) {
 	cm.mu.Lock()
 	defer cm.mu.Unlock()
 	return cm.id, cm.currentTerm, cm.state == Leader
@@ -119,25 +121,12 @@ func (cm *ConsensusModule) dlog(format string, args ...interface{}) {
 	}
 }
 
-// See figure 2 in the paper.
-type RequestVoteArgs struct {
-	Term         int
-	CandidateId  int
-	LastLogIndex int
-	LastLogTerm  int
-}
-
-type RequestVoteReply struct {
-	Term        int
-	VoteGranted bool
-}
-
 // RequestVote RPC.
-func (cm *ConsensusModule) RequestVote(args RequestVoteArgs, reply *RequestVoteReply) error {
+func (cm *ConsensusModule) RequestVote(args *proto.RequestVoteArgs) (*proto.RequestVoteReply, error) {
 	cm.mu.Lock()
 	defer cm.mu.Unlock()
 	if cm.state == Dead {
-		return nil
+		return nil, nil
 	}
 	cm.dlog("RequestVote: %+v [currentTerm=%d, votedFor=%d]", args, cm.currentTerm, cm.votedFor)
 
@@ -146,23 +135,24 @@ func (cm *ConsensusModule) RequestVote(args RequestVoteArgs, reply *RequestVoteR
 		cm.becomeFollower(args.Term)
 	}
 
+	reply := &proto.RequestVoteReply{}
+
 	if cm.currentTerm == args.Term &&
-		(cm.votedFor == -1 || cm.votedFor == args.CandidateId) {
+		(cm.votedFor == -1 || cm.votedFor == args.CandidateID) {
 		reply.VoteGranted = true
-		cm.votedFor = args.CandidateId
+		cm.votedFor = args.CandidateID
 		cm.electionResetEvent = time.Now()
 	} else {
 		reply.VoteGranted = false
 	}
 	reply.Term = cm.currentTerm
 	cm.dlog("... RequestVote reply: %+v", reply)
-	return nil
+	return reply, nil
 }
 
-// See figure 2 in the paper.
 type AppendEntriesArgs struct {
-	Term     int
-	LeaderId int
+	Term     int32
+	LeaderId int32
 
 	PrevLogIndex int
 	PrevLogTerm  int
@@ -171,15 +161,15 @@ type AppendEntriesArgs struct {
 }
 
 type AppendEntriesReply struct {
-	Term    int
+	Term    int32
 	Success bool
 }
 
-func (cm *ConsensusModule) AppendEntries(args AppendEntriesArgs, reply *AppendEntriesReply) error {
+func (cm *ConsensusModule) AppendEntries(args *proto.AppendEntriesArgs) (*proto.AppendEntriesReply, error) {
 	cm.mu.Lock()
 	defer cm.mu.Unlock()
 	if cm.state == Dead {
-		return nil
+		return nil, nil
 	}
 	cm.dlog("AppendEntries: %+v", args)
 
@@ -188,6 +178,7 @@ func (cm *ConsensusModule) AppendEntries(args AppendEntriesArgs, reply *AppendEn
 		cm.becomeFollower(args.Term)
 	}
 
+	reply := &proto.AppendEntriesReply{}
 	reply.Success = false
 	if args.Term == cm.currentTerm {
 		if cm.state != Follower {
@@ -198,8 +189,8 @@ func (cm *ConsensusModule) AppendEntries(args AppendEntriesArgs, reply *AppendEn
 	}
 
 	reply.Term = cm.currentTerm
-	cm.dlog("AppendEntries reply: %+v", *reply)
-	return nil
+	cm.dlog("AppendEntries reply: %+v", reply)
+	return reply, nil
 }
 
 // electionTimeout generates a pseudo-random election timeout duration.
@@ -276,14 +267,20 @@ func (cm *ConsensusModule) startElection() {
 	// Send RequestVote RPCs to all other servers concurrently.
 	for _, peerId := range cm.peerIds {
 		go func(peerId int) {
-			args := RequestVoteArgs{
+			args := &proto.RequestVoteArgs{
 				Term:        savedCurrentTerm,
-				CandidateId: cm.id,
+				CandidateID: cm.id,
 			}
-			var reply RequestVoteReply
 
 			cm.dlog("sending RequestVote to %d: %+v", peerId, args)
-			if err := cm.server.Call(peerId, "ConsensusModule.RequestVote", args, &reply); err == nil {
+
+			client, ok := cm.server.peerClients[peerId]
+			if !ok {
+				cm.dlog("client entry not found %d", peerId)
+				return
+			}
+
+			if reply, err := client.RequestVote(context.Background(), args); err == nil {
 				cm.mu.Lock()
 				defer cm.mu.Unlock()
 				cm.dlog("received RequestVoteReply %+v", reply)
@@ -318,7 +315,7 @@ func (cm *ConsensusModule) startElection() {
 
 // becomeFollower makes cm a follower and resets its state.
 // Expects cm.mu to be locked.
-func (cm *ConsensusModule) becomeFollower(term int) {
+func (cm *ConsensusModule) becomeFollower(term int32) {
 	cm.dlog("becomes Follower with term=%d; log=%v", term, cm.log)
 	cm.state = Follower
 	cm.currentTerm = term
@@ -365,14 +362,19 @@ func (cm *ConsensusModule) leaderSendHeartbeats() {
 	cm.mu.Unlock()
 
 	for _, peerId := range cm.peerIds {
-		args := AppendEntriesArgs{
+		args := &proto.AppendEntriesArgs{
 			Term:     savedCurrentTerm,
-			LeaderId: cm.id,
+			LeaderID: cm.id,
 		}
 		go func(peerId int) {
 			cm.dlog("sending AppendEntries to %v: ni=%d, args=%+v", peerId, 0, args)
-			var reply AppendEntriesReply
-			if err := cm.server.Call(peerId, "ConsensusModule.AppendEntries", args, &reply); err == nil {
+			client, ok := cm.server.peerClients[peerId]
+			if !ok {
+				cm.dlog("client entry not found %d", peerId)
+				return
+			}
+
+			if reply, err := client.AppendEntries(context.Background(), args); err == nil {
 				cm.mu.Lock()
 				defer cm.mu.Unlock()
 				if reply.Term > savedCurrentTerm {

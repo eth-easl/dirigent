@@ -7,6 +7,7 @@ package leader_election
 
 import (
 	"log"
+	"math/rand"
 	"testing"
 	"time"
 )
@@ -17,7 +18,7 @@ func init() {
 
 type Harness struct {
 	// cluster is a list of all the raft servers participating in a cluster.
-	cluster []*Server
+	cluster []*LeaderElectionServer
 
 	// connected has a bool per server in cluster, specifying whether this server
 	// is currently connected to peers (if false, it's partitioned and no messages
@@ -31,7 +32,7 @@ type Harness struct {
 // NewHarness creates a new test Harness, initialized with n servers connected
 // to each other.
 func NewHarness(t *testing.T, n int) *Harness {
-	ns := make([]*Server, n)
+	ns := make([]*LeaderElectionServer, n)
 	connected := make([]bool, n)
 	ready := make(chan interface{})
 
@@ -44,8 +45,10 @@ func NewHarness(t *testing.T, n int) *Harness {
 			}
 		}
 
-		ns[i] = NewServer(i, peerIds, ready)
-		ns[i].Serve()
+		port := 4096 + rand.Intn(61440)
+
+		ns[i] = NewServer(int32(i), peerIds, ready)
+		ns[i].Serve(port)
 	}
 
 	// Connect all peers to each other.
@@ -70,10 +73,10 @@ func NewHarness(t *testing.T, n int) *Harness {
 // Shutdown shuts down all the servers in the harness and waits for them to
 // stop running.
 func (h *Harness) Shutdown() {
-	for i := 0; i < h.n; i++ {
+	/*for i := 0; i < h.n; i++ {
 		h.cluster[i].DisconnectAll()
 		h.connected[i] = false
-	}
+	}*/
 	for i := 0; i < h.n; i++ {
 		h.cluster[i].Shutdown()
 	}
@@ -110,10 +113,10 @@ func (h *Harness) ReconnectPeer(id int) {
 // CheckSingleLeader checks that only a single server thinks it's the leader.
 // Returns the leader's id and term. It retries several times if no leader is
 // identified yet.
-func (h *Harness) CheckSingleLeader() (int, int) {
+func (h *Harness) CheckSingleLeader() (int, int32) {
 	for r := 0; r < 5; r++ {
 		leaderId := -1
-		leaderTerm := -1
+		var leaderTerm int32 = -1
 		for i := 0; i < h.n; i++ {
 			if h.connected[i] {
 				_, term, isLeader := h.cluster[i].cm.Report()

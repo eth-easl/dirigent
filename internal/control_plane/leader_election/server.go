@@ -1,69 +1,72 @@
 package leader_election
 
-// Server container for a Raft Consensus Module. Exposes Raft to the network
+// LeaderElectionServer container for a Raft Consensus Module. Exposes Raft to the network
 // and enables RPCs between Raft peers.
 //
 // Eli Bendersky [https://eli.thegreenplace.net]
 // This code is in the public domain.
 
 import (
+	"cluster_manager/api/proto"
+	"cluster_manager/pkg/grpc_helpers"
+	"context"
 	"fmt"
+	"github.com/sirupsen/logrus"
+	"google.golang.org/grpc"
 	"log"
 	"math/rand"
 	"net"
-	"net/rpc"
 	"os"
 	"sync"
 	"time"
 )
 
-// Server wraps a raft.ConsensusModule along with a rpc.Server that exposes its
+// LeaderElectionServer wraps a raft.ConsensusModule along with a rpc.Server that exposes its
 // methods as RPC endpoints. It also manages the peers of the Raft server. The
-// main goal of this type is to simplify the code of raft.Server for
-// presentation purposes. raft.ConsensusModule has a *Server to do its peer
+// main goal of this type is to simplify the code of raft.LeaderElectionServer for
+// presentation purposes. raft.ConsensusModule has a *LeaderElectionServer to do its peer
 // communication and doesn't have to worry about the specifics of running an
 // RPC server.
-type Server struct {
+type LeaderElectionServer struct {
 	mu sync.Mutex
 
-	serverId int
+	serverId int32
 	peerIds  []int
 
 	cm       *ConsensusModule
 	rpcProxy *RPCProxy
 
-	rpcServer *rpc.Server
+	rpcServer *grpc.Server
 	listener  net.Listener
 
-	peerClients map[int]*rpc.Client
+	peerClients map[int]proto.RAFTInterfaceClient
 
 	ready <-chan interface{}
 	quit  chan interface{}
 	wg    sync.WaitGroup
 }
 
-func NewServer(serverId int, peerIds []int, ready <-chan interface{}) *Server {
-	s := new(Server)
+func NewServer(serverId int32, peerIds []int, ready <-chan interface{}) *LeaderElectionServer {
+	s := new(LeaderElectionServer)
 	s.serverId = serverId
 	s.peerIds = peerIds
-	s.peerClients = make(map[int]*rpc.Client)
+	s.peerClients = make(map[int]proto.RAFTInterfaceClient)
 	s.ready = ready
 	s.quit = make(chan interface{})
 	return s
 }
 
-func (s *Server) Serve() {
+func (s *LeaderElectionServer) Serve(port int) {
 	s.mu.Lock()
 	s.cm = NewConsensusModule(s.serverId, s.peerIds, s, s.ready)
 
 	// Create a new RPC server and register a RPCProxy that forwards all methods
 	// to n.cm
-	s.rpcServer = rpc.NewServer()
-	s.rpcProxy = &RPCProxy{cm: s.cm}
-	s.rpcServer.RegisterName("ConsensusModule", s.rpcProxy)
+	s.rpcServer = grpc.NewServer()
+	proto.RegisterRAFTInterfaceServer(s.rpcServer, &RPCProxy{cm: s.cm})
 
 	var err error
-	s.listener, err = net.Listen("tcp", ":0")
+	s.listener, err = net.Listen("tcp", fmt.Sprintf(":%d", port))
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -74,77 +77,59 @@ func (s *Server) Serve() {
 	go func() {
 		defer s.wg.Done()
 
-		for {
-			conn, err := s.listener.Accept()
-			if err != nil {
-				select {
-				case <-s.quit:
-					return
-				default:
-					log.Fatal("accept error:", err)
-				}
-			}
-			s.wg.Add(1)
-			go func() {
-				s.rpcServer.ServeConn(conn)
-				s.wg.Done()
-			}()
+		if err := s.rpcServer.Serve(s.listener); err != nil {
+			log.Fatalf("[%d] failed to serve: %v", s.serverId, err)
 		}
 	}()
 }
 
 // DisconnectAll closes all the client connections to peers for this server.
-func (s *Server) DisconnectAll() {
+func (s *LeaderElectionServer) DisconnectAll() {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	for id := range s.peerClients {
 		if s.peerClients[id] != nil {
-			s.peerClients[id].Close()
-			s.peerClients[id] = nil
+			delete(s.peerClients, id)
 		}
 	}
 }
 
 // Shutdown closes the server and waits for it to shut down properly.
-func (s *Server) Shutdown() {
+func (s *LeaderElectionServer) Shutdown() {
 	s.cm.Stop()
 	close(s.quit)
-	s.listener.Close()
+	s.rpcServer.Stop()
 	s.wg.Wait()
 }
 
-func (s *Server) GetListenAddr() net.Addr {
+func (s *LeaderElectionServer) GetListenAddr() net.Addr {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	return s.listener.Addr()
 }
 
-func (s *Server) ConnectToPeer(peerId int, addr net.Addr) error {
+func (s *LeaderElectionServer) ConnectToPeer(peerId int, addr net.Addr) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	if s.peerClients[peerId] == nil {
-		client, err := rpc.Dial(addr.Network(), addr.String())
-		if err != nil {
-			return err
-		}
-		s.peerClients[peerId] = client
+		address, port, _ := net.SplitHostPort(addr.String())
+		conn := grpc_helpers.EstablishGRPCConnectionPoll(address, port)
+		s.peerClients[peerId] = proto.NewRAFTInterfaceClient(conn)
 	}
 	return nil
 }
 
 // DisconnectPeer disconnects this server from the peer identified by peerId.
-func (s *Server) DisconnectPeer(peerId int) error {
+func (s *LeaderElectionServer) DisconnectPeer(peerId int) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	if s.peerClients[peerId] != nil {
-		err := s.peerClients[peerId].Close()
-		s.peerClients[peerId] = nil
-		return err
+		delete(s.peerClients, peerId)
 	}
 	return nil
 }
 
-func (s *Server) Call(id int, serviceMethod string, args interface{}, reply interface{}) error {
+func (s *LeaderElectionServer) Call(id int, serviceMethod string, args interface{}, reply interface{}) error {
 	s.mu.Lock()
 	peer := s.peerClients[id]
 	s.mu.Unlock()
@@ -154,8 +139,21 @@ func (s *Server) Call(id int, serviceMethod string, args interface{}, reply inte
 	if peer == nil {
 		return fmt.Errorf("call client %d after it's closed", id)
 	} else {
-		return peer.Call(serviceMethod, args, reply)
+		switch serviceMethod {
+		case "ConsensusModule.RequestVote":
+			r, err := peer.RequestVote(context.Background(), args.(*proto.RequestVoteArgs))
+			reply = r
+			return err
+		case "ConsensusModule.AppendEntries":
+			r, err := peer.AppendEntries(context.Background(), args.(*proto.AppendEntriesArgs))
+			reply = r
+			return err
+		default:
+			logrus.Fatal("Unsupported gRPC method.")
+		}
 	}
+
+	return nil
 }
 
 // RPCProxy is a trivial pass-thru proxy type for ConsensusModule's RPC methods.
@@ -165,15 +163,16 @@ func (s *Server) Call(id int, serviceMethod string, args interface{}, reply inte
 //   - Simulating possible unreliable connections by delaying some messages
 //     significantly and dropping others when RAFT_UNRELIABLE_RPC is set.
 type RPCProxy struct {
+	proto.UnimplementedRAFTInterfaceServer
+
 	cm *ConsensusModule
 }
 
-func (rpp *RPCProxy) RequestVote(args RequestVoteArgs, reply *RequestVoteReply) error {
+func (rpp *RPCProxy) RequestVote(_ context.Context, args *proto.RequestVoteArgs) (*proto.RequestVoteReply, error) {
 	if len(os.Getenv("RAFT_UNRELIABLE_RPC")) > 0 {
 		dice := rand.Intn(10)
 		if dice == 9 {
 			rpp.cm.dlog("drop RequestVote")
-			return fmt.Errorf("RPC failed")
 		} else if dice == 8 {
 			rpp.cm.dlog("delay RequestVote")
 			time.Sleep(75 * time.Millisecond)
@@ -181,15 +180,15 @@ func (rpp *RPCProxy) RequestVote(args RequestVoteArgs, reply *RequestVoteReply) 
 	} else {
 		time.Sleep(time.Duration(1+rand.Intn(5)) * time.Millisecond)
 	}
-	return rpp.cm.RequestVote(args, reply)
+
+	return rpp.cm.RequestVote(args)
 }
 
-func (rpp *RPCProxy) AppendEntries(args AppendEntriesArgs, reply *AppendEntriesReply) error {
+func (rpp *RPCProxy) AppendEntries(_ context.Context, args *proto.AppendEntriesArgs) (*proto.AppendEntriesReply, error) {
 	if len(os.Getenv("RAFT_UNRELIABLE_RPC")) > 0 {
 		dice := rand.Intn(10)
 		if dice == 9 {
 			rpp.cm.dlog("drop AppendEntries")
-			return fmt.Errorf("RPC failed")
 		} else if dice == 8 {
 			rpp.cm.dlog("delay AppendEntries")
 			time.Sleep(75 * time.Millisecond)
@@ -197,5 +196,6 @@ func (rpp *RPCProxy) AppendEntries(args AppendEntriesArgs, reply *AppendEntriesR
 	} else {
 		time.Sleep(time.Duration(1+rand.Intn(5)) * time.Millisecond)
 	}
-	return rpp.cm.AppendEntries(args, reply)
+
+	return rpp.cm.AppendEntries(args)
 }

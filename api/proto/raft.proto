@@ -1,0 +1,30 @@
+syntax = "proto3";
+
+option go_package = "github.com/eth-easl/cluster_manager/api/proto";
+
+message RequestVoteArgs {
+  int32 Term = 1;
+  int32 CandidateID = 2;
+  int32 LastLogIndex = 3;
+  int32 LastLogTerm = 4;
+}
+
+message RequestVoteReply {
+  int32 Term = 1;
+  bool VoteGranted = 2;
+}
+
+message AppendEntriesArgs {
+  int32 Term = 1;
+  int32 LeaderID = 2;
+}
+
+message AppendEntriesReply {
+  int32 Term = 1;
+  bool Success = 2;
+}
+
+service RAFTInterface {
+  rpc RequestVote(RequestVoteArgs) returns (RequestVoteReply);
+  rpc AppendEntries(AppendEntriesArgs) returns (AppendEntriesReply);
+}
