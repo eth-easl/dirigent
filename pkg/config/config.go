@@ -34,6 +34,7 @@ type DataPlaneConfig struct {
 	LoadBalancingPolicy string    `mapstructure:"loadBalancingPolicy"`
 	Async               bool      `mapstructure:"async"`
 	RedisConf           RedisConf `mapstructure:"redis"`
+	PersistRequests     bool      `mapstructure:"persistRequests"`
 }
 
 type WorkerNodeConfig struct {

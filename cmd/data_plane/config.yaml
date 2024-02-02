@@ -7,7 +7,8 @@ portProxyRead: "8082"
 verbosity: "trace"
 traceOutputFolder: "data"
 loadBalancingPolicy: "random"
-async: false
+async: true
+persistRequests: false
 
 redis:
   address: "127.0.0.1:6379"

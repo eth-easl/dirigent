@@ -9,11 +9,27 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-type RequestRedisClient struct {
+type RequestPersistence interface {
+	PersistBufferedRequest(ctx context.Context, request *requests.BufferedRequest) error
+}
+
+type emptyRequestPersistence struct {
+}
+
+func CreateEmptyRequestPersistence() RequestPersistence {
+	return &emptyRequestPersistence{}
+}
+
+func (empty *emptyRequestPersistence) PersistBufferedRequest(ctx context.Context, request *requests.BufferedRequest) error {
+	return nil
+}
+
+type requestRedisClient struct {
 	RedisClient *redis.Client
 }
 
-func CreateRequestRedisClient(ctx context.Context, redisLogin config.RedisConf) (*RequestRedisClient, error) {
+func CreateRequestRedisClient(ctx context.Context, redisLogin config.RedisConf) (RequestPersistence, error) {
+
 	redisClient := redis.NewClient(&redis.Options{
 		Addr:     redisLogin.Address,
 		Password: redisLogin.Password,
@@ -23,28 +39,28 @@ func CreateRequestRedisClient(ctx context.Context, redisLogin config.RedisConf) 
 	if redisLogin.FullPersistence {
 		logrus.Warn("Modifications")
 		if err := redisClient.ConfigSet(ctx, "appendonly", "yes").Err(); err != nil {
-			return &RequestRedisClient{}, err
+			return &requestRedisClient{}, err
 		}
 
 		if err := redisClient.ConfigSet(ctx, "appendfsync", "always").Err(); err != nil {
-			return &RequestRedisClient{}, err
+			return &requestRedisClient{}, err
 		}
 	} else {
 		if err := redisClient.ConfigSet(ctx, "appendonly", "no").Err(); err != nil {
-			return &RequestRedisClient{}, err
+			return &requestRedisClient{}, err
 		}
 
 		if err := redisClient.ConfigSet(ctx, "appendfsync", "everysec").Err(); err != nil {
-			return &RequestRedisClient{}, err
+			return &requestRedisClient{}, err
 		}
 	}
 
-	return &RequestRedisClient{
+	return &requestRedisClient{
 		RedisClient: redisClient,
 	}, redisClient.Ping(ctx).Err()
 }
 
-func (driver *RequestRedisClient) PersistBufferedRequest(ctx context.Context, bufferedRequest *requests.BufferedRequest) error {
+func (driver *requestRedisClient) PersistBufferedRequest(ctx context.Context, bufferedRequest *requests.BufferedRequest) error {
 	data, err := json.Marshal(bufferedRequest)
 	if err != nil {
 		return err

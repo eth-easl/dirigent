@@ -35,14 +35,21 @@ type AsyncProxyingService struct {
 	RequestChannel chan *requests.BufferedRequest
 	Responses      map[string]*requests.BufferedResponse
 
-	Persistence    *request_persistence.RequestRedisClient
+	Persistence    request_persistence.RequestPersistence
 	AllowedRetries int
 }
 
 func NewAsyncProxyingService(cfg config.DataPlaneConfig, cache *common.Deployments, cp *proto.CpiInterfaceClient, outputFile string, loadBalancingPolicy load_balancing.LoadBalancingPolicy) *AsyncProxyingService {
-	persistenceLayer, err := request_persistence.CreateRequestRedisClient(context.Background(), cfg.RedisConf)
-	if err != nil {
-		return nil
+	var persistenceLayer request_persistence.RequestPersistence
+	var err error
+
+	if cfg.PersistRequests {
+		persistenceLayer, err = request_persistence.CreateRequestRedisClient(context.Background(), cfg.RedisConf)
+		if err != nil {
+			return nil
+		}
+	} else {
+		persistenceLayer = request_persistence.CreateEmptyRequestPersistence()
 	}
 
 	return &AsyncProxyingService{
@@ -119,7 +126,7 @@ func (ps *AsyncProxyingService) createAsyncInvocationHandler() http.HandlerFunc 
 		logrus.Tracef("[reverse proxy server] received request and generated code :%s\n", code)
 
 		w.WriteHeader(http.StatusOK)
-		io.Copy(w, strings.NewReader(code+"\n"))
+		io.Copy(w, strings.NewReader(code))
 	}
 }
 
@@ -210,7 +217,6 @@ func (ps *AsyncProxyingService) fireRequest(request *http.Request) *requests.Buf
 	startProxy := time.Now()
 
 	workerResponse, err := http.DefaultClient.Do(request)
-	logrus.Errorf("We are here : %s", err.Error())
 	if err != nil {
 		return &requests.BufferedResponse{
 			StatusCode: http.StatusInternalServerError,
@@ -253,7 +259,7 @@ func (ps *AsyncProxyingService) createAsyncReadHandler() http.HandlerFunc {
 		buf := new(bytes.Buffer)
 		buf.ReadFrom(r.Body)
 
-		logrus.Tracef("[reverse proxy server] received code request with code :%s\n", buf.String())
+		logrus.Tracef("[reverse proxy server] received code request with code : %s\n", buf.String())
 
 		if val, ok := ps.Responses[buf.String()]; ok {
 			w.WriteHeader(http.StatusOK)
