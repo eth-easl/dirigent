@@ -142,7 +142,7 @@ func (ps *AsyncProxyingService) asyncRequestHandler() {
 					Body:       "Server failed many times",
 				}
 			} else {
-				response := ps.fireRequest(requests.RequestFromBufferedRequest(bufferedRequest))
+				response := ps.fireRequest(bufferedRequest)
 				if response.StatusCode == http.StatusOK || response.StatusCode == http.StatusBadRequest {
 					ps.Responses[bufferedRequest.Code] = response
 				} else {
@@ -155,7 +155,9 @@ func (ps *AsyncProxyingService) asyncRequestHandler() {
 }
 
 // TODO: Deduplicate code
-func (ps *AsyncProxyingService) fireRequest(request *http.Request) *requests.BufferedResponse {
+func (ps *AsyncProxyingService) fireRequest(bufferedRequest *requests.BufferedRequest) *requests.BufferedResponse {
+	request := requests.RequestFromBufferedRequest(bufferedRequest)
+
 	start := time.Now()
 	///////////////////////////////////////////////
 	// METADATA FETCHING
