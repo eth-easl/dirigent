@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"net/url"
 	"strings"
+	"time"
 )
 
 // TODO: Find minimal set of values we need to replicate
@@ -35,6 +36,7 @@ type BufferedRequest struct {
 type BufferedResponse struct {
 	StatusCode int
 	Body       string
+	Timestamp  time.Time
 }
 
 func BufferedRequestFromRequest(request *http.Request, code string) *BufferedRequest {

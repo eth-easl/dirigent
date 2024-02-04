@@ -19,6 +19,7 @@ import (
 	"net"
 	"net/http"
 	"strings"
+	"sync"
 	"time"
 )
 
@@ -34,6 +35,7 @@ type AsyncProxyingService struct {
 
 	RequestChannel chan *requests.BufferedRequest
 	Responses      map[string]*requests.BufferedResponse
+	ResponsesLock  sync.RWMutex
 
 	Persistence    request_persistence.RequestPersistence
 	AllowedRetries int
@@ -52,7 +54,7 @@ func NewAsyncProxyingService(cfg config.DataPlaneConfig, cache *common.Deploymen
 		persistenceLayer = request_persistence.CreateEmptyRequestPersistence()
 	}
 
-	return &AsyncProxyingService{
+	proxy := &AsyncProxyingService{
 		Host:                utils.Localhost,
 		Port:                cfg.PortProxy,
 		PortRead:            cfg.PortProxyRead,
@@ -68,6 +70,10 @@ func NewAsyncProxyingService(cfg config.DataPlaneConfig, cache *common.Deploymen
 		Persistence:    persistenceLayer,
 		AllowedRetries: cfg.NumberRetries,
 	}
+
+	go proxy.startGarbageCollector()
+
+	return proxy
 }
 
 func (ps *AsyncProxyingService) StartProxyServer() {
@@ -137,14 +143,19 @@ func (ps *AsyncProxyingService) asyncRequestHandler() {
 			logrus.Tracef("[reverse proxy server] firing a request")
 
 			if bufferedRequest.NumberTries >= ps.AllowedRetries {
+				ps.ResponsesLock.Lock()
 				ps.Responses[bufferedRequest.Code] = &requests.BufferedResponse{
 					StatusCode: http.StatusInternalServerError,
 					Body:       "Server failed many times",
 				}
+				ps.ResponsesLock.Unlock()
 			} else {
 				response := ps.fireRequest(bufferedRequest)
 				if response.StatusCode == http.StatusOK || response.StatusCode == http.StatusBadRequest {
+					response.Timestamp = time.Now()
+					ps.ResponsesLock.Lock()
 					ps.Responses[bufferedRequest.Code] = response
+					ps.ResponsesLock.Unlock()
 				} else {
 					bufferedRequest.NumberTries++
 					ps.RequestChannel <- bufferedRequest
@@ -264,11 +275,27 @@ func (ps *AsyncProxyingService) createAsyncReadHandler() http.HandlerFunc {
 
 		logrus.Tracef("[reverse proxy server] received code request with code : %s\n", buf.String())
 
+		ps.ResponsesLock.RLock()
 		if val, ok := ps.Responses[buf.String()]; ok {
 			w.WriteHeader(http.StatusOK)
 			requests.FillResponseWithBufferedResponse(w, val)
 		} else {
 			w.WriteHeader(http.StatusNoContent)
 		}
+		ps.ResponsesLock.RUnlock()
+	}
+}
+
+func (ps *AsyncProxyingService) startGarbageCollector() {
+	for {
+		time.Sleep(15 * time.Minute)
+
+		ps.ResponsesLock.Lock()
+		for key, response := range ps.Responses {
+			if time.Now().Unix()-response.Timestamp.Unix() > time.Minute.Nanoseconds() {
+				delete(ps.Responses, key)
+			}
+		}
+		ps.ResponsesLock.Unlock()
 	}
 }
