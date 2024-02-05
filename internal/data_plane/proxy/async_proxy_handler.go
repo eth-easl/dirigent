@@ -108,6 +108,31 @@ func (ps *AsyncProxyingService) StartProxyServer() {
 		}
 	}()
 
+	// Load responses and requests and resend requests without response
+	responses, err := ps.Persistence.ScanBufferedResponses(context.Background())
+	if err != nil {
+		logrus.Fatalf("Failed to recover responses : error %s", err.Error())
+	}
+
+	ps.ResponsesLock.Lock()
+	for _, response := range responses {
+		ps.Responses[response.Code] = response
+	}
+	ps.ResponsesLock.Unlock()
+
+	bufferedRequests, err := ps.Persistence.ScanBufferedRequests(context.Background())
+	if err != nil {
+		logrus.Fatalf("Failed to recover requests : error")
+	}
+
+	ps.ResponsesLock.RLock()
+	for _, request := range bufferedRequests {
+		if _, ok := ps.Responses[request.Code]; !ok {
+			ps.RequestChannel <- request
+		}
+	}
+	ps.ResponsesLock.RUnlock()
+
 	ps.asyncRequestHandler()
 }
 

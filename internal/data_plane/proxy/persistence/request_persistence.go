@@ -5,6 +5,7 @@ import (
 	"cluster_manager/pkg/config"
 	"context"
 	"encoding/json"
+	"fmt"
 	"github.com/redis/go-redis/v9"
 	"github.com/sirupsen/logrus"
 )
@@ -12,6 +13,8 @@ import (
 type RequestPersistence interface {
 	PersistBufferedRequest(ctx context.Context, request *requests.BufferedRequest) error
 	PersistBufferedResponse(ctx context.Context, response *requests.BufferedResponse) error
+	ScanBufferedRequests(ctx context.Context) ([]*requests.BufferedRequest, error)
+	ScanBufferedResponses(ctx context.Context) ([]*requests.BufferedResponse, error)
 }
 
 type emptyRequestPersistence struct {
@@ -28,6 +31,19 @@ func (empty *emptyRequestPersistence) PersistBufferedRequest(ctx context.Context
 func (empty *emptyRequestPersistence) PersistBufferedResponse(ctx context.Context, response *requests.BufferedResponse) error {
 	return nil
 }
+
+func (empty *emptyRequestPersistence) ScanBufferedRequests(ctx context.Context) ([]*requests.BufferedRequest, error) {
+	return make([]*requests.BufferedRequest, 0), nil
+}
+
+func (empty *emptyRequestPersistence) ScanBufferedResponses(ctx context.Context) ([]*requests.BufferedResponse, error) {
+	return make([]*requests.BufferedResponse, 0), nil
+}
+
+const (
+	bufferedRequestPrefix  string = "req_"
+	bufferedResponsePredix string = "res_"
+)
 
 type requestRedisClient struct {
 	RedisClient *redis.Client
@@ -71,7 +87,7 @@ func (driver *requestRedisClient) PersistBufferedRequest(ctx context.Context, bu
 		return err
 	}
 
-	return driver.RedisClient.HSet(ctx, bufferedRequest.Code, "data", data).Err()
+	return driver.RedisClient.HSet(ctx, bufferedRequestPrefix+bufferedRequest.Code, "data", data).Err()
 }
 
 func (driver *requestRedisClient) PersistBufferedResponse(ctx context.Context, bufferedResponse *requests.BufferedResponse) error {
@@ -80,5 +96,103 @@ func (driver *requestRedisClient) PersistBufferedResponse(ctx context.Context, b
 		return err
 	}
 
-	return driver.RedisClient.HSet(ctx, bufferedResponse.Code, "data", data).Err()
+	return driver.RedisClient.HSet(ctx, bufferedResponsePredix+bufferedResponse.Code, "data", data).Err()
+}
+
+// TODO: Deduplicate code
+func (driver *requestRedisClient) ScanBufferedRequests(ctx context.Context) ([]*requests.BufferedRequest, error) {
+	logrus.Trace("get buffered requests from the database")
+
+	keys, err := driver.scanKeys(ctx, bufferedRequestPrefix)
+	if err != nil {
+		return nil, err
+	}
+
+	req := make([]*requests.BufferedRequest, 0)
+
+	for _, key := range keys {
+		fields, err := driver.RedisClient.HGetAll(ctx, key).Result()
+		if err != nil {
+			return nil, err
+		}
+
+		request := &requests.BufferedRequest{}
+
+		err = json.Unmarshal([]byte(fields["data"]), request)
+
+		if err != nil {
+			panic(err)
+		}
+
+		req = append(req, request)
+	}
+
+	logrus.Tracef("Found %d buffered request(s) in the database", len(req))
+
+	return req, nil
+}
+
+// TODO: Deduplicate code
+func (driver *requestRedisClient) ScanBufferedResponses(ctx context.Context) ([]*requests.BufferedResponse, error) {
+	logrus.Trace("get buffered responses from the database")
+
+	keys, err := driver.scanKeys(ctx, bufferedResponsePredix)
+	if err != nil {
+		return nil, err
+	}
+
+	responses := make([]*requests.BufferedResponse, 0)
+
+	for _, key := range keys {
+		fields, err := driver.RedisClient.HGetAll(ctx, key).Result()
+		if err != nil {
+			return nil, err
+		}
+
+		response := &requests.BufferedResponse{}
+
+		err = json.Unmarshal([]byte(fields["data"]), response)
+
+		if err != nil {
+			panic(err)
+		}
+
+		responses = append(responses, response)
+	}
+
+	logrus.Tracef("Found %d buffered response(s) in the database", len(responses))
+
+	return responses, nil
+}
+
+// TODO: Deduplicate code
+func (driver *requestRedisClient) scanKeys(ctx context.Context, prefix string) ([]string, error) {
+	var (
+		cursor uint64
+		n      int
+	)
+
+	output := make([]string, 0)
+
+	for {
+		var (
+			keys []string
+			err  error
+		)
+
+		keys, cursor, err = driver.RedisClient.Scan(ctx, cursor, fmt.Sprintf("%s*", prefix), 10).Result()
+		if err != nil {
+			panic(err)
+		}
+
+		n += len(keys)
+
+		output = append(output, keys...)
+
+		if cursor == 0 {
+			break
+		}
+	}
+
+	return output, nil
 }
