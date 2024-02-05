@@ -94,13 +94,8 @@ func main() {
 		} else if resp.StatusCode != http.StatusOK {
 			msg = fmt.Sprintf("%s - status code: %d", body, resp.StatusCode)
 		}
-
-		logrus.Fatalf(msg)
-
 		logrus.Debugf("HTTP timeout for function")
-
-		panic("End")
-
+		logrus.Fatalf(msg)
 	}
 
 	fmt.Println(string(body[:]))
@@ -111,17 +106,17 @@ func main() {
 
 	req, err = http.NewRequest("GET", "http://localhost:8082", strings.NewReader(code))
 	if err != nil {
-		panic(err.Error())
+		logrus.Fatalf(err.Error())
 	}
 
 	resp, err = client.Do(req)
 	if err != nil {
-		panic(err.Error())
+		logrus.Fatalf(err.Error())
 	}
 
 	responseInBytes, err := io.ReadAll(resp.Body)
 	if err != nil {
-		panic(err.Error())
+		logrus.Fatalf(err.Error())
 	}
 
 	logrus.Info("Final result")

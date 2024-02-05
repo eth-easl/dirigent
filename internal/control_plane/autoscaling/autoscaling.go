@@ -44,7 +44,7 @@ func NewDefaultAutoscalingMetadata() *proto.AutoscalingConfiguration {
 		MaxScaleDownRate:                     2.0,
 		ContainerConcurrency:                 1,
 		ContainerConcurrencyTargetPercentage: 100,
-		StableWindowWidthSeconds:             1800,
+		StableWindowWidthSeconds:             60,
 		PanicWindowWidthSeconds:              6,
 		ScalingPeriodSeconds:                 2,
 		ScalingMethod:                        Arithmetic,
