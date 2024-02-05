@@ -153,9 +153,14 @@ func (ps *AsyncProxyingService) asyncRequestHandler() {
 				response := ps.fireRequest(bufferedRequest)
 				if response.StatusCode == http.StatusOK || response.StatusCode == http.StatusBadRequest {
 					response.Timestamp = time.Now()
+					response.Code = bufferedRequest.Code
 					ps.ResponsesLock.Lock()
 					ps.Responses[bufferedRequest.Code] = response
 					ps.ResponsesLock.Unlock()
+
+					if err := ps.Persistence.PersistBufferedResponse(context.Background(), response); err != nil {
+						logrus.Warnf("Failed to buffer response, error : %s", err.Error())
+					}
 				} else {
 					bufferedRequest.NumberTries++
 					ps.RequestChannel <- bufferedRequest

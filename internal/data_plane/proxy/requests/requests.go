@@ -37,6 +37,7 @@ type BufferedResponse struct {
 	StatusCode int
 	Body       string
 	Timestamp  time.Time
+	Code       string
 }
 
 func BufferedRequestFromRequest(request *http.Request, code string) *BufferedRequest {

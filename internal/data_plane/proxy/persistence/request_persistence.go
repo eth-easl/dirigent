@@ -11,6 +11,7 @@ import (
 
 type RequestPersistence interface {
 	PersistBufferedRequest(ctx context.Context, request *requests.BufferedRequest) error
+	PersistBufferedResponse(ctx context.Context, response *requests.BufferedResponse) error
 }
 
 type emptyRequestPersistence struct {
@@ -21,6 +22,10 @@ func CreateEmptyRequestPersistence() RequestPersistence {
 }
 
 func (empty *emptyRequestPersistence) PersistBufferedRequest(ctx context.Context, request *requests.BufferedRequest) error {
+	return nil
+}
+
+func (empty *emptyRequestPersistence) PersistBufferedResponse(ctx context.Context, response *requests.BufferedResponse) error {
 	return nil
 }
 
@@ -67,4 +72,13 @@ func (driver *requestRedisClient) PersistBufferedRequest(ctx context.Context, bu
 	}
 
 	return driver.RedisClient.HSet(ctx, bufferedRequest.Code, "data", data).Err()
+}
+
+func (driver *requestRedisClient) PersistBufferedResponse(ctx context.Context, bufferedResponse *requests.BufferedResponse) error {
+	data, err := json.Marshal(bufferedResponse)
+	if err != nil {
+		return err
+	}
+
+	return driver.RedisClient.HSet(ctx, bufferedResponse.Code, "data", data).Err()
 }
