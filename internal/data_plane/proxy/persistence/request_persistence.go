@@ -15,6 +15,7 @@ type RequestPersistence interface {
 	PersistBufferedResponse(ctx context.Context, response *requests.BufferedResponse) error
 	ScanBufferedRequests(ctx context.Context) ([]*requests.BufferedRequest, error)
 	ScanBufferedResponses(ctx context.Context) ([]*requests.BufferedResponse, error)
+	DeleteBufferedRequest(ctx context.Context, code string) error
 }
 
 type emptyRequestPersistence struct {
@@ -38,6 +39,10 @@ func (empty *emptyRequestPersistence) ScanBufferedRequests(ctx context.Context) 
 
 func (empty *emptyRequestPersistence) ScanBufferedResponses(ctx context.Context) ([]*requests.BufferedResponse, error) {
 	return make([]*requests.BufferedResponse, 0), nil
+}
+
+func (empty *emptyRequestPersistence) DeleteBufferedRequest(ctx context.Context, code string) error {
+	return nil
 }
 
 const (
@@ -195,4 +200,9 @@ func (driver *requestRedisClient) scanKeys(ctx context.Context, prefix string) (
 	}
 
 	return output, nil
+}
+
+func (driver *requestRedisClient) DeleteBufferedRequest(ctx context.Context, code string) error {
+	logrus.Tracef("delete buffered request with code %s", code)
+	return driver.RedisClient.Del(ctx, bufferedRequestPrefix+code, "data").Err()
 }

@@ -186,6 +186,10 @@ func (ps *AsyncProxyingService) asyncRequestHandler() {
 					if err := ps.Persistence.PersistBufferedResponse(context.Background(), response); err != nil {
 						logrus.Warnf("Failed to buffer response, error : %s", err.Error())
 					}
+
+					if err := ps.Persistence.DeleteBufferedRequest(context.Background(), bufferedRequest.Code); err != nil {
+						logrus.Warnf("Failed to delete buffered request, error : %s", err.Error())
+					}
 				} else {
 					bufferedRequest.NumberTries++
 					ps.RequestChannel <- bufferedRequest

@@ -102,7 +102,7 @@ func main() {
 
 	code := string(body[:])
 
-	time.Sleep(10 * time.Second)
+	time.Sleep(3 * time.Second)
 
 	req, err = http.NewRequest("GET", "http://localhost:8082", strings.NewReader(code))
 	if err != nil {
