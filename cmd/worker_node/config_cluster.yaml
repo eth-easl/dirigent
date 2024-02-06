@@ -1,5 +1,5 @@
 workerNodeIp: "dynamic"
-controlPlaneIp: "10.0.1.1"
+controlPlaneIp: "10.0.1.2"
 controlPlanePort: "9090"
 port: "10010"
 verbosity: "trace"
