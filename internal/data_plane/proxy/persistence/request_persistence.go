@@ -8,10 +8,11 @@ import (
 	"fmt"
 	"github.com/redis/go-redis/v9"
 	"github.com/sirupsen/logrus"
+	"time"
 )
 
 type RequestPersistence interface {
-	PersistBufferedRequest(ctx context.Context, request *requests.BufferedRequest) error
+	PersistBufferedRequest(ctx context.Context, request *requests.BufferedRequest) (error, time.Duration, time.Duration)
 	PersistBufferedResponse(ctx context.Context, response *requests.BufferedResponse) error
 	ScanBufferedRequests(ctx context.Context) ([]*requests.BufferedRequest, error)
 	ScanBufferedResponses(ctx context.Context) ([]*requests.BufferedResponse, error)
@@ -25,8 +26,8 @@ func CreateEmptyRequestPersistence() RequestPersistence {
 	return &emptyRequestPersistence{}
 }
 
-func (empty *emptyRequestPersistence) PersistBufferedRequest(ctx context.Context, request *requests.BufferedRequest) error {
-	return nil
+func (empty *emptyRequestPersistence) PersistBufferedRequest(ctx context.Context, request *requests.BufferedRequest) (error, time.Duration, time.Duration) {
+	return nil, 0, 0
 }
 
 func (empty *emptyRequestPersistence) PersistBufferedResponse(ctx context.Context, response *requests.BufferedResponse) error {
@@ -54,6 +55,7 @@ type requestRedisClient struct {
 	RedisClient *redis.Client
 }
 
+// TODO: Deduplicate the code
 func CreateRequestRedisClient(ctx context.Context, redisLogin config.RedisConf) (RequestPersistence, error) {
 
 	redisClient := redis.NewClient(&redis.Options{
@@ -86,13 +88,21 @@ func CreateRequestRedisClient(ctx context.Context, redisLogin config.RedisConf) 
 	}, redisClient.Ping(ctx).Err()
 }
 
-func (driver *requestRedisClient) PersistBufferedRequest(ctx context.Context, bufferedRequest *requests.BufferedRequest) error {
+func (driver *requestRedisClient) PersistBufferedRequest(ctx context.Context, bufferedRequest *requests.BufferedRequest) (error, time.Duration, time.Duration) {
+	startSerialization := time.Now()
 	data, err := json.Marshal(bufferedRequest)
 	if err != nil {
-		return err
+		return err, 0, 0
 	}
+	durationSerialization := time.Since(startSerialization)
 
-	return driver.RedisClient.HSet(ctx, bufferedRequestPrefix+bufferedRequest.Code, "data", data).Err()
+	startPersistence := time.Now()
+	if err = driver.RedisClient.HSet(ctx, bufferedRequestPrefix+bufferedRequest.Code, "data", data).Err(); err != nil {
+		return err, 0, 0
+	}
+	durationPersistence := time.Since(startPersistence)
+
+	return nil, durationSerialization, durationPersistence
 }
 
 func (driver *requestRedisClient) PersistBufferedResponse(ctx context.Context, bufferedResponse *requests.BufferedResponse) error {

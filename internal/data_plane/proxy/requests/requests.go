@@ -34,6 +34,7 @@ type BufferedRequest struct {
 	NumberTries           int
 	Start                 time.Time
 	SerializationDuration time.Duration
+	PersistenceDuration   time.Duration
 }
 
 type BufferedResponse struct {

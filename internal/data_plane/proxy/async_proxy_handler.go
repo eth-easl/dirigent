@@ -145,14 +145,13 @@ func (ps *AsyncProxyingService) createAsyncInvocationHandler() http.HandlerFunc 
 		code := requests.GetUniqueRequestCode()
 		bufferedRequest := requests.BufferedRequestFromRequest(r, code)
 
-		startPersist := time.Now()
-		err := ps.Persistence.PersistBufferedRequest(context.Background(), bufferedRequest)
+		var err error
+		err, bufferedRequest.SerializationDuration, bufferedRequest.PersistenceDuration = ps.Persistence.PersistBufferedRequest(context.Background(), bufferedRequest)
 		if err != nil {
 			w.WriteHeader(http.StatusInternalServerError)
 			io.Copy(w, strings.NewReader(err.Error()))
 			return
 		}
-		bufferedRequest.SerializationDuration = time.Since(startPersist)
 
 		ps.RequestChannel <- bufferedRequest
 
@@ -295,7 +294,8 @@ func (ps *AsyncProxyingService) fireRequest(bufferedRequest *requests.BufferedRe
 		LoadBalancing:    durationLB,
 		CCThrottling:     durationCC,
 		Proxying:         time.Since(startProxy),
-		PersistenceLayer: bufferedRequest.SerializationDuration,
+		Serialization:    bufferedRequest.SerializationDuration,
+		PersistenceLayer: bufferedRequest.PersistenceDuration,
 	}
 
 	return &requests.BufferedResponse{
