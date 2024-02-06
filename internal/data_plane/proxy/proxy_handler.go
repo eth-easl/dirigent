@@ -134,15 +134,16 @@ func (ps *ProxyingService) createInvocationHandler(next http.Handler) http.Handl
 		///////////////////////////////////////////////
 
 		ps.Tracing.InputChannel <- tracing.ProxyLogEntry{
-			ServiceName:   serviceName,
-			ContainerID:   endpoint.ID,
-			Total:         time.Since(start),
-			GetMetadata:   durationGetDeployment,
-			AddDeployment: addDeploymentDuration,
-			ColdStart:     durationColdStart,
-			LoadBalancing: durationLB,
-			CCThrottling:  durationCC,
-			Proxying:      time.Since(startProxy),
+			ServiceName:      serviceName,
+			ContainerID:      endpoint.ID,
+			Total:            time.Since(start),
+			GetMetadata:      durationGetDeployment,
+			AddDeployment:    addDeploymentDuration,
+			ColdStart:        durationColdStart,
+			LoadBalancing:    durationLB,
+			CCThrottling:     durationCC,
+			Proxying:         time.Since(startProxy),
+			PersistenceLayer: 0,
 		}
 	}
 }

@@ -14,7 +14,6 @@ import (
 	"net"
 	"net/http"
 	"strconv"
-	"strings"
 	"time"
 )
 
@@ -45,12 +44,9 @@ func Deployservice() {
 	}
 }
 
-func main() {
+func Fire() {
+
 	logrus.Info("Invocating async function")
-
-	Deployservice()
-
-	time.Sleep(200 * time.Millisecond)
 
 	////////////////////////////////////
 	// INVOKE FUNCTION
@@ -101,8 +97,9 @@ func main() {
 	fmt.Println(string(body[:]))
 
 	code := string(body[:])
+	code = code
 
-	time.Sleep(3 * time.Second)
+	/*time.Sleep(5 * time.Second)
 
 	req, err = http.NewRequest("GET", "http://localhost:8082", strings.NewReader(code))
 	if err != nil {
@@ -120,6 +117,17 @@ func main() {
 	}
 
 	logrus.Info("Final result")
-	logrus.Infof(string(responseInBytes[:]))
+	logrus.Infof(string(responseInBytes[:]))*/
+}
+
+func main() {
+	Deployservice()
+
+	time.Sleep(200 * time.Millisecond)
+
+	for i := 0; i < 100; i++ {
+		Fire()
+		time.Sleep(1000 * time.Millisecond)
+	}
 
 }

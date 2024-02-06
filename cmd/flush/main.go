@@ -8,7 +8,7 @@ import (
 
 func main() {
 	client, err := persistence.CreateRedisClient(context.Background(), config.RedisConf{
-		Address:  "10.0.1.1:6379",
+		Address:  "localhost:6379",
 		Password: "",
 		Db:       0,
 	})

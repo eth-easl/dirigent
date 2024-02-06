@@ -1,6 +1,7 @@
 package requests
 
 import (
+	"bytes"
 	"github.com/google/uuid"
 	"io"
 	"mime/multipart"
@@ -18,7 +19,7 @@ type BufferedRequest struct {
 	ProtoMajor       int
 	ProtoMinor       int
 	Header           http.Header
-	Body             io.ReadCloser
+	Body             string
 	ContentLength    int64
 	TransferEncoding []string
 	Close            bool
@@ -29,8 +30,10 @@ type BufferedRequest struct {
 	Trailer          http.Header
 	RemoteAddr       string
 	// Async parameter
-	Code        string
-	NumberTries int
+	Code                  string
+	NumberTries           int
+	Start                 time.Time
+	SerializationDuration time.Duration
 }
 
 type BufferedResponse struct {
@@ -41,6 +44,9 @@ type BufferedResponse struct {
 }
 
 func BufferedRequestFromRequest(request *http.Request, code string) *BufferedRequest {
+	buf := new(bytes.Buffer)
+	buf.ReadFrom(request.Body)
+
 	return &BufferedRequest{
 		Method:           request.Method,
 		URL:              request.URL,
@@ -48,7 +54,7 @@ func BufferedRequestFromRequest(request *http.Request, code string) *BufferedReq
 		ProtoMajor:       request.ProtoMajor,
 		ProtoMinor:       request.ProtoMinor,
 		Header:           request.Header,
-		Body:             request.Body,
+		Body:             buf.String(),
 		ContentLength:    request.ContentLength,
 		TransferEncoding: request.TransferEncoding,
 		Close:            request.Close,
@@ -60,6 +66,7 @@ func BufferedRequestFromRequest(request *http.Request, code string) *BufferedReq
 		RemoteAddr:       request.RemoteAddr,
 		Code:             code,
 		NumberTries:      0,
+		Start:            time.Now(),
 	}
 }
 
@@ -71,7 +78,7 @@ func RequestFromBufferedRequest(bufferedRequest *BufferedRequest) *http.Request 
 		ProtoMajor:       bufferedRequest.ProtoMajor,
 		ProtoMinor:       bufferedRequest.ProtoMinor,
 		Header:           bufferedRequest.Header,
-		Body:             bufferedRequest.Body,
+		Body:             io.NopCloser(strings.NewReader(bufferedRequest.Body)),
 		ContentLength:    bufferedRequest.ContentLength,
 		TransferEncoding: bufferedRequest.TransferEncoding,
 		Close:            bufferedRequest.Close,

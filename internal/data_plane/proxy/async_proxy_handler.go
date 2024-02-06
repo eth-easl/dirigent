@@ -145,12 +145,14 @@ func (ps *AsyncProxyingService) createAsyncInvocationHandler() http.HandlerFunc 
 		code := requests.GetUniqueRequestCode()
 		bufferedRequest := requests.BufferedRequestFromRequest(r, code)
 
+		startPersist := time.Now()
 		err := ps.Persistence.PersistBufferedRequest(context.Background(), bufferedRequest)
 		if err != nil {
 			w.WriteHeader(http.StatusInternalServerError)
 			io.Copy(w, strings.NewReader(err.Error()))
 			return
 		}
+		bufferedRequest.SerializationDuration = time.Since(startPersist)
 
 		ps.RequestChannel <- bufferedRequest
 
@@ -203,7 +205,6 @@ func (ps *AsyncProxyingService) asyncRequestHandler() {
 func (ps *AsyncProxyingService) fireRequest(bufferedRequest *requests.BufferedRequest) *requests.BufferedResponse {
 	request := requests.RequestFromBufferedRequest(bufferedRequest)
 
-	start := time.Now()
 	///////////////////////////////////////////////
 	// METADATA FETCHING
 	///////////////////////////////////////////////
@@ -285,15 +286,16 @@ func (ps *AsyncProxyingService) fireRequest(bufferedRequest *requests.BufferedRe
 	///////////////////////////////////////////////
 
 	ps.Tracing.InputChannel <- tracing.ProxyLogEntry{
-		ServiceName:   serviceName,
-		ContainerID:   endpoint.ID,
-		Total:         time.Since(start),
-		GetMetadata:   durationGetDeployment,
-		AddDeployment: addDeploymentDuration,
-		ColdStart:     durationColdStart,
-		LoadBalancing: durationLB,
-		CCThrottling:  durationCC,
-		Proxying:      time.Since(startProxy),
+		ServiceName:      serviceName,
+		ContainerID:      endpoint.ID,
+		Total:            time.Since(bufferedRequest.Start),
+		GetMetadata:      durationGetDeployment,
+		AddDeployment:    addDeploymentDuration,
+		ColdStart:        durationColdStart,
+		LoadBalancing:    durationLB,
+		CCThrottling:     durationCC,
+		Proxying:         time.Since(startProxy),
+		PersistenceLayer: bufferedRequest.SerializationDuration,
 	}
 
 	return &requests.BufferedResponse{
