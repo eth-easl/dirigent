@@ -5,6 +5,7 @@ import (
 	"cluster_manager/api/proto"
 	"cluster_manager/internal/control_plane/data_plane"
 	"cluster_manager/internal/control_plane/data_plane/empty_dataplane"
+	"cluster_manager/internal/control_plane/leader_election"
 	"cluster_manager/internal/control_plane/persistence"
 	"cluster_manager/internal/control_plane/placement_policy"
 	"cluster_manager/internal/control_plane/registration_server"
@@ -16,6 +17,7 @@ import (
 	"cluster_manager/pkg/profiler"
 	"context"
 	"flag"
+	"math/rand"
 	"os/signal"
 	"path"
 	"syscall"
@@ -86,10 +88,15 @@ func main() {
 	go cpApiServer.ControlPlane.ColdStartTracing.StartTracingService()
 	defer close(cpApiServer.ControlPlane.ColdStartTracing.InputChannel)
 
+	peers := cfg.Replicas
+	ch := make(chan interface{})
+	leaderElectionServer := leader_election.NewServer(int32(rand.Int()), peers, ch)
+	leaderElectionServer.Serve(cfg.Port)
+
 	go registration_server.StartServiceRegistrationServer(cpApiServer, cfg.PortRegistration)
 	go grpc_helpers.CreateGRPCServer(cfg.Port, func(sr grpc.ServiceRegistrar) {
 		proto.RegisterCpiInterfaceServer(sr, cpApiServer)
-		//proto.RegisterRAFTInterfaceServer(sr)
+		proto.RegisterRAFTInterfaceServer(sr, leaderElectionServer)
 	})
 
 	go profiler.SetupProfilerServer(cfg.Profiler)
