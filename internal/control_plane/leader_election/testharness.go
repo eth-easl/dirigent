@@ -47,7 +47,22 @@ func NewHarness(t *testing.T, n int) *Harness {
 
 		port := 4096 + rand.Intn(61440)
 
-		ns[i] = NewServer(int32(i), peerIds, ready)
+		//ns[i] = NewServer(int32(i), peerIds, ready)
+
+		/*cpApiServer := api.CreateNewCpApiServer(
+			persistence2.NewEmptyPeristenceLayer(),
+			"test",
+			placement_policy.NewRandomPlacement(),
+			data_plane.NewDataplaneConnection,
+			empty_worker.NewEmptyWorkerNode,
+			&config.ControlPlaneConfig{},
+		)
+		go grpc_helpers.CreateGRPCServer(strconv.Itoa(port), func(sr grpc.ServiceRegistrar) {
+			proto.RegisterCpiInterfaceServer(sr, cpApiServer)
+		})
+
+		ns[i].rpcProxy*/
+
 		ns[i].Serve(port)
 	}
 

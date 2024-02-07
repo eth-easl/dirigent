@@ -10,7 +10,6 @@ install_golang_proto_compiler:
 
 proto:
 	protoc $(PROTOC_ARGS_API) --proto_path=api/proto api/proto/*.proto
-	protoc $(PROTOC_ARGS_TESTS) tests/proto/*.proto
 
 install_mockgen:
 	go install go.uber.org/mock/mockgen@latest

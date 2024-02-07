@@ -3,9 +3,11 @@ package control_plane
 import (
 	"cluster_manager/api/proto"
 	"cluster_manager/internal/control_plane/core"
+	"cluster_manager/internal/control_plane/leader_election"
 	"cluster_manager/internal/control_plane/persistence"
 	"cluster_manager/internal/control_plane/placement_policy"
 	"cluster_manager/pkg/config"
+	"cluster_manager/pkg/grpc_helpers"
 	_map "cluster_manager/pkg/map"
 	"cluster_manager/pkg/synchronization"
 	"cluster_manager/pkg/tracing"
@@ -28,6 +30,8 @@ type ControlPlane struct {
 	PlacementPolicy  placement_policy.PlacementPolicy
 	PersistenceLayer persistence.PersistenceLayer
 
+	LeaderElectionServer *leader_election.LeaderElectionServer
+
 	dataPlaneCreator  core.DataplaneFactory
 	workerNodeCreator core.WorkerNodeFactory
 
@@ -35,18 +39,34 @@ type ControlPlane struct {
 }
 
 func NewControlPlane(client persistence.PersistenceLayer, outputFile string, placementPolicy placement_policy.PlacementPolicy,
-	dataplaneCreator core.DataplaneFactory, workerNodeCreator core.WorkerNodeFactory, cfg *config.ControlPlaneConfig) *ControlPlane {
+	dataplaneCreator core.DataplaneFactory, workerNodeCreator core.WorkerNodeFactory, cfg *config.ControlPlaneConfig) (*ControlPlane, chan bool) {
+
+	readyToElect := make(chan interface{})
+	defer close(readyToElect)
+
+	port, _ := strconv.Atoi(cfg.Port)
+	leaderElectionServer, isLeaderChannel := leader_election.NewServer(
+		int32(port),
+		grpc_helpers.ParseReplicaPorts(cfg),
+		readyToElect,
+	)
+
 	return &ControlPlane{
+		DataPlaneConnections: synchronization.NewControlPlaneSyncStructure[string, core.DataPlaneInterface](),
 		NIStorage:            synchronization.NewControlPlaneSyncStructure[string, core.WorkerNodeInterface](),
 		SIStorage:            synchronization.NewControlPlaneSyncStructure[string, *ServiceInfoStorage](),
-		DataPlaneConnections: synchronization.NewControlPlaneSyncStructure[string, core.DataPlaneInterface](),
-		ColdStartTracing:     tracing.NewColdStartTracingService(outputFile),
-		PlacementPolicy:      placementPolicy,
-		PersistenceLayer:     client,
-		dataPlaneCreator:     dataplaneCreator,
-		workerNodeCreator:    workerNodeCreator,
-		config:               cfg,
-	}
+
+		ColdStartTracing: tracing.NewColdStartTracingService(outputFile),
+		PlacementPolicy:  placementPolicy,
+		PersistenceLayer: client,
+
+		LeaderElectionServer: leaderElectionServer,
+
+		dataPlaneCreator:  dataplaneCreator,
+		workerNodeCreator: workerNodeCreator,
+
+		config: cfg,
+	}, isLeaderChannel
 }
 
 // Dataplanes functions

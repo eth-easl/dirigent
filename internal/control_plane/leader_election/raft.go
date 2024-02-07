@@ -70,18 +70,20 @@ type ConsensusModule struct {
 	// Volatile Raft state on all servers
 	state              CMState
 	electionResetEvent time.Time
+	announceLeadership chan bool
 }
 
 // NewConsensusModule creates a new CM with the given ID, list of peer IDs and
 // server. The ready channel signals the CM that all peers are connected and
 // it's safe to start its state machine.
-func NewConsensusModule(id int32, peerIds []int, server *LeaderElectionServer, ready <-chan interface{}) *ConsensusModule {
+func NewConsensusModule(id int32, peerIds []int, server *LeaderElectionServer, ready <-chan interface{}, announceLeadership chan bool) *ConsensusModule {
 	cm := new(ConsensusModule)
 	cm.id = id
 	cm.peerIds = peerIds
 	cm.server = server
 	cm.state = Follower
 	cm.votedFor = -1
+	cm.announceLeadership = announceLeadership
 
 	go func() {
 		// The CM is quiescent until ready is signaled; then, it starts a countdown
@@ -111,6 +113,13 @@ func (cm *ConsensusModule) Stop() {
 	defer cm.mu.Unlock()
 	cm.state = Dead
 	cm.dlog("becomes Dead")
+}
+
+func (cm *ConsensusModule) IsLeader() bool {
+	cm.mu.Lock()
+	defer cm.mu.Unlock()
+
+	return cm.state == Leader
 }
 
 // dlog logs a debugging message if DebugCM > 0.
@@ -318,6 +327,7 @@ func (cm *ConsensusModule) startElection() {
 func (cm *ConsensusModule) becomeFollower(term int32) {
 	cm.dlog("becomes Follower with term=%d; log=%v", term, cm.log)
 	cm.state = Follower
+	cm.announceLeadership <- false
 	cm.currentTerm = term
 	cm.votedFor = -1
 	cm.electionResetEvent = time.Now()
@@ -329,6 +339,7 @@ func (cm *ConsensusModule) becomeFollower(term int32) {
 // Expects cm.mu to be locked.
 func (cm *ConsensusModule) startLeader() {
 	cm.state = Leader
+	cm.announceLeadership <- true
 	cm.dlog("becomes Leader; term=%d, log=%v", cm.currentTerm, cm.log)
 
 	go func() {

@@ -4,6 +4,8 @@ package data_plane;
 option go_package = "github.com/eth-easl/cluster_manager/api/proto";
 
 import "common.proto";
+import "raft.proto";
+
 import "google/protobuf/empty.proto";
 
 message NodeInfo {
@@ -44,8 +46,6 @@ message Failure {
   repeated string SandboxIDs = 3;
 }
 
-
-
 service CpiInterface {
   rpc OnMetricsReceive(AutoscalingMetric) returns (ActionStatus);
   rpc ListServices(google.protobuf.Empty) returns (ServiceList);
@@ -62,4 +62,8 @@ service CpiInterface {
   rpc DeregisterService(ServiceInfo) returns (ActionStatus);
 
   rpc ResetMeasurements(google.protobuf.Empty) returns (ActionStatus);
+
+  // RAFT leader election
+  rpc RequestVote(RequestVoteArgs) returns (RequestVoteReply);
+  rpc AppendEntries(AppendEntriesArgs) returns (AppendEntriesReply);
 }

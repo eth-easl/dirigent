@@ -30,6 +30,9 @@ type CpiInterfaceClient interface {
 	DeregisterNode(ctx context.Context, in *NodeInfo, opts ...grpc.CallOption) (*ActionStatus, error)
 	DeregisterService(ctx context.Context, in *ServiceInfo, opts ...grpc.CallOption) (*ActionStatus, error)
 	ResetMeasurements(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*ActionStatus, error)
+	// RAFT leader election
+	RequestVote(ctx context.Context, in *RequestVoteArgs, opts ...grpc.CallOption) (*RequestVoteReply, error)
+	AppendEntries(ctx context.Context, in *AppendEntriesArgs, opts ...grpc.CallOption) (*AppendEntriesReply, error)
 }
 
 type cpiInterfaceClient struct {
@@ -139,6 +142,24 @@ func (c *cpiInterfaceClient) ResetMeasurements(ctx context.Context, in *emptypb.
 	return out, nil
 }
 
+func (c *cpiInterfaceClient) RequestVote(ctx context.Context, in *RequestVoteArgs, opts ...grpc.CallOption) (*RequestVoteReply, error) {
+	out := new(RequestVoteReply)
+	err := c.cc.Invoke(ctx, "/data_plane.CpiInterface/RequestVote", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *cpiInterfaceClient) AppendEntries(ctx context.Context, in *AppendEntriesArgs, opts ...grpc.CallOption) (*AppendEntriesReply, error) {
+	out := new(AppendEntriesReply)
+	err := c.cc.Invoke(ctx, "/data_plane.CpiInterface/AppendEntries", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // CpiInterfaceServer is the server API for CpiInterface service.
 // All implementations must embed UnimplementedCpiInterfaceServer
 // for forward compatibility
@@ -154,6 +175,9 @@ type CpiInterfaceServer interface {
 	DeregisterNode(context.Context, *NodeInfo) (*ActionStatus, error)
 	DeregisterService(context.Context, *ServiceInfo) (*ActionStatus, error)
 	ResetMeasurements(context.Context, *emptypb.Empty) (*ActionStatus, error)
+	// RAFT leader election
+	RequestVote(context.Context, *RequestVoteArgs) (*RequestVoteReply, error)
+	AppendEntries(context.Context, *AppendEntriesArgs) (*AppendEntriesReply, error)
 	mustEmbedUnimplementedCpiInterfaceServer()
 }
 
@@ -193,6 +217,12 @@ func (UnimplementedCpiInterfaceServer) DeregisterService(context.Context, *Servi
 }
 func (UnimplementedCpiInterfaceServer) ResetMeasurements(context.Context, *emptypb.Empty) (*ActionStatus, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method ResetMeasurements not implemented")
+}
+func (UnimplementedCpiInterfaceServer) RequestVote(context.Context, *RequestVoteArgs) (*RequestVoteReply, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method RequestVote not implemented")
+}
+func (UnimplementedCpiInterfaceServer) AppendEntries(context.Context, *AppendEntriesArgs) (*AppendEntriesReply, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method AppendEntries not implemented")
 }
 func (UnimplementedCpiInterfaceServer) mustEmbedUnimplementedCpiInterfaceServer() {}
 
@@ -405,6 +435,42 @@ func _CpiInterface_ResetMeasurements_Handler(srv interface{}, ctx context.Contex
 	return interceptor(ctx, in, info, handler)
 }
 
+func _CpiInterface_RequestVote_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(RequestVoteArgs)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(CpiInterfaceServer).RequestVote(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/data_plane.CpiInterface/RequestVote",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(CpiInterfaceServer).RequestVote(ctx, req.(*RequestVoteArgs))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _CpiInterface_AppendEntries_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(AppendEntriesArgs)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(CpiInterfaceServer).AppendEntries(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/data_plane.CpiInterface/AppendEntries",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(CpiInterfaceServer).AppendEntries(ctx, req.(*AppendEntriesArgs))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // CpiInterface_ServiceDesc is the grpc.ServiceDesc for CpiInterface service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -455,6 +521,14 @@ var CpiInterface_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "ResetMeasurements",
 			Handler:    _CpiInterface_ResetMeasurements_Handler,
+		},
+		{
+			MethodName: "RequestVote",
+			Handler:    _CpiInterface_RequestVote_Handler,
+		},
+		{
+			MethodName: "AppendEntries",
+			Handler:    _CpiInterface_AppendEntries_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

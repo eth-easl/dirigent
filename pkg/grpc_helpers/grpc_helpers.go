@@ -69,6 +69,30 @@ func GetLongLivingConnectionDialOptions() []grpc.DialOption {
 	return options
 }
 
+func GetPeerPort(address string) int {
+	_, portString, err := net.SplitHostPort(address)
+	if err != nil {
+		logrus.Fatal("Invalid network address of control plane replica.")
+	}
+
+	port, err := strconv.Atoi(portString)
+	if err != nil {
+		logrus.Fatal("Invalid port of control plane replica.")
+	}
+
+	return port
+}
+
+func ParseReplicaPorts(cfg *config.ControlPlaneConfig) []int {
+	var result []int
+
+	for i := 0; i < len(cfg.Replicas); i++ {
+		result = append(result, GetPeerPort(cfg.Replicas[i]))
+	}
+
+	return result
+}
+
 func EstablishGRPCConnectionPoll(host, port string, dialOptions ...grpc.DialOption) *grpc.ClientConn {
 	var conn *grpc.ClientConn
 
@@ -88,7 +112,7 @@ func EstablishGRPCConnectionPoll(host, port string, dialOptions ...grpc.DialOpti
 				options...,
 			)
 			if err != nil {
-				logrus.Warn("Retrying to establish gRPC connection in 5 seconds...")
+				logrus.Warnf("Retrying to establish gRPC connection (%s:%s) in 5 seconds...", host, port)
 			}
 
 			conn = c
@@ -96,6 +120,8 @@ func EstablishGRPCConnectionPoll(host, port string, dialOptions ...grpc.DialOpti
 			return c != nil, nil
 		},
 	)
+
+	logrus.Infof("Successfully established connection with %s:%s", host, port)
 
 	return conn
 }

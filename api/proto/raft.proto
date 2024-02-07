@@ -23,8 +23,3 @@ message AppendEntriesReply {
   int32 Term = 1;
   bool Success = 2;
 }
-
-service RAFTInterface {
-  rpc RequestVote(RequestVoteArgs) returns (RequestVoteReply);
-  rpc AppendEntries(AppendEntriesArgs) returns (AppendEntriesReply);
-}
