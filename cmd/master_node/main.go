@@ -83,6 +83,7 @@ func main() {
 	// LEADERSHIP SPECIFIC
 	/////////////////////////////////////////
 	var registrationServer *http.Server
+	stopNodeMonitoring := make(chan struct{})
 
 	for {
 		select {
@@ -90,11 +91,10 @@ func main() {
 			if leader {
 				// TODO: clear all the state from the previous leader election terms in the control plane
 				// TODO: same holds for all the other go routines
-				destroyStateFromPreviousElectionTerm(registrationServer)
+				destroyStateFromPreviousElectionTerm(registrationServer, stopNodeMonitoring)
 
 				ReconstructControlPlaneState(&cfg, cpApiServer)
-
-				go cpApiServer.CheckPeriodicallyWorkerNodes()
+				cpApiServer.StartNodeMonitoringLoop(stopNodeMonitoring)
 
 				registrationServer = registration_server.StartServiceRegistrationServer(cpApiServer, cfg.PortRegistration)
 			}
@@ -107,7 +107,7 @@ func main() {
 	/////////////////////////////////////////
 }
 
-func destroyStateFromPreviousElectionTerm(registrationServer *http.Server) {
+func destroyStateFromPreviousElectionTerm(registrationServer *http.Server, stopNodeMonitoring chan struct{}) {
 	if registrationServer != nil {
 		ctx, cancel := context.WithTimeout(context.Background(), 100*time.Millisecond)
 		defer cancel()
@@ -116,6 +116,10 @@ func destroyStateFromPreviousElectionTerm(registrationServer *http.Server) {
 			logrus.Fatalf("Failed to shut down function registration server.")
 		}
 	}
+
+	if stopNodeMonitoring != nil {
+		stopNodeMonitoring <- struct{}{}
+	}
 }
 
 func ReconstructControlPlaneState(cfg *config.ControlPlaneConfig, cpApiServer *api.CpApiServer) {
@@ -123,7 +127,7 @@ func ReconstructControlPlaneState(cfg *config.ControlPlaneConfig, cpApiServer *a
 
 	err := cpApiServer.ReconstructState(context.Background(), *cfg)
 	if err != nil {
-		logrus.Fatalf("Failed to reconstruct state (error : %s)", err.Error())
+		logrus.Errorf("Failed to reconstruct state (error : %s)", err.Error())
 	}
 
 	elapsed := time.Since(start)

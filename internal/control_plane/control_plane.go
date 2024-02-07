@@ -301,28 +301,31 @@ func (c *ControlPlane) OnMetricsReceive(_ context.Context, metric *proto.Autosca
 
 // Monitoring
 
-func (c *ControlPlane) CheckPeriodicallyWorkerNodes() {
+func (c *ControlPlane) CheckPeriodicallyWorkerNodes(stopCh chan struct{}) {
 	for {
-		var events []*proto.Failure
+		select {
+		case <-time.After(utils.HeartbeatInterval):
+			var events []*proto.Failure
 
-		c.NIStorage.Lock()
-		for _, workerNode := range c.NIStorage.GetMap() {
-			workerNode.SetSchedulability(true)
+			c.NIStorage.Lock()
+			for _, workerNode := range c.NIStorage.GetMap() {
+				workerNode.SetSchedulability(true)
 
-			if time.Since(workerNode.GetLastHeartBeat()) > utils.TolerateHeartbeatMisses*utils.HeartbeatInterval {
-				// Propagate endpoint removal from the data planes
-				events = append(events, c.createWorkerNodeFailureEvents(workerNode)...)
-				workerNode.SetSchedulability(false)
+				if time.Since(workerNode.GetLastHeartBeat()) > utils.TolerateHeartbeatMisses*utils.HeartbeatInterval {
+					// Propagate endpoint removal from the data planes
+					events = append(events, c.createWorkerNodeFailureEvents(workerNode)...)
+					workerNode.SetSchedulability(false)
 
-				logrus.Warnf("Node %s is unschedulable", workerNode.GetName())
+					logrus.Warnf("Node %s is unschedulable", workerNode.GetName())
+				}
 			}
+			c.NIStorage.Unlock()
+
+			// the following call requires a lock on NIStorage
+			c.HandleFailure(events)
+		case <-stopCh:
+			break
 		}
-		c.NIStorage.Unlock()
-
-		// the following call requires a lock on NIStorage
-		c.HandleFailure(events)
-
-		time.Sleep(utils.HeartbeatInterval)
 	}
 }
 

@@ -69,6 +69,9 @@ type ConsensusModule struct {
 	// Volatile Raft state on all servers
 	state              CMState
 	electionResetEvent time.Time
+
+	// Dirigent-specific
+	currentLeaderID    int32
 	announceLeadership chan bool
 }
 
@@ -177,6 +180,7 @@ type AppendEntriesReply struct {
 func (cm *ConsensusModule) AppendEntries(args *proto.AppendEntriesArgs) (*proto.AppendEntriesReply, error) {
 	cm.mu.Lock()
 	defer cm.mu.Unlock()
+
 	if cm.state == Dead {
 		return nil, nil
 	}
@@ -185,6 +189,8 @@ func (cm *ConsensusModule) AppendEntries(args *proto.AppendEntriesArgs) (*proto.
 		logrus.Debugf("... term out of date in AppendEntries")
 		cm.becomeFollower(args.Term)
 	}
+
+	cm.currentLeaderID = args.LeaderID
 
 	reply := &proto.AppendEntriesReply{}
 	reply.Success = false
@@ -200,6 +206,10 @@ func (cm *ConsensusModule) AppendEntries(args *proto.AppendEntriesArgs) (*proto.
 	logrus.Tracef("Received leader election heartbeat: %+v", reply)
 
 	return reply, nil
+}
+
+func (cm *ConsensusModule) GetLeaderID() int {
+	return int(cm.currentLeaderID)
 }
 
 // electionTimeout generates a pseudo-random election timeout duration.

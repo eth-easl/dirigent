@@ -64,6 +64,23 @@ func (s *LeaderElectionServer) IsLeader() bool {
 	return s.cm.IsLeader()
 }
 
+func (s *LeaderElectionServer) GetLeader() proto.CpiInterfaceClient {
+	if s.cm.IsLeader() {
+		logrus.Fatal("This function should not be called if you are the leader.")
+	} else {
+		leaderID := s.cm.GetLeaderID()
+		api, ok := s.peerClients[leaderID]
+
+		if ok {
+			return api
+		} else {
+			logrus.Fatal("Invalid leader ID to obtain CpiInterfaceClient.")
+		}
+	}
+
+	return nil
+}
+
 // DisconnectAll closes all the client connections to peers for this server.
 func (s *LeaderElectionServer) DisconnectAll() {
 	s.mu.Lock()
