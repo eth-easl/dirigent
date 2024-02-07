@@ -42,7 +42,9 @@ func NewControlPlane(client persistence.PersistenceLayer, outputFile string, pla
 	dataplaneCreator core.DataplaneFactory, workerNodeCreator core.WorkerNodeFactory, cfg *config.ControlPlaneConfig) (*ControlPlane, chan bool) {
 
 	readyToElect := make(chan interface{})
-	defer close(readyToElect)
+	if len(cfg.Replicas) > 0 {
+		defer close(readyToElect)
+	}
 
 	port, _ := strconv.Atoi(cfg.Port)
 	leaderElectionServer, isLeaderChannel := leader_election.NewServer(

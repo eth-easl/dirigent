@@ -7,7 +7,6 @@ package leader_election
 
 import (
 	"log"
-	"math/rand"
 	"testing"
 	"time"
 )
@@ -45,7 +44,7 @@ func NewHarness(t *testing.T, n int) *Harness {
 			}
 		}
 
-		port := 4096 + rand.Intn(61440)
+		//port := 4096 + rand.Intn(61440)
 
 		//ns[i] = NewServer(int32(i), peerIds, ready)
 
@@ -61,9 +60,9 @@ func NewHarness(t *testing.T, n int) *Harness {
 			proto.RegisterCpiInterfaceServer(sr, cpApiServer)
 		})
 
-		ns[i].rpcProxy*/
+		ns[i].rpcProxy
 
-		ns[i].Serve(port)
+		ns[i].Serve(port)*/
 	}
 
 	// Connect all peers to each other.
@@ -114,12 +113,8 @@ func (h *Harness) ReconnectPeer(id int) {
 	tlog("Reconnect %d", id)
 	for j := 0; j < h.n; j++ {
 		if j != id {
-			if err := h.cluster[id].ConnectToPeer(j, h.cluster[j].GetListenAddr()); err != nil {
-				h.t.Fatal(err)
-			}
-			if err := h.cluster[j].ConnectToPeer(id, h.cluster[id].GetListenAddr()); err != nil {
-				h.t.Fatal(err)
-			}
+			h.cluster[id].ConnectToPeer(j, h.cluster[j].GetListenAddr())
+			h.cluster[j].ConnectToPeer(id, h.cluster[id].GetListenAddr())
 		}
 	}
 	h.connected[id] = true

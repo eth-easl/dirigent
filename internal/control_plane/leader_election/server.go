@@ -29,7 +29,6 @@ type LeaderElectionServer struct {
 	peerIds  []int
 
 	cm *ConsensusModule
-	//rpcProxy *RPCProxy
 
 	rpcServer *grpc.Server
 	listener  net.Listener
@@ -50,7 +49,7 @@ func NewServer(serverId int32, peerIds []int, ready <-chan interface{}) (*Leader
 	s.peerClients = make(map[int]proto.CpiInterfaceClient)
 	s.ready = ready
 	s.quit = make(chan interface{})
-	s.announceLeadership = make(chan bool)
+	s.announceLeadership = make(chan bool, 1)
 
 	///////////////
 	s.mu.Lock()
@@ -63,32 +62,6 @@ func NewServer(serverId int32, peerIds []int, ready <-chan interface{}) (*Leader
 
 func (s *LeaderElectionServer) IsLeader() bool {
 	return s.cm.IsLeader()
-}
-
-func (s *LeaderElectionServer) Serve(port int) {
-	/*s.mu.Lock()
-	s.cm = NewConsensusModule(s.serverId, s.peerIds, s, s.ready)
-
-	// Create a new RPC server and register a RPCProxy that forwards all methods to n.cm
-	s.rpcServer = grpc.NewServer()
-	proto.RegisterRAFTInterfaceServer(s.rpcServer, &RPCProxy{cm: s.cm})
-
-	var err error
-	s.listener, err = net.Listen("tcp", fmt.Sprintf(":%d", port))
-	if err != nil {
-		log.Fatal(err)
-	}
-	log.Printf("[%v] listening at %s", s.serverId, s.listener.Addr())
-	s.mu.Unlock()
-
-	s.wg.Add(1)
-	go func() {
-		defer s.wg.Done()
-
-		if err := s.rpcServer.Serve(s.listener); err != nil {
-			log.Fatalf("[%d] failed to serve: %v", s.serverId, err)
-		}
-	}()*/
 }
 
 // DisconnectAll closes all the client connections to peers for this server.
@@ -118,7 +91,7 @@ func (s *LeaderElectionServer) GetListenAddr() net.Addr {
 	return s.listener.Addr()
 }
 
-func (s *LeaderElectionServer) ConnectToPeer(peerId int, addr net.Addr) error {
+func (s *LeaderElectionServer) ConnectToPeer(peerId int, addr net.Addr) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
@@ -127,20 +100,16 @@ func (s *LeaderElectionServer) ConnectToPeer(peerId int, addr net.Addr) error {
 		conn := grpc_helpers.EstablishGRPCConnectionPoll(address, port)
 		s.peerClients[peerId] = proto.NewCpiInterfaceClient(conn)
 	}
-
-	return nil
 }
 
 // DisconnectPeer disconnects this server from the peer identified by peerId.
-func (s *LeaderElectionServer) DisconnectPeer(peerId int) error {
+func (s *LeaderElectionServer) DisconnectPeer(peerId int) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
 	if s.peerClients[peerId] != nil {
 		delete(s.peerClients, peerId)
 	}
-
-	return nil
 }
 
 func (s *LeaderElectionServer) Call(id int, serviceMethod string, args interface{}, reply interface{}) error {
@@ -171,33 +140,13 @@ func (s *LeaderElectionServer) Call(id int, serviceMethod string, args interface
 }
 
 func (s *LeaderElectionServer) RequestVote(args *proto.RequestVoteArgs) (*proto.RequestVoteReply, error) {
-	/*if len(os.Getenv("RAFT_UNRELIABLE_RPC")) > 0 {
-		dice := rand.Intn(10)
-		if dice == 9 {
-			rpp.cm.dlog("drop RequestVote")
-		} else if dice == 8 {
-			rpp.cm.dlog("delay RequestVote")
-			time.Sleep(75 * time.Millisecond)
-		}
-	} else {*/
 	time.Sleep(time.Duration(1+rand.Intn(5)) * time.Millisecond)
-	//}
 
 	return s.cm.RequestVote(args)
 }
 
 func (s *LeaderElectionServer) AppendEntries(args *proto.AppendEntriesArgs) (*proto.AppendEntriesReply, error) {
-	/*if len(os.Getenv("RAFT_UNRELIABLE_RPC")) > 0 {
-		dice := rand.Intn(10)
-		if dice == 9 {
-			rpp.cm.dlog("drop AppendEntries")
-		} else if dice == 8 {
-			rpp.cm.dlog("delay AppendEntries")
-			time.Sleep(75 * time.Millisecond)
-		}
-	} else {*/
 	time.Sleep(time.Duration(1+rand.Intn(5)) * time.Millisecond)
-	//}
 
 	return s.cm.AppendEntries(args)
 }

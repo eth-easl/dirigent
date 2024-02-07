@@ -84,6 +84,12 @@ func NewConsensusModule(id int32, peerIds []int, server *LeaderElectionServer, r
 	cm.votedFor = -1
 	cm.announceLeadership = announceLeadership
 
+	if len(cm.peerIds) == 0 {
+		cm.announceLeadership <- true
+		cm.state = Leader
+		logrus.Infof("No peers found for the leader election. Proclaiming myself as the supreme leader...")
+	}
+
 	go func() {
 		// The CM is quiescent until ready is signaled; then, it starts a countdown
 		// for leader election.
@@ -174,7 +180,6 @@ func (cm *ConsensusModule) AppendEntries(args *proto.AppendEntriesArgs) (*proto.
 	if cm.state == Dead {
 		return nil, nil
 	}
-	logrus.Debugf("AppendEntries: %+v", args)
 
 	if args.Term > cm.currentTerm {
 		logrus.Debugf("... term out of date in AppendEntries")
@@ -192,7 +197,8 @@ func (cm *ConsensusModule) AppendEntries(args *proto.AppendEntriesArgs) (*proto.
 	}
 
 	reply.Term = cm.currentTerm
-	logrus.Debugf("AppendEntries reply: %+v", reply)
+	logrus.Tracef("Received leader election heartbeat: %+v", reply)
+
 	return reply, nil
 }
 
@@ -372,7 +378,7 @@ func (cm *ConsensusModule) leaderSendHeartbeats() {
 			LeaderID: cm.id,
 		}
 		go func(peerId int) {
-			logrus.Debugf("sending AppendEntries to %v: ni=%d, args=%+v", peerId, 0, args)
+			logrus.Tracef("Sending leader election heartbeat to %v: ni=%d, args=%+v", peerId, 0, args)
 			client, ok := cm.server.peerClients[peerId]
 			if !ok {
 				logrus.Debugf("client entry not found %d", peerId)

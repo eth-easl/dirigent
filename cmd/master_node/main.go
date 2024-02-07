@@ -65,44 +65,53 @@ func main() {
 		logrus.Warn("Firecracker snapshot precreation is enabled. Make sure snapshots are enabled on each worker node.")
 	}
 
+	/////////////////////////////////////////
+	// COMMON FOR EVERY LEADER TERM
+	/////////////////////////////////////////
 	cpApiServer, isLeader := api.CreateNewCpApiServer(persistenceLayer, path.Join(cfg.TraceOutputFolder, "cold_start_trace.csv"), parsePlacementPolicy(cfg), dataplaneCreator, workerNodeCreator, &cfg)
 
+	go profiler.SetupProfilerServer(cfg.Profiler)
+
+	go cpApiServer.ControlPlane.ColdStartTracing.StartTracingService()
+	defer close(cpApiServer.ControlPlane.ColdStartTracing.InputChannel)
+
+	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
+	defer stop()
+
+	/////////////////////////////////////////
+	// LEADERSHIP SPECIFIC
+	/////////////////////////////////////////
 	for {
-		// TODO: get leader ID here and forward all actions
-		leader := <-isLeader
+		select {
+		case leader := <-isLeader:
+			if leader {
+				// TODO: clear all the state from the previous leader election terms in the control plane
+				// TODO: same holds for all the other go routines
+				ReconstructControlPlaneState(&cfg, cpApiServer)
 
-		if leader {
-			start := time.Now()
+				go cpApiServer.CheckPeriodicallyWorkerNodes()
 
-			err = cpApiServer.ReconstructState(context.Background(), cfg)
-			if err != nil {
-				logrus.Fatalf("Failed to reconstruct state (error : %s)", err.Error())
+				go registration_server.StartServiceRegistrationServer(cpApiServer, cfg.PortRegistration)
 			}
-
-			elapsed := time.Since(start)
-			logrus.Infof("Took %s to reconstruct", elapsed)
-
-			go cpApiServer.CheckPeriodicallyWorkerNodes()
-
-			go cpApiServer.ControlPlane.ColdStartTracing.StartTracingService()
-			defer close(cpApiServer.ControlPlane.ColdStartTracing.InputChannel)
-
-			go registration_server.StartServiceRegistrationServer(cpApiServer, cfg.PortRegistration)
-			/*go grpc_helpers.CreateGRPCServer(cfg.Port, func(sr grpc.ServiceRegistrar) {
-				proto.RegisterCpiInterfaceServer(sr, cpApiServer)
-			})*/
-
-			go profiler.SetupProfilerServer(cfg.Profiler)
-
-			ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
-			defer stop()
-
-			select {
-			case <-ctx.Done():
-				logrus.Info("Received interruption signal, try to gracefully stop")
-			}
+		case <-ctx.Done():
+			logrus.Info("Received interruption signal, try to gracefully stop")
 		}
 	}
+	/////////////////////////////////////////
+	/////////////////////////////////////////
+	/////////////////////////////////////////
+}
+
+func ReconstructControlPlaneState(cfg *config.ControlPlaneConfig, cpApiServer *api.CpApiServer) {
+	start := time.Now()
+
+	err := cpApiServer.ReconstructState(context.Background(), *cfg)
+	if err != nil {
+		logrus.Fatalf("Failed to reconstruct state (error : %s)", err.Error())
+	}
+
+	elapsed := time.Since(start)
+	logrus.Infof("Took %s to reconstruct", elapsed)
 }
 
 func parsePlacementPolicy(controlPlaneConfig config.ControlPlaneConfig) placement_policy.PlacementPolicy {
