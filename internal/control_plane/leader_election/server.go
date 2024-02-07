@@ -2,9 +2,6 @@ package leader_election
 
 // LeaderElectionServer container for a Raft Consensus Module. Exposes Raft to the network
 // and enables RPCs between Raft peers.
-//
-// Eli Bendersky [https://eli.thegreenplace.net]
-// This code is in the public domain.
 
 import (
 	"cluster_manager/api/proto"
@@ -98,6 +95,7 @@ func (s *LeaderElectionServer) Serve(port int) {
 func (s *LeaderElectionServer) DisconnectAll() {
 	s.mu.Lock()
 	defer s.mu.Unlock()
+
 	for id := range s.peerClients {
 		if s.peerClients[id] != nil {
 			delete(s.peerClients, id)
@@ -116,6 +114,7 @@ func (s *LeaderElectionServer) Shutdown() {
 func (s *LeaderElectionServer) GetListenAddr() net.Addr {
 	s.mu.Lock()
 	defer s.mu.Unlock()
+
 	return s.listener.Addr()
 }
 
@@ -136,9 +135,11 @@ func (s *LeaderElectionServer) ConnectToPeer(peerId int, addr net.Addr) error {
 func (s *LeaderElectionServer) DisconnectPeer(peerId int) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
+
 	if s.peerClients[peerId] != nil {
 		delete(s.peerClients, peerId)
 	}
+
 	return nil
 }
 
