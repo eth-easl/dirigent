@@ -3,6 +3,7 @@ package persistence
 import (
 	"cluster_manager/api/proto"
 	"cluster_manager/pkg/config"
+	"cluster_manager/pkg/redis_helpers"
 	"context"
 	"fmt"
 	proto2 "github.com/golang/protobuf/proto"
@@ -31,30 +32,7 @@ type RedisClient struct {
 }
 
 func CreateRedisClient(ctx context.Context, redisLogin config.RedisConf) (*RedisClient, error) {
-	redisClient := redis.NewClient(&redis.Options{
-		Addr:     redisLogin.Address,
-		Password: redisLogin.Password,
-		DB:       redisLogin.Db,
-	})
-
-	if redisLogin.FullPersistence {
-		logrus.Warn("Modifications")
-		if err := redisClient.ConfigSet(ctx, "appendonly", "yes").Err(); err != nil {
-			return &RedisClient{}, err
-		}
-
-		if err := redisClient.ConfigSet(ctx, "appendfsync", "always").Err(); err != nil {
-			return &RedisClient{}, err
-		}
-	} else {
-		if err := redisClient.ConfigSet(ctx, "appendonly", "no").Err(); err != nil {
-			return &RedisClient{}, err
-		}
-
-		if err := redisClient.ConfigSet(ctx, "appendfsync", "everysec").Err(); err != nil {
-			return &RedisClient{}, err
-		}
-	}
+	redisClient, err := redis_helpers.CreateRedisConnector(ctx, redisLogin)
 
 	return &RedisClient{
 		RedisClient:        redisClient,
@@ -64,7 +42,7 @@ func CreateRedisClient(ctx context.Context, redisLogin config.RedisConf) (*Redis
 		workerLock:         sync.Mutex{},
 		serviceTimestamp:   make(map[string]time.Time),
 		serviceLock:        sync.Mutex{},
-	}, redisClient.Ping(ctx).Err()
+	}, err
 }
 
 func (driver *RedisClient) StoreDataPlaneInformation(ctx context.Context, dataplaneInfo *proto.DataplaneInformation, timestamp time.Time) error {
@@ -109,7 +87,7 @@ func (driver *RedisClient) DeleteDataPlaneInformation(ctx context.Context, datap
 func (driver *RedisClient) GetDataPlaneInformation(ctx context.Context) ([]*proto.DataplaneInformation, error) {
 	logrus.Trace("get dataplane information from the database")
 
-	keys, err := driver.scanKeys(ctx, dataplanePrefix)
+	keys, err := redis_helpers.ScanKeys(ctx, driver.RedisClient, dataplanePrefix)
 	if err != nil {
 		return nil, err
 	}
@@ -179,7 +157,7 @@ func (driver *RedisClient) DeleteWorkerNodeInformation(ctx context.Context, name
 func (driver *RedisClient) GetWorkerNodeInformation(ctx context.Context) ([]*proto.WorkerNodeInformation, error) {
 	logrus.Trace("get workers information from the database")
 
-	keys, err := driver.scanKeys(ctx, workerPrefix)
+	keys, err := redis_helpers.ScanKeys(ctx, driver.RedisClient, workerPrefix)
 	if err != nil {
 		return nil, err
 	}
@@ -249,7 +227,7 @@ func (driver *RedisClient) DeleteServiceInformation(ctx context.Context, service
 func (driver *RedisClient) GetServiceInformation(ctx context.Context) ([]*proto.ServiceInfo, error) {
 	logrus.Trace("get services information from the database")
 
-	keys, err := driver.scanKeys(ctx, servicePrefix)
+	keys, err := redis_helpers.ScanKeys(ctx, driver.RedisClient, servicePrefix)
 	if err != nil {
 		return nil, err
 	}
@@ -276,35 +254,4 @@ func (driver *RedisClient) GetServiceInformation(ctx context.Context) ([]*proto.
 	logrus.Tracef("Found %d service(s) in the database", len(services))
 
 	return services, nil
-}
-
-func (driver *RedisClient) scanKeys(ctx context.Context, prefix string) ([]string, error) {
-	var (
-		cursor uint64
-		n      int
-	)
-
-	output := make([]string, 0)
-
-	for {
-		var (
-			keys []string
-			err  error
-		)
-
-		keys, cursor, err = driver.RedisClient.Scan(ctx, cursor, fmt.Sprintf("%s*", prefix), 10).Result()
-		if err != nil {
-			panic(err)
-		}
-
-		n += len(keys)
-
-		output = append(output, keys...)
-
-		if cursor == 0 {
-			break
-		}
-	}
-
-	return output, nil
 }
