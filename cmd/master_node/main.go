@@ -14,6 +14,7 @@ import (
 	"cluster_manager/pkg/profiler"
 	"context"
 	"flag"
+	"net/http"
 	"os/signal"
 	"path"
 	"syscall"
@@ -81,17 +82,21 @@ func main() {
 	/////////////////////////////////////////
 	// LEADERSHIP SPECIFIC
 	/////////////////////////////////////////
+	var registrationServer *http.Server
+
 	for {
 		select {
 		case leader := <-isLeader:
 			if leader {
 				// TODO: clear all the state from the previous leader election terms in the control plane
 				// TODO: same holds for all the other go routines
+				destroyStateFromPreviousElectionTerm(registrationServer)
+
 				ReconstructControlPlaneState(&cfg, cpApiServer)
 
 				go cpApiServer.CheckPeriodicallyWorkerNodes()
 
-				go registration_server.StartServiceRegistrationServer(cpApiServer, cfg.PortRegistration)
+				registrationServer = registration_server.StartServiceRegistrationServer(cpApiServer, cfg.PortRegistration)
 			}
 		case <-ctx.Done():
 			logrus.Info("Received interruption signal, try to gracefully stop")
@@ -100,6 +105,17 @@ func main() {
 	/////////////////////////////////////////
 	/////////////////////////////////////////
 	/////////////////////////////////////////
+}
+
+func destroyStateFromPreviousElectionTerm(registrationServer *http.Server) {
+	if registrationServer != nil {
+		ctx, cancel := context.WithTimeout(context.Background(), 100*time.Millisecond)
+		defer cancel()
+
+		if err := registrationServer.Shutdown(ctx); err != nil {
+			logrus.Fatalf("Failed to shut down function registration server.")
+		}
+	}
 }
 
 func ReconstructControlPlaneState(cfg *config.ControlPlaneConfig, cpApiServer *api.CpApiServer) {

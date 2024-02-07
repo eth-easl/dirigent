@@ -180,7 +180,7 @@ func (c *ControlPlane) RegisterNode(ctx context.Context, in *proto.NodeInfo) (*p
 	}, nil
 }
 
-func (c *ControlPlane) DeregisterNode(ctx context.Context, in *proto.NodeInfo) (*proto.ActionStatus, error) {
+func (c *ControlPlane) DeregisterNode(_ context.Context, in *proto.NodeInfo) (*proto.ActionStatus, error) {
 	if enter, timestamp := c.NIStorage.RemoveIfPresent(in.NodeID); enter {
 		err := c.PersistenceLayer.DeleteWorkerNodeInformation(context.Background(), in.NodeID, timestamp)
 		if err != nil {
@@ -371,7 +371,7 @@ func (c *ControlPlane) createWorkerNodeFailureEvents(wn core.WorkerNodeInterface
 	return failures
 }
 
-func (c *ControlPlane) getServicesOnWorkerNode(ss *ServiceInfoStorage, wn core.WorkerNodeInterface) []string {
+func (c *ControlPlane) getServicesOnWorkerNode(_ *ServiceInfoStorage, wn core.WorkerNodeInterface) []string {
 	toRemove, ok := c.NIStorage.AtomicGet(wn.GetName())
 	if !ok {
 		return []string{}
@@ -380,7 +380,7 @@ func (c *ControlPlane) getServicesOnWorkerNode(ss *ServiceInfoStorage, wn core.W
 	var cIDs []string
 
 	toRemove.GetEndpointMap().RLock()
-	for key, _ := range toRemove.GetEndpointMap().GetMap() {
+	for key := range toRemove.GetEndpointMap().GetMap() {
 		cIDs = append(cIDs, key.SandboxID)
 	}
 	toRemove.GetEndpointMap().RUnlock()

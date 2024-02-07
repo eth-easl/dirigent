@@ -11,8 +11,9 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-func StartServiceRegistrationServer(cpApi *api.CpApiServer, registrationPort string) {
-	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+func StartServiceRegistrationServer(cpApi *api.CpApiServer, registrationPort string) *http.Server {
+	mux := http.NewServeMux()
+	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodPost {
 			http.Error(w, "Method not allowed.", http.StatusMethodNotAllowed)
 			return
@@ -150,11 +151,18 @@ func StartServiceRegistrationServer(cpApi *api.CpApiServer, registrationPort str
 		}
 	})
 
+	server := &http.Server{
+		Addr:    fmt.Sprintf(":%s", registrationPort),
+		Handler: mux,
+	}
+
 	logrus.Info("Starting service registration service")
 
-	err := http.ListenAndServe(fmt.Sprintf(":%s", registrationPort), nil)
+	go func() {
+		if err := server.ListenAndServe(); err != nil {
+			logrus.Fatalf("Failed to start service registration server (err : %s)", err.Error())
+		}
+	}()
 
-	if err != http.ErrServerClosed {
-		logrus.Fatalf("Failed to start service registration server (err : %s)", err.Error())
-	}
+	return server
 }
