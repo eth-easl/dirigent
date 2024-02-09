@@ -69,7 +69,16 @@ func main() {
 	/////////////////////////////////////////
 	// COMMON FOR EVERY LEADER TERM
 	/////////////////////////////////////////
-	cpApiServer, isLeader := api.CreateNewCpApiServer(persistenceLayer, path.Join(cfg.TraceOutputFolder, "cold_start_trace.csv"), parsePlacementPolicy(cfg), dataplaneCreator, workerNodeCreator, &cfg)
+	cpApiCreationArgs := &api.CpApiServerCreationArguments{
+		Client:            persistenceLayer,
+		OutputFile:        path.Join(cfg.TraceOutputFolder, "cold_start_trace.csv"),
+		PlacementPolicy:   parsePlacementPolicy(cfg),
+		DataplaneCreator:  dataplaneCreator,
+		WorkerNodeCreator: workerNodeCreator,
+		Cfg:               &cfg,
+	}
+
+	cpApiServer, isLeader := api.CreateNewCpApiServer(cpApiCreationArgs)
 
 	go profiler.SetupProfilerServer(cfg.Profiler)
 
@@ -91,9 +100,7 @@ func main() {
 			if leader {
 				logrus.Infof("Proceeding as the leader for the current term...")
 
-				// TODO: clear all the state from the previous leader election terms in the control plane
-				// TODO: same holds for all the other go routines
-				destroyStateFromPreviousElectionTerm(registrationServer, stopNodeMonitoring)
+				destroyStateFromPreviousElectionTerm(cpApiServer, cpApiCreationArgs, registrationServer, stopNodeMonitoring)
 				ReconstructControlPlaneState(&cfg, cpApiServer)
 
 				cpApiServer.StartNodeMonitoringLoop(stopNodeMonitoring)
@@ -111,7 +118,7 @@ func main() {
 	/////////////////////////////////////////
 }
 
-func destroyStateFromPreviousElectionTerm(registrationServer *http.Server, stopNodeMonitoring chan struct{}) {
+func destroyStateFromPreviousElectionTerm(cpApiServer *api.CpApiServer, args *api.CpApiServerCreationArguments, registrationServer *http.Server, stopNodeMonitoring chan struct{}) {
 	if registrationServer != nil {
 		logrus.Infof("Shutting down function registration server from the previous leader's term.")
 
@@ -128,6 +135,8 @@ func destroyStateFromPreviousElectionTerm(registrationServer *http.Server, stopN
 
 		stopNodeMonitoring <- struct{}{}
 	}
+
+	cpApiServer.CleanControlPlaneInMemoryData(args)
 }
 
 func ReconstructControlPlaneState(cfg *config.ControlPlaneConfig, cpApiServer *api.CpApiServer) {
