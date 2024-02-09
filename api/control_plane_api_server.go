@@ -48,7 +48,10 @@ func CreateNewCpApiServer(client persistence.PersistenceLayer, outputFile string
 
 func (c *CpApiServer) StartNodeMonitoringLoop(stopCh chan struct{}) {
 	if !c.ControlPlane.LeaderElectionServer.IsLeader() {
-		logrus.Errorf("Cannot start node monitoring loop as this instance of control plane is currently not the leader.")
+		logrus.Errorf("Cannot start node monitoring loop as this " +
+			"instance of control plane is currently not the leader. " +
+			"Probably lost leadership in the meanwhile.")
+
 		return
 	}
 

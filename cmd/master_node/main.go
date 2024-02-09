@@ -83,7 +83,7 @@ func main() {
 	// LEADERSHIP SPECIFIC
 	/////////////////////////////////////////
 	var registrationServer *http.Server
-	//var stopFunctionRegistrationServer chan struct{}
+	var stopNodeMonitoring chan struct{}
 
 	for {
 		select {
@@ -93,11 +93,10 @@ func main() {
 
 				// TODO: clear all the state from the previous leader election terms in the control plane
 				// TODO: same holds for all the other go routines
-				destroyStateFromPreviousElectionTerm(registrationServer)
-
+				destroyStateFromPreviousElectionTerm(registrationServer, stopNodeMonitoring)
 				//ReconstructControlPlaneState(&cfg, cpApiServer)
-				//cpApiServer.StartNodeMonitoringLoop()
 
+				cpApiServer.StartNodeMonitoringLoop(stopNodeMonitoring)
 				registrationServer = registration_server.StartServiceRegistrationServer(cpApiServer, cfg.PortRegistration)
 			} else {
 				logrus.Infof("Another node was elected as the leader. Proceeding as a follower...")
@@ -112,7 +111,7 @@ func main() {
 	/////////////////////////////////////////
 }
 
-func destroyStateFromPreviousElectionTerm(registrationServer *http.Server) {
+func destroyStateFromPreviousElectionTerm(registrationServer *http.Server, stopNodeMonitoring chan struct{}) {
 	if registrationServer != nil {
 		logrus.Infof("Shutting down function registration server from the previous leader's term.")
 
@@ -122,6 +121,12 @@ func destroyStateFromPreviousElectionTerm(registrationServer *http.Server) {
 		if err := registrationServer.Shutdown(ctx); err != nil {
 			logrus.Errorf("Failed to shut down function registration server.")
 		}
+	}
+
+	if stopNodeMonitoring != nil {
+		logrus.Infof("Stopping node monitoring from the previous leader's term.")
+
+		stopNodeMonitoring <- struct{}{}
 	}
 }
 

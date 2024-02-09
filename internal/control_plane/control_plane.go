@@ -332,10 +332,11 @@ func (c *ControlPlane) CheckPeriodicallyWorkerNodes(stopCh chan struct{}) {
 func (c *ControlPlane) CheckPeriodicallyDataplanes() {
 	for {
 		c.DataPlaneConnections.Lock()
-		for _, datapalaneConnection := range c.DataPlaneConnections.GetMap() {
-			if time.Since(datapalaneConnection.GetLastHeartBeat()) > utils.TolerateHeartbeatMisses*utils.HeartbeatInterval {
-				apiPort, _ := strconv.ParseInt(datapalaneConnection.GetApiPort(), 10, 64)
-				proxyPort, _ := strconv.ParseInt(datapalaneConnection.GetProxyPort(), 10, 64)
+		for _, dataplaneConnection := range c.DataPlaneConnections.GetMap() {
+			if time.Since(dataplaneConnection.GetLastHeartBeat()) > utils.TolerateHeartbeatMisses*utils.HeartbeatInterval {
+				apiPort, _ := strconv.ParseInt(dataplaneConnection.GetApiPort(), 10, 64)
+				proxyPort, _ := strconv.ParseInt(dataplaneConnection.GetProxyPort(), 10, 64)
+
 				// Trigger a dataplane deregistration
 				_, err := c.DeregisterDataplane(context.Background(), &proto.DataplaneInfo{
 					APIPort:   int32(apiPort),
