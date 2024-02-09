@@ -142,7 +142,7 @@ func (c *CpApiServer) DeregisterDataplane(ctx context.Context, in *proto.Datapla
 func (c *CpApiServer) ReconstructState(ctx context.Context, config config2.ControlPlaneConfig) error {
 	if !c.ControlPlane.LeaderElectionServer.IsLeader() {
 		// This API call is not exposed to the outside, but it's called only on process startup
-		return errors.New("cannot request cluster state reconstruction if not the leader")
+		return errors.New("cannot request cluster state reconstruction if not the leader. Perhaps the leader has changed in the meanwhile.")
 	}
 
 	return c.ControlPlane.ReconstructState(ctx, config)

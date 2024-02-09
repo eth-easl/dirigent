@@ -94,7 +94,7 @@ func main() {
 				// TODO: clear all the state from the previous leader election terms in the control plane
 				// TODO: same holds for all the other go routines
 				destroyStateFromPreviousElectionTerm(registrationServer, stopNodeMonitoring)
-				//ReconstructControlPlaneState(&cfg, cpApiServer)
+				ReconstructControlPlaneState(&cfg, cpApiServer)
 
 				cpApiServer.StartNodeMonitoringLoop(stopNodeMonitoring)
 				registrationServer = registration_server.StartServiceRegistrationServer(cpApiServer, cfg.PortRegistration)

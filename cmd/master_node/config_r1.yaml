@@ -4,8 +4,8 @@ portRegistration: "9091"
 verbosity: "debug"
 traceOutputFolder: "data"
 placementPolicy: "random"
-persistence: false
-reconstruct: false
+persistence: true
+reconstruct: true
 
 removeWorkerNode: false
 removeDataplane: false
