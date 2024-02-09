@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"net/http"
 	"strconv"
+	"time"
 
 	"github.com/sirupsen/logrus"
 )
@@ -149,6 +150,8 @@ func StartServiceRegistrationServer(cpApi *api.CpApiServer, registrationPort str
 			http.Error(w, "Error writing endpoints.", http.StatusInternalServerError)
 			return
 		}
+
+		logrus.Debugf("Successfully registered function %s.", name)
 	})
 
 	server := &http.Server{
@@ -156,11 +159,17 @@ func StartServiceRegistrationServer(cpApi *api.CpApiServer, registrationPort str
 		Handler: mux,
 	}
 
-	logrus.Info("Starting service registration service")
-
 	go func() {
-		if err := server.ListenAndServe(); err != nil {
-			logrus.Fatalf("Failed to start service registration server (err : %s)", err.Error())
+		for i := 0; i < 5; i++ {
+			logrus.Infof("Starting service registration service - attempt #%d", i+1)
+
+			if err := server.ListenAndServe(); err != nil {
+				logrus.Errorf("Failed to start service registration server (attempt: #%d, error: %s)", i+1, err.Error())
+				time.Sleep(50 * time.Millisecond)
+			} else {
+				// on server closure
+				break
+			}
 		}
 	}()
 

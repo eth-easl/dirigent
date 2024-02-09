@@ -1,7 +1,7 @@
 port: "9090"
 replicas: "127.0.0.1:10000,127.0.0.1:10001"
 portRegistration: "9091"
-verbosity: "trace"
+verbosity: "debug"
 traceOutputFolder: "data"
 placementPolicy: "random"
 persistence: false

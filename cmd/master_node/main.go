@@ -83,23 +83,28 @@ func main() {
 	// LEADERSHIP SPECIFIC
 	/////////////////////////////////////////
 	var registrationServer *http.Server
-	stopNodeMonitoring := make(chan struct{})
+	//var stopFunctionRegistrationServer chan struct{}
 
 	for {
 		select {
 		case leader := <-isLeader:
 			if leader {
+				logrus.Infof("Proceeding as the leader for the current term...")
+
 				// TODO: clear all the state from the previous leader election terms in the control plane
 				// TODO: same holds for all the other go routines
-				destroyStateFromPreviousElectionTerm(registrationServer, stopNodeMonitoring)
+				destroyStateFromPreviousElectionTerm(registrationServer)
 
-				ReconstructControlPlaneState(&cfg, cpApiServer)
-				cpApiServer.StartNodeMonitoringLoop(stopNodeMonitoring)
+				//ReconstructControlPlaneState(&cfg, cpApiServer)
+				//cpApiServer.StartNodeMonitoringLoop()
 
 				registrationServer = registration_server.StartServiceRegistrationServer(cpApiServer, cfg.PortRegistration)
+			} else {
+				logrus.Infof("Another node was elected as the leader. Proceeding as a follower...")
 			}
 		case <-ctx.Done():
 			logrus.Info("Received interruption signal, try to gracefully stop")
+			return
 		}
 	}
 	/////////////////////////////////////////
@@ -107,18 +112,16 @@ func main() {
 	/////////////////////////////////////////
 }
 
-func destroyStateFromPreviousElectionTerm(registrationServer *http.Server, stopNodeMonitoring chan struct{}) {
+func destroyStateFromPreviousElectionTerm(registrationServer *http.Server) {
 	if registrationServer != nil {
+		logrus.Infof("Shutting down function registration server from the previous leader's term.")
+
 		ctx, cancel := context.WithTimeout(context.Background(), 100*time.Millisecond)
 		defer cancel()
 
 		if err := registrationServer.Shutdown(ctx); err != nil {
-			logrus.Fatalf("Failed to shut down function registration server.")
+			logrus.Errorf("Failed to shut down function registration server.")
 		}
-	}
-
-	if stopNodeMonitoring != nil {
-		stopNodeMonitoring <- struct{}{}
 	}
 }
 
