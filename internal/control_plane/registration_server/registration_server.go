@@ -12,9 +12,8 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-func StartServiceRegistrationServer(cpApi *api.CpApiServer, registrationPort string) *http.Server {
-	mux := http.NewServeMux()
-	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+func registrationHandler(cpApi *api.CpApiServer) func(w http.ResponseWriter, r *http.Request) {
+	return func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodPost {
 			http.Error(w, "Method not allowed.", http.StatusMethodNotAllowed)
 			return
@@ -152,26 +151,55 @@ func StartServiceRegistrationServer(cpApi *api.CpApiServer, registrationPort str
 		}
 
 		logrus.Debugf("Successfully registered function %s.", name)
-	})
+	}
+}
+
+func StartServiceRegistrationServer(cpApi *api.CpApiServer, registrationPort string, term int) (*http.Server, chan struct{}) {
+	mux := http.NewServeMux()
+	mux.HandleFunc("/", registrationHandler(cpApi))
 
 	server := &http.Server{
 		Addr:    fmt.Sprintf(":%s", registrationPort),
 		Handler: mux,
 	}
+	stopCh := make(chan struct{})
 
+	//////////////////////////////
+	// SERVER START
+	//////////////////////////////
 	go func() {
-		for i := 0; i < 5; i++ {
-			logrus.Infof("Starting service registration service - attempt #%d", i+1)
+		attempt := 0
 
-			if err := server.ListenAndServe(); err != nil {
-				logrus.Errorf("Failed to start service registration server (attempt: #%d, error: %s)", i+1, err.Error())
-				time.Sleep(50 * time.Millisecond)
-			} else {
-				// on server closure
-				break
+		for {
+			select {
+			case <-time.After(50 * time.Millisecond):
+				logrus.Infof("Starting service registration service for term %d - attempt #%d", term, attempt+1)
+
+				err := server.ListenAndServe()
+				if err != http.ErrServerClosed {
+					logrus.Errorf("Failed to start service registration server (attempt: #%d, error: %s)", attempt+1, err.Error())
+					attempt++
+				} else {
+					logrus.Infof("Succesfully closed function registration server (term #%d).", term)
+					return
+				}
 			}
 		}
 	}()
 
-	return server
+	//////////////////////////////
+	// SERVER CLOSE
+	//////////////////////////////
+	go func() {
+		defer close(stopCh)
+
+		<-stopCh
+		if err := server.Close(); err != nil {
+			logrus.Errorf("Failed to shut down function registration server.")
+		}
+
+		return
+	}()
+
+	return server, stopCh
 }

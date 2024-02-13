@@ -69,8 +69,8 @@ func GetLongLivingConnectionDialOptions() []grpc.DialOption {
 	return options
 }
 
-func GetPeerPort(address string) int {
-	_, portString, err := net.SplitHostPort(address)
+func SplitAddress(address string) (string, int) {
+	hostString, portString, err := net.SplitHostPort(address)
 	if err != nil {
 		logrus.Fatal("Invalid network address of control plane replica.")
 	}
@@ -80,54 +80,72 @@ func GetPeerPort(address string) int {
 		logrus.Fatal("Invalid port of control plane replica.")
 	}
 
-	return port
+	return hostString, port
 }
 
 func ParseReplicaPorts(cfg *config.ControlPlaneConfig) []int {
 	var result []int
 
 	for i := 0; i < len(cfg.Replicas); i++ {
-		result = append(result, GetPeerPort(cfg.Replicas[i]))
+		_, port := SplitAddress(cfg.Replicas[i])
+		result = append(result, port)
 	}
 
 	return result
 }
 
-func EstablishGRPCConnectionPoll(host, port string, dialOptions ...grpc.DialOption) *grpc.ClientConn {
+func EstablishGRPCConnectionPoll(addresses []string, dialOptions ...grpc.DialOption) *grpc.ClientConn {
 	var conn *grpc.ClientConn
-
 	var options []grpc.DialOption
 
 	options = append(options, GetLongLivingConnectionDialOptions()...)
 	options = append(options, dialOptions...)
 
-	_ = wait.PollUntilContextCancel(context.Background(), 5*time.Second, true,
-		func(ctx context.Context) (done bool, err error) {
-			establishContext, end := context.WithTimeout(ctx, utils.GRPCFunctionTimeout)
-			defer end()
+	attempt := 0
 
-			c, err := dialConnection(
-				establishContext,
-				net.JoinHostPort(host, port),
-				options...,
+	// Establish a connection with at least one of the addresses.
+	for {
+		var addr string
+		for _, addr = range addresses {
+			err := wait.PollUntilContextCancel(context.Background(), 5*time.Second, true,
+				func(ctx context.Context) (done bool, err error) {
+					establishContext, end := context.WithTimeout(ctx, utils.GRPCFunctionTimeout)
+					defer end()
+
+					c, err := dialConnection(
+						establishContext,
+						addr,
+						options...,
+					)
+					if err != nil {
+						logrus.Errorf("Retrying to establish gRPC connection with %s...", addr)
+						return false, err
+					}
+
+					conn = c
+					return c != nil, nil
+				},
 			)
-			if err != nil {
-				logrus.Warnf("Retrying to establish gRPC connection (%s:%s) in 5 seconds...", host, port)
+
+			if err == nil {
+				break
 			}
+		}
 
-			conn = c
-
-			return c != nil, nil
-		},
-	)
-
-	logrus.Infof("Successfully established connection with %s:%s", host, port)
+		if conn != nil {
+			logrus.Infof("Successfully established connection with %s", addr)
+			break
+		} else {
+			attempt++
+			logrus.Errorf("Could not establish connection with any of the specified servers (attempt #%d)", attempt)
+		}
+	}
 
 	return conn
 }
 
-func InitializeControlPlaneConnection(host string, port string, dataplaneIP string, dataplanePort, proxyPort int32) (proto.CpiInterfaceClient, error) {
-	conn := EstablishGRPCConnectionPoll(host, port)
+func InitializeControlPlaneConnection(addresses []string, dataplaneIP string, dataplanePort, proxyPort int32) (proto.CpiInterfaceClient, error) {
+	conn := EstablishGRPCConnectionPoll(addresses)
 	if conn == nil {
 		logrus.Fatal("Failed to establish connection with the control plane")
 	}
@@ -157,8 +175,22 @@ func DeregisterControlPlaneConnection(cfg *config.DataPlaneConfig) error {
 	grpcPort, _ := strconv.Atoi(cfg.PortGRPC)
 	proxyPort, _ := strconv.Atoi(cfg.PortProxy)
 
-	conn := EstablishGRPCConnectionPoll(cfg.ControlPlaneIp, cfg.ControlPlanePort)
-	cpApi := proto.NewCpiInterfaceClient(conn)
+	var cpApi proto.CpiInterfaceClient
+	for _, rawAddr := range cfg.ControlPlaneAddress {
+		host, port := SplitAddress(rawAddr)
+
+		conn := EstablishGRPCConnectionPoll([]string{net.JoinHostPort(host, strconv.Itoa(port))})
+		if conn == nil {
+			continue
+		}
+
+		cpApi = proto.NewCpiInterfaceClient(conn)
+	}
+
+	if cpApi == nil {
+		logrus.Errorf("Error deregistering control plane connection. Cannot establish connection with the API Server.")
+		return errors.New("error deregistering control plane")
+	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 	defer cancel()
@@ -176,7 +208,7 @@ func DeregisterControlPlaneConnection(cfg *config.DataPlaneConfig) error {
 }
 
 func InitializeWorkerNodeConnection(host, port string) (proto.WorkerNodeInterfaceClient, error) {
-	conn := EstablishGRPCConnectionPoll(host, port)
+	conn := EstablishGRPCConnectionPoll([]string{net.JoinHostPort(host, port)})
 	if conn == nil {
 		return nil, errors.New("Failed to establish connection with the worker node")
 	}
@@ -187,7 +219,7 @@ func InitializeWorkerNodeConnection(host, port string) (proto.WorkerNodeInterfac
 }
 
 func InitializeDataPlaneConnection(host string, port string) (proto.DpiInterfaceClient, error) {
-	conn := EstablishGRPCConnectionPoll(host, port)
+	conn := EstablishGRPCConnectionPoll([]string{net.JoinHostPort(host, port)})
 	if conn == nil {
 		return nil, errors.New("Failed to establish connection with the data plane")
 	}

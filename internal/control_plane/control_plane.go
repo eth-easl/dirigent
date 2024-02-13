@@ -306,7 +306,10 @@ func (c *ControlPlane) CheckPeriodicallyWorkerNodes(stopCh chan struct{}) {
 			// the following call requires a lock on NIStorage
 			c.HandleFailure(events)
 		case <-stopCh:
-			break
+			logrus.Infof("Stopping node monitoring from the previous leader's term.")
+			close(stopCh)
+
+			return
 		}
 	}
 }

@@ -16,6 +16,11 @@ import (
 	"time"
 )
 
+type AnnounceLeadership struct {
+	IsLeader bool
+	Term     int
+}
+
 // LeaderElectionServer wraps a raft.ConsensusModule along with a rpc.Server that exposes its
 // methods as RPC endpoints. It also manages the peers of the Raft server. The
 // main goal of this type is to simplify the code of raft.LeaderElectionServer for
@@ -39,17 +44,17 @@ type LeaderElectionServer struct {
 	quit  chan interface{}
 	wg    sync.WaitGroup
 
-	announceLeadership chan bool
+	announceLeadership chan AnnounceLeadership
 }
 
-func NewServer(serverId int32, peerIds []int, ready <-chan interface{}) (*LeaderElectionServer, chan bool) {
+func NewServer(serverId int32, peerIds []int, ready <-chan interface{}) (*LeaderElectionServer, chan AnnounceLeadership) {
 	s := new(LeaderElectionServer)
 	s.serverId = serverId
 	s.peerIds = peerIds
 	s.peerClients = make(map[int]proto.CpiInterfaceClient)
 	s.ready = ready
 	s.quit = make(chan interface{})
-	s.announceLeadership = make(chan bool, 1)
+	s.announceLeadership = make(chan AnnounceLeadership, 1)
 
 	///////////////
 	s.mu.Lock()
@@ -113,8 +118,7 @@ func (s *LeaderElectionServer) ConnectToPeer(peerId int, addr net.Addr) {
 	defer s.mu.Unlock()
 
 	if s.peerClients[peerId] == nil {
-		address, port, _ := net.SplitHostPort(addr.String())
-		conn := grpc_helpers.EstablishGRPCConnectionPoll(address, port)
+		conn := grpc_helpers.EstablishGRPCConnectionPoll([]string{addr.String()})
 		s.peerClients[peerId] = proto.NewCpiInterfaceClient(conn)
 	}
 }

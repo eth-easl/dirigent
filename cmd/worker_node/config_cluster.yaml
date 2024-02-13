@@ -1,6 +1,5 @@
 workerNodeIp: "dynamic"
-controlPlaneIp: "10.0.1.2"
-controlPlanePort: "9090"
+controlPlaneAddress: "127.0.0.1:9090,127.0.0.1:10000,127.0.0.1:10001"
 port: "10010"
 verbosity: "trace"
 criType: "containerd"

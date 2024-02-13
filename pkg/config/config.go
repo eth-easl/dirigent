@@ -26,8 +26,7 @@ type ControlPlaneConfig struct {
 
 type DataPlaneConfig struct {
 	DataPlaneIp         string    `mapstructure:"dataPlaneIp"`
-	ControlPlaneIp      string    `mapstructure:"controlPlaneIp"`
-	ControlPlanePort    string    `mapstructure:"controlPlanePort"`
+	ControlPlaneAddress []string  `mapstructure:"controlPlaneAddress"`
 	PortProxy           string    `mapstructure:"portProxy"`
 	PortProxyRead       string    `mapstructure:"portProxyRead"`
 	PortGRPC            string    `mapstructure:"portGRPC"`
@@ -41,15 +40,14 @@ type DataPlaneConfig struct {
 }
 
 type WorkerNodeConfig struct {
-	WorkerNodeIP     string `mapstructure:"workerNodeIp"`
-	ControlPlaneIp   string `mapstructure:"controlPlaneIp"`
-	ControlPlanePort string `mapstructure:"controlPlanePort"`
-	Port             int    `mapstructure:"port"`
-	Verbosity        string `mapstructure:"verbosity"`
-	CRIType          string `mapstructure:"criType"`
-	CRIPath          string `mapstructure:"criPath"`
-	CNIConfigPath    string `mapstructure:"cniConfigPath"`
-	PrefetchImage    bool   `mapstructure:"prefetchImage"`
+	WorkerNodeIP        string   `mapstructure:"workerNodeIp"`
+	ControlPlaneAddress []string `mapstructure:"controlPlaneAddress"`
+	Port                int      `mapstructure:"port"`
+	Verbosity           string   `mapstructure:"verbosity"`
+	CRIType             string   `mapstructure:"criType"`
+	CRIPath             string   `mapstructure:"criPath"`
+	CNIConfigPath       string   `mapstructure:"cniConfigPath"`
+	PrefetchImage       bool     `mapstructure:"prefetchImage"`
 
 	FirecrackerKernel           string `mapstructure:"firecrackerKernel"`
 	FirecrackerFileSystem       string `mapstructure:"firecrackerFileSystem"`

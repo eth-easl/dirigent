@@ -14,7 +14,6 @@ import (
 	"cluster_manager/pkg/profiler"
 	"context"
 	"flag"
-	"net/http"
 	"os/signal"
 	"path"
 	"syscall"
@@ -41,7 +40,6 @@ func main() {
 	logger.SetupLogger(cfg.Verbosity)
 
 	var persistenceLayer persistence.PersistenceLayer
-
 	if cfg.Persistence {
 		persistenceLayer, err = persistence.CreateRedisClient(context.Background(), cfg.RedisConf)
 		if err != nil {
@@ -91,21 +89,32 @@ func main() {
 	/////////////////////////////////////////
 	// LEADERSHIP SPECIFIC
 	/////////////////////////////////////////
-	var registrationServer *http.Server
 	var stopNodeMonitoring chan struct{}
+	var stopRegistrationServer chan struct{}
+
+	wasLeaderBefore := false
 
 	for {
 		select {
-		case leader := <-isLeader:
-			if leader {
-				logrus.Infof("Proceeding as the leader for the current term...")
+		case leadership := <-isLeader:
+			if leadership.IsLeader && !wasLeaderBefore {
+				destroyStateFromPreviousElectionTerm(cpApiServer, cpApiCreationArgs, stopNodeMonitoring, stopRegistrationServer)
+				stopNodeMonitoring, stopRegistrationServer = nil, nil
 
-				destroyStateFromPreviousElectionTerm(cpApiServer, cpApiCreationArgs, registrationServer, stopNodeMonitoring)
 				ReconstructControlPlaneState(&cfg, cpApiServer)
 
-				cpApiServer.StartNodeMonitoringLoop(stopNodeMonitoring)
-				registrationServer = registration_server.StartServiceRegistrationServer(cpApiServer, cfg.PortRegistration)
+				stopNodeMonitoring = cpApiServer.StartNodeMonitoringLoop()
+				_, stopRegistrationServer = registration_server.StartServiceRegistrationServer(cpApiServer, cfg.PortRegistration, leadership.Term)
+
+				wasLeaderBefore = true
+				logrus.Infof("Proceeding as the leader for the term #%d...", leadership.Term)
 			} else {
+				if wasLeaderBefore {
+					destroyStateFromPreviousElectionTerm(cpApiServer, cpApiCreationArgs, stopNodeMonitoring, stopRegistrationServer)
+					stopNodeMonitoring, stopRegistrationServer = nil, nil
+				}
+				wasLeaderBefore = false
+
 				logrus.Infof("Another node was elected as the leader. Proceeding as a follower...")
 			}
 		case <-ctx.Done():
@@ -118,21 +127,14 @@ func main() {
 	/////////////////////////////////////////
 }
 
-func destroyStateFromPreviousElectionTerm(cpApiServer *api.CpApiServer, args *api.CpApiServerCreationArguments, registrationServer *http.Server, stopNodeMonitoring chan struct{}) {
-	if registrationServer != nil {
-		logrus.Infof("Shutting down function registration server from the previous leader's term.")
+func destroyStateFromPreviousElectionTerm(cpApiServer *api.CpApiServer, args *api.CpApiServerCreationArguments,
+	stopNodeMonitoring chan struct{}, stopRegistrationServer chan struct{}) {
 
-		ctx, cancel := context.WithTimeout(context.Background(), 100*time.Millisecond)
-		defer cancel()
-
-		if err := registrationServer.Shutdown(ctx); err != nil {
-			logrus.Errorf("Failed to shut down function registration server.")
-		}
+	if stopRegistrationServer != nil {
+		stopRegistrationServer <- struct{}{}
 	}
 
 	if stopNodeMonitoring != nil {
-		logrus.Infof("Stopping node monitoring from the previous leader's term.")
-
 		stopNodeMonitoring <- struct{}{}
 	}
 

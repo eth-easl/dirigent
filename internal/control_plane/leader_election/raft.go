@@ -72,13 +72,13 @@ type ConsensusModule struct {
 
 	// Dirigent-specific
 	currentLeaderID    int32
-	announceLeadership chan bool
+	announceLeadership chan AnnounceLeadership
 }
 
 // NewConsensusModule creates a new CM with the given ID, list of peer IDs and
 // server. The ready channel signals the CM that all peers are connected and
 // it's safe to start its state machine.
-func NewConsensusModule(id int32, peerIds []int, server *LeaderElectionServer, ready <-chan interface{}, announceLeadership chan bool) *ConsensusModule {
+func NewConsensusModule(id int32, peerIds []int, server *LeaderElectionServer, ready <-chan interface{}, announceLeadership chan AnnounceLeadership) *ConsensusModule {
 	cm := new(ConsensusModule)
 	cm.id = id
 	cm.peerIds = peerIds
@@ -88,7 +88,10 @@ func NewConsensusModule(id int32, peerIds []int, server *LeaderElectionServer, r
 	cm.announceLeadership = announceLeadership
 
 	if len(cm.peerIds) == 0 {
-		cm.announceLeadership <- true
+		cm.announceLeadership <- AnnounceLeadership{
+			IsLeader: true,
+			Term:     int(cm.currentTerm),
+		}
 		cm.state = Leader
 		logrus.Infof("No peers found for the leader election. Proclaiming myself as the supreme leader...")
 	}
@@ -143,7 +146,7 @@ func (cm *ConsensusModule) RequestVote(args *proto.RequestVoteArgs) (*proto.Requ
 	logrus.Tracef("RequestVote: %+v [currentTerm=%d, votedFor=%d]", args, cm.currentTerm, cm.votedFor)
 
 	if args.Term > cm.currentTerm {
-		logrus.Debug("... term out of date in RequestVote")
+		logrus.Trace("... term out of date in RequestVote")
 		cm.becomeFollower(args.Term)
 	}
 
@@ -279,7 +282,7 @@ func (cm *ConsensusModule) startElection() {
 	savedCurrentTerm := cm.currentTerm
 	cm.electionResetEvent = time.Now()
 	cm.votedFor = cm.id
-	logrus.Debugf("becomes Candidate (currentTerm=%d); log=%v", savedCurrentTerm, cm.log)
+	logrus.Debugf("Becomes Candidate for term #%d", savedCurrentTerm)
 
 	votesReceived := 1
 
@@ -318,7 +321,7 @@ func (cm *ConsensusModule) startElection() {
 						votesReceived += 1
 						if votesReceived*2 > len(cm.peerIds)+1 {
 							// Won the election!
-							logrus.Debugf("wins election with %d votes", votesReceived)
+							logrus.Debugf("Wins election for term #%d with %d votes", savedCurrentTerm, votesReceived)
 							cm.startLeader()
 							return
 						}
@@ -335,11 +338,14 @@ func (cm *ConsensusModule) startElection() {
 // becomeFollower makes cm a follower and resets its state.
 // Expects cm.mu to be locked.
 func (cm *ConsensusModule) becomeFollower(term int32) {
-	logrus.Debugf("becomes Follower with term=%d; log=%v", term, cm.log)
+	logrus.Debugf("Becomes Follower for term #%d", term)
 
 	if cm.state == Leader {
 		// loosing leadership
-		cm.announceLeadership <- false
+		cm.announceLeadership <- AnnounceLeadership{
+			IsLeader: false,
+			Term:     int(cm.currentTerm),
+		}
 	}
 
 	cm.state = Follower
@@ -354,8 +360,11 @@ func (cm *ConsensusModule) becomeFollower(term int32) {
 // Expects cm.mu to be locked.
 func (cm *ConsensusModule) startLeader() {
 	cm.state = Leader
-	cm.announceLeadership <- true
-	logrus.Debugf("becomes Leader; term=%d, log=%v", cm.currentTerm, cm.log)
+	cm.announceLeadership <- AnnounceLeadership{
+		IsLeader: true,
+		Term:     int(cm.currentTerm),
+	}
+	logrus.Debugf("Becomes Leader for term #%d", cm.currentTerm)
 
 	go func() {
 		ticker := time.NewTicker(50 * time.Millisecond)

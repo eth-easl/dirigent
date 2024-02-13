@@ -11,6 +11,7 @@ import (
 	"flag"
 	"github.com/sirupsen/logrus"
 	"math/rand"
+	"net"
 	"os/signal"
 	"strconv"
 	"sync"
@@ -31,8 +32,7 @@ func main() {
 	{
 		cfg := config.DataPlaneConfig{
 			DataPlaneIp:         "127.0.0.1",
-			ControlPlaneIp:      "localhost",
-			ControlPlanePort:    "9090",
+			ControlPlaneAddress: []string{"localhost:9090"},
 			PortProxy:           "8080",
 			PortGRPC:            "8081",
 			Verbosity:           "trace",
@@ -85,7 +85,12 @@ func main() {
 
 		logger.SetupLogger(cfg.Verbosity)
 
-		cpApi, err := grpc_helpers.InitializeControlPlaneConnection(cfg.ControlPlaneIp, cfg.ControlPlanePort, "", -1, -1)
+		cpApi, err := grpc_helpers.InitializeControlPlaneConnection(
+			[]string{net.JoinHostPort(cfg.ControlPlaneIp, cfg.ControlPlanePort)},
+			"",
+			-1,
+			-1,
+		)
 		if err != nil {
 			logrus.Fatalf("Failed to initialize control plane connection (error : %s)", err.Error())
 		}

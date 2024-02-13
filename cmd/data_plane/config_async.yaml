@@ -1,6 +1,5 @@
 dataPlaneIp: "127.0.0.1"
-controlPlaneIp: "localhost"
-controlPlanePort: "9090"
+controlPlaneAddress: "localhost:9090"
 portProxy: "8080"
 portGRPC: "8081"
 portProxyRead: "8082"

@@ -34,7 +34,7 @@ type CpApiServerCreationArguments struct {
 	Cfg               *config2.ControlPlaneConfig
 }
 
-func CreateNewCpApiServer(args *CpApiServerCreationArguments) (*CpApiServer, chan bool) {
+func CreateNewCpApiServer(args *CpApiServerCreationArguments) (*CpApiServer, chan leader_election.AnnounceLeadership) {
 	cp := control_plane.NewControlPlane(
 		args.Client,
 		args.OutputFile,
@@ -67,7 +67,7 @@ func CreateNewCpApiServer(args *CpApiServerCreationArguments) (*CpApiServer, cha
 
 	// connecting to peers for leader election
 	for _, rawAddress := range args.Cfg.Replicas {
-		peerID := grpc_helpers.GetPeerPort(rawAddress)
+		_, peerID := grpc_helpers.SplitAddress(rawAddress)
 		tcpAddr, _ := net.ResolveTCPAddr("tcp", rawAddress)
 
 		leaderElectionServer.ConnectToPeer(peerID, tcpAddr)
@@ -87,16 +87,19 @@ func (c *CpApiServer) CleanControlPlaneInMemoryData(args *CpApiServerCreationArg
 	)
 }
 
-func (c *CpApiServer) StartNodeMonitoringLoop(stopCh chan struct{}) {
+func (c *CpApiServer) StartNodeMonitoringLoop() chan struct{} {
 	if !c.LeaderElectionServer.IsLeader() {
 		logrus.Errorf("Cannot start node monitoring loop as this " +
 			"instance of control plane is currently not the leader. " +
 			"Probably lost leadership in the meanwhile.")
 
-		return
+		return nil
 	}
 
+	stopCh := make(chan struct{})
 	go c.ControlPlane.CheckPeriodicallyWorkerNodes(stopCh)
+
+	return stopCh
 }
 
 func (c *CpApiServer) OnMetricsReceive(ctx context.Context, metric *proto.AutoscalingMetric) (*proto.ActionStatus, error) {
