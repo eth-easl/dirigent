@@ -16,6 +16,8 @@ import (
 	"google.golang.org/protobuf/types/known/emptypb"
 	"net"
 	"strconv"
+	"sync"
+	"sync/atomic"
 )
 
 type CpApiServer struct {
@@ -45,10 +47,6 @@ func CreateNewCpApiServer(args *CpApiServerCreationArguments) (*CpApiServer, cha
 	)
 
 	readyToElect := make(chan interface{})
-	if len(args.Cfg.Replicas) > 0 {
-		defer close(readyToElect)
-	}
-
 	port, _ := strconv.Atoi(args.Cfg.Port)
 	leaderElectionServer, isLeader := leader_election.NewServer(
 		int32(port),
@@ -65,12 +63,37 @@ func CreateNewCpApiServer(args *CpApiServerCreationArguments) (*CpApiServer, cha
 		proto.RegisterCpiInterfaceServer(sr, cpApiServer)
 	})
 
-	// connecting to peers for leader election
-	for _, rawAddress := range args.Cfg.Replicas {
-		_, peerID := grpc_helpers.SplitAddress(rawAddress)
-		tcpAddr, _ := net.ResolveTCPAddr("tcp", rawAddress)
+	// connecting to peers for leader election (at least half of them to become ready)
+	if len(args.Cfg.Replicas) > 0 {
+		logrus.Infof("Trying to establish connection with other control plane replicas for leader election...")
 
-		leaderElectionServer.ConnectToPeer(peerID, tcpAddr)
+		wg := sync.WaitGroup{}
+		votesNeeded := int32(len(args.Cfg.Replicas)+1) / 2 // include myself
+		votesCurrent := int32(0)
+
+		wg.Add(int(votesNeeded))
+		for _, rawAddress := range args.Cfg.Replicas {
+			_, peerID := grpc_helpers.SplitAddress(rawAddress)
+			tcpAddr, _ := net.ResolveTCPAddr("tcp", rawAddress)
+
+			go func() {
+				for {
+					success := leaderElectionServer.ConnectToPeer(peerID, tcpAddr)
+					if success {
+						atomic.AddInt32(&votesCurrent, 1)
+						if votesCurrent <= votesNeeded {
+							wg.Done()
+						}
+
+						break
+					}
+				}
+			}()
+		}
+
+		// signal that a connection with at least half ot the nodes has been established
+		wg.Wait()
+		close(readyToElect)
 	}
 
 	return cpApiServer, isLeader

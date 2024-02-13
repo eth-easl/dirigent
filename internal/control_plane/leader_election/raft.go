@@ -212,6 +212,9 @@ func (cm *ConsensusModule) AppendEntries(args *proto.AppendEntriesArgs) (*proto.
 }
 
 func (cm *ConsensusModule) GetLeaderID() int {
+	cm.mu.Lock()
+	defer cm.mu.Unlock()
+
 	return int(cm.currentLeaderID)
 }
 
@@ -298,7 +301,7 @@ func (cm *ConsensusModule) startElection() {
 
 			client, ok := cm.server.peerClients[peerId]
 			if !ok {
-				logrus.Tracef("client entry not found %d", peerId)
+				//logrus.Tracef("client entry not found %d", peerId)
 				return
 			}
 
@@ -327,7 +330,10 @@ func (cm *ConsensusModule) startElection() {
 						}
 					}
 				}
+			} else {
+				logrus.Errorf("Connection with %d has been lost...", peerId)
 			}
+
 		}(peerId)
 	}
 
@@ -405,7 +411,7 @@ func (cm *ConsensusModule) leaderSendHeartbeats() {
 			//logrus.Tracef("Sending leader election heartbeat to %v: ni=%d, args=%+v", peerId, 0, args)
 			client, ok := cm.server.peerClients[peerId]
 			if !ok {
-				logrus.Debugf("client entry not found %d", peerId)
+				//logrus.Debugf("client entry not found %d", peerId)
 				return
 			}
 

@@ -6,8 +6,6 @@ package leader_election
 import (
 	"cluster_manager/api/proto"
 	"cluster_manager/pkg/grpc_helpers"
-	"context"
-	"fmt"
 	"github.com/sirupsen/logrus"
 	"google.golang.org/grpc"
 	"math/rand"
@@ -74,9 +72,11 @@ func (s *LeaderElectionServer) GetLeader() proto.CpiInterfaceClient {
 		logrus.Fatal("This function should not be called if you are the leader.")
 	} else {
 		leaderID := s.cm.GetLeaderID()
-		api, ok := s.peerClients[leaderID]
 
-		if ok {
+		s.mu.Lock()
+		defer s.mu.Unlock()
+
+		if api, ok := s.peerClients[leaderID]; ok {
 			return api
 		} else {
 			logrus.Fatal("Invalid leader ID to obtain CpiInterfaceClient.")
@@ -92,7 +92,7 @@ func (s *LeaderElectionServer) DisconnectAll() {
 	defer s.mu.Unlock()
 
 	for id := range s.peerClients {
-		if s.peerClients[id] != nil {
+		if _, ok := s.peerClients[id]; ok {
 			delete(s.peerClients, id)
 		}
 	}
@@ -113,14 +113,20 @@ func (s *LeaderElectionServer) GetListenAddr() net.Addr {
 	return s.listener.Addr()
 }
 
-func (s *LeaderElectionServer) ConnectToPeer(peerId int, addr net.Addr) {
+func (s *LeaderElectionServer) ConnectToPeer(peerId int, addr net.Addr) bool {
+	conn := grpc_helpers.EstablishGRPCConnectionPoll([]string{addr.String()})
+	if conn == nil {
+		return false
+	}
+
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	if s.peerClients[peerId] == nil {
-		conn := grpc_helpers.EstablishGRPCConnectionPoll([]string{addr.String()})
+	if _, ok := s.peerClients[peerId]; !ok {
 		s.peerClients[peerId] = proto.NewCpiInterfaceClient(conn)
 	}
+
+	return true
 }
 
 // DisconnectPeer disconnects this server from the peer identified by peerId.
@@ -128,36 +134,9 @@ func (s *LeaderElectionServer) DisconnectPeer(peerId int) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	if s.peerClients[peerId] != nil {
+	if _, ok := s.peerClients[peerId]; ok {
 		delete(s.peerClients, peerId)
 	}
-}
-
-func (s *LeaderElectionServer) Call(id int, serviceMethod string, args interface{}, reply interface{}) error {
-	s.mu.Lock()
-	peer := s.peerClients[id]
-	s.mu.Unlock()
-
-	// If this is called after shutdown (where client.Close is called), it will
-	// return an error.
-	if peer == nil {
-		return fmt.Errorf("call client %d after it's closed", id)
-	} else {
-		switch serviceMethod {
-		case "ConsensusModule.RequestVote":
-			r, err := peer.RequestVote(context.Background(), args.(*proto.RequestVoteArgs))
-			reply = r
-			return err
-		case "ConsensusModule.AppendEntries":
-			r, err := peer.AppendEntries(context.Background(), args.(*proto.AppendEntriesArgs))
-			reply = r
-			return err
-		default:
-			logrus.Fatal("Unsupported gRPC method.")
-		}
-	}
-
-	return nil
 }
 
 func (s *LeaderElectionServer) RequestVote(args *proto.RequestVoteArgs) (*proto.RequestVoteReply, error) {
