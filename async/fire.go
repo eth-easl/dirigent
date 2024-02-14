@@ -17,13 +17,8 @@ import (
 	"time"
 )
 
-func Deployservice() {
-	cpApi, err := common.InitializeControlPlaneConnection(
-		[]string{"localhost", utils.DefaultControlPlanePort},
-		"",
-		-1,
-		-1,
-	)
+func DeployService() {
+	cpApi, err := common.NewControlPlaneConnection([]string{"localhost", utils.DefaultControlPlanePort})
 	if err != nil {
 		logrus.Fatalf("Failed to start control plane connection (error %s)", err.Error())
 	}
@@ -125,7 +120,7 @@ func Fire() {
 }
 
 func main() {
-	Deployservice()
+	DeployService()
 
 	time.Sleep(200 * time.Millisecond)
 

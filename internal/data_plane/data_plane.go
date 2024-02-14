@@ -47,23 +47,19 @@ func (d *Dataplane) sendHeartbeatLoop(proxy proxy.Proxy) {
 
 	pollErr := wait.PollUntilContextCancel(pollContext, 5*time.Second, true,
 		func(ctx context.Context) (done bool, err error) {
-			grpcPort, _ := strconv.Atoi(d.config.PortGRPC)
-			proxyPort, _ := strconv.Atoi(d.config.PortProxy)
-
-			cpApiServer, err := grpc_helpers.InitializeControlPlaneConnection(
-				d.config.ControlPlaneAddress,
-				d.config.DataPlaneIp,
-				int32(grpcPort),
-				int32(proxyPort),
-			)
-			if err != nil {
-				return false, err
+			if proxy == nil {
+				return false, errors.New("proxy is null")
 			}
 
-			if proxy != nil && proxy.GetCpApiServer() != cpApiServer {
-				// TODO: heartbeat approach is not optimal as it leads to frequent creation of new CpApiServer(s) -> see frequency of the log below
-				logrus.Warn("Updated CpApiServer")
+			cpApiServer := proxy.GetCpApiServer()
+			err = d.registerDataPlane(cpApiServer)
+			if err != nil {
+				logrus.Errorf("Control plane unreachable. Trying to establish connection with some other replica.")
+
+				cpApiServer, err = grpc_helpers.NewControlPlaneConnection(d.config.ControlPlaneAddress)
 				proxy.SetCpApiServer(cpApiServer)
+
+				return false, nil
 			}
 
 			return true, nil
@@ -74,6 +70,19 @@ func (d *Dataplane) sendHeartbeatLoop(proxy proxy.Proxy) {
 	} else {
 		logrus.Debug("Sent heartbeat to the control plane")
 	}
+}
+
+func (d *Dataplane) registerDataPlane(cpApiServer proto.CpiInterfaceClient) error {
+	grpcPort, _ := strconv.Atoi(d.config.PortGRPC)
+	proxyPort, _ := strconv.Atoi(d.config.PortProxy)
+
+	_, err := cpApiServer.RegisterDataplane(context.Background(), &proto.DataplaneInfo{
+		IP:        d.config.DataPlaneIp,
+		APIPort:   int32(grpcPort),
+		ProxyPort: int32(proxyPort),
+	})
+
+	return err
 }
 
 func (d *Dataplane) AddDeployment(in *proto.ServiceInfo) (*proto.DeploymentUpdateSuccess, error) {
@@ -111,17 +120,17 @@ func (d *Dataplane) DeleteDeployment(name *proto.ServiceInfo) (*proto.Deployment
 }
 
 func (d *Dataplane) GetProxyServer(async bool) (proxy.Proxy, error) {
-	var dpConnection proto.CpiInterfaceClient
-
-	grpcPort, _ := strconv.Atoi(d.config.PortGRPC)
-	proxyPort, _ := strconv.Atoi(d.config.PortProxy)
-
-	dpConnection, err := grpc_helpers.InitializeControlPlaneConnection(d.config.ControlPlaneAddress, d.config.DataPlaneIp, int32(grpcPort), int32(proxyPort))
+	cpApi, err := grpc_helpers.NewControlPlaneConnection(d.config.ControlPlaneAddress)
 	if err != nil {
 		return nil, err
 	}
 
-	err = d.syncDeploymentCache(&dpConnection, d.deployments)
+	err = d.registerDataPlane(cpApi)
+	if err != nil {
+		return nil, err
+	}
+
+	err = d.syncDeploymentCache(&cpApi, d.deployments)
 	if err != nil {
 		return nil, err
 	}
@@ -132,7 +141,7 @@ func (d *Dataplane) GetProxyServer(async bool) (proxy.Proxy, error) {
 		return proxy.NewProxyingService(
 			d.config.PortProxy,
 			d.deployments,
-			dpConnection,
+			cpApi,
 			path.Join(d.config.TraceOutputFolder, "proxy_trace.csv"),
 			loadBalancingPolicy,
 		), nil
@@ -140,7 +149,7 @@ func (d *Dataplane) GetProxyServer(async bool) (proxy.Proxy, error) {
 		return proxy.NewAsyncProxyingService(
 			d.config,
 			d.deployments,
-			dpConnection,
+			cpApi,
 			path.Join(d.config.TraceOutputFolder, "proxy_trace.csv"),
 			loadBalancingPolicy,
 		), nil

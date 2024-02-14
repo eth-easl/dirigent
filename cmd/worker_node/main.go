@@ -40,12 +40,7 @@ func main() {
 		cfg.WorkerNodeIP = network.GetLocalIP()
 	}
 
-	cpApi, err := grpc_helpers.InitializeControlPlaneConnection(
-		cfg.ControlPlaneAddress,
-		"",
-		-1,
-		-1,
-	)
+	cpApi, err := grpc_helpers.NewControlPlaneConnection(cfg.ControlPlaneAddress)
 	if err != nil {
 		logrus.Fatalf("Failed to initialize control plane connection (error : %s)", err.Error())
 	}

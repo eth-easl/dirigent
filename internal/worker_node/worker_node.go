@@ -230,12 +230,7 @@ func (w *WorkerNode) sendHeartbeatLoop(cfg *config.WorkerNodeConfig) {
 	if pollErr != nil {
 		logrus.Warnf("Failed to send a heartbeat to the control plane : %s", pollErr)
 		logrus.Warnf("Trying to establish connection with some other control plane replica.")
-		cpApi, err := grpc_helpers.InitializeControlPlaneConnection(
-			cfg.ControlPlaneAddress,
-			"",
-			-1,
-			-1,
-		)
+		cpApi, err := grpc_helpers.NewControlPlaneConnection(cfg.ControlPlaneAddress)
 		if err != nil {
 			logrus.Fatalf("Cannot establish connection with any of the specified control plane(s) (error : %s)", err.Error())
 		} else {

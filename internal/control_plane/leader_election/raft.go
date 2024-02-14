@@ -189,7 +189,7 @@ func (cm *ConsensusModule) AppendEntries(args *proto.AppendEntriesArgs) (*proto.
 	}
 
 	if args.Term > cm.currentTerm {
-		logrus.Debugf("... term out of date in AppendEntries")
+		logrus.Tracef("... term out of date in AppendEntries")
 		cm.becomeFollower(args.Term)
 	}
 

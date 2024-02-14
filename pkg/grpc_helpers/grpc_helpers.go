@@ -146,28 +146,14 @@ func EstablishGRPCConnectionPoll(addresses []string, dialOptions ...grpc.DialOpt
 	return conn
 }
 
-func InitializeControlPlaneConnection(addresses []string, dataplaneIP string, dataplanePort, proxyPort int32) (proto.CpiInterfaceClient, error) {
+func NewControlPlaneConnection(addresses []string) (proto.CpiInterfaceClient, error) {
 	conn := EstablishGRPCConnectionPoll(addresses)
 	if conn == nil {
 		logrus.Fatal("Failed to establish connection with the control plane")
 	}
 
 	logrus.Info("Successfully established connection with the control plane")
-
-	dpiClient := proto.NewCpiInterfaceClient(conn)
-
-	if dataplanePort != -1 {
-		resp, err := dpiClient.RegisterDataplane(context.Background(), &proto.DataplaneInfo{
-			IP:        dataplaneIP,
-			APIPort:   dataplanePort,
-			ProxyPort: proxyPort,
-		})
-		if err != nil || !resp.Success {
-			logrus.Fatal("Failed to register data plane with the control plane")
-		}
-	}
-
-	return dpiClient, nil
+	return proto.NewCpiInterfaceClient(conn), nil
 }
 
 func DeregisterControlPlaneConnection(cfg *config.DataPlaneConfig) error {
@@ -209,7 +195,7 @@ func DeregisterControlPlaneConnection(cfg *config.DataPlaneConfig) error {
 func InitializeWorkerNodeConnection(host, port string) (proto.WorkerNodeInterfaceClient, error) {
 	conn := EstablishGRPCConnectionPoll([]string{net.JoinHostPort(host, port)})
 	if conn == nil {
-		return nil, errors.New("Failed to establish connection with the worker node")
+		return nil, errors.New("failed to establish connection with the worker node")
 	}
 
 	logrus.Info("Successfully established connection with the worker node")
@@ -220,7 +206,7 @@ func InitializeWorkerNodeConnection(host, port string) (proto.WorkerNodeInterfac
 func InitializeDataPlaneConnection(host string, port string) (proto.DpiInterfaceClient, error) {
 	conn := EstablishGRPCConnectionPoll([]string{net.JoinHostPort(host, port)})
 	if conn == nil {
-		return nil, errors.New("Failed to establish connection with the data plane")
+		return nil, errors.New("failed to establish connection with the data plane")
 	}
 
 	logrus.Info("Successfully established connection with the data plane")

@@ -26,8 +26,8 @@ var (
 func main() {
 	flag.Parse()
 
-	// TODO: Finde better way for the simulation
-	// Simulate dataplanes
+	// TODO: Find a better way for the simulation
+	// Simulate data planes
 	{
 		cfg := config.DataPlaneConfig{
 			DataPlaneIp:         "127.0.0.1",
@@ -83,12 +83,7 @@ func main() {
 
 		logger.SetupLogger(cfg.Verbosity)
 
-		cpApi, err := grpc_helpers.InitializeControlPlaneConnection(
-			cfg.ControlPlaneAddress,
-			"",
-			-1,
-			-1,
-		)
+		cpApi, err := grpc_helpers.NewControlPlaneConnection(cfg.ControlPlaneAddress)
 		if err != nil {
 			logrus.Fatalf("Failed to initialize control plane connection (error : %s)", err.Error())
 		}
