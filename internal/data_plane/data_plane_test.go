@@ -13,8 +13,7 @@ func TestCreationWorkerNode(t *testing.T) {
 	defer ctrl.Finish()
 
 	mockConfig := config.DataPlaneConfig{
-		ControlPlaneIp:      "",
-		ControlPlanePort:    "",
+		ControlPlaneAddress: []string{""},
 		PortProxy:           "",
 		PortGRPC:            "",
 		Verbosity:           "",

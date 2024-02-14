@@ -13,14 +13,13 @@ func TestCreationWorkerNode(t *testing.T) {
 	defer ctrl.Finish()
 
 	mockConfig := config.WorkerNodeConfig{
-		ControlPlaneIp:   "",
-		ControlPlanePort: "",
-		Port:             0,
-		Verbosity:        "",
-		CRIType:          "containerd",
-		CRIPath:          "/run/containerd/containerd.sock",
-		CNIConfigPath:    "../../configs/cni.conf",
-		PrefetchImage:    false,
+		ControlPlaneAddress: []string{},
+		Port:                0,
+		Verbosity:           "",
+		CRIType:             "containerd",
+		CRIPath:             "/run/containerd/containerd.sock",
+		CNIConfigPath:       "../../configs/cni.conf",
+		PrefetchImage:       false,
 	}
 
 	containerdClient := containerd.GetContainerdClient(mockConfig.CRIPath)
