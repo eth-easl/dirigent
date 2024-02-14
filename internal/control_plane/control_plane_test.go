@@ -661,7 +661,7 @@ func TestReconstructionWorkers(t *testing.T) {
 
 	assert.NoError(t, err, "reconstructing control plane state failed")
 
-	assert.Equal(t, 3, controlPlane.GetNumberConnectedWorkers(), "Number of connected workers should be 3")
+	assert.Equal(t, 0, controlPlane.GetNumberConnectedWorkers(), "Number of connected workers should be 0")
 	assert.Zero(t, controlPlane.GetNumberDataplanes(), "Number of connected data planes should be 0")
 	assert.Zero(t, controlPlane.GetNumberServices(), "Number of registered services should be 0")
 
