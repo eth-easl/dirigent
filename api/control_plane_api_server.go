@@ -104,7 +104,7 @@ func (c *CpApiServer) StopAllScalingLoops() {
 	defer c.ControlPlane.SIStorage.Unlock()
 
 	for _, function := range c.ControlPlane.SIStorage.GetMap() {
-		function.Controller.StopCh <- struct{}{}
+		function.Controller.Stop()
 	}
 }
 

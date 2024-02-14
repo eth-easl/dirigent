@@ -40,12 +40,18 @@ func NewPerFunctionStateController(scalingChannel chan int, serviceInfo *proto.S
 
 func (as *PFStateController) Start() bool {
 	if atomic.CompareAndSwapInt32(&as.AutoscalingRunning, 0, 1) {
-		as.StopCh = make(chan struct{})
+		as.StopCh = make(chan struct{}, 1)
 		go as.ScalingLoop()
 		return true
 	}
 
 	return false
+}
+
+func (as *PFStateController) Stop() {
+	if atomic.LoadInt32(&as.AutoscalingRunning) != 0 {
+		as.StopCh <- struct{}{}
+	}
 }
 
 func (as *PFStateController) scalingCycle(isScaleFromZero bool) (stopped bool) {

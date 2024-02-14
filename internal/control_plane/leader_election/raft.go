@@ -346,12 +346,9 @@ func (cm *ConsensusModule) startElection() {
 func (cm *ConsensusModule) becomeFollower(term int32) {
 	logrus.Debugf("Becomes Follower for term #%d", term)
 
-	if cm.state == Leader {
-		// loosing leadership
-		cm.announceLeadership <- AnnounceLeadership{
-			IsLeader: false,
-			Term:     int(cm.currentTerm),
-		}
+	cm.announceLeadership <- AnnounceLeadership{
+		IsLeader: false,
+		Term:     int(cm.currentTerm),
 	}
 
 	cm.state = Follower
