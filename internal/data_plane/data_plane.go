@@ -20,28 +20,28 @@ import (
 )
 
 type Dataplane struct {
-	config       config.DataPlaneConfig
-	deployements *function_metadata.Deployments
+	config      config.DataPlaneConfig
+	deployments *function_metadata.Deployments
 }
 
 func NewDataplane(config config.DataPlaneConfig, deployements *function_metadata.Deployments) *Dataplane {
 	return &Dataplane{
-		config:       config,
-		deployements: deployements,
+		config:      config,
+		deployments: deployements,
 	}
 }
 
-func (d *Dataplane) SetupHeartbeatLoop() {
+func (d *Dataplane) SetupHeartbeatLoop(proxy proxy.Proxy) {
 	for {
 		// Send
-		d.sendHeartbeatLoop()
+		d.sendHeartbeatLoop(proxy)
 
 		// Wait
 		time.Sleep(utils.HeartbeatInterval)
 	}
 }
 
-func (d *Dataplane) sendHeartbeatLoop() {
+func (d *Dataplane) sendHeartbeatLoop(proxy proxy.Proxy) {
 	pollContext, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 
@@ -50,9 +50,20 @@ func (d *Dataplane) sendHeartbeatLoop() {
 			grpcPort, _ := strconv.Atoi(d.config.PortGRPC)
 			proxyPort, _ := strconv.Atoi(d.config.PortProxy)
 
-			_, err = grpc_helpers.InitializeControlPlaneConnection(d.config.ControlPlaneAddress, d.config.DataPlaneIp, int32(grpcPort), int32(proxyPort))
+			cpApiServer, err := grpc_helpers.InitializeControlPlaneConnection(
+				d.config.ControlPlaneAddress,
+				d.config.DataPlaneIp,
+				int32(grpcPort),
+				int32(proxyPort),
+			)
 			if err != nil {
 				return false, err
+			}
+
+			if proxy != nil && proxy.GetCpApiServer() != cpApiServer {
+				// TODO: heartbeat approach is not optimal as it leads to frequent creation of new CpApiServer(s) -> see frequency of the log below
+				logrus.Warn("Updated CpApiServer")
+				proxy.SetCpApiServer(cpApiServer)
 			}
 
 			return true, nil
@@ -66,7 +77,7 @@ func (d *Dataplane) sendHeartbeatLoop() {
 }
 
 func (d *Dataplane) AddDeployment(in *proto.ServiceInfo) (*proto.DeploymentUpdateSuccess, error) {
-	return &proto.DeploymentUpdateSuccess{Success: d.deployements.AddDeployment(in.GetName())}, nil
+	return &proto.DeploymentUpdateSuccess{Success: d.deployments.AddDeployment(in.GetName())}, nil
 }
 
 func (d *Dataplane) UpdateEndpointList(patch *proto.DeploymentEndpointPatch) (*proto.DeploymentUpdateSuccess, error) {
@@ -76,7 +87,7 @@ func (d *Dataplane) UpdateEndpointList(patch *proto.DeploymentEndpointPatch) (*p
 		return &proto.DeploymentUpdateSuccess{Success: true}, nil
 	}
 
-	deployment, _ := d.deployements.GetDeployment(patch.GetService().GetName())
+	deployment, _ := d.deployments.GetDeployment(patch.GetService().GetName())
 	if deployment == nil {
 		return &proto.DeploymentUpdateSuccess{Success: false}, errors.New("deployment does not exists on the data plane side")
 	}
@@ -86,7 +97,7 @@ func (d *Dataplane) UpdateEndpointList(patch *proto.DeploymentEndpointPatch) (*p
 }
 
 func (d *Dataplane) cleanCache() {
-	metadata := d.deployements.ListDeployments()
+	metadata := d.deployments.ListDeployments()
 
 	for _, fm := range metadata {
 		fm.RemoveAllEndpoints()
@@ -96,7 +107,7 @@ func (d *Dataplane) cleanCache() {
 }
 
 func (d *Dataplane) DeleteDeployment(name *proto.ServiceInfo) (*proto.DeploymentUpdateSuccess, error) {
-	return &proto.DeploymentUpdateSuccess{Success: d.deployements.DeleteDeployment(name.GetName())}, nil
+	return &proto.DeploymentUpdateSuccess{Success: d.deployments.DeleteDeployment(name.GetName())}, nil
 }
 
 func (d *Dataplane) GetProxyServer(async bool) (proxy.Proxy, error) {
@@ -110,7 +121,7 @@ func (d *Dataplane) GetProxyServer(async bool) (proxy.Proxy, error) {
 		return nil, err
 	}
 
-	err = d.syncDeploymentCache(&dpConnection, d.deployements)
+	err = d.syncDeploymentCache(&dpConnection, d.deployments)
 	if err != nil {
 		return nil, err
 	}
@@ -118,9 +129,21 @@ func (d *Dataplane) GetProxyServer(async bool) (proxy.Proxy, error) {
 	loadBalancingPolicy := d.parseLoadBalancingPolicy(d.config)
 
 	if !async {
-		return proxy.NewProxyingService(d.config.PortProxy, d.deployements, &dpConnection, path.Join(d.config.TraceOutputFolder, "proxy_trace.csv"), loadBalancingPolicy), nil
+		return proxy.NewProxyingService(
+			d.config.PortProxy,
+			d.deployments,
+			dpConnection,
+			path.Join(d.config.TraceOutputFolder, "proxy_trace.csv"),
+			loadBalancingPolicy,
+		), nil
 	} else {
-		return proxy.NewAsyncProxyingService(d.config, d.deployements, &dpConnection, path.Join(d.config.TraceOutputFolder, "proxy_trace.csv"), loadBalancingPolicy), nil
+		return proxy.NewAsyncProxyingService(
+			d.config,
+			d.deployments,
+			dpConnection,
+			path.Join(d.config.TraceOutputFolder, "proxy_trace.csv"),
+			loadBalancingPolicy,
+		), nil
 	}
 }
 
@@ -161,7 +184,7 @@ func (d *Dataplane) syncDeploymentCache(cpApi *proto.CpiInterfaceClient, deploym
 }
 
 func (d *Dataplane) DrainSandbox(patch *proto.DeploymentEndpointPatch) (*proto.DeploymentUpdateSuccess, error) {
-	deployment, _ := d.deployements.GetDeployment(patch.GetService().GetName())
+	deployment, _ := d.deployments.GetDeployment(patch.GetService().GetName())
 	if deployment == nil {
 		return &proto.DeploymentUpdateSuccess{Success: false}, errors.New("deployment does not exists on the data plane side")
 	}

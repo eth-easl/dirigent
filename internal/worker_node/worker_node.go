@@ -8,6 +8,7 @@ import (
 	"cluster_manager/internal/worker_node/sandbox/fake_snapshot"
 	"cluster_manager/internal/worker_node/sandbox/firecracker"
 	"cluster_manager/pkg/config"
+	"cluster_manager/pkg/grpc_helpers"
 	"cluster_manager/pkg/hardware"
 	"cluster_manager/pkg/utils"
 	"context"
@@ -185,10 +186,10 @@ func (w *WorkerNode) sendInstructionToControlPlane(ctx context.Context, config c
 	return nil
 }
 
-func (w *WorkerNode) SetupHeartbeatLoop(cpApi *proto.CpiInterfaceClient) {
+func (w *WorkerNode) SetupHeartbeatLoop(cfg *config.WorkerNodeConfig) {
 	for {
 		// Send
-		w.sendHeartbeatLoop(cpApi)
+		w.sendHeartbeatLoop(cfg)
 
 		// Wait
 		time.Sleep(utils.HeartbeatInterval)
@@ -205,18 +206,18 @@ func (w *WorkerNode) getWorkerStatistics() (*proto.NodeHeartbeatMessage, error) 
 	}, nil
 }
 
-func (w *WorkerNode) sendHeartbeatLoop(cpApi *proto.CpiInterfaceClient) {
-	pollContext, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+func (w *WorkerNode) sendHeartbeatLoop(cfg *config.WorkerNodeConfig) {
+	pollContext, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
-	pollErr := wait.PollUntilContextCancel(pollContext, 5*time.Second, true,
+	pollErr := wait.PollUntilContextCancel(pollContext, 2500*time.Millisecond, true,
 		func(ctx context.Context) (done bool, err error) {
 			workerStatistics, err := w.getWorkerStatistics()
 			if err != nil {
 				return false, err
 			}
 
-			resp, err := (*cpApi).NodeHeartbeat(ctx, workerStatistics)
+			resp, err := w.cpApi.NodeHeartbeat(ctx, workerStatistics)
 
 			// In case we don't manage to connect, we give up
 			if err != nil || resp == nil {
@@ -227,7 +228,20 @@ func (w *WorkerNode) sendHeartbeatLoop(cpApi *proto.CpiInterfaceClient) {
 		},
 	)
 	if pollErr != nil {
-		logrus.Warn(fmt.Sprintf("Failed to send a heartbeat to the control plane : %s", pollErr))
+		logrus.Warnf("Failed to send a heartbeat to the control plane : %s", pollErr)
+		logrus.Warnf("Trying to establish connection with some other control plane replica.")
+		cpApi, err := grpc_helpers.InitializeControlPlaneConnection(
+			cfg.ControlPlaneAddress,
+			"",
+			-1,
+			-1,
+		)
+		if err != nil {
+			logrus.Fatalf("Cannot establish connection with any of the specified control plane(s) (error : %s)", err.Error())
+		} else {
+			w.cpApi = cpApi
+			logrus.Infof("Control plance changed successfully.")
+		}
 	} else {
 		logrus.Debug("Sent heartbeat to the control plane")
 	}

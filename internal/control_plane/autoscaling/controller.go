@@ -22,6 +22,7 @@ type PFStateController struct {
 	Endpoints       []*core.Endpoint
 
 	Period time.Duration
+	StopCh chan struct{}
 }
 
 func NewPerFunctionStateController(scalingChannel chan int, serviceInfo *proto.ServiceInfo, period time.Duration) *PFStateController {
@@ -39,6 +40,7 @@ func NewPerFunctionStateController(scalingChannel chan int, serviceInfo *proto.S
 
 func (as *PFStateController) Start() bool {
 	if atomic.CompareAndSwapInt32(&as.AutoscalingRunning, 0, 1) {
+		as.StopCh = make(chan struct{})
 		go as.ScalingLoop()
 		return true
 	}
@@ -46,26 +48,48 @@ func (as *PFStateController) Start() bool {
 	return false
 }
 
+func (as *PFStateController) scalingCycle(isScaleFromZero bool) (stopped bool) {
+	desiredScale := as.ScalingMetadata.KnativeScaling(isScaleFromZero)
+	logrus.Debugf("Desired scale for %s is %d", as.ServiceName, desiredScale)
+
+	as.DesiredStateChannel <- desiredScale
+
+	if desiredScale == 0 {
+		as.stopAutoscalingLoop()
+		return true
+	}
+
+	return false
+}
+
+func (as *PFStateController) stopAutoscalingLoop() {
+	logrus.Debugf("Exited scaling loop for %s.", as.ServiceName)
+
+	atomic.StoreInt32(&as.AutoscalingRunning, 0)
+	close(as.StopCh)
+	as.StopCh = nil
+}
+
 func (as *PFStateController) ScalingLoop() {
-	ticker := time.NewTicker(as.Period)
-
-	isScaleFromZero := true
-
 	logrus.Debugf("Starting scaling loop for %s.", as.ServiceName)
 
-	for ; true; <-ticker.C {
-		desiredScale := as.ScalingMetadata.KnativeScaling(isScaleFromZero)
-		logrus.Debugf("Desired scale for %s is %d", as.ServiceName, desiredScale)
+	// need to make the first tick happen right away
+	toStop := as.scalingCycle(true)
+	if toStop {
+		return
+	}
 
-		as.DesiredStateChannel <- desiredScale
-
-		isScaleFromZero = false
-
-		if desiredScale == 0 {
-			atomic.StoreInt32(&as.AutoscalingRunning, 0)
-			logrus.Debugf("Exited scaling loop for %s.", as.ServiceName)
-
-			break
+	ticker := time.NewTicker(as.Period)
+	for {
+		select {
+		case <-ticker.C: // first event only after as.Period delay
+			toStop = as.scalingCycle(false)
+			if toStop {
+				return
+			}
+		case <-as.StopCh:
+			as.stopAutoscalingLoop()
+			return
 		}
 	}
 }

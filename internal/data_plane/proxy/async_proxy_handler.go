@@ -28,7 +28,7 @@ type AsyncProxyingService struct {
 	Port                string
 	PortRead            string
 	Cache               *common.Deployments
-	CPInterface         *proto.CpiInterfaceClient
+	CPInterface         proto.CpiInterfaceClient
 	LoadBalancingPolicy load_balancing.LoadBalancingPolicy
 
 	Tracing *tracing.TracingService[tracing.ProxyLogEntry]
@@ -41,7 +41,15 @@ type AsyncProxyingService struct {
 	AllowedRetries int
 }
 
-func NewAsyncProxyingService(cfg config.DataPlaneConfig, cache *common.Deployments, cp *proto.CpiInterfaceClient, outputFile string, loadBalancingPolicy load_balancing.LoadBalancingPolicy) *AsyncProxyingService {
+func (ps *AsyncProxyingService) GetCpApiServer() proto.CpiInterfaceClient {
+	return ps.CPInterface
+}
+
+func (ps *AsyncProxyingService) SetCpApiServer(client proto.CpiInterfaceClient) {
+	ps.CPInterface = client
+}
+
+func NewAsyncProxyingService(cfg config.DataPlaneConfig, cache *common.Deployments, cp proto.CpiInterfaceClient, outputFile string, loadBalancingPolicy load_balancing.LoadBalancingPolicy) *AsyncProxyingService {
 	var persistenceLayer request_persistence.RequestPersistence
 	var err error
 

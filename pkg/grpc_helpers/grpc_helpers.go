@@ -7,6 +7,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"math/rand"
 	"net"
 	"strconv"
 	"time"
@@ -106,7 +107,8 @@ func EstablishGRPCConnectionPoll(addresses []string, dialOptions ...grpc.DialOpt
 	// Establish a connection with at least one of the addresses.
 	for {
 		var addr string
-		for _, addr = range addresses {
+		for {
+			addr = addresses[rand.Intn(len(addresses))]
 			err := wait.PollUntilContextCancel(context.Background(), 5*time.Second, true,
 				func(ctx context.Context) (done bool, err error) {
 					establishContext, end := context.WithTimeout(ctx, utils.GRPCFunctionTimeout)
@@ -154,15 +156,12 @@ func InitializeControlPlaneConnection(addresses []string, dataplaneIP string, da
 
 	dpiClient := proto.NewCpiInterfaceClient(conn)
 
-	// TODO: this method should be split into two because of parameters
 	if dataplanePort != -1 {
-		dpInfo := &proto.DataplaneInfo{
+		resp, err := dpiClient.RegisterDataplane(context.Background(), &proto.DataplaneInfo{
 			IP:        dataplaneIP,
 			APIPort:   dataplanePort,
 			ProxyPort: proxyPort,
-		}
-
-		resp, err := dpiClient.RegisterDataplane(context.Background(), dpInfo)
+		})
 		if err != nil || !resp.Success {
 			logrus.Fatal("Failed to register data plane with the control plane")
 		}

@@ -11,7 +11,6 @@ import (
 	"flag"
 	"github.com/sirupsen/logrus"
 	"math/rand"
-	"net"
 	"os/signal"
 	"strconv"
 	"sync"
@@ -54,7 +53,7 @@ func main() {
 		for i := 0; i < *nbWorkers; i++ {
 			go func(idx int) {
 				time.Sleep(time.Duration(rand.Intn(1000)) * time.Millisecond)
-				go dataplanes[idx].SetupHeartbeatLoop()
+				go dataplanes[idx].SetupHeartbeatLoop(nil)
 				wg.Done()
 			}(i)
 		}
@@ -70,8 +69,7 @@ func main() {
 	{
 		cfg := config.WorkerNodeConfig{
 			WorkerNodeIP:           "127.0.0.1",
-			ControlPlaneIp:         "localhost",
-			ControlPlanePort:       "9090",
+			ControlPlaneAddress:    []string{"localhost:9090"},
 			Port:                   10010,
 			Verbosity:              "trace",
 			CRIType:                "containerd",
@@ -86,7 +84,7 @@ func main() {
 		logger.SetupLogger(cfg.Verbosity)
 
 		cpApi, err := grpc_helpers.InitializeControlPlaneConnection(
-			[]string{net.JoinHostPort(cfg.ControlPlaneIp, cfg.ControlPlanePort)},
+			cfg.ControlPlaneAddress,
 			"",
 			-1,
 			-1,
@@ -110,7 +108,7 @@ func main() {
 
 				time.Sleep(time.Duration(rand.Intn(1000)) * time.Millisecond * 5)
 
-				go workers[idx].SetupHeartbeatLoop(&cpApi)
+				go workers[idx].SetupHeartbeatLoop(&cfg)
 				wg.Done()
 			}(i)
 		}

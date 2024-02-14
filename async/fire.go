@@ -18,7 +18,12 @@ import (
 )
 
 func Deployservice() {
-	cpApi, err := common.InitializeControlPlaneConnection("localhost", utils.DefaultControlPlanePort, "", -1, -1)
+	cpApi, err := common.InitializeControlPlaneConnection(
+		[]string{"localhost", utils.DefaultControlPlanePort},
+		"",
+		-1,
+		-1,
+	)
 	if err != nil {
 		logrus.Fatalf("Failed to start control plane connection (error %s)", err.Error())
 	}
@@ -96,10 +101,9 @@ func Fire() {
 
 	fmt.Println(string(body[:]))
 
-	code := string(body[:])
-	code = code
+	/*code := string(body[:])
 
-	/*time.Sleep(5 * time.Second)
+	time.Sleep(5 * time.Second)
 
 	req, err = http.NewRequest("GET", "http://localhost:8082", strings.NewReader(code))
 	if err != nil {

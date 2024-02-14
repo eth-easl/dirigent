@@ -99,7 +99,19 @@ func CreateNewCpApiServer(args *CpApiServerCreationArguments) (*CpApiServer, cha
 	return cpApiServer, isLeader
 }
 
+func (c *CpApiServer) StopAllScalingLoops() {
+	c.ControlPlane.SIStorage.Lock()
+	defer c.ControlPlane.SIStorage.Unlock()
+
+	for _, function := range c.ControlPlane.SIStorage.GetMap() {
+		function.Controller.StopCh <- struct{}{}
+	}
+}
+
 func (c *CpApiServer) CleanControlPlaneInMemoryData(args *CpApiServerCreationArguments) {
+	// there might be some scaling loops we need to stop to prevent resource leaks
+	c.StopAllScalingLoops()
+
 	c.ControlPlane = control_plane.NewControlPlane(
 		args.Client,
 		args.OutputFile,

@@ -86,7 +86,7 @@ func (c *ControlPlane) RegisterDataplane(ctx context.Context, in *proto.Dataplan
 	}
 
 	// If the dataplane is already registered, we update the heartbeat
-	logrus.Debugf("Dataplane with ip %s already registered - update last heartbeat timestamp", dataplaneInfo.Address)
+	logrus.Tracef("Dataplane with ip %s already registered - update last heartbeat timestamp", dataplaneInfo.Address)
 
 	c.DataPlaneConnections.Lock()
 	defer c.DataPlaneConnections.Unlock()
@@ -197,7 +197,7 @@ func (c *ControlPlane) NodeHeartbeat(_ context.Context, in *proto.NodeHeartbeatM
 	c.NIStorage.GetMap()[in.NodeID].SetMemoryUsage(in.MemoryUsage)
 	c.NIStorage.GetMap()[in.NodeID].SetSchedulability(true)
 
-	logrus.Debugf("Heartbeat received from %s with %d percent cpu usage and %d percent memory usage", in.NodeID, in.CpuUsage, in.MemoryUsage)
+	logrus.Tracef("Heartbeat received from %s with %d percent cpu usage and %d percent memory usage", in.NodeID, in.CpuUsage, in.MemoryUsage)
 
 	return &proto.ActionStatus{Success: true}, nil
 }

@@ -55,7 +55,7 @@ func main() {
 	workerNode.RegisterNodeWithControlPlane(cfg, &cpApi)
 	defer workerNode.DeregisterNodeFromControlPlane(cfg, &cpApi)
 
-	go workerNode.SetupHeartbeatLoop(&cpApi)
+	go workerNode.SetupHeartbeatLoop(&cfg)
 	defer resetIPTables()
 
 	logrus.Info("Starting API handlers")

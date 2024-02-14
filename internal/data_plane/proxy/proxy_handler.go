@@ -20,13 +20,21 @@ type ProxyingService struct {
 	Host                string
 	Port                string
 	Cache               *common.Deployments
-	CPInterface         *proto.CpiInterfaceClient
+	CPInterface         proto.CpiInterfaceClient
 	LoadBalancingPolicy load_balancing.LoadBalancingPolicy
 
 	Tracing *tracing.TracingService[tracing.ProxyLogEntry]
 }
 
-func NewProxyingService(port string, cache *common.Deployments, cp *proto.CpiInterfaceClient, outputFile string, loadBalancingPolicy load_balancing.LoadBalancingPolicy) *ProxyingService {
+func (ps *ProxyingService) GetCpApiServer() proto.CpiInterfaceClient {
+	return ps.CPInterface
+}
+
+func (ps *ProxyingService) SetCpApiServer(client proto.CpiInterfaceClient) {
+	ps.CPInterface = client
+}
+
+func NewProxyingService(port string, cache *common.Deployments, cp proto.CpiInterfaceClient, outputFile string, loadBalancingPolicy load_balancing.LoadBalancingPolicy) *ProxyingService {
 	return &ProxyingService{
 		Host:                utils.Localhost,
 		Port:                port,

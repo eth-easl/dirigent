@@ -84,8 +84,6 @@ func registrationHandler(cpApi *api.CpApiServer) func(w http.ResponseWriter, r *
 			}
 		}
 
-		logrus.Debugf("Requested cpu is %s ms and memory is %s MB", runtimeSpec, memSpec)
-
 		autoscalingConfig := autoscaling.NewDefaultAutoscalingMetadata()
 
 		if len(r.FormValue("scaling_upper_bound")) != 0 {

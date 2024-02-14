@@ -146,6 +146,11 @@ func (c *ControlPlane) reconstructEndpointsState(ctx context.Context, dpiClients
 	logrus.Debugf("Removed all endpoints from all data planes.")
 
 	for _, workerNode := range c.NIStorage.GetMap() {
+		if workerNode == nil {
+			logrus.Errorf("Node not found during endpoint listing.")
+			continue
+		}
+
 		list, err := workerNode.ListEndpoints(ctx, &emptypb.Empty{})
 		if err != nil {
 			return err

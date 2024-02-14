@@ -305,7 +305,7 @@ func (m *FunctionMetadata) DecreaseInflight() {
 	atomic.AddInt32(&m.metrics.inflightRequests, -1)
 }
 
-func (m *FunctionMetadata) TryWarmStart(cp *proto.CpiInterfaceClient) (chan ColdStartChannelStruct, time.Duration) {
+func (m *FunctionMetadata) TryWarmStart(cp proto.CpiInterfaceClient) (chan ColdStartChannelStruct, time.Duration) {
 	start := time.Now()
 
 	// autoscaling metric
@@ -327,7 +327,7 @@ func (m *FunctionMetadata) TryWarmStart(cp *proto.CpiInterfaceClient) (chan Cold
 	}
 }
 
-func (m *FunctionMetadata) triggerAutoscaling(cp *proto.CpiInterfaceClient) {
+func (m *FunctionMetadata) triggerAutoscaling(cp proto.CpiInterfaceClient) {
 	swapped := false
 	for !swapped {
 		oldValue := atomic.LoadInt32(&m.autoscalingTriggered)
@@ -344,7 +344,7 @@ func (m *FunctionMetadata) triggerAutoscaling(cp *proto.CpiInterfaceClient) {
 	}
 }
 
-func (m *FunctionMetadata) sendMetricsToAutoscaler(cp *proto.CpiInterfaceClient) {
+func (m *FunctionMetadata) sendMetricsToAutoscaler(cp proto.CpiInterfaceClient) {
 	timer := time.NewTicker(m.metrics.timeWindowSize)
 
 	logrus.Debug("Started metrics loop")
@@ -356,7 +356,7 @@ func (m *FunctionMetadata) sendMetricsToAutoscaler(cp *proto.CpiInterfaceClient)
 
 		go func() {
 			// TODO: NEED TO IMPLEMENT - the data plane shouldn't stop send metrics until the control plane at least once confirms
-			status, err := (*cp).OnMetricsReceive(context.Background(), &proto.AutoscalingMetric{
+			status, err := cp.OnMetricsReceive(context.Background(), &proto.AutoscalingMetric{
 				ServiceName:      m.identifier,
 				DataplaneName:    m.dataPlaneID,
 				InflightRequests: inflightRequests,
