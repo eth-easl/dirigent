@@ -6,6 +6,7 @@ import (
 	"cluster_manager/pkg/grpc_helpers"
 	"cluster_manager/pkg/synchronization"
 	"context"
+	"github.com/sirupsen/logrus"
 	"google.golang.org/grpc"
 	"google.golang.org/protobuf/types/known/emptypb"
 	"time"
@@ -76,12 +77,21 @@ func (w *WorkerNode) DeleteSandbox(ctx context.Context, id *proto.SandboxID, opt
 }
 
 func (w *WorkerNode) ListEndpoints(ctx context.Context, empty *emptypb.Empty, option ...grpc.CallOption) (*proto.EndpointsList, error) {
-	return w.wnConnection.ListEndpoints(ctx, empty, option...)
+	if w.wnConnection != nil {
+		return w.wnConnection.ListEndpoints(ctx, empty, option...)
+	} else {
+		return &proto.EndpointsList{}, nil
+	}
 }
 
 func (w *WorkerNode) ConnectToWorker() proto.WorkerNodeInterfaceClient {
 	if w.wnConnection == nil {
-		w.wnConnection, _ = grpc_helpers.InitializeWorkerNodeConnection(w.IP, w.Port)
+		var err error
+
+		w.wnConnection, err = grpc_helpers.InitializeWorkerNodeConnection(w.IP, w.Port)
+		if err != nil {
+			logrus.Errorf("Failed to establish connection with the worker node.")
+		}
 	}
 
 	return w.wnConnection

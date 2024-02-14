@@ -199,7 +199,6 @@ func InitializeWorkerNodeConnection(host, port string) (proto.WorkerNodeInterfac
 	}
 
 	logrus.Info("Successfully established connection with the worker node")
-
 	return proto.NewWorkerNodeInterfaceClient(conn), nil
 }
 

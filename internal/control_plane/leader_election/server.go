@@ -79,7 +79,7 @@ func (s *LeaderElectionServer) GetLeader() proto.CpiInterfaceClient {
 		if api, ok := s.peerClients[leaderID]; ok {
 			return api
 		} else {
-			logrus.Fatal("Invalid leader ID to obtain CpiInterfaceClient.")
+			logrus.Errorf("Forwarding request received before establishing leadership.")
 		}
 	}
 

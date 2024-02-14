@@ -301,7 +301,7 @@ func (cm *ConsensusModule) startElection() {
 
 			client, ok := cm.server.peerClients[peerId]
 			if !ok {
-				//logrus.Tracef("client entry not found %d", peerId)
+				logrus.Debugf("Client entry not found %d - voting", peerId)
 				return
 			}
 
@@ -411,7 +411,7 @@ func (cm *ConsensusModule) leaderSendHeartbeats() {
 			//logrus.Tracef("Sending leader election heartbeat to %v: ni=%d, args=%+v", peerId, 0, args)
 			client, ok := cm.server.peerClients[peerId]
 			if !ok {
-				//logrus.Debugf("client entry not found %d", peerId)
+				//logrus.Debugf("Client entry not found %d - heartbeat", peerId)
 				return
 			}
 

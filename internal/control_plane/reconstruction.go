@@ -82,7 +82,6 @@ func (c *ControlPlane) reconstructWorkersState(ctx context.Context) error {
 	}
 
 	for _, worker := range workers {
-
 		wn := c.workerNodeCreator(core.WorkerNodeConfiguration{
 			Name:     worker.Name,
 			IP:       worker.Ip,
@@ -91,9 +90,15 @@ func (c *ControlPlane) reconstructWorkersState(ctx context.Context) error {
 			Memory:   worker.Memory,
 		})
 
-		c.NIStorage.Set(wn.GetName(), wn)
+		go func() {
+			conn := wn.ConnectToWorker()
+			if conn != nil {
+				c.NIStorage.Lock()
+				defer c.NIStorage.Unlock()
 
-		go wn.ConnectToWorker()
+				c.NIStorage.Set(wn.GetName(), wn)
+			}
+		}()
 	}
 
 	return nil

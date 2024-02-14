@@ -139,8 +139,14 @@ func (c *CpApiServer) StartNodeMonitoringLoop() chan struct{} {
 
 func (c *CpApiServer) OnMetricsReceive(ctx context.Context, metric *proto.AutoscalingMetric) (*proto.ActionStatus, error) {
 	if !c.LeaderElectionServer.IsLeader() {
-		logrus.Warn("Received OnMetricsReceive call although not the leader. Forwarding the call...")
-		return c.LeaderElectionServer.GetLeader().OnMetricsReceive(ctx, metric)
+		leader := c.LeaderElectionServer.GetLeader()
+
+		if leader != nil {
+			logrus.Warn("Received OnMetricsReceive call although not the leader. Forwarding the call...")
+			return leader.OnMetricsReceive(ctx, metric)
+		} else {
+			return &proto.ActionStatus{Success: false}, nil
+		}
 	}
 
 	return c.ControlPlane.OnMetricsReceive(ctx, metric)
@@ -149,7 +155,13 @@ func (c *CpApiServer) OnMetricsReceive(ctx context.Context, metric *proto.Autosc
 func (c *CpApiServer) ListServices(ctx context.Context, empty *emptypb.Empty) (*proto.ServiceList, error) {
 	if !c.LeaderElectionServer.IsLeader() {
 		logrus.Warn("Received ListServices call although not the leader. Forwarding the call...")
-		return c.LeaderElectionServer.GetLeader().ListServices(ctx, empty)
+		leader := c.LeaderElectionServer.GetLeader()
+
+		if leader != nil {
+			return leader.ListServices(ctx, empty)
+		} else {
+			return &proto.ServiceList{}, nil
+		}
 	}
 
 	return c.ControlPlane.ListServices(ctx, empty)
@@ -157,8 +169,14 @@ func (c *CpApiServer) ListServices(ctx context.Context, empty *emptypb.Empty) (*
 
 func (c *CpApiServer) RegisterNode(ctx context.Context, info *proto.NodeInfo) (*proto.ActionStatus, error) {
 	if !c.LeaderElectionServer.IsLeader() {
-		logrus.Warn("Received RegisterNode call although not the leader. Forwarding the call...")
-		return c.LeaderElectionServer.GetLeader().RegisterNode(ctx, info)
+		leader := c.LeaderElectionServer.GetLeader()
+
+		if leader != nil {
+			logrus.Warn("Received RegisterNode call although not the leader. Forwarding the call...")
+			return leader.RegisterNode(ctx, info)
+		} else {
+			return &proto.ActionStatus{Success: false}, nil
+		}
 	}
 
 	return c.ControlPlane.RegisterNode(ctx, info)
@@ -166,8 +184,14 @@ func (c *CpApiServer) RegisterNode(ctx context.Context, info *proto.NodeInfo) (*
 
 func (c *CpApiServer) DeregisterNode(ctx context.Context, info *proto.NodeInfo) (*proto.ActionStatus, error) {
 	if !c.LeaderElectionServer.IsLeader() {
-		logrus.Warn("Received DeregisterNode call although not the leader. Forwarding the call...")
-		return c.LeaderElectionServer.GetLeader().DeregisterNode(ctx, info)
+		leader := c.LeaderElectionServer.GetLeader()
+
+		if leader != nil {
+			logrus.Warn("Received DeregisterNode call although not the leader. Forwarding the call...")
+			return leader.DeregisterNode(ctx, info)
+		} else {
+			return &proto.ActionStatus{Success: false}, nil
+		}
 	}
 
 	return c.ControlPlane.DeregisterNode(ctx, info)
@@ -175,8 +199,14 @@ func (c *CpApiServer) DeregisterNode(ctx context.Context, info *proto.NodeInfo) 
 
 func (c *CpApiServer) NodeHeartbeat(ctx context.Context, in *proto.NodeHeartbeatMessage) (*proto.ActionStatus, error) {
 	if !c.LeaderElectionServer.IsLeader() {
-		logrus.Warn("Received NodeHeartbeat call although not the leader. Forwarding the call...")
-		return c.LeaderElectionServer.GetLeader().NodeHeartbeat(ctx, in)
+		leader := c.LeaderElectionServer.GetLeader()
+
+		if leader != nil {
+			logrus.Warn("Received NodeHeartbeat call although not the leader. Forwarding the call...")
+			return leader.NodeHeartbeat(ctx, in)
+		} else {
+			return &proto.ActionStatus{Success: false}, nil
+		}
 	}
 
 	return c.ControlPlane.NodeHeartbeat(ctx, in)
@@ -184,8 +214,14 @@ func (c *CpApiServer) NodeHeartbeat(ctx context.Context, in *proto.NodeHeartbeat
 
 func (c *CpApiServer) RegisterService(ctx context.Context, serviceInfo *proto.ServiceInfo) (*proto.ActionStatus, error) {
 	if !c.LeaderElectionServer.IsLeader() {
-		logrus.Warn("Received RegisterService call although not the leader. Forwarding the call...")
-		return c.LeaderElectionServer.GetLeader().RegisterService(ctx, serviceInfo)
+		leader := c.LeaderElectionServer.GetLeader()
+
+		if leader != nil {
+			logrus.Warn("Received RegisterService call although not the leader. Forwarding the call...")
+			return leader.RegisterService(ctx, serviceInfo)
+		} else {
+			return &proto.ActionStatus{Success: false}, nil
+		}
 	}
 
 	return c.ControlPlane.RegisterService(ctx, serviceInfo)
@@ -193,8 +229,14 @@ func (c *CpApiServer) RegisterService(ctx context.Context, serviceInfo *proto.Se
 
 func (c *CpApiServer) DeregisterService(ctx context.Context, serviceInfo *proto.ServiceInfo) (*proto.ActionStatus, error) {
 	if !c.LeaderElectionServer.IsLeader() {
-		logrus.Warn("Received DeregisterService call although not the leader. Forwarding the call...")
-		return c.LeaderElectionServer.GetLeader().DeregisterService(ctx, serviceInfo)
+		leader := c.LeaderElectionServer.GetLeader()
+
+		if leader != nil {
+			logrus.Warn("Received DeregisterService call although not the leader. Forwarding the call...")
+			return leader.DeregisterService(ctx, serviceInfo)
+		} else {
+			return &proto.ActionStatus{Success: false}, nil
+		}
 	}
 
 	return c.ControlPlane.DeregisterService(ctx, serviceInfo)
@@ -202,8 +244,14 @@ func (c *CpApiServer) DeregisterService(ctx context.Context, serviceInfo *proto.
 
 func (c *CpApiServer) RegisterDataplane(ctx context.Context, in *proto.DataplaneInfo) (*proto.ActionStatus, error) {
 	if !c.LeaderElectionServer.IsLeader() {
-		logrus.Warn("Received RegisterDataplane call although not the leader. Forwarding the call...")
-		return c.LeaderElectionServer.GetLeader().RegisterDataplane(ctx, in)
+		leader := c.LeaderElectionServer.GetLeader()
+
+		if leader != nil {
+			logrus.Warn("Received RegisterDataplane call although not the leader. Forwarding the call...")
+			return leader.RegisterDataplane(ctx, in)
+		} else {
+			return &proto.ActionStatus{Success: false}, nil
+		}
 	}
 
 	return c.ControlPlane.RegisterDataplane(ctx, in)
@@ -211,8 +259,14 @@ func (c *CpApiServer) RegisterDataplane(ctx context.Context, in *proto.Dataplane
 
 func (c *CpApiServer) DeregisterDataplane(ctx context.Context, in *proto.DataplaneInfo) (*proto.ActionStatus, error) {
 	if !c.LeaderElectionServer.IsLeader() {
-		logrus.Warn("Received DeregisterDataplane call although not the leader. Forwarding the call...")
-		return c.LeaderElectionServer.GetLeader().DeregisterDataplane(ctx, in)
+		leader := c.LeaderElectionServer.GetLeader()
+
+		if leader != nil {
+			logrus.Warn("Received DeregisterDataplane call although not the leader. Forwarding the call...")
+			return leader.DeregisterDataplane(ctx, in)
+		} else {
+			return &proto.ActionStatus{Success: false}, nil
+		}
 	}
 
 	return c.ControlPlane.DeregisterDataplane(ctx, in)
@@ -230,8 +284,14 @@ func (c *CpApiServer) ReconstructState(ctx context.Context, config config2.Contr
 
 func (c *CpApiServer) ResetMeasurements(ctx context.Context, empty *emptypb.Empty) (*proto.ActionStatus, error) {
 	if !c.LeaderElectionServer.IsLeader() {
-		logrus.Warn("Received ResetMeasurements call although not the leader. Forwarding the call...")
-		return c.LeaderElectionServer.GetLeader().ResetMeasurements(ctx, empty)
+		leader := c.LeaderElectionServer.GetLeader()
+
+		if leader != nil {
+			logrus.Warn("Received ResetMeasurements call although not the leader. Forwarding the call...")
+			return leader.ResetMeasurements(ctx, empty)
+		} else {
+			return &proto.ActionStatus{Success: false}, nil
+		}
 	}
 
 	c.ControlPlane.ColdStartTracing.ResetTracingService()
@@ -240,8 +300,14 @@ func (c *CpApiServer) ResetMeasurements(ctx context.Context, empty *emptypb.Empt
 
 func (c *CpApiServer) ReportFailure(ctx context.Context, in *proto.Failure) (*proto.ActionStatus, error) {
 	if !c.LeaderElectionServer.IsLeader() {
-		logrus.Warn("Received ReportFailure call although not the leader. Forwarding the call...")
-		return c.LeaderElectionServer.GetLeader().ReportFailure(ctx, in)
+		leader := c.LeaderElectionServer.GetLeader()
+
+		if leader != nil {
+			logrus.Warn("Received ReportFailure call although not the leader. Forwarding the call...")
+			return leader.ReportFailure(ctx, in)
+		} else {
+			return &proto.ActionStatus{Success: false}, nil
+		}
 	}
 
 	return &proto.ActionStatus{Success: c.ControlPlane.HandleFailure([]*proto.Failure{in})}, nil
