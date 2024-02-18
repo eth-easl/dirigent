@@ -16,3 +16,5 @@ configs/firecracker/vmlinux*
 
 notes.txt
 *.pdf
+
+scripts/invitro_traces/rps/*

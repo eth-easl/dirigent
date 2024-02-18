@@ -41,7 +41,7 @@ function StopWorkers() {
 
 
 #StopWorkers $@
-RestartWorkers $@
+RestartWorkers $@ $(python string.py --type worker)
 
 # sudo env 'PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/games:/usr/local/games:/snap/bin:/usr/local/go/bin:/usr/local/bin/firecracker:/usr/local/bin/firecracker' /usr/local/go/bin/go run main.go --config config_cluster.yaml
 # rsync -av samples Francois@pc704.emulab.net:invitro/
