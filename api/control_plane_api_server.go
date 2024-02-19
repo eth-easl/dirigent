@@ -14,10 +14,7 @@ import (
 	"github.com/sirupsen/logrus"
 	"google.golang.org/grpc"
 	"google.golang.org/protobuf/types/known/emptypb"
-	"net"
 	"strconv"
-	"sync"
-	"sync/atomic"
 )
 
 type CpApiServer struct {
@@ -67,50 +64,16 @@ func CreateNewCpApiServer(args *CpApiServerCreationArguments) (*CpApiServer, cha
 	if len(args.Cfg.Replicas) > 0 {
 		logrus.Infof("Trying to establish connection with other control plane replicas for leader election...")
 
-		wg := sync.WaitGroup{}
-		votesNeeded := int32(len(args.Cfg.Replicas)+1) / 2 // include myself
-		votesCurrent := int32(0)
-
-		wg.Add(int(votesNeeded))
-		for _, rawAddress := range args.Cfg.Replicas {
-			_, peerID := grpc_helpers.SplitAddress(rawAddress)
-			tcpAddr, _ := net.ResolveTCPAddr("tcp", rawAddress)
-
-			go func() {
-				for {
-					success := leaderElectionServer.ConnectToPeer(peerID, tcpAddr)
-					if success {
-						atomic.AddInt32(&votesCurrent, 1)
-						if votesCurrent <= votesNeeded {
-							wg.Done()
-						}
-
-						break
-					}
-				}
-			}()
-		}
-
-		// signal that a connection with at least half ot the nodes has been established
-		wg.Wait()
+		cpApiServer.LeaderElectionServer.EstablishLeaderElectionMesh(args.Cfg.Replicas)
 		close(readyToElect)
 	}
 
 	return cpApiServer, isLeader
 }
 
-func (c *CpApiServer) StopAllScalingLoops() {
-	c.ControlPlane.SIStorage.Lock()
-	defer c.ControlPlane.SIStorage.Unlock()
-
-	for _, function := range c.ControlPlane.SIStorage.GetMap() {
-		function.Controller.Stop()
-	}
-}
-
 func (c *CpApiServer) CleanControlPlaneInMemoryData(args *CpApiServerCreationArguments) {
 	// there might be some scaling loops we need to stop to prevent resource leaks
-	c.StopAllScalingLoops()
+	c.ControlPlane.StopAllScalingLoops()
 
 	c.ControlPlane = control_plane.NewControlPlane(
 		args.Client,
@@ -131,10 +94,7 @@ func (c *CpApiServer) StartNodeMonitoringLoop() chan struct{} {
 		return nil
 	}
 
-	stopCh := make(chan struct{})
-	go c.ControlPlane.CheckPeriodicallyWorkerNodes(stopCh)
-
-	return stopCh
+	return c.ControlPlane.StartNodeMonitoring()
 }
 
 func (c *CpApiServer) OnMetricsReceive(ctx context.Context, metric *proto.AutoscalingMetric) (*proto.ActionStatus, error) {

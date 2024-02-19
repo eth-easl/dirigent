@@ -15,37 +15,6 @@ import (
 	"time"
 )
 
-type LogEntry struct {
-	Command interface{}
-	Term    int
-}
-
-type CMState int
-
-const (
-	Follower CMState = iota
-	Candidate
-	Leader
-	Dead
-)
-
-func (s CMState) String() string {
-	switch s {
-	case Follower:
-		return "Follower"
-	case Candidate:
-		return "Candidate"
-	case Leader:
-		return "Leader"
-	case Dead:
-		return "Dead"
-	default:
-		logrus.Fatal("Invalid leader election state machine state")
-	}
-
-	return ""
-}
-
 // ConsensusModule (CM) implements a single node of Raft consensus.
 type ConsensusModule struct {
 	// mu protects concurrent access to a CM.
@@ -64,7 +33,6 @@ type ConsensusModule struct {
 	// Persistent Raft state on all servers
 	currentTerm int32
 	votedFor    int32
-	log         []LogEntry
 
 	// Volatile Raft state on all servers
 	state              CMState
@@ -163,21 +131,6 @@ func (cm *ConsensusModule) RequestVote(args *proto.RequestVoteArgs) (*proto.Requ
 	reply.Term = cm.currentTerm
 	logrus.Tracef("... RequestVote reply: %+v", reply)
 	return reply, nil
-}
-
-type AppendEntriesArgs struct {
-	Term     int32
-	LeaderId int32
-
-	PrevLogIndex int
-	PrevLogTerm  int
-	Entries      []LogEntry
-	LeaderCommit int
-}
-
-type AppendEntriesReply struct {
-	Term    int32
-	Success bool
 }
 
 func (cm *ConsensusModule) AppendEntries(args *proto.AppendEntriesArgs) (*proto.AppendEntriesReply, error) {

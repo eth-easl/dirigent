@@ -1,5 +1,5 @@
-port: "10000"
-replicas: "127.0.0.1:9090,127.0.0.1:10001"
+port: "10001"
+replicas: "127.0.0.1:9090,127.0.0.1:10000"
 portRegistration: "9091"
 verbosity: "debug"
 traceOutputFolder: "data"
@@ -10,7 +10,6 @@ reconstruct: true
 removeWorkerNode: false
 removeDataplane: false
 
-traceCreation: true
 precreateSnapshots: false
 
 profiler:

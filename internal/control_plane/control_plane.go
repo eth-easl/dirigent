@@ -283,6 +283,13 @@ func (c *ControlPlane) OnMetricsReceive(_ context.Context, metric *proto.Autosca
 
 // Monitoring
 
+func (c *ControlPlane) StartNodeMonitoring() chan struct{} {
+	stopCh := make(chan struct{})
+	go c.CheckPeriodicallyWorkerNodes(stopCh)
+
+	return stopCh
+}
+
 func (c *ControlPlane) CheckPeriodicallyWorkerNodes(stopCh chan struct{}) {
 	for {
 		select {
@@ -410,4 +417,13 @@ func (c *ControlPlane) precreateSnapshots(info *proto.ServiceInfo) {
 	}
 
 	wg.Wait()
+}
+
+func (c *ControlPlane) StopAllScalingLoops() {
+	c.SIStorage.Lock()
+	defer c.SIStorage.Unlock()
+
+	for _, function := range c.SIStorage.GetMap() {
+		function.Controller.Stop()
+	}
 }

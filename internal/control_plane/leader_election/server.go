@@ -11,6 +11,7 @@ import (
 	"math/rand"
 	"net"
 	"sync"
+	"sync/atomic"
 	"time"
 )
 
@@ -139,14 +140,45 @@ func (s *LeaderElectionServer) DisconnectPeer(peerId int) {
 	}
 }
 
-func (s *LeaderElectionServer) RequestVote(args *proto.RequestVoteArgs) (*proto.RequestVoteReply, error) {
+func sleepWithJitter() {
 	time.Sleep(time.Duration(1+rand.Intn(5)) * time.Millisecond)
+}
 
+func (s *LeaderElectionServer) RequestVote(args *proto.RequestVoteArgs) (*proto.RequestVoteReply, error) {
+	sleepWithJitter()
 	return s.cm.RequestVote(args)
 }
 
 func (s *LeaderElectionServer) AppendEntries(args *proto.AppendEntriesArgs) (*proto.AppendEntriesReply, error) {
-	time.Sleep(time.Duration(1+rand.Intn(5)) * time.Millisecond)
-
+	sleepWithJitter()
 	return s.cm.AppendEntries(args)
+}
+
+func (s *LeaderElectionServer) EstablishLeaderElectionMesh(replicas []string) {
+	wg := sync.WaitGroup{}
+	votesNeeded := int32(len(replicas)+1) / 2 // include myself
+	votesCurrent := int32(0)
+
+	wg.Add(int(votesNeeded))
+	for _, rawAddress := range replicas {
+		_, peerID := grpc_helpers.SplitAddress(rawAddress)
+		tcpAddr, _ := net.ResolveTCPAddr("tcp", rawAddress)
+
+		go func() {
+			for {
+				success := s.ConnectToPeer(peerID, tcpAddr)
+				if success {
+					newValue := atomic.AddInt32(&votesCurrent, 1)
+					if newValue <= votesNeeded {
+						wg.Done()
+					}
+
+					break
+				}
+			}
+		}()
+	}
+
+	// signal that a connection with at least half ot the nodes has been established
+	wg.Wait()
 }
