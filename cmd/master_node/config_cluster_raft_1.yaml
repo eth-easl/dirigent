@@ -1,0 +1,23 @@
+port: "9090"
+replicas: "10.0.1.3:10000,10.0.1.4:10001"
+portRegistration: "9091"
+verbosity: "debug"
+traceOutputFolder: "data"
+placementPolicy: "random"
+persistence: true
+reconstruct: true
+
+removeWorkerNode: false
+removeDataplane: false
+
+precreateSnapshots: false
+
+profiler:
+  enable: false
+  mutex: false
+
+redis:
+  address: "10.0.1.1:6379"
+  password: ""
+  db: 0
+  fullPersistence: false
