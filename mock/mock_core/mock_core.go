@@ -224,6 +224,20 @@ func (m *MockWorkerNodeInterface) EXPECT() *MockWorkerNodeInterfaceMockRecorder 
 	return m.recorder
 }
 
+// ConnectToWorker mocks base method.
+func (m *MockWorkerNodeInterface) ConnectToWorker() proto.WorkerNodeInterfaceClient {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ConnectToWorker")
+	ret0, _ := ret[0].(proto.WorkerNodeInterfaceClient)
+	return ret0
+}
+
+// ConnectToWorker indicates an expected call of ConnectToWorker.
+func (mr *MockWorkerNodeInterfaceMockRecorder) ConnectToWorker() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ConnectToWorker", reflect.TypeOf((*MockWorkerNodeInterface)(nil).ConnectToWorker))
+}
+
 // CreateSandbox mocks base method.
 func (m *MockWorkerNodeInterface) CreateSandbox(arg0 context.Context, arg1 *proto.ServiceInfo, arg2 ...grpc.CallOption) (*proto.SandboxCreationStatus, error) {
 	m.ctrl.T.Helper()
@@ -262,20 +276,6 @@ func (mr *MockWorkerNodeInterfaceMockRecorder) DeleteSandbox(arg0, arg1 any, arg
 	mr.mock.ctrl.T.Helper()
 	varargs := append([]any{arg0, arg1}, arg2...)
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteSandbox", reflect.TypeOf((*MockWorkerNodeInterface)(nil).DeleteSandbox), varargs...)
-}
-
-// GetAPI mocks base method.
-func (m *MockWorkerNodeInterface) ConnectToWorker() proto.WorkerNodeInterfaceClient {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ConnectToWorker")
-	ret0, _ := ret[0].(proto.WorkerNodeInterfaceClient)
-	return ret0
-}
-
-// GetAPI indicates an expected call of GetAPI.
-func (mr *MockWorkerNodeInterfaceMockRecorder) GetAPI() *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ConnectToWorker", reflect.TypeOf((*MockWorkerNodeInterface)(nil).ConnectToWorker))
 }
 
 // GetCpuCores mocks base method.
