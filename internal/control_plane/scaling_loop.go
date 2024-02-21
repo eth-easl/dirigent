@@ -29,7 +29,8 @@ type ServiceInfoStorage struct {
 	PlacementPolicy  placement2.PlacementPolicy
 	PersistenceLayer persistence.PersistenceLayer
 
-	NodeInformation synchronization.SyncStructure[string, core.WorkerNodeInterface]
+	DataPlaneConnections synchronization.SyncStructure[string, core.DataPlaneInterface]
+	NIStorage            synchronization.SyncStructure[string, core.WorkerNodeInterface]
 
 	StartTime time.Time
 }
@@ -44,7 +45,7 @@ func (ss *ServiceInfoStorage) GetAllURLs() []string {
 	return res
 }
 
-func (ss *ServiceInfoStorage) ScalingControllerLoop(nodeList synchronization.SyncStructure[string, core.WorkerNodeInterface], dpiClients synchronization.SyncStructure[string, core.DataPlaneInterface]) {
+func (ss *ServiceInfoStorage) ScalingControllerLoop() {
 	isLoopRunning := true
 	desiredCount := 0
 
@@ -75,7 +76,7 @@ func (ss *ServiceInfoStorage) ScalingControllerLoop(nodeList synchronization.Syn
 			desiredCount = 0
 
 			ss.Controller.EndpointLock.Lock()
-			ss.doDownscaling(actualScale, desiredCount, dpiClients)
+			ss.doDownscaling(actualScale, desiredCount)
 			ss.Controller.EndpointLock.Unlock()
 			break
 		}
@@ -83,16 +84,16 @@ func (ss *ServiceInfoStorage) ScalingControllerLoop(nodeList synchronization.Syn
 		ss.Controller.EndpointLock.Lock()
 
 		if actualScale < desiredCount {
-			ss.doUpscaling(desiredCount-actualScale, nodeList, dpiClients, loopStarted)
+			ss.doUpscaling(desiredCount-actualScale, loopStarted)
 		} else if !ss.isDownScalingDisabled() && actualScale > desiredCount {
-			ss.doDownscaling(actualScale, desiredCount, dpiClients)
+			ss.doDownscaling(actualScale, desiredCount)
 		}
 
 		ss.Controller.EndpointLock.Unlock() // for all cases (>, ==, <)
 	}
 }
 
-func (ss *ServiceInfoStorage) doUpscaling(toCreateCount int, nodeList synchronization.SyncStructure[string, core.WorkerNodeInterface], dpiClients synchronization.SyncStructure[string, core.DataPlaneInterface], loopStarted time.Time) {
+func (ss *ServiceInfoStorage) doUpscaling(toCreateCount int, loopStarted time.Time) {
 	wg := sync.WaitGroup{}
 
 	logrus.Debug("Need to create: ", toCreateCount, " sandboxes")
@@ -104,7 +105,7 @@ func (ss *ServiceInfoStorage) doUpscaling(toCreateCount int, nodeList synchroniz
 			defer wg.Done()
 
 			requested := placement2.CreateResourceMap(ss.ServiceInfo.GetRequestedCpu(), ss.ServiceInfo.GetRequestedMemory())
-			node := placement2.ApplyPlacementPolicy(ss.PlacementPolicy, nodeList, requested)
+			node := placement2.ApplyPlacementPolicy(ss.PlacementPolicy, ss.NIStorage, requested)
 			if node == nil {
 				logrus.Warn("Failed to do placement. No nodes are schedulable.")
 
@@ -147,12 +148,12 @@ func (ss *ServiceInfoStorage) doUpscaling(toCreateCount int, nodeList synchroniz
 			}
 
 			// Update worker node structure
-			ss.NodeInformation.AtomicGetNoCheck(node.GetName()).GetEndpointMap().AtomicSet(newEndpoint, ss.ServiceInfo.Name)
+			ss.NIStorage.AtomicGetNoCheck(node.GetName()).GetEndpointMap().AtomicSet(newEndpoint, ss.ServiceInfo.Name)
 
 			ss.Controller.Endpoints = append(ss.Controller.Endpoints, newEndpoint)
 			urls := ss.prepareEndpointInfo([]*core.Endpoint{newEndpoint}) // prepare delta for sending
 
-			ss.updateEndpoints(dpiClients, urls)
+			ss.updateEndpoints(urls)
 			logrus.Debugf("Endpoint has been propagated - %s", resp.ID)
 
 			newEndpoint.CreationHistory.LatencyBreakdown.DataplanePropagation = durationpb.New(time.Since(startEndpointPropagation))
@@ -170,17 +171,17 @@ func (ss *ServiceInfoStorage) removeEndpointFromWNStruct(e *core.Endpoint) {
 	}
 
 	// Update worker node structure
-	ss.NodeInformation.GetNoCheck(e.Node.GetName()).GetEndpointMap().Lock()
-	defer ss.NodeInformation.GetNoCheck(e.Node.GetName()).GetEndpointMap().Unlock()
+	ss.NIStorage.GetNoCheck(e.Node.GetName()).GetEndpointMap().Lock()
+	defer ss.NIStorage.GetNoCheck(e.Node.GetName()).GetEndpointMap().Unlock()
 
 	if e.Node.GetEndpointMap() == nil {
 		return
 	}
 
-	ss.NodeInformation.GetNoCheck(e.Node.GetName()).GetEndpointMap().Remove(e)
+	ss.NIStorage.GetNoCheck(e.Node.GetName()).GetEndpointMap().Remove(e)
 }
 
-func (ss *ServiceInfoStorage) doDownscaling(actualScale, desiredCount int, dpiClients synchronization.SyncStructure[string, core.DataPlaneInterface]) {
+func (ss *ServiceInfoStorage) doDownscaling(actualScale, desiredCount int) {
 	currentState := ss.Controller.Endpoints
 	toEvict := make(map[*core.Endpoint]struct{})
 
@@ -208,7 +209,7 @@ func (ss *ServiceInfoStorage) doDownscaling(actualScale, desiredCount int, dpiCl
 		///////////////////////////////////////////////////////////////////////////
 		// Firstly, drain the sandboxes and remove them from the data plane(s)
 		///////////////////////////////////////////////////////////////////////////
-		ss.drainSandbox(dpiClients, toEvict)
+		ss.drainSandbox(toEvict)
 
 		///////////////////////////////////////////////////////////////////////////
 		// Secondly, kill sandboxes on the worker node(s)
@@ -235,19 +236,19 @@ func (ss *ServiceInfoStorage) doDownscaling(actualScale, desiredCount int, dpiCl
 	}()
 }
 
-func (ss *ServiceInfoStorage) drainSandbox(dataPlanes synchronization.SyncStructure[string, core.DataPlaneInterface], toEvict map[*core.Endpoint]struct{}) {
+func (ss *ServiceInfoStorage) drainSandbox(toEvict map[*core.Endpoint]struct{}) {
 	////////////////////////////////////////////////////////
 	var toDrain []*core.Endpoint
 	for elem := range toEvict {
 		toDrain = append(toDrain, elem)
 	}
 	////////////////////////////////////////////////////////
-	dataPlanes.Lock()
+	ss.DataPlaneConnections.Lock()
 
 	wg := sync.WaitGroup{}
-	wg.Add(len(dataPlanes.GetMap()))
+	wg.Add(len(ss.DataPlaneConnections.GetMap()))
 
-	for _, dp := range dataPlanes.GetMap() {
+	for _, dp := range ss.DataPlaneConnections.GetMap() {
 		go func(dataPlane core.DataPlaneInterface) {
 			defer wg.Done()
 
@@ -264,7 +265,7 @@ func (ss *ServiceInfoStorage) drainSandbox(dataPlanes synchronization.SyncStruct
 		}(dp)
 	}
 
-	dataPlanes.Unlock()
+	ss.DataPlaneConnections.Unlock()
 	wg.Wait()
 }
 
@@ -286,13 +287,13 @@ func deleteSandbox(key *core.Endpoint) {
 	}
 }
 
-func (ss *ServiceInfoStorage) updateEndpoints(dpiClients synchronization.SyncStructure[string, core.DataPlaneInterface], endpoints []*proto.EndpointInfo) {
+func (ss *ServiceInfoStorage) updateEndpoints(endpoints []*proto.EndpointInfo) {
 	wg := &sync.WaitGroup{}
-	wg.Add(dpiClients.Len())
+	wg.Add(ss.DataPlaneConnections.Len())
 
-	dpiClients.Lock()
+	ss.DataPlaneConnections.Lock()
 
-	for _, dp := range dpiClients.GetMap() {
+	for _, dp := range ss.DataPlaneConnections.GetMap() {
 		go func(dataPlane core.DataPlaneInterface) {
 			defer wg.Done()
 
@@ -309,7 +310,7 @@ func (ss *ServiceInfoStorage) updateEndpoints(dpiClients synchronization.SyncStr
 		}(dp)
 	}
 
-	dpiClients.Unlock()
+	ss.DataPlaneConnections.Unlock()
 	wg.Wait()
 }
 

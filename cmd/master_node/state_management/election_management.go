@@ -22,8 +22,8 @@ type CurrentState struct {
 
 func NewElectionState(cfg config.ControlPlaneConfig, cpiApiServer *api.CpApiServer, cpApiCreationArgs *api.CpApiServerCreationArguments) *CurrentState {
 	return &CurrentState{
-		stopNodeMonitoring:     make(chan struct{}),
-		stopRegistrationServer: make(chan struct{}),
+		stopNodeMonitoring:     nil,
+		stopRegistrationServer: nil,
 		wasLeaderBefore:        false,
 
 		cpApiServer:       cpiApiServer,
@@ -34,6 +34,7 @@ func NewElectionState(cfg config.ControlPlaneConfig, cpiApiServer *api.CpApiServ
 
 func (electionState *CurrentState) UpdateLeadership(leadership leader_election.AnnounceLeadership) {
 	if leadership.IsLeader && !electionState.wasLeaderBefore {
+
 		electionState.destroyStateFromPreviousElectionTerm()
 		electionState.stopNodeMonitoring, electionState.stopRegistrationServer = nil, nil
 

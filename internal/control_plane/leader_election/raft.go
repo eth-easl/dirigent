@@ -93,7 +93,7 @@ func (cm *ConsensusModule) Stop() {
 	defer cm.mu.Unlock()
 
 	cm.state = Dead
-	logrus.Debug("becomes Dead")
+	logrus.Debug("Becomes Dead")
 }
 
 func (cm *ConsensusModule) IsLeader() bool {

@@ -4,7 +4,6 @@ import (
 	"cluster_manager/api/proto"
 	"cluster_manager/internal/control_plane/core"
 	config2 "cluster_manager/pkg/config"
-	synchronization "cluster_manager/pkg/synchronization"
 	"cluster_manager/pkg/utils"
 	"context"
 	"errors"
@@ -47,7 +46,7 @@ func (c *ControlPlane) ReconstructState(ctx context.Context, config config2.Cont
 	}
 	{
 		start := time.Now()
-		if err := c.reconstructEndpointsState(ctx, c.DataPlaneConnections); err != nil {
+		if err := c.reconstructEndpointsState(ctx); err != nil {
 			return err
 		}
 		duration := time.Since(start)
@@ -123,12 +122,12 @@ func (c *ControlPlane) reconstructServiceState(ctx context.Context) error {
 }
 
 // Single threaded function - reconstruction happens before starting the control plane
-func (c *ControlPlane) reconstructEndpointsState(ctx context.Context, dpiClients synchronization.SyncStructure[string, core.DataPlaneInterface]) error {
+func (c *ControlPlane) reconstructEndpointsState(ctx context.Context) error {
 	endpoints := make([]*proto.Endpoint, 0)
 	wg := sync.WaitGroup{}
 
-	dpiClients.Lock()
-	for _, dp := range dpiClients.GetMap() {
+	c.DataPlaneConnections.Lock()
+	for _, dp := range c.DataPlaneConnections.GetMap() {
 		wg.Add(1)
 
 		go func(dataPlane core.DataPlaneInterface) {
@@ -146,7 +145,7 @@ func (c *ControlPlane) reconstructEndpointsState(ctx context.Context, dpiClients
 			}
 		}(dp)
 	}
-	dpiClients.Unlock()
+	c.DataPlaneConnections.Unlock()
 	wg.Wait()
 	logrus.Debugf("Removed all endpoints from all data planes.")
 
@@ -185,14 +184,14 @@ func (c *ControlPlane) reconstructEndpointsState(ctx context.Context, dpiClients
 			return errors.New("element not found in map")
 		}
 
-		ss.NodeInformation.AtomicGetNoCheck(node.GetName()).GetEndpointMap().AtomicSet(controlPlaneEndpoint, ss.ServiceInfo.Name)
+		ss.NIStorage.AtomicGetNoCheck(node.GetName()).GetEndpointMap().AtomicSet(controlPlaneEndpoint, ss.ServiceInfo.Name)
 
 		ss.Controller.EndpointLock.Lock()
 		ss.Controller.Endpoints = append(ss.Controller.Endpoints, controlPlaneEndpoint)
 		urls := ss.prepareEndpointInfo(ss.Controller.Endpoints)
 		ss.Controller.EndpointLock.Unlock()
 
-		ss.updateEndpoints(dpiClients, urls)
+		ss.updateEndpoints(urls)
 
 		// do not allow downscaling until the system stabilizes
 		ss.Controller.ScalingMetadata.InPanicMode = true
