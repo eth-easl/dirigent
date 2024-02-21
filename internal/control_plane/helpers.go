@@ -4,7 +4,10 @@ import (
 	"cluster_manager/api/proto"
 	"cluster_manager/internal/control_plane/autoscaling"
 	"cluster_manager/internal/control_plane/core"
+	"cluster_manager/internal/control_plane/placement_policy"
+	"cluster_manager/pkg/config"
 	"context"
+	"github.com/sirupsen/logrus"
 	"sync/atomic"
 	"time"
 )
@@ -101,4 +104,20 @@ func (c *ControlPlane) GetNumberDataplanes() int {
 
 func (c *ControlPlane) GetNumberServices() int {
 	return c.SIStorage.Len()
+}
+
+// Parse placement policy
+
+func ParsePlacementPolicy(controlPlaneConfig config.ControlPlaneConfig) placement_policy.PlacementPolicy {
+	switch controlPlaneConfig.PlacementPolicy {
+	case "random":
+		return placement_policy.NewRandomPlacement()
+	case "round-robin":
+		return placement_policy.NewRoundRobinPlacement()
+	case "kubernetes":
+		return placement_policy.NewKubernetesPolicy()
+	default:
+		logrus.Error("Failed to parse placement, default policy is random")
+		return placement_policy.NewRandomPlacement()
+	}
 }

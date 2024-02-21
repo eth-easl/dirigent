@@ -9,7 +9,6 @@ require (
 	github.com/cznic/mathutil v0.0.0-20181122101859-297441e03548
 	github.com/fearful-symmetry/garlic v0.3.0
 	github.com/firecracker-microvm/firecracker-go-sdk v1.0.0
-	github.com/fortytw2/leaktest v1.3.0
 	github.com/golang/protobuf v1.5.3
 	github.com/google/uuid v1.6.0
 	github.com/pbnjay/memory v0.0.0-20210728143218-7b4eea64cf58
@@ -21,7 +20,6 @@ require (
 	go.uber.org/mock v0.2.0
 	golang.org/x/net v0.13.0
 	golang.org/x/sys v0.10.0
-	gonum.org/v1/gonum v0.13.0
 	google.golang.org/grpc v1.46.0-dev
 	google.golang.org/protobuf v1.30.0
 	k8s.io/apimachinery v0.28.2
@@ -93,7 +91,6 @@ require (
 	github.com/yusufpapurcu/wmi v1.2.3 // indirect
 	go.mongodb.org/mongo-driver v1.8.3 // indirect
 	go.opencensus.io v0.24.0 // indirect
-	golang.org/x/exp v0.0.0-20230725093048-515e97ebf090 // indirect
 	golang.org/x/mod v0.12.0 // indirect
 	golang.org/x/sync v0.3.0 // indirect
 	golang.org/x/text v0.11.0 // indirect

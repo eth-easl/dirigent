@@ -2,11 +2,11 @@ package main
 
 import (
 	"cluster_manager/api"
+	"cluster_manager/cmd/master_node/state_management"
+	"cluster_manager/internal/control_plane"
 	"cluster_manager/internal/control_plane/data_plane"
 	"cluster_manager/internal/control_plane/data_plane/empty_dataplane"
 	"cluster_manager/internal/control_plane/persistence"
-	"cluster_manager/internal/control_plane/placement_policy"
-	"cluster_manager/internal/control_plane/registration_server"
 	"cluster_manager/internal/control_plane/workers"
 	"cluster_manager/internal/control_plane/workers/empty_worker"
 	"cluster_manager/pkg/config"
@@ -14,12 +14,10 @@ import (
 	"cluster_manager/pkg/profiler"
 	"context"
 	"flag"
+	_ "net/http/pprof"
 	"os/signal"
 	"path"
 	"syscall"
-	"time"
-
-	_ "net/http/pprof"
 
 	"github.com/sirupsen/logrus"
 )
@@ -64,13 +62,10 @@ func main() {
 		logrus.Warn("Firecracker snapshot precreation is enabled. Make sure snapshots are enabled on each worker node.")
 	}
 
-	/////////////////////////////////////////
-	// COMMON FOR EVERY LEADER TERM
-	/////////////////////////////////////////
 	cpApiCreationArgs := &api.CpApiServerCreationArguments{
 		Client:            persistenceLayer,
 		OutputFile:        path.Join(cfg.TraceOutputFolder, "cold_start_trace.csv"),
-		PlacementPolicy:   parsePlacementPolicy(cfg),
+		PlacementPolicy:   control_plane.ParsePlacementPolicy(cfg),
 		DataplaneCreator:  dataplaneCreator,
 		WorkerNodeCreator: workerNodeCreator,
 		Cfg:               &cfg,
@@ -86,83 +81,15 @@ func main() {
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer stop()
 
-	/////////////////////////////////////////
-	// LEADERSHIP SPECIFIC
-	/////////////////////////////////////////
-	var stopNodeMonitoring chan struct{}
-	var stopRegistrationServer chan struct{}
-
-	wasLeaderBefore := false
+	electionState := state_management.NewElectionState(cfg, cpApiServer, cpApiCreationArgs)
 
 	for {
 		select {
 		case leadership := <-isLeader:
-			if leadership.IsLeader && !wasLeaderBefore {
-				destroyStateFromPreviousElectionTerm(cpApiServer, cpApiCreationArgs, stopNodeMonitoring, stopRegistrationServer)
-				stopNodeMonitoring, stopRegistrationServer = nil, nil
-
-				ReconstructControlPlaneState(&cfg, cpApiServer)
-
-				stopNodeMonitoring = cpApiServer.StartNodeMonitoringLoop()
-				_, stopRegistrationServer = registration_server.StartServiceRegistrationServer(cpApiServer, cfg.PortRegistration, leadership.Term)
-
-				wasLeaderBefore = true
-				logrus.Infof("Proceeding as the leader for the term #%d...", leadership.Term)
-			} else {
-				if wasLeaderBefore {
-					destroyStateFromPreviousElectionTerm(cpApiServer, cpApiCreationArgs, stopNodeMonitoring, stopRegistrationServer)
-					stopNodeMonitoring, stopRegistrationServer = nil, nil
-				}
-				wasLeaderBefore = false
-
-				logrus.Infof("Another node was elected as the leader. Proceeding as a follower...")
-			}
+			electionState.UpdateLeadership(leadership)
 		case <-ctx.Done():
 			logrus.Info("Received interruption signal, try to gracefully stop")
 			return
 		}
-	}
-	/////////////////////////////////////////
-	/////////////////////////////////////////
-	/////////////////////////////////////////
-}
-
-func destroyStateFromPreviousElectionTerm(cpApiServer *api.CpApiServer, args *api.CpApiServerCreationArguments,
-	stopNodeMonitoring chan struct{}, stopRegistrationServer chan struct{}) {
-
-	if stopRegistrationServer != nil {
-		stopRegistrationServer <- struct{}{}
-	}
-
-	if stopNodeMonitoring != nil {
-		stopNodeMonitoring <- struct{}{}
-	}
-
-	cpApiServer.CleanControlPlaneInMemoryData(args)
-}
-
-func ReconstructControlPlaneState(cfg *config.ControlPlaneConfig, cpApiServer *api.CpApiServer) {
-	start := time.Now()
-
-	err := cpApiServer.ReconstructState(context.Background(), *cfg)
-	if err != nil {
-		logrus.Errorf("Failed to reconstruct state (error : %s)", err.Error())
-	}
-
-	elapsed := time.Since(start)
-	logrus.Infof("Took %s to reconstruct", elapsed)
-}
-
-func parsePlacementPolicy(controlPlaneConfig config.ControlPlaneConfig) placement_policy.PlacementPolicy {
-	switch controlPlaneConfig.PlacementPolicy {
-	case "random":
-		return placement_policy.NewRandomPlacement()
-	case "round-robin":
-		return placement_policy.NewRoundRobinPlacement()
-	case "kubernetes":
-		return placement_policy.NewKubernetesPolicy()
-	default:
-		logrus.Error("Failed to parse placement, default policy is random")
-		return placement_policy.NewRandomPlacement()
 	}
 }
