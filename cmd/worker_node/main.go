@@ -9,15 +9,12 @@ import (
 	"cluster_manager/pkg/grpc_helpers"
 	"cluster_manager/pkg/logger"
 	"cluster_manager/pkg/network"
-	"context"
+	"cluster_manager/pkg/utils"
 	"flag"
-	"os/exec"
-	"os/signal"
-	"strconv"
-	"syscall"
-
 	"github.com/sirupsen/logrus"
 	"google.golang.org/grpc"
+	"os/exec"
+	"strconv"
 )
 
 var (
@@ -59,19 +56,13 @@ func main() {
 		proto.RegisterWorkerNodeInterfaceServer(sr, api.NewWorkerNodeApi(workerNode))
 	})
 
-	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
-	defer stop()
-
-	select {
-	case <-ctx.Done():
-		logrus.Info("Received interruption signal, try to gracefully stop")
-
+	utils.WaitTerminationSignal(func() {
 		firecracker.DeleteAllSnapshots()
-		err = firecracker.DeleteUnusedNetworkDevices()
+		err := firecracker.DeleteUnusedNetworkDevices()
 		if err != nil {
 			logrus.Warn("Interruption received, but failed to delete leftover network devices.")
 		}
-	}
+	})
 }
 
 func resetIPTables() {

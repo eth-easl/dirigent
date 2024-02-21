@@ -2,7 +2,6 @@ package main
 
 import (
 	"cluster_manager/internal/data_plane"
-	"cluster_manager/internal/data_plane/function_metadata"
 	"cluster_manager/internal/worker_node"
 	"cluster_manager/pkg/config"
 	"cluster_manager/pkg/grpc_helpers"
@@ -45,8 +44,7 @@ func main() {
 		dataplanes := make([]*data_plane.Dataplane, 0)
 
 		for i := 0; i < *nbWorkers; i++ {
-			cache := function_metadata.NewDeploymentList()
-			dataPlane := data_plane.NewDataplane(cfg, cache)
+			dataPlane := data_plane.NewDataplane(cfg)
 			dataplanes = append(dataplanes, dataPlane)
 		}
 

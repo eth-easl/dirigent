@@ -24,10 +24,10 @@ type Dataplane struct {
 	deployments *function_metadata.Deployments
 }
 
-func NewDataplane(config config.DataPlaneConfig, deployements *function_metadata.Deployments) *Dataplane {
+func NewDataplane(config config.DataPlaneConfig) *Dataplane {
 	return &Dataplane{
 		config:      config,
-		deployments: deployements,
+		deployments: function_metadata.NewDeploymentList(),
 	}
 }
 

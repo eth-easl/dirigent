@@ -1,6 +1,7 @@
 package config
 
 import (
+	"cluster_manager/pkg/network"
 	"github.com/sirupsen/logrus"
 	"path/filepath"
 	"strings"
@@ -124,6 +125,10 @@ func ReadDataPlaneConfiguration(configPath string) (DataPlaneConfig, error) {
 	err = viper.Unmarshal(&dataPlaneConfig)
 	if err != nil {
 		return DataPlaneConfig{}, err
+	}
+
+	if dataPlaneConfig.DataPlaneIp == "dynamic" {
+		dataPlaneConfig.DataPlaneIp = network.GetLocalIP()
 	}
 
 	return dataPlaneConfig, nil

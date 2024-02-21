@@ -97,7 +97,7 @@ func (c *ControlPlane) RegisterDataplane(ctx context.Context, in *proto.Dataplan
 }
 
 func (c *ControlPlane) DeregisterDataplane(ctx context.Context, in *proto.DataplaneInfo) (*proto.ActionStatus, error) {
-	logrus.Trace("Received a data plane deregistration")
+	logrus.Info("Received a data plane deregistration")
 
 	dataplaneInfo := proto.DataplaneInformation{
 		Address:   in.IP,

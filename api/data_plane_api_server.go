@@ -16,9 +16,9 @@ type DpApiServer struct {
 	Proxy     *proxy.ProxyingService
 }
 
-func NewDpApiServer(dataplane *data_plane.Dataplane) *DpApiServer {
+func NewDpApiServer(dataPlane *data_plane.Dataplane) *DpApiServer {
 	return &DpApiServer{
-		dataplane: dataplane,
+		dataplane: dataPlane,
 	}
 }
 

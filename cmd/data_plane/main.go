@@ -4,16 +4,11 @@ import (
 	"cluster_manager/api"
 	"cluster_manager/api/proto"
 	"cluster_manager/internal/data_plane"
-	"cluster_manager/internal/data_plane/function_metadata"
 	"cluster_manager/pkg/config"
 	"cluster_manager/pkg/grpc_helpers"
 	"cluster_manager/pkg/logger"
-	"cluster_manager/pkg/network"
-	"context"
+	"cluster_manager/pkg/utils"
 	"flag"
-	"os/signal"
-	"syscall"
-
 	"github.com/sirupsen/logrus"
 	"google.golang.org/grpc"
 )
@@ -34,12 +29,7 @@ func main() {
 
 	logger.SetupLogger(cfg.Verbosity)
 
-	if cfg.DataPlaneIp == "dynamic" {
-		cfg.DataPlaneIp = network.GetLocalIP()
-	}
-
-	cache := function_metadata.NewDeploymentList()
-	dataPlane := data_plane.NewDataplane(cfg, cache)
+	dataPlane := data_plane.NewDataplane(cfg)
 
 	apiServer := api.NewDpApiServer(dataPlane)
 
@@ -56,13 +46,8 @@ func main() {
 	go proxyServer.StartProxyServer()
 
 	go dataPlane.SetupHeartbeatLoop(proxyServer)
-	defer dataPlane.DeregisterControlPlaneConnection()
 
-	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
-	defer stop()
-
-	select {
-	case <-ctx.Done():
-		logrus.Info("Received interruption signal, try to gracefully stop")
-	}
+	utils.WaitTerminationSignal(func() {
+		dataPlane.DeregisterControlPlaneConnection()
+	})
 }

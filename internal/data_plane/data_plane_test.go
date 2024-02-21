@@ -1,7 +1,6 @@
 package data_plane
 
 import (
-	"cluster_manager/internal/data_plane/function_metadata"
 	"cluster_manager/pkg/config"
 	"github.com/stretchr/testify/assert"
 	"go.uber.org/mock/gomock"
@@ -21,6 +20,5 @@ func TestCreationWorkerNode(t *testing.T) {
 		LoadBalancingPolicy: "",
 	}
 
-	cache := function_metadata.NewDeploymentList()
-	assert.NotNil(t, NewDataplane(mockConfig, cache), "Generated dataplane should not be nil")
+	assert.NotNil(t, NewDataplane(mockConfig), "Generated dataplane should not be nil")
 }
