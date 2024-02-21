@@ -56,7 +56,7 @@ func NewControlPlane(client persistence.PersistenceLayer, outputFile string, pla
 // Dataplanes functions
 
 func (c *ControlPlane) RegisterDataplane(ctx context.Context, in *proto.DataplaneInfo) (*proto.ActionStatus, error) {
-	logrus.Tracef("Received a data plane registration with ip : %s", in.IP)
+	logrus.Infof("Received a data plane registration with ip : %s", in.IP)
 
 	dataplaneInfo := proto.DataplaneInformation{
 		Address:   in.IP,
@@ -126,6 +126,8 @@ func (c *ControlPlane) DeregisterDataplane(ctx context.Context, in *proto.Datapl
 // Node functions
 
 func (c *ControlPlane) RegisterNode(ctx context.Context, in *proto.NodeInfo) (*proto.ActionStatus, error) {
+	logrus.Infof("Received a node registration with name : %s", in.NodeID)
+
 	wn := c.workerNodeCreator(core.WorkerNodeConfiguration{
 		Name:     in.NodeID,
 		IP:       in.IP,
@@ -163,6 +165,8 @@ func (c *ControlPlane) RegisterNode(ctx context.Context, in *proto.NodeInfo) (*p
 }
 
 func (c *ControlPlane) DeregisterNode(_ context.Context, in *proto.NodeInfo) (*proto.ActionStatus, error) {
+	logrus.Infof("Received a node deregistration with name : %s", in.NodeID)
+
 	if enter, timestamp := c.NIStorage.RemoveIfPresent(in.NodeID); enter {
 		err := c.PersistenceLayer.DeleteWorkerNodeInformation(context.Background(), in.NodeID, timestamp)
 		if err != nil {
@@ -205,6 +209,8 @@ func (c *ControlPlane) NodeHeartbeat(_ context.Context, in *proto.NodeHeartbeatM
 // Service functions
 
 func (c *ControlPlane) RegisterService(ctx context.Context, serviceInfo *proto.ServiceInfo) (*proto.ActionStatus, error) {
+	logrus.Infof("Received a service registration with name : %s", serviceInfo.Name)
+
 	if enter, timestamp := c.SIStorage.SetIfAbsent(serviceInfo.Name, &ServiceInfoStorage{}); enter {
 		err := c.PersistenceLayer.StoreServiceInformation(ctx, serviceInfo, timestamp)
 		if err != nil {
@@ -233,6 +239,8 @@ func (c *ControlPlane) RegisterService(ctx context.Context, serviceInfo *proto.S
 }
 
 func (c *ControlPlane) DeregisterService(ctx context.Context, serviceInfo *proto.ServiceInfo) (*proto.ActionStatus, error) {
+	logrus.Infof("Received a service deregistration with name : %s", serviceInfo.Name)
+
 	c.SIStorage.Lock()
 	defer c.SIStorage.Unlock()
 
