@@ -33,3 +33,7 @@ func contextTerminationHandler(r *http.Request, coldStartChannel chan common.Col
 		}
 	}
 }
+
+func HealthHandler(writer http.ResponseWriter, _ *http.Request) {
+	writer.WriteHeader(http.StatusOK)
+}

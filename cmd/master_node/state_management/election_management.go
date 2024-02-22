@@ -40,6 +40,7 @@ func (electionState *CurrentState) UpdateLeadership(leadership leader_election.A
 
 		electionState.reconstructControlPlaneState()
 
+		electionState.cpApiServer.ReviseHAProxyServers()
 		electionState.stopNodeMonitoring = electionState.cpApiServer.StartNodeMonitoringLoop()
 		_, electionState.stopRegistrationServer = registration_server.StartServiceRegistrationServer(electionState.cpApiServer, electionState.cfg.PortRegistration, leadership.Term)
 

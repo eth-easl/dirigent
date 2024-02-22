@@ -450,3 +450,10 @@ func (c *ControlPlane) StopAllScalingLoops() {
 		function.Controller.Stop()
 	}
 }
+
+func (c *ControlPlane) ReviseDataplanesInLB(callback func([]string)) {
+	c.DataPlaneConnections.RLock()
+	defer c.DataPlaneConnections.RUnlock()
+
+	callback(c.DataPlaneConnections.GetKeys())
+}

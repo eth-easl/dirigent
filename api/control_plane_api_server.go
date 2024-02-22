@@ -7,6 +7,7 @@ import (
 	"cluster_manager/internal/control_plane/leader_election"
 	"cluster_manager/internal/control_plane/persistence"
 	"cluster_manager/internal/control_plane/placement_policy"
+	"cluster_manager/internal/data_plane/haproxy"
 	config2 "cluster_manager/pkg/config"
 	"cluster_manager/pkg/grpc_helpers"
 	"context"
@@ -22,6 +23,7 @@ type CpApiServer struct {
 
 	LeaderElectionServer *leader_election.LeaderElectionServer
 	ControlPlane         *control_plane.ControlPlane
+	HAProxyAPI           *haproxy.API
 }
 
 type CpApiServerCreationArguments struct {
@@ -54,6 +56,7 @@ func CreateNewCpApiServer(args *CpApiServerCreationArguments) (*CpApiServer, cha
 	cpApiServer := &CpApiServer{
 		LeaderElectionServer: leaderElectionServer,
 		ControlPlane:         cp,
+		HAProxyAPI:           haproxy.NewHAProxyAPI(),
 	}
 
 	go grpc_helpers.CreateGRPCServer(args.Cfg.Port, func(sr grpc.ServiceRegistrar) {
@@ -214,7 +217,12 @@ func (c *CpApiServer) RegisterDataplane(ctx context.Context, in *proto.Dataplane
 		}
 	}
 
-	return c.ControlPlane.RegisterDataplane(ctx, in)
+	status, err := c.ControlPlane.RegisterDataplane(ctx, in)
+	if status.Success && err != nil {
+		c.HAProxyAPI.AddDataplane(in.IP, int(in.ProxyPort))
+	}
+
+	return status, err
 }
 
 func (c *CpApiServer) DeregisterDataplane(ctx context.Context, in *proto.DataplaneInfo) (*proto.ActionStatus, error) {
@@ -229,7 +237,12 @@ func (c *CpApiServer) DeregisterDataplane(ctx context.Context, in *proto.Datapla
 		}
 	}
 
-	return c.ControlPlane.DeregisterDataplane(ctx, in)
+	status, err := c.ControlPlane.DeregisterDataplane(ctx, in)
+	if status.Success && err != nil {
+		c.HAProxyAPI.RemoveDataplane(in.IP, int(in.ProxyPort))
+	}
+
+	return status, err
 }
 
 func (c *CpApiServer) ReconstructState(ctx context.Context, config config2.ControlPlaneConfig) error {
@@ -281,4 +294,8 @@ func (c *CpApiServer) RequestVote(_ context.Context, args *proto.RequestVoteArgs
 func (c *CpApiServer) AppendEntries(_ context.Context, args *proto.AppendEntriesArgs) (*proto.AppendEntriesReply, error) {
 	// Leader election call -> Should not be forwarded to any other node.
 	return c.LeaderElectionServer.AppendEntries(args)
+}
+
+func (c *CpApiServer) ReviseHAProxyServers() {
+	c.ControlPlane.ReviseDataplanesInLB(c.HAProxyAPI.ReviseDataplanes)
 }

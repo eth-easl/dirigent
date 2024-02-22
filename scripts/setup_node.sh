@@ -1,5 +1,7 @@
 #!/bin/bash
 
+readonly DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" > /dev/null 2>&1 && pwd)"
+
 sudo apt-get update
 sudo apt-get install git-lfs htop
 
@@ -45,3 +47,18 @@ sudo cp -a ~/cluster_manager/scripts/systemd/* /etc/systemd/system/
 sudo sysctl -w net.ipv4.conf.all.route_localnet=1
 # For reachability of sandboxes from other cluster nodes
 sudo sysctl -w net.ipv4.ip_forward=1
+
+function SetupLoadBalancer() {
+    sudo apt-get update >> /dev/null
+    sudo apt-get -y install keepalived haproxy >> /dev/null
+
+    bash $DIR/../configs/substitute_interface.sh
+
+    sudo cp $DIR/../configs/check_apiserver.sh /etc/keepalived/check_apiserver.sh
+    sudo cp $DIR/../configs/keepalived.conff /etc/keepalived/keepalived.conf
+    sudo cp $DIR/../configs/haproxy.cfg /etc/haproxy/haproxy.cfg
+    sudo systemctl daemon-reload
+
+    sudo systemctl restart keepalived
+    sudo systemctl restart haproxy
+}

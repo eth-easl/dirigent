@@ -88,12 +88,16 @@ func (ps *AsyncProxyingService) StartProxyServer() {
 	go func() {
 		composedHandler := ps.createAsyncInvocationHandler()
 
+		mux := http.NewServeMux()
+		mux.Handle("/", composedHandler)
+		mux.HandleFunc("/health", HealthHandler)
+
 		proxyRxAddress := net.JoinHostPort(ps.Host, ps.Port)
 		logrus.Info("Creating a proxy server at ", proxyRxAddress)
 
 		requestServer := &http.Server{
 			Addr:    proxyRxAddress,
-			Handler: h2c.NewHandler(composedHandler, &http2.Server{}),
+			Handler: h2c.NewHandler(mux, &http2.Server{}),
 		}
 		if err := requestServer.ListenAndServe(); err != nil {
 			logrus.Fatalf("Failed to create a proxy server : (err : %s)", err.Error())

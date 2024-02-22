@@ -49,17 +49,19 @@ func NewProxyingService(port string, cache *common.Deployments, cp proto.CpiInte
 func (ps *ProxyingService) StartProxyServer() {
 	proxy := net2.NewProxy()
 
-	// function composition <=> [cold start handler -> forwarded shim handler -> proxy]
 	var composedHandler http.Handler = proxy
-	//composedHandler = ForwardedShimHandler(composedHandler)
 	composedHandler = ps.createInvocationHandler(composedHandler)
+
+	mux := http.NewServeMux()
+	mux.Handle("/", composedHandler)
+	mux.HandleFunc("/health", HealthHandler)
 
 	proxyRxAddress := net.JoinHostPort(ps.Host, ps.Port)
 	logrus.Info("Creating a proxy server at ", proxyRxAddress)
 
 	server := &http.Server{
 		Addr:    proxyRxAddress,
-		Handler: h2c.NewHandler(composedHandler, &http2.Server{}),
+		Handler: h2c.NewHandler(mux, &http2.Server{}),
 	}
 
 	err := server.ListenAndServe()

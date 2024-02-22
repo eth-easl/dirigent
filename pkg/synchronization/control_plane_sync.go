@@ -16,6 +16,7 @@ type SyncStructure[K comparable, V any] interface {
 
 	GetMap() map[K]V
 
+	GetKeys() []K        // Not thread safe
 	GetValues() []V      // Not thread safe
 	Set(key K, value V)  // Not thread safe
 	Get(key K) (V, bool) // Not thread safe
@@ -143,6 +144,15 @@ func (s *Structure[K, V]) Len() int {
 	defer s.internalLock.RUnlock()
 
 	return len(s.InternalMap)
+}
+
+func (s *Structure[K, V]) GetKeys() []K {
+	var result []K
+	for k := range s.GetMap() {
+		result = append(result, k)
+	}
+
+	return result
 }
 
 func (s *Structure[K, V]) GetValues() []V {
