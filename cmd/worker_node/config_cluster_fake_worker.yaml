@@ -1,5 +1,5 @@
 workerNodeIp: "dynamic"
-controlPlaneAddress: "127.0.0.1:9090,127.0.0.1:10000,127.0.0.1:10001"
+controlPlaneAddress: "10.0.1.2:9090"
 port: "$DAEMON_PORT"
 verbosity: "trace"
 criType: "scalability_test"
