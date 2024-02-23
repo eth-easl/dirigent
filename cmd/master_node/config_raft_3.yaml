@@ -7,6 +7,8 @@ placementPolicy: "random"
 persistence: true
 reconstruct: true
 
+loadBalancerAddress: ""
+
 removeWorkerNode: false
 removeDataplane: false
 

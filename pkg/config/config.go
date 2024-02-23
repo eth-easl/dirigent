@@ -10,19 +10,20 @@ import (
 )
 
 type ControlPlaneConfig struct {
-	Port               string         `mapstructure:"port"`
-	Replicas           []string       `mapstructure:"replicas"`
-	PortRegistration   string         `mapstructure:"portRegistration"`
-	Verbosity          string         `mapstructure:"verbosity"`
-	TraceOutputFolder  string         `mapstructure:"traceOutputFolder"`
-	PlacementPolicy    string         `mapstructure:"placementPolicy"`
-	Persistence        bool           `mapstructure:"persistence"`
-	Profiler           ProfilerConfig `mapstructure:"profiler"`
-	RedisConf          RedisConf      `mapstructure:"redis"`
-	Reconstruct        bool           `mapstructure:"reconstruct"`
-	RemoveWorkerNode   bool           `mapstructure:"removeWorkerNode"`
-	RemoveDataplane    bool           `mapstructure:"removeDataplane"`
-	PrecreateSnapshots bool           `mapstructure:"precreateSnapshots"`
+	Port                string         `mapstructure:"port"`
+	Replicas            []string       `mapstructure:"replicas"`
+	PortRegistration    string         `mapstructure:"portRegistration"`
+	Verbosity           string         `mapstructure:"verbosity"`
+	TraceOutputFolder   string         `mapstructure:"traceOutputFolder"`
+	PlacementPolicy     string         `mapstructure:"placementPolicy"`
+	Persistence         bool           `mapstructure:"persistence"`
+	Profiler            ProfilerConfig `mapstructure:"profiler"`
+	RedisConf           RedisConf      `mapstructure:"redis"`
+	Reconstruct         bool           `mapstructure:"reconstruct"`
+	LoadBalancerAddress string         `mapstructure:"loadBalancerAddress"`
+	RemoveWorkerNode    bool           `mapstructure:"removeWorkerNode"`
+	RemoveDataplane     bool           `mapstructure:"removeDataplane"`
+	PrecreateSnapshots  bool           `mapstructure:"precreateSnapshots"`
 }
 
 type DataPlaneConfig struct {

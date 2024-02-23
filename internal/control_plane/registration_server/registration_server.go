@@ -124,10 +124,24 @@ func registrationHandler(cpApi *api.CpApiServer) func(w http.ResponseWriter, r *
 			return
 		}
 
-		endpointList := ""
+		_, err = w.Write([]byte(GetLoadBalancerAddress(cpApi)))
+		if err != nil {
+			http.Error(w, "Error writing endpoints.", http.StatusInternalServerError)
+			return
+		}
 
+		logrus.Debugf("Successfully registered function %s.", name)
+	}
+}
+
+func GetLoadBalancerAddress(cpApi *api.CpApiServer) string {
+	if cpApi.HAProxyAPI.GetLoadBalancerAddress() == "" {
+		endpointList := ""
 		cnt := 0
+
 		cpApi.ControlPlane.DataPlaneConnections.RLock()
+		defer cpApi.ControlPlane.DataPlaneConnections.RUnlock()
+
 		for _, conn := range cpApi.ControlPlane.DataPlaneConnections.GetMap() {
 			setDelimiter := cnt != cpApi.ControlPlane.DataPlaneConnections.Len()-1
 			delimiter := ""
@@ -137,18 +151,12 @@ func registrationHandler(cpApi *api.CpApiServer) func(w http.ResponseWriter, r *
 			}
 
 			endpointList += fmt.Sprintf("%s:%s%s", conn.GetIP(), conn.GetProxyPort(), delimiter)
-
 			cnt++
 		}
-		cpApi.ControlPlane.DataPlaneConnections.RUnlock()
 
-		_, err = w.Write([]byte(endpointList))
-		if err != nil {
-			http.Error(w, "Error writing endpoints.", http.StatusInternalServerError)
-			return
-		}
-
-		logrus.Debugf("Successfully registered function %s.", name)
+		return endpointList
+	} else {
+		return cpApi.HAProxyAPI.GetLoadBalancerAddress()
 	}
 }
 

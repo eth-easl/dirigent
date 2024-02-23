@@ -5,7 +5,9 @@ import (
 )
 
 func TestEditBackend(t *testing.T) {
-	api := NewHAProxyAPI()
+	// To run this test make sure HAProxy is installed on the machine and
+	// configs/haproxy.cfg is placed in /etc/haproxy/ folder
+	api := NewHAProxyAPI("dummy")
 
 	api.DeleteAllDataplanes()
 	if k, _ := api.ListDataplanes(); len(k) != 0 {

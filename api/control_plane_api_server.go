@@ -56,7 +56,7 @@ func CreateNewCpApiServer(args *CpApiServerCreationArguments) (*CpApiServer, cha
 	cpApiServer := &CpApiServer{
 		LeaderElectionServer: leaderElectionServer,
 		ControlPlane:         cp,
-		HAProxyAPI:           haproxy.NewHAProxyAPI(),
+		HAProxyAPI:           haproxy.NewHAProxyAPI(args.Cfg.LoadBalancerAddress),
 	}
 
 	go grpc_helpers.CreateGRPCServer(args.Cfg.Port, func(sr grpc.ServiceRegistrar) {
@@ -218,7 +218,7 @@ func (c *CpApiServer) RegisterDataplane(ctx context.Context, in *proto.Dataplane
 	}
 
 	status, err := c.ControlPlane.RegisterDataplane(ctx, in)
-	if status.Success && err != nil {
+	if status.Success && err == nil {
 		c.HAProxyAPI.AddDataplane(in.IP, int(in.ProxyPort))
 	}
 
@@ -238,7 +238,7 @@ func (c *CpApiServer) DeregisterDataplane(ctx context.Context, in *proto.Datapla
 	}
 
 	status, err := c.ControlPlane.DeregisterDataplane(ctx, in)
-	if status.Success && err != nil {
+	if status.Success && err == nil {
 		c.HAProxyAPI.RemoveDataplane(in.IP, int(in.ProxyPort))
 	}
 
@@ -297,5 +297,6 @@ func (c *CpApiServer) AppendEntries(_ context.Context, args *proto.AppendEntries
 }
 
 func (c *CpApiServer) ReviseHAProxyServers() {
+	logrus.Infof("Revising HAProxy backend server list...")
 	c.ControlPlane.ReviseDataplanesInLB(c.HAProxyAPI.ReviseDataplanes)
 }

@@ -17,19 +17,22 @@ const (
 )
 
 type API struct {
-	client *clientnative.HAProxyClient
+	client    *clientnative.HAProxyClient
+	lbAddress string
 
 	// addressTo - e.g., 10.0.1.2:8080 -> dataplane_123
 	addressToName map[string]string
 	mutex         sync.Mutex
 }
 
-func NewHAProxyAPI() *API {
+func NewHAProxyAPI(loadBalancerAddress string) *API {
 	config := getConfigClient()
 	runtime := getRuntimeClient(config)
 
 	api := &API{
-		client:        getHAProxyClient(config, runtime),
+		client:    getHAProxyClient(config, runtime),
+		lbAddress: loadBalancerAddress,
+
 		addressToName: make(map[string]string),
 	}
 
@@ -40,6 +43,10 @@ func NewHAProxyAPI() *API {
 	}
 
 	return api
+}
+
+func (api *API) GetLoadBalancerAddress() string {
+	return api.lbAddress
 }
 
 func (api *API) ListDataplanes() (names []string, addresses []string) {
@@ -84,11 +91,11 @@ func (api *API) addServer(ipAddress string, port int, transaction string, versio
 	defer api.mutex.Unlock()
 
 	if _, ok := api.addressToName[url]; ok {
-		logrus.Errorf("A server with the same network address already exists.")
 		return
 	} else {
 		api.persistServerMetadata(name, ipAddress, port, transaction, version)
 		api.addressToName[url] = name
+		logrus.Infof("Added data plane with address %s:%d to HAProxy backend.", ipAddress, port)
 	}
 }
 
@@ -116,7 +123,6 @@ func (api *API) removeServerByName(ipAddress string, port int, transaction strin
 	defer api.mutex.Unlock()
 
 	if dataplaneName, ok := api.addressToName[url]; !ok {
-		logrus.Errorf("Cannot delete requested server as it does not exist.")
 		return
 	} else {
 		err := api.client.Configuration.DeleteServer(dataplaneName, BackendName, transaction, version)
@@ -125,6 +131,7 @@ func (api *API) removeServerByName(ipAddress string, port int, transaction strin
 		}
 
 		delete(api.addressToName, url)
+		logrus.Infof("Removed data plane with address %s:%d to HAProxy backend.", ipAddress, port)
 	}
 }
 
