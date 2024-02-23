@@ -1,7 +1,7 @@
 package haproxy
 
 import (
-	client_native "github.com/haproxytech/client-native"
+	clientnative "github.com/haproxytech/client-native"
 	"github.com/haproxytech/client-native/configuration"
 	"github.com/haproxytech/client-native/runtime"
 	"github.com/sirupsen/logrus"
@@ -56,8 +56,8 @@ func getRuntimeClient(configClient *configuration.Client) *runtime.Client {
 	return runtimeClient
 }
 
-func getHAProxyClient(configClient *configuration.Client, runtimeClient *runtime.Client) *client_native.HAProxyClient {
-	client := &client_native.HAProxyClient{}
+func getHAProxyClient(configClient *configuration.Client, runtimeClient *runtime.Client) *clientnative.HAProxyClient {
+	client := &clientnative.HAProxyClient{}
 
 	err := client.Init(configClient, runtimeClient)
 	if err != nil {
