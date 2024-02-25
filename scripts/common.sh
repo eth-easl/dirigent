@@ -1,9 +1,5 @@
 #!/bin/bash
 
-readonly CONTROLPLANE=Francois@hp026.utah.cloudlab.us
-readonly DATAPLANE=Francois@hp008.utah.cloudlab.us
-readonly INVITRO=Francois@hp027.utah.cloudlab.us
-
 function RemoteExec() {
     ssh -oStrictHostKeyChecking=no -p 22 "$1" "$2";
 }
@@ -22,7 +18,7 @@ function SetupControlPlane() {
     RemoteExec $1 "sudo mkdir -p /cluster_manager/cmd/master_node"
     RemoteExec $1 "cd ~/cluster_manager/cmd/master_node/; /usr/local/go/bin/go build main.go"
     RemoteExec $1 "sudo cp ~/cluster_manager/cmd/master_node/main /cluster_manager/cmd/master_node/"
-    RemoteExec $1 "sudo cp ~/cluster_manager/cmd/master_node/config_cluster.yaml /cluster_manager/cmd/master_node/"
+    RemoteExec $1 "sudo cp ~/cluster_manager/cmd/master_node/config_cluster$2.yaml /cluster_manager/cmd/master_node/"
 
     # Remove old logs
     RemoteExec $1 "sudo journalctl --vacuum-time=1s && sudo journalctl --vacuum-time=1d"
@@ -39,7 +35,7 @@ function SetupDataPlane() {
     RemoteExec $1 "sudo mkdir -p /cluster_manager/cmd/data_plane"
     RemoteExec $1 "cd ~/cluster_manager/cmd/data_plane/; /usr/local/go/bin/go build main.go"
     RemoteExec $1 "sudo cp ~/cluster_manager/cmd/data_plane/main /cluster_manager/cmd/data_plane/"
-    RemoteExec $1 "sudo cp ~/cluster_manager/cmd/data_plane/config_cluster.yaml /cluster_manager/cmd/data_plane/"
+    RemoteExec $1 "sudo cp ~/cluster_manager/cmd/data_plane/config_cluster$2.yaml /cluster_manager/cmd/data_plane/"
 
     # Remove old logs
     RemoteExec $1 "sudo journalctl --vacuum-time=1s && sudo journalctl --vacuum-time=1d"
@@ -85,13 +81,8 @@ function SetupWorkerNodes() {
 
 function KillSystemdServices() {
     function internal_kill() {
-        RemoteExec $1 "sudo killall firecracker && sudo systemctl stop worker_node"
+        RemoteExec $1 "sudo systemctl stop control_plane data_plane worker_node && sudo killall firecracker"
     }
-
-    RemoteExec $1 "sudo systemctl stop control_plane"
-    shift
-    RemoteExec $1 "sudo systemctl stop data_plane"
-    shift
 
     for NODE in "$@"
     do

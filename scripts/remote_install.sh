@@ -1,7 +1,9 @@
 #!/bin/bash
 
 DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" > /dev/null 2>&1 && pwd)"
+
 source $DIR/common.sh
+source $DIR/setup.cfg
 
 function AddSshKeys() {
     ACCESS_TOKEN="$(cat ~/.git_token_loader)"
@@ -18,16 +20,29 @@ function AddSshKeys() {
 function SetupNode() {
     AddSshKeys $1
     RemoteExec $1 'if [ ! -d ~/cluster_manager ];then git clone git@github.com:eth-easl/cluster_manager.git; fi'
-    RemoteExec $1 'bash ~/cluster_manager/scripts/setup_node.sh'
+    RemoteExec $1 "bash ~/cluster_manager/scripts/setup_node.sh $2"
     # LFS pull for VM kernel image and rootfs
     RemoteExec $1 'cd ~/cluster_manager; git pull; git lfs pull'
     RemoteExec $1 'sudo cp -r ~/cluster_manager/ /cluster_manager'
     RemoteExec $1 'git clone https://github.com/vhive-serverless/invitro'
 }
 
+NODE_COUNTER=0
+
 for NODE in "$@"
 do
-    SetupNode $NODE &
+    if [ "$NODE_COUNTER" -eq 0 ]; then
+        HA_SETTING="REDIS"
+    elif [ "$NODE_COUNTER" -le $CONTROL_PLANE_REPLICAS ]; then
+        HA_SETTING="CONTROL_PLANE"
+    elif [ "$NODE_COUNTER" -le $(( $CONTROL_PLANE_REPLICAS + $DATA_PLANE_REPLICAS )) ]; then
+        HA_SETTING="DATA_PLANE"
+    else
+        HA_SETTING="WORKER_NODE"
+    fi
+
+    SetupNode $NODE $HA_SETTING &
+    let NODE_COUNTER++
 done
 
 wait

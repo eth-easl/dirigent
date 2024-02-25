@@ -1,22 +1,40 @@
 #!/bin/bash
 
 readonly DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" > /dev/null 2>&1 && pwd)"
-source $DIR/common.sh
 
+source $DIR/common.sh
+source $DIR/setup.cfg
+
+# REDIS
 readonly REDIS_NODE=$1
 shift
-
 SetupRedis $REDIS_NODE
 
-# Extracting control plane and data plane nodes and worker nodes
-readonly CONTROL_PLANE=$1
-shift
-readonly DATA_PLANE=$1
-shift
+# Kill all Dirigent processes
+KillSystemdServices $@
 
-KillSystemdServices $CONTROL_PLANE $DATA_PLANE $@
+# Starting control plane(s)
+for (( c=1; c<=$CONTROL_PLANE_REPLICAS; c++ ))
+do
+    if [ "$CONTROL_PLANE_REPLICAS" -eq 1 ]; then
+        SetupControlPlane $1
+    else
+        SetupControlPlane $1 "_${c}"
+    fi
 
-# Starting processes
-SetupControlPlane $CONTROL_PLANE
-SetupDataPlane $DATA_PLANE
-SetupWorkerNodes $CONTROL_PLANE $DATA_PLANE $@
+    shift
+done
+
+# Starting control plane(s)
+for (( c=1; c<=$DATA_PLANE_REPLICAS; c++ ))
+do
+    if [ "$DATA_PLANE_REPLICAS" -eq 1 ]; then
+        SetupDataPlane $1
+    else
+        SetupDataPlane $1 "_${c}"
+    fi
+
+    shift
+done
+
+SetupWorkerNodes $@
