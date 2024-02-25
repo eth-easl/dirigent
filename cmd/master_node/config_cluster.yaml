@@ -7,6 +7,7 @@ placementPolicy: "random"
 persistence: false
 reconstruct: false
 
+# to use HAProxy load balancer put 10.0.1.254:8079, otherwise leave blank
 loadBalancerAddress: ""
 
 removeWorkerNode: false
