@@ -19,7 +19,7 @@ do
     if [ "$CONTROL_PLANE_REPLICAS" -eq 1 ]; then
         SetupControlPlane $1
     else
-        SetupControlPlane $1 "_${c}"
+        SetupControlPlane $1 "_raft_${c}"
     fi
 
     shift
@@ -28,13 +28,18 @@ done
 # Starting control plane(s)
 for (( c=1; c<=$DATA_PLANE_REPLICAS; c++ ))
 do
+    CP_PREFIX=""
+    if [ "$CONTROL_PLANE_REPLICAS" -ne 1 ]; then
+        CP_PREFIX="_raft"
+    fi
+
     if [ "$DATA_PLANE_REPLICAS" -eq 1 ]; then
-        SetupDataPlane $1
+        SetupDataPlane $1 $CP_PREFIX
     else
-        SetupDataPlane $1 "_${c}"
+        SetupDataPlane $1 "${CP_PREFIX}_${c}"
     fi
 
     shift
 done
 
-SetupWorkerNodes $@
+SetupWorkerNodes $CONTROL_PLANE_REPLICAS $@

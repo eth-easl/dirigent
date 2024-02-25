@@ -53,7 +53,8 @@ function SetupWorkerNodes() {
         # Compile worker node daemon
         RemoteExec $1 "sudo mkdir -p /cluster_manager/cmd/worker_node"
         RemoteExec $1 "cd ~/cluster_manager/cmd/worker_node/; /usr/local/go/bin/go build main.go"
-        RemoteExec $1 "sudo cp -r ~/cluster_manager/* /cluster_manager"
+        RemoteExec $1 "sudo cp ~/cluster_manager/cmd/worker_node/main /cluster_manager/cmd/worker_node/"
+        RemoteExec $1 "sudo cp ~/cluster_manager/cmd/worker_node/config_cluster$2.yaml /cluster_manager/cmd/worker_node/"
 
         # For readiness probe
         RemoteExec $1 "sudo sysctl -w net.ipv4.conf.all.route_localnet=1"
@@ -71,9 +72,14 @@ function SetupWorkerNodes() {
         RemoteExec $1 "sudo systemctl daemon-reload && sudo systemctl restart worker_node.service"
     }
 
+    CP_PREFIX=""
+    if [ "$CONTROL_PLANE_REPLICAS" -ne 1 ]; then
+        CP_PREFIX="_raft"
+    fi
+
     for NODE in "$@"
     do
-        internal_setup $NODE &
+        internal_setup $NODE $CP_PREFIX &
     done
 
     wait
