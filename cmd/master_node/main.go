@@ -77,6 +77,7 @@ func main() {
 
 	go cpApiServer.ControlPlane.ColdStartTracing.StartTracingService()
 	defer close(cpApiServer.ControlPlane.ColdStartTracing.InputChannel)
+	defer cpApiServer.HAProxyAPI.StopHAProxy()
 
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer stop()

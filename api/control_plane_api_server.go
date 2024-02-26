@@ -219,7 +219,7 @@ func (c *CpApiServer) RegisterDataplane(ctx context.Context, in *proto.Dataplane
 
 	status, err := c.ControlPlane.RegisterDataplane(ctx, in)
 	if status.Success && err == nil {
-		c.HAProxyAPI.AddDataplane(in.IP, int(in.ProxyPort))
+		c.HAProxyAPI.AddDataplane(in.IP, int(in.ProxyPort), true)
 	}
 
 	return status, err
@@ -239,7 +239,7 @@ func (c *CpApiServer) DeregisterDataplane(ctx context.Context, in *proto.Datapla
 
 	status, err := c.ControlPlane.DeregisterDataplane(ctx, in)
 	if status.Success && err == nil {
-		c.HAProxyAPI.RemoveDataplane(in.IP, int(in.ProxyPort))
+		c.HAProxyAPI.RemoveDataplane(in.IP, int(in.ProxyPort), true)
 	}
 
 	return status, err
@@ -298,5 +298,7 @@ func (c *CpApiServer) AppendEntries(_ context.Context, args *proto.AppendEntries
 
 func (c *CpApiServer) ReviseHAProxyServers() {
 	logrus.Infof("Revising HAProxy backend server list...")
+	c.HAProxyAPI.StartHAProxy()
+
 	c.ControlPlane.ReviseDataplanesInLB(c.HAProxyAPI.ReviseDataplanes)
 }

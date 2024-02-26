@@ -8,6 +8,7 @@ import (
 	"github.com/haproxytech/models"
 	"github.com/sirupsen/logrus"
 	"math/rand"
+	"os/exec"
 	"sync"
 )
 
@@ -45,6 +46,28 @@ func NewHAProxyAPI(loadBalancerAddress string) *API {
 	return api
 }
 
+func (api *API) StartHAProxy() {
+	err := exec.Command("sudo", "systemctl", "start", "haproxy").Run()
+	if err != nil {
+		logrus.Errorf("Error starting HAProxy - %v", err.Error())
+	}
+}
+
+func (api *API) StopHAProxy() {
+	err := exec.Command("sudo", "systemctl", "stop", "haproxy").Run()
+	if err != nil {
+		logrus.Errorf("Error stopping HAProxy - %v", err.Error())
+	}
+}
+
+// restartHAProxy Should be called to commit every action to the running instance of HAProxy
+func (api *API) restartHAProxy() {
+	err := exec.Command("sudo", "systemctl", "restart", "haproxy").Run()
+	if err != nil {
+		logrus.Errorf("Error restarting HAProxy - %v", err.Error())
+	}
+}
+
 func (api *API) GetLoadBalancerAddress() string {
 	return api.lbAddress
 }
@@ -63,7 +86,7 @@ func (api *API) ListDataplanes() (names []string, addresses []string) {
 	return names, addresses
 }
 
-func (api *API) AddDataplane(ipAddress string, port int) {
+func (api *API) AddDataplane(ipAddress string, port int, restart bool) {
 	version, err := api.client.Configuration.GetVersion("")
 	if err != nil {
 		logrus.Errorf("Failed to add server to HAProxy backend. Error getting configuration version - %v", err)
@@ -71,9 +94,13 @@ func (api *API) AddDataplane(ipAddress string, port int) {
 	}
 
 	api.addServer(ipAddress, port, "", version)
+
+	if restart {
+		api.restartHAProxy()
+	}
 }
 
-func (api *API) RemoveDataplane(ipAddress string, port int) {
+func (api *API) RemoveDataplane(ipAddress string, port int, restart bool) {
 	version, err := api.client.Configuration.GetVersion("")
 	if err != nil {
 		logrus.Errorf("Failed to add server to HAProxy backend. Error getting configuration version - %v", err)
@@ -81,6 +108,10 @@ func (api *API) RemoveDataplane(ipAddress string, port int) {
 	}
 
 	api.removeServerByName(ipAddress, port, "", version)
+
+	if restart {
+		api.restartHAProxy()
+	}
 }
 
 func (api *API) addServer(ipAddress string, port int, transaction string, version int64) {
@@ -186,6 +217,8 @@ func (api *API) ReviseDataplanes(addressesToKeep []string) {
 		logrus.Errorf("Failed to revise data planes. Error while commiting transaction - %v", err)
 		return
 	}
+
+	api.restartHAProxy()
 }
 
 func (api *API) DeleteAllDataplanes() {
@@ -195,6 +228,8 @@ func (api *API) DeleteAllDataplanes() {
 	}
 
 	for _, s := range servers {
-		api.RemoveDataplane(s.Address, int(*s.Port))
+		api.RemoveDataplane(s.Address, int(*s.Port), false)
 	}
+
+	api.restartHAProxy()
 }

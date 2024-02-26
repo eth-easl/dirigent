@@ -34,7 +34,6 @@ func NewElectionState(cfg config.ControlPlaneConfig, cpiApiServer *api.CpApiServ
 
 func (electionState *CurrentState) UpdateLeadership(leadership leader_election.AnnounceLeadership) {
 	if leadership.IsLeader && !electionState.wasLeaderBefore {
-
 		electionState.destroyStateFromPreviousElectionTerm()
 		electionState.stopNodeMonitoring, electionState.stopRegistrationServer = nil, nil
 
@@ -58,6 +57,7 @@ func (electionState *CurrentState) UpdateLeadership(leadership leader_election.A
 }
 
 func (electionState *CurrentState) destroyStateFromPreviousElectionTerm() {
+	electionState.cpApiServer.HAProxyAPI.StopHAProxy()
 
 	if electionState.stopRegistrationServer != nil {
 		electionState.stopRegistrationServer <- struct{}{}
