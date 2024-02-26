@@ -73,9 +73,10 @@ function SetupWorkerNodes() {
     }
 
     CP_PREFIX=""
-    if [ "$CONTROL_PLANE_REPLICAS" -ne 1 ]; then
+    if [ "$1" -ne 1 ]; then
         CP_PREFIX="_raft"
     fi
+    shift
 
     for NODE in "$@"
     do

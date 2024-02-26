@@ -99,15 +99,20 @@ func (api *API) addServer(ipAddress string, port int, transaction string, versio
 	}
 }
 
-func (api *API) persistServerMetadata(name string, ipAddress string, port int, transaction string, version int64) {
+func Int64Ptr(val int) *int64 {
 	var p = new(int64)
-	*p = int64(port)
+	*p = int64(val)
 
+	return p
+}
+
+func (api *API) persistServerMetadata(name string, ipAddress string, port int, transaction string, version int64) {
 	newServer := &models.Server{
 		Name:    name,
 		Address: ipAddress,
-		Port:    p,
+		Port:    Int64Ptr(port),
 		Check:   models.ServerCheckEnabled,
+		Inter:   Int64Ptr(1000), // ms; default fall: 3, default rise: 2
 	}
 
 	err := api.client.Configuration.CreateServer(BackendName, newServer, transaction, version)
