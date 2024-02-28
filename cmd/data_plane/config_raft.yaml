@@ -12,6 +12,7 @@ numberRetries: 3
 
 redis:
   address: "127.0.0.1:6379"
+  replicas: ""
   password: ""
   db: 0
   fullPersistence: false

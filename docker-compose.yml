@@ -3,3 +3,32 @@ services:
     image: redis
     ports:
       - "6379:6379"
+
+  redis_1:
+    image: redis:latest
+    hostname: redis_1
+    volumes:
+      - redis_1:/data
+    ports:
+      - '6380:6379'
+
+  redis_2:
+    image: redis:latest
+    hostname: redis_2
+    volumes:
+      - redis_2:/data
+    ports:
+      - '6381:6379'
+
+  redis_3:
+    image: redis:latest
+    hostname: redis_3
+    volumes:
+      - redis_3:/data
+    ports:
+      - '6382:6379'
+
+volumes:
+  redis_1:
+  redis_2:
+  redis_3:

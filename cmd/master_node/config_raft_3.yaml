@@ -17,7 +17,9 @@ profiler:
   mutex: false
 
 redis:
-  address: "127.0.0.1:6379"
+  address: "127.0.0.1:6382"
+  dockerAddress: "redis_3:6379"
+  replicas: "127.0.0.1:6380,127.0.0.1:6381"
   password: ""
   db: 0
   fullPersistence: false

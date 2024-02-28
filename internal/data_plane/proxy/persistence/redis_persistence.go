@@ -21,7 +21,7 @@ type requestRedisClient struct {
 }
 
 func CreateRequestRedisClient(ctx context.Context, redisLogin config.RedisConf) (RequestPersistence, error) {
-	redisClient, err := redis_helpers.CreateRedisConnector(ctx, redisLogin)
+	redisClient, _, err := redis_helpers.CreateRedisConnector(ctx, redisLogin)
 
 	return &requestRedisClient{RedisClient: redisClient}, err
 }

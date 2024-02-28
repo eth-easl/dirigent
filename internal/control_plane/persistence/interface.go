@@ -16,4 +16,5 @@ type PersistenceLayer interface {
 	StoreServiceInformation(ctx context.Context, serviceInfo *proto.ServiceInfo, timestamp time.Time) error
 	DeleteServiceInformation(ctx context.Context, serviceInfo *proto.ServiceInfo, timestamp time.Time) error
 	GetServiceInformation(ctx context.Context) ([]*proto.ServiceInfo, error)
+	SetLeader(ctx context.Context) error
 }

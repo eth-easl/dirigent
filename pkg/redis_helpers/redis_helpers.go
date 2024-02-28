@@ -8,7 +8,7 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-func CreateRedisConnector(ctx context.Context, redisLogin config.RedisConf) (*redis.Client, error) {
+func CreateRedisConnector(ctx context.Context, redisLogin config.RedisConf) (*redis.Client, []*redis.Client, error) {
 	redisClient := redis.NewClient(&redis.Options{
 		Addr:     redisLogin.Address,
 		Password: redisLogin.Password,
@@ -18,23 +18,32 @@ func CreateRedisConnector(ctx context.Context, redisLogin config.RedisConf) (*re
 	if redisLogin.FullPersistence {
 		logrus.Warn("Modifications")
 		if err := redisClient.ConfigSet(ctx, "appendonly", "yes").Err(); err != nil {
-			return nil, err
+			return nil, nil, err
 		}
 
 		if err := redisClient.ConfigSet(ctx, "appendfsync", "always").Err(); err != nil {
-			return nil, err
+			return nil, nil, err
 		}
 	} else {
 		if err := redisClient.ConfigSet(ctx, "appendonly", "no").Err(); err != nil {
-			return nil, err
+			return nil, nil, err
 		}
 
 		if err := redisClient.ConfigSet(ctx, "appendfsync", "everysec").Err(); err != nil {
-			return nil, err
+			return nil, nil, err
 		}
 	}
 
-	return redisClient, redisClient.Ping(ctx).Err()
+	otherClients := make([]*redis.Client, 0)
+	for _, addressReplica := range redisLogin.Replicas {
+		otherClients = append(otherClients, redis.NewClient(&redis.Options{
+			Addr:     addressReplica,
+			Password: redisLogin.Password,
+			DB:       redisLogin.Db,
+		}))
+	}
+
+	return redisClient, otherClients, redisClient.Ping(ctx).Err()
 }
 
 func ScanKeys(ctx context.Context, client *redis.Client, prefix string) ([]string, error) {

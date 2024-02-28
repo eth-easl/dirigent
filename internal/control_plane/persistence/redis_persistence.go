@@ -9,6 +9,7 @@ import (
 	proto2 "github.com/golang/protobuf/proto"
 	"github.com/redis/go-redis/v9"
 	"github.com/sirupsen/logrus"
+	"strings"
 	"sync"
 	"time"
 )
@@ -20,7 +21,12 @@ const (
 )
 
 type RedisClient struct {
-	RedisClient        *redis.Client
+	RedisClient  *redis.Client
+	OtherClients []*redis.Client
+
+	Addr string
+	Port string
+
 	dataplaneTimestamp map[string]time.Time
 	dataplaneLock      sync.Mutex
 
@@ -32,10 +38,15 @@ type RedisClient struct {
 }
 
 func CreateRedisClient(ctx context.Context, redisLogin config.RedisConf) (*RedisClient, error) {
-	redisClient, err := redis_helpers.CreateRedisConnector(ctx, redisLogin)
+	redisClient, otherClients, err := redis_helpers.CreateRedisConnector(ctx, redisLogin)
+
+	dividedAddress := strings.Split(redisLogin.DockerAddress, ":")
 
 	return &RedisClient{
 		RedisClient:        redisClient,
+		OtherClients:       otherClients,
+		Addr:               dividedAddress[0],
+		Port:               dividedAddress[1],
 		dataplaneTimestamp: make(map[string]time.Time),
 		dataplaneLock:      sync.Mutex{},
 		workerTimestamp:    make(map[string]time.Time),
@@ -254,4 +265,21 @@ func (driver *RedisClient) GetServiceInformation(ctx context.Context) ([]*proto.
 	logrus.Tracef("Found %d service(s) in the database", len(services))
 
 	return services, nil
+}
+
+func (driver *RedisClient) SetLeader(ctx context.Context) error {
+	if err := driver.RedisClient.SlaveOf(ctx, "no", "one").Err(); err != nil {
+		return err
+	}
+
+	// TODO: Improve this part - make sure at least quorum is okay
+	for _, otherClient := range driver.OtherClients {
+		if err := otherClient.SlaveOf(ctx, driver.Addr, driver.Port).Err(); err != nil {
+			logrus.Errorf("Failed set slave of %s:%s : %s", driver.Addr, driver.Port, err.Error())
+		}
+	}
+
+	logrus.Info("Set local redis instance as the new redis master")
+
+	return nil
 }

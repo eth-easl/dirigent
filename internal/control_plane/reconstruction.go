@@ -53,7 +53,8 @@ func (c *ControlPlane) ReconstructState(ctx context.Context, config config2.Cont
 		logrus.Infof("Endpoints reconstruction took : %s", duration)
 	}
 
-	return nil
+	// TODO: Is it the correct to set the persistence layer as leader?
+	return c.PersistenceLayer.SetLeader(ctx)
 }
 
 // Single threaded function - reconstruction happend before starting the control plane

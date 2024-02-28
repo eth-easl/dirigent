@@ -74,7 +74,7 @@ func (electionState *CurrentState) reconstructControlPlaneState() {
 
 	err := electionState.cpApiServer.ReconstructState(context.Background(), electionState.cfg)
 	if err != nil {
-		logrus.Errorf("Failed to reconstruct state (error : %s)", err.Error())
+		logrus.Fatalf("Failed to reconstruct state (error : %s)", err.Error())
 	}
 
 	elapsed := time.Since(start)
