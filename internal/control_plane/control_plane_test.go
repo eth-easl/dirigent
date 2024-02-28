@@ -39,11 +39,8 @@ var mockConfig = config.ControlPlaneConfig{
 
 // Smoke test
 
-func TestCreationControlPlaneEmpty(t *testing.T) {
+func simplePersistenceLayer(t *testing.T) (*mock_persistence.MockPersistenceLayer, *gomock.Controller) {
 	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
-
-	logrus.SetLevel(logrus.ErrorLevel)
 
 	persistenceLayer := mock_persistence.NewMockPersistenceLayer(ctrl)
 
@@ -58,6 +55,19 @@ func TestCreationControlPlaneEmpty(t *testing.T) {
 	persistenceLayer.EXPECT().GetDataPlaneInformation(gomock.Any()).DoAndReturn(func(_ context.Context) ([]*proto.DataplaneInformation, error) {
 		return make([]*proto.DataplaneInformation, 0), nil
 	}).Times(1)
+
+	persistenceLayer.EXPECT().SetLeader(gomock.Any()).DoAndReturn(func(_ context.Context) error {
+		return nil
+	}).Times(1)
+
+	return persistenceLayer, ctrl
+}
+
+func TestCreationControlPlaneEmpty(t *testing.T) {
+	logrus.SetLevel(logrus.FatalLevel)
+
+	persistenceLayer, ctrl := simplePersistenceLayer(t)
+	defer ctrl.Finish()
 
 	controlPlane := NewControlPlane(persistenceLayer, "", placement_policy.NewRandomPlacement(), data_plane.NewDataplaneConnection, workers.NewWorkerNode, &mockConfig)
 
@@ -73,24 +83,10 @@ func TestCreationControlPlaneEmpty(t *testing.T) {
 // Registration tests
 
 func TestRegisterWorker(t *testing.T) {
-	ctrl := gomock.NewController(t)
+	logrus.SetLevel(logrus.FatalLevel)
+
+	persistenceLayer, ctrl := simplePersistenceLayer(t)
 	defer ctrl.Finish()
-
-	logrus.SetLevel(logrus.ErrorLevel)
-
-	persistenceLayer := mock_persistence.NewMockPersistenceLayer(ctrl)
-
-	persistenceLayer.EXPECT().GetWorkerNodeInformation(gomock.Any()).DoAndReturn(func(_ context.Context) ([]*proto.WorkerNodeInformation, error) {
-		return make([]*proto.WorkerNodeInformation, 0), nil
-	}).Times(1)
-
-	persistenceLayer.EXPECT().GetServiceInformation(gomock.Any()).DoAndReturn(func(_ context.Context) ([]*proto.ServiceInfo, error) {
-		return make([]*proto.ServiceInfo, 0), nil
-	}).Times(1)
-
-	persistenceLayer.EXPECT().GetDataPlaneInformation(gomock.Any()).DoAndReturn(func(_ context.Context) ([]*proto.DataplaneInformation, error) {
-		return make([]*proto.DataplaneInformation, 0), nil
-	}).Times(1)
 
 	nbRegistrations := 100
 
@@ -132,24 +128,10 @@ func TestRegisterWorker(t *testing.T) {
 }
 
 func TestRegisterDataplanes(t *testing.T) {
-	ctrl := gomock.NewController(t)
+	logrus.SetLevel(logrus.FatalLevel)
+
+	persistenceLayer, ctrl := simplePersistenceLayer(t)
 	defer ctrl.Finish()
-
-	logrus.SetLevel(logrus.ErrorLevel)
-
-	persistenceLayer := mock_persistence.NewMockPersistenceLayer(ctrl)
-
-	persistenceLayer.EXPECT().GetWorkerNodeInformation(gomock.Any()).DoAndReturn(func(_ context.Context) ([]*proto.WorkerNodeInformation, error) {
-		return make([]*proto.WorkerNodeInformation, 0), nil
-	}).Times(1)
-
-	persistenceLayer.EXPECT().GetServiceInformation(gomock.Any()).DoAndReturn(func(_ context.Context) ([]*proto.ServiceInfo, error) {
-		return make([]*proto.ServiceInfo, 0), nil
-	}).Times(1)
-
-	persistenceLayer.EXPECT().GetDataPlaneInformation(gomock.Any()).DoAndReturn(func(_ context.Context) ([]*proto.DataplaneInformation, error) {
-		return make([]*proto.DataplaneInformation, 0), nil
-	}).Times(1)
 
 	nbRegistrations := 100
 
@@ -195,24 +177,10 @@ func TestRegisterDataplanes(t *testing.T) {
 }
 
 func TestRegisterServices(t *testing.T) {
-	ctrl := gomock.NewController(t)
+	logrus.SetLevel(logrus.FatalLevel)
+
+	persistenceLayer, ctrl := simplePersistenceLayer(t)
 	defer ctrl.Finish()
-
-	logrus.SetLevel(logrus.ErrorLevel)
-
-	persistenceLayer := mock_persistence.NewMockPersistenceLayer(ctrl)
-
-	persistenceLayer.EXPECT().GetWorkerNodeInformation(gomock.Any()).DoAndReturn(func(_ context.Context) ([]*proto.WorkerNodeInformation, error) {
-		return make([]*proto.WorkerNodeInformation, 0), nil
-	}).Times(1)
-
-	persistenceLayer.EXPECT().GetServiceInformation(gomock.Any()).DoAndReturn(func(_ context.Context) ([]*proto.ServiceInfo, error) {
-		return make([]*proto.ServiceInfo, 0), nil
-	}).Times(1)
-
-	persistenceLayer.EXPECT().GetDataPlaneInformation(gomock.Any()).DoAndReturn(func(_ context.Context) ([]*proto.DataplaneInformation, error) {
-		return make([]*proto.DataplaneInformation, 0), nil
-	}).Times(1)
 
 	nbRegistrations := 100
 
@@ -262,24 +230,10 @@ func TestRegisterServices(t *testing.T) {
 // Deregistration tests
 
 func TestDeregisterWorker(t *testing.T) {
-	ctrl := gomock.NewController(t)
+	logrus.SetLevel(logrus.FatalLevel)
+
+	persistenceLayer, ctrl := simplePersistenceLayer(t)
 	defer ctrl.Finish()
-
-	logrus.SetLevel(logrus.ErrorLevel)
-
-	persistenceLayer := mock_persistence.NewMockPersistenceLayer(ctrl)
-
-	persistenceLayer.EXPECT().GetWorkerNodeInformation(gomock.Any()).DoAndReturn(func(_ context.Context) ([]*proto.WorkerNodeInformation, error) {
-		return make([]*proto.WorkerNodeInformation, 0), nil
-	}).Times(1)
-
-	persistenceLayer.EXPECT().GetServiceInformation(gomock.Any()).DoAndReturn(func(_ context.Context) ([]*proto.ServiceInfo, error) {
-		return make([]*proto.ServiceInfo, 0), nil
-	}).Times(1)
-
-	persistenceLayer.EXPECT().GetDataPlaneInformation(gomock.Any()).DoAndReturn(func(_ context.Context) ([]*proto.DataplaneInformation, error) {
-		return make([]*proto.DataplaneInformation, 0), nil
-	}).Times(1)
 
 	nbRegistrations := 100
 
@@ -347,24 +301,10 @@ func TestDeregisterWorker(t *testing.T) {
 }
 
 func TestDeregisterDataplanes(t *testing.T) {
-	ctrl := gomock.NewController(t)
+	logrus.SetLevel(logrus.FatalLevel)
+
+	persistenceLayer, ctrl := simplePersistenceLayer(t)
 	defer ctrl.Finish()
-
-	logrus.SetLevel(logrus.ErrorLevel)
-
-	persistenceLayer := mock_persistence.NewMockPersistenceLayer(ctrl)
-
-	persistenceLayer.EXPECT().GetWorkerNodeInformation(gomock.Any()).DoAndReturn(func(_ context.Context) ([]*proto.WorkerNodeInformation, error) {
-		return make([]*proto.WorkerNodeInformation, 0), nil
-	}).Times(1)
-
-	persistenceLayer.EXPECT().GetServiceInformation(gomock.Any()).DoAndReturn(func(_ context.Context) ([]*proto.ServiceInfo, error) {
-		return make([]*proto.ServiceInfo, 0), nil
-	}).Times(1)
-
-	persistenceLayer.EXPECT().GetDataPlaneInformation(gomock.Any()).DoAndReturn(func(_ context.Context) ([]*proto.DataplaneInformation, error) {
-		return make([]*proto.DataplaneInformation, 0), nil
-	}).Times(1)
 
 	nbRegistrations := 1
 
@@ -440,24 +380,10 @@ func TestDeregisterDataplanes(t *testing.T) {
 }
 
 func TestDeregisterServices(t *testing.T) {
-	ctrl := gomock.NewController(t)
+	logrus.SetLevel(logrus.FatalLevel)
+
+	persistenceLayer, ctrl := simplePersistenceLayer(t)
 	defer ctrl.Finish()
-
-	logrus.SetLevel(logrus.ErrorLevel)
-
-	persistenceLayer := mock_persistence.NewMockPersistenceLayer(ctrl)
-
-	persistenceLayer.EXPECT().GetWorkerNodeInformation(gomock.Any()).DoAndReturn(func(_ context.Context) ([]*proto.WorkerNodeInformation, error) {
-		return make([]*proto.WorkerNodeInformation, 0), nil
-	}).Times(1)
-
-	persistenceLayer.EXPECT().GetServiceInformation(gomock.Any()).DoAndReturn(func(_ context.Context) ([]*proto.ServiceInfo, error) {
-		return make([]*proto.ServiceInfo, 0), nil
-	}).Times(1)
-
-	persistenceLayer.EXPECT().GetDataPlaneInformation(gomock.Any()).DoAndReturn(func(_ context.Context) ([]*proto.DataplaneInformation, error) {
-		return make([]*proto.DataplaneInformation, 0), nil
-	}).Times(1)
 
 	nbRegistrations := 100
 
@@ -544,7 +470,7 @@ func TestReconstructionService(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	logrus.SetLevel(logrus.ErrorLevel)
+	logrus.SetLevel(logrus.FatalLevel)
 
 	persistenceLayer := mock_persistence.NewMockPersistenceLayer(ctrl)
 
@@ -591,6 +517,10 @@ func TestReconstructionService(t *testing.T) {
 		return make([]*proto.DataplaneInformation, 0), nil
 	}).Times(1)
 
+	persistenceLayer.EXPECT().SetLeader(gomock.Any()).DoAndReturn(func(_ context.Context) error {
+		return nil
+	}).Times(1)
+
 	controlPlane := NewControlPlane(persistenceLayer, "", placement_policy.NewRandomPlacement(), data_plane.NewDataplaneConnection, workers.NewWorkerNode, &mockConfig)
 
 	start := time.Now()
@@ -610,7 +540,7 @@ func TestReconstructionWorkers(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	logrus.SetLevel(logrus.ErrorLevel)
+	logrus.SetLevel(logrus.FatalLevel)
 
 	te := testStructure{ctrl: ctrl}
 
@@ -653,6 +583,11 @@ func TestReconstructionWorkers(t *testing.T) {
 	persistenceLayer.EXPECT().GetDataPlaneInformation(gomock.Any()).DoAndReturn(func(_ context.Context) ([]*proto.DataplaneInformation, error) {
 		return make([]*proto.DataplaneInformation, 0), nil
 	}).Times(1)
+
+	persistenceLayer.EXPECT().SetLeader(gomock.Any()).DoAndReturn(func(_ context.Context) error {
+		return nil
+	}).Times(1)
+
 	controlPlane := NewControlPlane(persistenceLayer, "", placement_policy.NewRandomPlacement(), te.NewMockDataplaneConnection, te.NewMockWorkerConnection, &mockConfig)
 
 	start := time.Now()
@@ -672,7 +607,7 @@ func TestReconstructionDataplanes(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	logrus.SetLevel(logrus.ErrorLevel)
+	logrus.SetLevel(logrus.FatalLevel)
 
 	te := testStructure{ctrl: ctrl}
 
@@ -710,6 +645,10 @@ func TestReconstructionDataplanes(t *testing.T) {
 		return arr, nil
 	}).Times(1)
 
+	persistenceLayer.EXPECT().SetLeader(gomock.Any()).DoAndReturn(func(_ context.Context) error {
+		return nil
+	}).Times(1)
+
 	controlPlane := NewControlPlane(persistenceLayer, "", placement_policy.NewRandomPlacement(), te.NewMockDataplaneConnection, workers.NewWorkerNode, &mockConfig)
 
 	start := time.Now()
@@ -728,24 +667,10 @@ func TestReconstructionDataplanes(t *testing.T) {
 // Concurrency tests
 
 func TestStressRegisterServices(t *testing.T) {
-	ctrl := gomock.NewController(t)
+	logrus.SetLevel(logrus.FatalLevel)
+
+	persistenceLayer, ctrl := simplePersistenceLayer(t)
 	defer ctrl.Finish()
-
-	logrus.SetLevel(logrus.ErrorLevel)
-
-	persistenceLayer := mock_persistence.NewMockPersistenceLayer(ctrl)
-
-	persistenceLayer.EXPECT().GetWorkerNodeInformation(gomock.Any()).DoAndReturn(func(_ context.Context) ([]*proto.WorkerNodeInformation, error) {
-		return make([]*proto.WorkerNodeInformation, 0), nil
-	}).Times(1)
-
-	persistenceLayer.EXPECT().GetServiceInformation(gomock.Any()).DoAndReturn(func(_ context.Context) ([]*proto.ServiceInfo, error) {
-		return []*proto.ServiceInfo{}, nil
-	}).Times(1)
-
-	persistenceLayer.EXPECT().GetDataPlaneInformation(gomock.Any()).DoAndReturn(func(_ context.Context) ([]*proto.DataplaneInformation, error) {
-		return make([]*proto.DataplaneInformation, 0), nil
-	}).Times(1)
 
 	size := 100
 
@@ -790,24 +715,10 @@ func TestStressRegisterServices(t *testing.T) {
 }
 
 func TestStressRegisterNodes(t *testing.T) {
-	ctrl := gomock.NewController(t)
+	logrus.SetLevel(logrus.FatalLevel)
+
+	persistenceLayer, ctrl := simplePersistenceLayer(t)
 	defer ctrl.Finish()
-
-	logrus.SetLevel(logrus.ErrorLevel)
-
-	persistenceLayer := mock_persistence.NewMockPersistenceLayer(ctrl)
-
-	persistenceLayer.EXPECT().GetWorkerNodeInformation(gomock.Any()).DoAndReturn(func(_ context.Context) ([]*proto.WorkerNodeInformation, error) {
-		return make([]*proto.WorkerNodeInformation, 0), nil
-	}).Times(1)
-
-	persistenceLayer.EXPECT().GetServiceInformation(gomock.Any()).DoAndReturn(func(_ context.Context) ([]*proto.ServiceInfo, error) {
-		return []*proto.ServiceInfo{}, nil
-	}).Times(1)
-
-	persistenceLayer.EXPECT().GetDataPlaneInformation(gomock.Any()).DoAndReturn(func(_ context.Context) ([]*proto.DataplaneInformation, error) {
-		return make([]*proto.DataplaneInformation, 0), nil
-	}).Times(1)
 
 	size := 100
 
@@ -853,24 +764,10 @@ func TestStressRegisterNodes(t *testing.T) {
 }
 
 func TestStressRegisterDataplanes(t *testing.T) {
-	ctrl := gomock.NewController(t)
+	logrus.SetLevel(logrus.FatalLevel)
+
+	persistenceLayer, ctrl := simplePersistenceLayer(t)
 	defer ctrl.Finish()
-
-	logrus.SetLevel(logrus.ErrorLevel)
-
-	persistenceLayer := mock_persistence.NewMockPersistenceLayer(ctrl)
-
-	persistenceLayer.EXPECT().GetWorkerNodeInformation(gomock.Any()).DoAndReturn(func(_ context.Context) ([]*proto.WorkerNodeInformation, error) {
-		return make([]*proto.WorkerNodeInformation, 0), nil
-	}).Times(1)
-
-	persistenceLayer.EXPECT().GetServiceInformation(gomock.Any()).DoAndReturn(func(_ context.Context) ([]*proto.ServiceInfo, error) {
-		return []*proto.ServiceInfo{}, nil
-	}).Times(1)
-
-	persistenceLayer.EXPECT().GetDataPlaneInformation(gomock.Any()).DoAndReturn(func(_ context.Context) ([]*proto.DataplaneInformation, error) {
-		return make([]*proto.DataplaneInformation, 0), nil
-	}).Times(1)
 
 	size := 100
 
@@ -914,24 +811,10 @@ func TestStressRegisterDataplanes(t *testing.T) {
 }
 
 func TestStressEverything(t *testing.T) {
-	ctrl := gomock.NewController(t)
+	logrus.SetLevel(logrus.FatalLevel)
+
+	persistenceLayer, ctrl := simplePersistenceLayer(t)
 	defer ctrl.Finish()
-
-	logrus.SetLevel(logrus.ErrorLevel)
-
-	persistenceLayer := mock_persistence.NewMockPersistenceLayer(ctrl)
-
-	persistenceLayer.EXPECT().GetWorkerNodeInformation(gomock.Any()).DoAndReturn(func(_ context.Context) ([]*proto.WorkerNodeInformation, error) {
-		return make([]*proto.WorkerNodeInformation, 0), nil
-	}).Times(1)
-
-	persistenceLayer.EXPECT().GetServiceInformation(gomock.Any()).DoAndReturn(func(_ context.Context) ([]*proto.ServiceInfo, error) {
-		return []*proto.ServiceInfo{}, nil
-	}).Times(1)
-
-	persistenceLayer.EXPECT().GetDataPlaneInformation(gomock.Any()).DoAndReturn(func(_ context.Context) ([]*proto.DataplaneInformation, error) {
-		return make([]*proto.DataplaneInformation, 0), nil
-	}).Times(1)
 
 	size := 100
 
@@ -1010,25 +893,10 @@ func TestStressEverything(t *testing.T) {
 // Advanced concurrency tests
 
 func TestStressRegisterDeregisterServices(t *testing.T) {
-	ctrl := gomock.NewController(t)
+	logrus.SetLevel(logrus.FatalLevel)
+
+	persistenceLayer, ctrl := simplePersistenceLayer(t)
 	defer ctrl.Finish()
-
-	logrus.SetLevel(logrus.ErrorLevel)
-
-	persistenceLayer := mock_persistence.NewMockPersistenceLayer(ctrl)
-
-	persistenceLayer.EXPECT().GetWorkerNodeInformation(gomock.Any()).DoAndReturn(func(_ context.Context) ([]*proto.WorkerNodeInformation, error) {
-		return make([]*proto.WorkerNodeInformation, 0), nil
-	}).Times(1)
-
-	persistenceLayer.EXPECT().GetServiceInformation(gomock.Any()).DoAndReturn(func(_ context.Context) ([]*proto.ServiceInfo, error) {
-		return []*proto.ServiceInfo{}, nil
-	}).Times(1)
-
-	persistenceLayer.EXPECT().GetDataPlaneInformation(gomock.Any()).DoAndReturn(func(_ context.Context) ([]*proto.DataplaneInformation, error) {
-		return make([]*proto.DataplaneInformation, 0), nil
-	}).Times(1)
-
 	size := 100
 
 	persistenceLayer.EXPECT().StoreServiceInformation(gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(func(_ context.Context, _ *proto.ServiceInfo, _ time.Time) error {
@@ -1105,24 +973,10 @@ func TestStressRegisterDeregisterServices(t *testing.T) {
 }
 
 func TestStressRegisterDeregisterNodes(t *testing.T) {
-	ctrl := gomock.NewController(t)
+	logrus.SetLevel(logrus.FatalLevel)
+
+	persistenceLayer, ctrl := simplePersistenceLayer(t)
 	defer ctrl.Finish()
-
-	logrus.SetLevel(logrus.ErrorLevel)
-
-	persistenceLayer := mock_persistence.NewMockPersistenceLayer(ctrl)
-
-	persistenceLayer.EXPECT().GetWorkerNodeInformation(gomock.Any()).DoAndReturn(func(_ context.Context) ([]*proto.WorkerNodeInformation, error) {
-		return make([]*proto.WorkerNodeInformation, 0), nil
-	}).Times(1)
-
-	persistenceLayer.EXPECT().GetServiceInformation(gomock.Any()).DoAndReturn(func(_ context.Context) ([]*proto.ServiceInfo, error) {
-		return []*proto.ServiceInfo{}, nil
-	}).Times(1)
-
-	persistenceLayer.EXPECT().GetDataPlaneInformation(gomock.Any()).DoAndReturn(func(_ context.Context) ([]*proto.DataplaneInformation, error) {
-		return make([]*proto.DataplaneInformation, 0), nil
-	}).Times(1)
 
 	size := 100
 
@@ -1202,24 +1056,10 @@ func TestStressRegisterDeregisterNodes(t *testing.T) {
 }
 
 func TestStressRegisterDeregisterDataplanes(t *testing.T) {
-	ctrl := gomock.NewController(t)
+	logrus.SetLevel(logrus.FatalLevel)
+
+	persistenceLayer, ctrl := simplePersistenceLayer(t)
 	defer ctrl.Finish()
-
-	logrus.SetLevel(logrus.ErrorLevel)
-
-	persistenceLayer := mock_persistence.NewMockPersistenceLayer(ctrl)
-
-	persistenceLayer.EXPECT().GetWorkerNodeInformation(gomock.Any()).DoAndReturn(func(_ context.Context) ([]*proto.WorkerNodeInformation, error) {
-		return make([]*proto.WorkerNodeInformation, 0), nil
-	}).Times(1)
-
-	persistenceLayer.EXPECT().GetServiceInformation(gomock.Any()).DoAndReturn(func(_ context.Context) ([]*proto.ServiceInfo, error) {
-		return []*proto.ServiceInfo{}, nil
-	}).Times(1)
-
-	persistenceLayer.EXPECT().GetDataPlaneInformation(gomock.Any()).DoAndReturn(func(_ context.Context) ([]*proto.DataplaneInformation, error) {
-		return make([]*proto.DataplaneInformation, 0), nil
-	}).Times(1)
 
 	size := 100
 
@@ -1299,7 +1139,7 @@ func TestOnMetricReceive(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	logrus.SetLevel(logrus.ErrorLevel)
+	logrus.SetLevel(logrus.FatalLevel)
 
 	persistenceLayer := mock_persistence.NewMockPersistenceLayer(ctrl)
 
@@ -1374,7 +1214,7 @@ func TestEndpointsWithDeregistration(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	logrus.SetLevel(logrus.ErrorLevel)
+	logrus.SetLevel(logrus.FatalLevel)
 
 	size := 100
 
@@ -1391,6 +1231,10 @@ func TestEndpointsWithDeregistration(t *testing.T) {
 	persistenceLayer.EXPECT().DeleteWorkerNodeInformation(gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(func(_ context.Context, _ string, _ time.Time) error {
 		return nil
 	}).Times(1)
+
+	persistenceLayer.EXPECT().SetLeader(gomock.Any()).DoAndReturn(func(_ context.Context) error {
+		return nil
+	}).AnyTimes()
 
 	controlPlane := NewControlPlane(persistenceLayer, "", placement_policy.NewRandomPlacement(), empty_dataplane.NewDataplaneConnectionEmpty, empty_worker.NewEmptyWorkerNode, &mockConfig)
 
@@ -1463,7 +1307,7 @@ func TestEndpointsWithDeregistrationMultipleNodes(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	logrus.SetLevel(logrus.ErrorLevel)
+	logrus.SetLevel(logrus.FatalLevel)
 
 	size := 2
 
@@ -1480,6 +1324,10 @@ func TestEndpointsWithDeregistrationMultipleNodes(t *testing.T) {
 	persistenceLayer.EXPECT().DeleteWorkerNodeInformation(gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(func(_ context.Context, _ string, _ time.Time) error {
 		return nil
 	}).Times(2)
+
+	persistenceLayer.EXPECT().SetLeader(gomock.Any()).DoAndReturn(func(_ context.Context) error {
+		return nil
+	}).AnyTimes()
 
 	controlPlane := NewControlPlane(persistenceLayer, "", placement_policy.NewRandomPlacement(), empty_dataplane.NewDataplaneConnectionEmpty, empty_worker.NewEmptyWorkerNode, &mockConfig)
 
