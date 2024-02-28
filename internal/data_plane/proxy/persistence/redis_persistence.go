@@ -119,6 +119,6 @@ func (driver *requestRedisClient) ScanBufferedResponses(ctx context.Context) ([]
 }
 
 func (driver *requestRedisClient) DeleteBufferedRequest(ctx context.Context, code string) error {
-	logrus.Tracef("delete buffered request with code %s", code)
+	logrus.Tracef("Delete buffered request with code %s", code)
 	return driver.RedisClient.Del(ctx, bufferedRequestPrefix+code, "data").Err()
 }

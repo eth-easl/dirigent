@@ -128,6 +128,8 @@ func (ps *AsyncProxyingService) StartProxyServer() {
 	}
 	ps.ResponsesLock.Unlock()
 
+	go ps.asyncRequestHandler()
+
 	bufferedRequests, err := ps.Persistence.ScanBufferedRequests(context.Background())
 	if err != nil {
 		logrus.Fatalf("Failed to recover requests : error")
@@ -140,8 +142,6 @@ func (ps *AsyncProxyingService) StartProxyServer() {
 		}
 	}
 	ps.ResponsesLock.RUnlock()
-
-	ps.asyncRequestHandler()
 }
 
 func (ps *AsyncProxyingService) StartTracingService() {
