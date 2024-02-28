@@ -326,6 +326,7 @@ func (ss *ServiceInfoStorage) excludeEndpoints(toExclude map[*core.Endpoint]stru
 	ss.Controller.Endpoints = result
 }
 
+// TODO: Refactor two following function - design can be improved
 func (ss *ServiceInfoStorage) prepareEndpointInfo(endpoints []*core.Endpoint) []*proto.EndpointInfo {
 	var res []*proto.EndpointInfo
 
@@ -333,6 +334,19 @@ func (ss *ServiceInfoStorage) prepareEndpointInfo(endpoints []*core.Endpoint) []
 		res = append(res, &proto.EndpointInfo{
 			ID:  endpoints[i].SandboxID,
 			URL: endpoints[i].URL,
+		})
+	}
+
+	return res
+}
+
+func (ss *ServiceInfoStorage) prepareCurrentEndpointInfoList() []*proto.EndpointInfo {
+	var res []*proto.EndpointInfo
+
+	for i := 0; i < len(ss.Controller.Endpoints); i++ {
+		res = append(res, &proto.EndpointInfo{
+			ID:  ss.Controller.Endpoints[i].SandboxID,
+			URL: ss.Controller.Endpoints[i].URL,
 		})
 	}
 

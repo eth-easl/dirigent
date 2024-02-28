@@ -14,11 +14,12 @@ import (
 	"net"
 	"net/http"
 	"strconv"
+	"strings"
 	"time"
 )
 
 func DeployService() {
-	cpApi, err := common.NewControlPlaneConnection([]string{"localhost", utils.DefaultControlPlanePort})
+	cpApi, err := common.NewControlPlaneConnection([]string{"127.0.0.1:9090"})
 	if err != nil {
 		logrus.Fatalf("Failed to start control plane connection (error %s)", err.Error())
 	}
@@ -96,7 +97,7 @@ func Fire() {
 
 	fmt.Println(string(body[:]))
 
-	/*code := string(body[:])
+	code := string(body[:])
 
 	time.Sleep(5 * time.Second)
 
@@ -116,7 +117,7 @@ func Fire() {
 	}
 
 	logrus.Info("Final result")
-	logrus.Infof(string(responseInBytes[:]))*/
+	logrus.Infof(string(responseInBytes[:]))
 }
 
 func main() {
@@ -124,9 +125,5 @@ func main() {
 
 	time.Sleep(200 * time.Millisecond)
 
-	for i := 0; i < 100; i++ {
-		Fire()
-		time.Sleep(1000 * time.Millisecond)
-	}
-
+	Fire()
 }

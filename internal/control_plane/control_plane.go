@@ -67,6 +67,7 @@ func (c *ControlPlane) RegisterDataplane(ctx context.Context, in *proto.Dataplan
 	key := in.IP
 	dataplaneConnection := c.dataPlaneCreator(dataplaneInfo.Address, dataplaneInfo.ApiPort, dataplaneInfo.ProxyPort)
 
+	// TODO: Concurrency issue here - add transactional support
 	if enter, timestamp := c.DataPlaneConnections.SetIfAbsent(key, dataplaneConnection); enter {
 		err := c.PersistenceLayer.StoreDataPlaneInformation(ctx, &dataplaneInfo, timestamp)
 		if err != nil {
@@ -81,6 +82,20 @@ func (c *ControlPlane) RegisterDataplane(ctx context.Context, in *proto.Dataplan
 			c.DataPlaneConnections.Remove(key)
 			return &proto.ActionStatus{Success: false}, err
 		}
+
+		c.SIStorage.Lock()
+
+		for _, service := range c.SIStorage.GetMap() {
+			if _, err := c.DataPlaneConnections.AtomicGetNoCheck(key).AddDeployment(ctx, service.ServiceInfo); err != nil {
+				logrus.Errorf("Failed to add deployement : %s", err.Error())
+				c.DataPlaneConnections.Remove(key)
+				return &proto.ActionStatus{Success: false}, err
+			}
+
+			service.updateEndpoints(service.prepareCurrentEndpointInfoList())
+		}
+
+		c.SIStorage.Unlock()
 
 		return &proto.ActionStatus{Success: true}, nil
 	}
