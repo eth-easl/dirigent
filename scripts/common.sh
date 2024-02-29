@@ -86,7 +86,7 @@ function SetupWorkerNodes() {
 
 function KillSystemdServices() {
     function internal_kill() {
-        RemoteExec $1 "sudo systemctl stop control_plane data_plane worker_node && sudo killall firecracker"
+        RemoteExec $1 "sudo systemctl stop control_plane data_plane worker_node haproxy && sudo killall firecracker"
     }
 
     for NODE in "$@"

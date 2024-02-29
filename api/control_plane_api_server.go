@@ -71,6 +71,9 @@ func CreateNewCpApiServer(args *CpApiServerCreationArguments) (*CpApiServer, cha
 		close(readyToElect)
 	}
 
+	// make sure the HAProxy is stopped before getting leadership
+	cpApiServer.HAProxyAPI.StopHAProxy()
+
 	return cpApiServer, isLeader
 }
 
