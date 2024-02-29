@@ -7,6 +7,7 @@ import (
 	"cluster_manager/pkg/config"
 	"context"
 	"github.com/sirupsen/logrus"
+	"net"
 	"time"
 )
 
@@ -41,7 +42,14 @@ func (electionState *CurrentState) UpdateLeadership(leadership leader_election.A
 
 		electionState.cpApiServer.ReviseHAProxyServers()
 		electionState.stopNodeMonitoring = electionState.cpApiServer.StartNodeMonitoringLoop()
-		_, electionState.stopRegistrationServer = registration_server.StartServiceRegistrationServer(electionState.cpApiServer, electionState.cfg.PortRegistration, leadership.Term)
+
+		_, registrationPort, err := net.SplitHostPort(electionState.cfg.RegistrationServer)
+		if err != nil {
+			logrus.Fatal("Invalid registration server address.")
+		}
+
+		_, electionState.stopRegistrationServer = registration_server.StartServiceRegistrationServer(electionState.cpApiServer, registrationPort, leadership.Term)
+		electionState.cpApiServer.HAProxyAPI.ReviseRegistrationServers([]string{electionState.cfg.RegistrationServer})
 
 		electionState.wasLeaderBefore = true
 		logrus.Infof("Proceeding as the leader for the term #%d...", leadership.Term)

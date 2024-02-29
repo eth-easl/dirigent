@@ -160,9 +160,14 @@ func GetLoadBalancerAddress(cpApi *api.CpApiServer) string {
 	}
 }
 
+func HealthHandler(writer http.ResponseWriter, _ *http.Request) {
+	writer.WriteHeader(http.StatusOK)
+}
+
 func StartServiceRegistrationServer(cpApi *api.CpApiServer, registrationPort string, term int) (*http.Server, chan struct{}) {
 	mux := http.NewServeMux()
 	mux.HandleFunc("/", registrationHandler(cpApi))
+	mux.HandleFunc("/health", HealthHandler)
 
 	server := &http.Server{
 		Addr:    fmt.Sprintf(":%s", registrationPort),

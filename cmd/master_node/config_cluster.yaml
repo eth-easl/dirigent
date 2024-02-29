@@ -1,6 +1,6 @@
 port: "9090"
 replicas: ""
-portRegistration: "9091"
+registrationServer: "10.0.1.2:9091"
 verbosity: "debug"
 traceOutputFolder: "data"
 placementPolicy: "random"

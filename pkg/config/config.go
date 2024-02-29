@@ -12,7 +12,7 @@ import (
 type ControlPlaneConfig struct {
 	Port                string         `mapstructure:"port"`
 	Replicas            []string       `mapstructure:"replicas"`
-	PortRegistration    string         `mapstructure:"portRegistration"`
+	RegistrationServer  string         `mapstructure:"registrationServer"`
 	Verbosity           string         `mapstructure:"verbosity"`
 	TraceOutputFolder   string         `mapstructure:"traceOutputFolder"`
 	PlacementPolicy     string         `mapstructure:"placementPolicy"`
