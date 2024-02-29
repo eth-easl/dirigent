@@ -23,7 +23,7 @@ do
     shift
 done
 
-# Starting control plane(s)
+# Starting data plane(s)
 for (( c=1; c<=$DATA_PLANE_REPLICAS; c++ ))
 do
     CP_PREFIX=""

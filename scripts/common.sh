@@ -16,7 +16,7 @@ function SetupControlPlane() {
     RemoteExec $1 "sudo mkdir -p /cluster_manager/cmd/master_node"
     RemoteExec $1 "cd ~/cluster_manager/cmd/master_node/; /usr/local/go/bin/go build main.go"
     RemoteExec $1 "sudo cp ~/cluster_manager/cmd/master_node/main /cluster_manager/cmd/master_node/"
-    RemoteExec $1 "sudo cp ~/cluster_manager/cmd/master_node/config_cluster$2.yaml /cluster_manager/cmd/master_node/"
+    RemoteExec $1 "sudo cp ~/cluster_manager/cmd/master_node/config_cluster$2.yaml /cluster_manager/cmd/master_node/config_cluster.yaml"
 
     # Remove old logs
     RemoteExec $1 "sudo journalctl --vacuum-time=1s && sudo journalctl --vacuum-time=1d"
@@ -33,7 +33,7 @@ function SetupDataPlane() {
     RemoteExec $1 "sudo mkdir -p /cluster_manager/cmd/data_plane"
     RemoteExec $1 "cd ~/cluster_manager/cmd/data_plane/; /usr/local/go/bin/go build main.go"
     RemoteExec $1 "sudo cp ~/cluster_manager/cmd/data_plane/main /cluster_manager/cmd/data_plane/"
-    RemoteExec $1 "sudo cp ~/cluster_manager/cmd/data_plane/config_cluster$2.yaml /cluster_manager/cmd/data_plane/"
+    RemoteExec $1 "sudo cp ~/cluster_manager/cmd/data_plane/config_cluster$2.yaml /cluster_manager/cmd/data_plane/config_cluster.yaml"
 
     # Remove old logs
     RemoteExec $1 "sudo journalctl --vacuum-time=1s && sudo journalctl --vacuum-time=1d"
@@ -52,7 +52,7 @@ function SetupWorkerNodes() {
         RemoteExec $1 "sudo mkdir -p /cluster_manager/cmd/worker_node"
         RemoteExec $1 "cd ~/cluster_manager/cmd/worker_node/; /usr/local/go/bin/go build main.go"
         RemoteExec $1 "sudo cp ~/cluster_manager/cmd/worker_node/main /cluster_manager/cmd/worker_node/"
-        RemoteExec $1 "sudo cp ~/cluster_manager/cmd/worker_node/config_cluster$2.yaml /cluster_manager/cmd/worker_node/"
+        RemoteExec $1 "sudo cp ~/cluster_manager/cmd/worker_node/config_cluster$2.yaml /cluster_manager/cmd/worker_node/config_cluster.yaml"
 
         # For readiness probe
         RemoteExec $1 "sudo sysctl -w net.ipv4.conf.all.route_localnet=1"
