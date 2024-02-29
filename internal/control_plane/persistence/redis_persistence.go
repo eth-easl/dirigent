@@ -9,7 +9,7 @@ import (
 	proto2 "github.com/golang/protobuf/proto"
 	"github.com/redis/go-redis/v9"
 	"github.com/sirupsen/logrus"
-	"strings"
+	"net"
 	"sync"
 	"time"
 )
@@ -40,13 +40,16 @@ type RedisClient struct {
 func CreateRedisClient(ctx context.Context, redisLogin config.RedisConf) (*RedisClient, error) {
 	redisClient, otherClients, err := redis_helpers.CreateRedisConnector(ctx, redisLogin)
 
-	dividedAddress := strings.Split(redisLogin.DockerAddress, ":")
+	address, port, err := net.SplitHostPort(redisLogin.DockerAddress)
+	if err != nil {
+		logrus.Fatalf("Invalid Redis parameters (address).")
+	}
 
 	return &RedisClient{
 		RedisClient:        redisClient,
 		OtherClients:       otherClients,
-		Addr:               dividedAddress[0],
-		Port:               dividedAddress[1],
+		Addr:               address,
+		Port:               port,
 		dataplaneTimestamp: make(map[string]time.Time),
 		dataplaneLock:      sync.Mutex{},
 		workerTimestamp:    make(map[string]time.Time),
