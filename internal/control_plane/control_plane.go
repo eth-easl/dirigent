@@ -55,7 +55,7 @@ func NewControlPlane(client persistence.PersistenceLayer, outputFile string, pla
 
 // Dataplanes functions
 
-func (c *ControlPlane) RegisterDataplane(ctx context.Context, in *proto.DataplaneInfo) (*proto.ActionStatus, error) {
+func (c *ControlPlane) RegisterDataplane(ctx context.Context, in *proto.DataplaneInfo) (*proto.ActionStatus, error, bool) {
 	logrus.Infof("Received a data plane registration with ip : %s", in.IP)
 
 	dataplaneInfo := proto.DataplaneInformation{
@@ -73,23 +73,23 @@ func (c *ControlPlane) RegisterDataplane(ctx context.Context, in *proto.Dataplan
 		if err != nil {
 			logrus.Errorf("Failed to store information to persistence layer (error : %s)", err.Error())
 			c.DataPlaneConnections.Remove(key)
-			return &proto.ActionStatus{Success: false}, err
+			return &proto.ActionStatus{Success: false}, err, false
 		}
 
 		err = dataplaneConnection.InitializeDataPlaneConnection(dataplaneInfo.Address, dataplaneInfo.ApiPort)
 		if err != nil {
 			logrus.Errorf("Failed to initialize dataplane connection (error : %s)", err.Error())
 			c.DataPlaneConnections.Remove(key)
-			return &proto.ActionStatus{Success: false}, err
+			return &proto.ActionStatus{Success: false}, err, false
 		}
 
 		c.SIStorage.Lock()
 
 		for _, service := range c.SIStorage.GetMap() {
-			if _, err := c.DataPlaneConnections.AtomicGetNoCheck(key).AddDeployment(ctx, service.ServiceInfo); err != nil {
+			if _, err = c.DataPlaneConnections.AtomicGetNoCheck(key).AddDeployment(ctx, service.ServiceInfo); err != nil {
 				logrus.Errorf("Failed to add deployement : %s", err.Error())
 				c.DataPlaneConnections.Remove(key)
-				return &proto.ActionStatus{Success: false}, err
+				return &proto.ActionStatus{Success: false}, err, false
 			}
 
 			service.updateEndpoints(service.prepareCurrentEndpointInfoList())
@@ -97,7 +97,7 @@ func (c *ControlPlane) RegisterDataplane(ctx context.Context, in *proto.Dataplan
 
 		c.SIStorage.Unlock()
 
-		return &proto.ActionStatus{Success: true}, nil
+		return &proto.ActionStatus{Success: true}, nil, false
 	}
 
 	// If the dataplane is already registered, we update the heartbeat
@@ -108,7 +108,7 @@ func (c *ControlPlane) RegisterDataplane(ctx context.Context, in *proto.Dataplan
 
 	c.DataPlaneConnections.GetMap()[key].UpdateHeartBeat()
 
-	return &proto.ActionStatus{Success: true}, nil
+	return &proto.ActionStatus{Success: true}, nil, true
 }
 
 func (c *ControlPlane) DeregisterDataplane(ctx context.Context, in *proto.DataplaneInfo) (*proto.ActionStatus, error) {
@@ -132,7 +132,6 @@ func (c *ControlPlane) DeregisterDataplane(ctx context.Context, in *proto.Datapl
 			value.Controller.ScalingMetadata.RemoveDataplane(in.IP)
 		}
 		c.SIStorage.Unlock()
-
 	}
 
 	return &proto.ActionStatus{Success: true}, nil

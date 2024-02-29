@@ -152,7 +152,7 @@ func TestRegisterDataplanes(t *testing.T) {
 	for i := 1; i <= nbRegistrations; i++ {
 		name := "mock" + fmt.Sprint(i)
 
-		status, err := controlPlane.RegisterDataplane(context.Background(), &proto.DataplaneInfo{
+		status, err, _ := controlPlane.RegisterDataplane(context.Background(), &proto.DataplaneInfo{
 			IP:        name,
 			APIPort:   0,
 			ProxyPort: 0,
@@ -163,7 +163,7 @@ func TestRegisterDataplanes(t *testing.T) {
 
 		assert.Equal(t, i, controlPlane.GetNumberDataplanes())
 
-		status, err = controlPlane.RegisterDataplane(context.Background(), &proto.DataplaneInfo{
+		status, err, _ = controlPlane.RegisterDataplane(context.Background(), &proto.DataplaneInfo{
 			IP:        name,
 			APIPort:   0,
 			ProxyPort: 0,
@@ -329,7 +329,7 @@ func TestDeregisterDataplanes(t *testing.T) {
 	for i := 1; i <= nbRegistrations; i++ {
 		name := "mock" + fmt.Sprint(i)
 
-		status, err := controlPlane.RegisterDataplane(context.Background(), &proto.DataplaneInfo{
+		status, err, _ := controlPlane.RegisterDataplane(context.Background(), &proto.DataplaneInfo{
 			IP:        name,
 			APIPort:   0,
 			ProxyPort: 0,
@@ -340,7 +340,7 @@ func TestDeregisterDataplanes(t *testing.T) {
 
 		assert.Equal(t, i, controlPlane.GetNumberDataplanes())
 
-		status, err = controlPlane.RegisterDataplane(context.Background(), &proto.DataplaneInfo{
+		status, err, _ = controlPlane.RegisterDataplane(context.Background(), &proto.DataplaneInfo{
 			IP:        name,
 			APIPort:   0,
 			ProxyPort: 0,
@@ -789,7 +789,7 @@ func TestStressRegisterDataplanes(t *testing.T) {
 
 	for cnt < size {
 		go func() {
-			status, err := controlPlane.RegisterDataplane(context.Background(), &proto.DataplaneInfo{
+			status, err, _ := controlPlane.RegisterDataplane(context.Background(), &proto.DataplaneInfo{
 				IP:        uuid.New().String(),
 				APIPort:   0,
 				ProxyPort: 0,
@@ -857,7 +857,7 @@ func TestStressEverything(t *testing.T) {
 		}()
 
 		go func() {
-			status, err := controlPlane.RegisterDataplane(context.Background(), &proto.DataplaneInfo{
+			status, err, _ := controlPlane.RegisterDataplane(context.Background(), &proto.DataplaneInfo{
 				IP:        uuid.New().String(),
 				APIPort:   0,
 				ProxyPort: 0,

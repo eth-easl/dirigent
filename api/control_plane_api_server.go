@@ -220,8 +220,8 @@ func (c *CpApiServer) RegisterDataplane(ctx context.Context, in *proto.Dataplane
 		}
 	}
 
-	status, err := c.ControlPlane.RegisterDataplane(ctx, in)
-	if status.Success && err == nil {
+	status, err, isHeartbeat := c.ControlPlane.RegisterDataplane(ctx, in)
+	if status.Success && err == nil && !isHeartbeat {
 		c.HAProxyAPI.AddDataplane(in.IP, int(in.ProxyPort), true)
 	}
 
