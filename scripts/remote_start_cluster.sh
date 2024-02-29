@@ -5,10 +5,8 @@ readonly DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" > /dev/null 2>&1 && pwd)"
 source $DIR/common.sh
 source $DIR/setup.cfg
 
-# REDIS
-readonly REDIS_NODE=$1
+# Skip the loader node
 shift
-SetupRedis $REDIS_NODE
 
 # Kill all Dirigent processes
 KillSystemdServices $@
