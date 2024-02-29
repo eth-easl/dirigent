@@ -33,11 +33,7 @@ do
         CP_PREFIX="_raft"
     fi
 
-    if [ "$DATA_PLANE_REPLICAS" -eq 1 ]; then
-        SetupDataPlane $1 $CP_PREFIX
-    else
-        SetupDataPlane $1 "${CP_PREFIX}_${c}"
-    fi
+    SetupDataPlane $1 $CP_PREFIX
 
     shift
 done
