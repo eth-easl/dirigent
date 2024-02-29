@@ -143,7 +143,7 @@ func (api *API) persistServerMetadata(name string, ipAddress string, port int, t
 		Address: ipAddress,
 		Port:    Int64Ptr(port),
 		Check:   models.ServerCheckEnabled,
-		Inter:   Int64Ptr(1000), // ms; default fall: 3, default rise: 2
+		Inter:   Int64Ptr(2500), // ms; default fall: 3, default rise: 2
 	}
 
 	err := api.client.Configuration.CreateServer(BackendName, newServer, transaction, version)
