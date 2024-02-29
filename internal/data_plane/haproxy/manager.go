@@ -69,7 +69,14 @@ func (api *API) StopHAProxy() {
 func (api *API) restartHAProxy() {
 	err := exec.Command("sudo", "systemctl", "restart", "haproxy").Run()
 	if err != nil {
-		logrus.Errorf("Error restarting HAProxy - %v", err.Error())
+		api.forceResetHAProxy()
+	}
+}
+
+func (api *API) forceResetHAProxy() {
+	err := exec.Command("sudo", "systemctl", "reset-failed", "haproxy").Run()
+	if err != nil {
+		logrus.Errorf("Error while doing force reset of HAProxy - %v", err.Error())
 	}
 }
 
