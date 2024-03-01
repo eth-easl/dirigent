@@ -4,12 +4,9 @@ import (
 	"cluster_manager/api/proto"
 	"cluster_manager/internal/control_plane/core"
 	config2 "cluster_manager/pkg/config"
-	"cluster_manager/pkg/utils"
 	"context"
-	"errors"
 	"github.com/sirupsen/logrus"
 	"google.golang.org/protobuf/types/known/emptypb"
-	"sync"
 	"sync/atomic"
 	"time"
 )
@@ -106,7 +103,7 @@ func (c *ControlPlane) reconstructWorkersState(ctx context.Context) error {
 	return nil
 }
 
-// Single threaded function - reconstruction happend before starting the control plane
+// Single threaded function - reconstruction happened before starting the control plane
 func (c *ControlPlane) reconstructServiceState(ctx context.Context) error {
 	services, err := c.PersistenceLayer.GetServiceInformation(ctx)
 	if err != nil {
@@ -128,31 +125,6 @@ func (c *ControlPlane) reconstructServiceState(ctx context.Context) error {
 // Single threaded function - reconstruction happens before starting the control plane
 func (c *ControlPlane) reconstructEndpointsState(ctx context.Context) error {
 	endpoints := make([]*proto.Endpoint, 0)
-	wg := sync.WaitGroup{}
-
-	c.DataPlaneConnections.Lock()
-	for _, dp := range c.DataPlaneConnections.GetMap() {
-		wg.Add(1)
-
-		go func(dataPlane core.DataPlaneInterface) {
-			defer wg.Done()
-
-			ctxOp, cancel := context.WithTimeout(ctx, utils.WorkerNodeTrafficTimeout)
-			defer cancel()
-
-			_, err := dataPlane.UpdateEndpointList(ctxOp, &proto.DeploymentEndpointPatch{
-				Service:   nil,
-				Endpoints: nil,
-			})
-			if err != nil {
-				logrus.Warnf("Failed to remove all endpoints from the data plane %s - %v", dataPlane.GetIP(), err)
-			}
-		}(dp)
-	}
-	c.DataPlaneConnections.Unlock()
-	wg.Wait()
-	logrus.Debugf("Removed all endpoints from all data planes.")
-
 	for _, workerNode := range c.NIStorage.GetMap() {
 		if workerNode == nil {
 			logrus.Errorf("Node not found during endpoint listing.")
@@ -167,42 +139,54 @@ func (c *ControlPlane) reconstructEndpointsState(ctx context.Context) error {
 		endpoints = append(endpoints, list.Endpoint...)
 	}
 
-	logrus.Infof("Reconstructed information for %d endpoints from worker nodes", len(endpoints))
+	logrus.Infof("Got information about %d endpoints from worker nodes", len(endpoints))
 
-	for _, endpoint := range endpoints {
-		node, _ := c.NIStorage.Get(endpoint.NodeName)
-		if node == nil {
-			logrus.Errorf("Node not found during endpoint reconstruction.")
-			continue
-		}
+	for _, e := range endpoints {
+		// asynchronous addition of endpoints and propagation to the data plane
+		go func(endpoint *proto.Endpoint) {
+			c.NIStorage.RLock()
+			node, _ := c.NIStorage.Get(endpoint.NodeName)
+			if node == nil {
+				c.NIStorage.RUnlock()
 
-		controlPlaneEndpoint := &core.Endpoint{
-			SandboxID: endpoint.SandboxID,
-			URL:       endpoint.URL,
-			Node:      node,
-			HostPort:  endpoint.HostPort,
-		}
+				logrus.Errorf("Node not found during endpoint reconstruction of service %s.", endpoint.ServiceName)
+				return
+			}
+			c.NIStorage.RUnlock()
 
-		ss, found := c.SIStorage.Get(endpoint.ServiceName)
-		if !found {
-			return errors.New("element not found in map")
-		}
+			controlPlaneEndpoint := &core.Endpoint{
+				SandboxID: endpoint.SandboxID,
+				URL:       endpoint.URL,
+				Node:      node,
+				HostPort:  endpoint.HostPort,
+			}
 
-		ss.NIStorage.AtomicGetNoCheck(node.GetName()).GetEndpointMap().AtomicSet(controlPlaneEndpoint, ss.ServiceInfo.Name)
+			c.SIStorage.RLock()
+			ss, found := c.SIStorage.Get(endpoint.ServiceName)
+			if !found {
+				c.SIStorage.RUnlock()
 
-		ss.Controller.EndpointLock.Lock()
-		ss.Controller.Endpoints = append(ss.Controller.Endpoints, controlPlaneEndpoint)
-		urls := ss.prepareEndpointInfo(ss.Controller.Endpoints)
-		ss.Controller.EndpointLock.Unlock()
+				logrus.Errorf("Service %s not found during endpoint reconstruction.", endpoint.ServiceName)
+				return
+			}
+			c.SIStorage.RUnlock()
 
-		ss.updateEndpoints(urls)
+			ss.NIStorage.AtomicGetNoCheck(node.GetName()).GetEndpointMap().AtomicSet(controlPlaneEndpoint, ss.ServiceInfo.Name)
 
-		// do not allow downscaling until the system stabilizes
-		ss.Controller.ScalingMetadata.InPanicMode = true
-		ss.Controller.ScalingMetadata.StartPanickingTimestamp = time.Now()
-		atomic.AddInt64(&ss.Controller.ScalingMetadata.ActualScale, 1)
+			ss.Controller.EndpointLock.Lock()
+			ss.Controller.Endpoints = append(ss.Controller.Endpoints, controlPlaneEndpoint)
+			urls := ss.prepareEndpointInfo(ss.Controller.Endpoints)
+			ss.Controller.EndpointLock.Unlock()
 
-		ss.Controller.Start()
+			ss.updateEndpoints(urls)
+
+			// do not allow downscaling until the system stabilizes
+			ss.Controller.ScalingMetadata.InPanicMode = true
+			ss.Controller.ScalingMetadata.StartPanickingTimestamp = time.Now()
+			atomic.AddInt64(&ss.Controller.ScalingMetadata.ActualScale, 1)
+
+			ss.Controller.Start()
+		}(e)
 	}
 
 	return nil

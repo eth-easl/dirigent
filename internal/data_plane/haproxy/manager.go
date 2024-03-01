@@ -223,7 +223,7 @@ func (api *API) removeRegistrationServers(transaction string) {
 	}
 }
 
-func (api *API) genericRevise(backend string, addressesToKeep []string) {
+func (api *API) genericRevise(backend string, addressesToKeep []string) bool {
 	errorIn := ""
 
 	switch backend {
@@ -238,19 +238,19 @@ func (api *API) genericRevise(backend string, addressesToKeep []string) {
 	version, err := api.client.Configuration.GetVersion("")
 	if err != nil {
 		logrus.Errorf("Failed to revise %s. Error obtaining configuration version - %v", errorIn, err)
-		return
+		return false
 	}
 
 	transaction, err := api.client.Configuration.StartTransaction(version)
 	if err != nil {
 		logrus.Errorf("Failed to revise %s. Error starting HAProxy transaction - %v", errorIn, err)
-		return
+		return false
 	}
 
 	version, servers, err := api.client.Configuration.GetServers(backend, transaction.ID)
 	if err != nil {
 		logrus.Errorf("Failed to revise %s. Error obtaining list of existing servers - %v", errorIn, err)
-		return
+		return false
 	}
 
 	var existingURLs []string
@@ -293,18 +293,28 @@ func (api *API) genericRevise(backend string, addressesToKeep []string) {
 	_, err = api.client.Configuration.CommitTransaction(transaction.ID)
 	if err != nil {
 		logrus.Errorf("Failed to revise %s. Error while commiting transaction - %v", errorIn, err)
-		return
+		return false
 	}
 
 	api.restartHAProxy()
+
+	return true
 }
 
 func (api *API) ReviseRegistrationServers(addressesToKeep []string) {
-	api.genericRevise(RegistrationServerBackend, addressesToKeep)
+	success := false
+
+	for !success {
+		success = api.genericRevise(RegistrationServerBackend, addressesToKeep)
+	}
 }
 
 func (api *API) ReviseDataplanes(addressesToKeep []string) {
-	api.genericRevise(DataplaneBackend, addressesToKeep)
+	success := false
+
+	for !success {
+		success = api.genericRevise(DataplaneBackend, addressesToKeep)
+	}
 }
 
 func (api *API) DeleteAllDataplanes() {
