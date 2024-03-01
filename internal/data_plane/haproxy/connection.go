@@ -56,8 +56,11 @@ func getRuntimeClient(configClient *configuration.Client) *runtime.Client {
 	return runtimeClient
 }
 
-func getHAProxyClient(configClient *configuration.Client, runtimeClient *runtime.Client) *clientnative.HAProxyClient {
+func getHAProxyClient() *clientnative.HAProxyClient {
 	client := &clientnative.HAProxyClient{}
+
+	configClient := getConfigClient()
+	runtimeClient := getRuntimeClient(configClient)
 
 	err := client.Init(configClient, runtimeClient)
 	if err != nil {

@@ -39,6 +39,9 @@ type RedisClient struct {
 
 func CreateRedisClient(ctx context.Context, redisLogin config.RedisConf) (*RedisClient, error) {
 	redisClient, otherClients, err := redis_helpers.CreateRedisConnector(ctx, redisLogin)
+	if err != nil {
+		logrus.Fatalf("Failed to create Redis client")
+	}
 
 	address, port, err := net.SplitHostPort(redisLogin.DockerAddress)
 	if err != nil {

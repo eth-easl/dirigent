@@ -32,11 +32,8 @@ type API struct {
 }
 
 func NewHAProxyAPI(loadBalancerAddress string) *API {
-	config := getConfigClient()
-	runtime := getRuntimeClient(config)
-
 	api := &API{
-		client:    getHAProxyClient(config, runtime),
+		client:    getHAProxyClient(),
 		lbAddress: loadBalancerAddress,
 
 		addressToName: make(map[string]string),
@@ -312,6 +309,11 @@ func (api *API) ReviseRegistrationServers(addressesToKeep []string) {
 
 	for !success {
 		success = api.genericRevise(RegistrationServerBackend, addressesToKeep)
+
+		if !success {
+			// Transaction failed. Need to reload the config
+			api.client = getHAProxyClient()
+		}
 	}
 
 	api.restartHAProxy()
@@ -322,6 +324,11 @@ func (api *API) ReviseDataplanes(addressesToKeep []string) {
 
 	for !success {
 		success = api.genericRevise(DataplaneBackend, addressesToKeep)
+
+		if !success {
+			// Transaction failed. Need to reload the config
+			api.client = getHAProxyClient()
+		}
 	}
 
 	api.restartHAProxy()
