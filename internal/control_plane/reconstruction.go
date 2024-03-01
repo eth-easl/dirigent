@@ -57,7 +57,7 @@ func (c *ControlPlane) ReconstructState(ctx context.Context, config config2.Cont
 	return c.PersistenceLayer.SetLeader(ctx)
 }
 
-// Single threaded function - reconstruction happend before starting the control plane
+// Single threaded function - reconstruction happened before starting the control plane
 func (c *ControlPlane) reconstructDataplaneState(ctx context.Context) error {
 	dataPlaneValues, err := c.PersistenceLayer.GetDataPlaneInformation(ctx)
 	if err != nil {
@@ -71,6 +71,7 @@ func (c *ControlPlane) reconstructDataplaneState(ctx context.Context) error {
 		c.DataPlaneConnections.Set(dataplaneInfo.Address, dataplaneConnection)
 	}
 
+	logrus.Infof("Reconstructed information for %d data planes", len(dataPlaneValues))
 	return nil
 }
 
@@ -101,6 +102,7 @@ func (c *ControlPlane) reconstructWorkersState(ctx context.Context) error {
 		}()
 	}
 
+	logrus.Infof("Reconstructed information for %d workers", len(workers))
 	return nil
 }
 
@@ -113,12 +115,13 @@ func (c *ControlPlane) reconstructServiceState(ctx context.Context) error {
 
 	for _, service := range services {
 		c.SIStorage.Set(service.Name, &ServiceInfoStorage{})
-		err := c.notifyDataplanesAndStartScalingLoop(ctx, service, true)
+		err = c.notifyDataplanesAndStartScalingLoop(ctx, service, true)
 		if err != nil {
 			return err
 		}
 	}
 
+	logrus.Infof("Reconstructed information for %d services", len(services))
 	return nil
 }
 
@@ -164,7 +167,7 @@ func (c *ControlPlane) reconstructEndpointsState(ctx context.Context) error {
 		endpoints = append(endpoints, list.Endpoint...)
 	}
 
-	logrus.Debugf("Worker nodes reported %d endpoints during reconstruction", len(endpoints))
+	logrus.Infof("Reconstructed information for %d endpoints from worker nodes", len(endpoints))
 
 	for _, endpoint := range endpoints {
 		node, _ := c.NIStorage.Get(endpoint.NodeName)
