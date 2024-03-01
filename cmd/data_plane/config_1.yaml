@@ -1,0 +1,18 @@
+dataPlaneIp: "127.0.0.1"
+controlPlaneAddress: "127.0.0.1:9090,127.0.0.1:10000,127.0.0.1:10001"
+portProxy: "8080"
+portGRPC: "8081"
+portProxyRead: "8082"
+verbosity: "trace"
+traceOutputFolder: "data"
+loadBalancingPolicy: "random"
+async: false
+persistRequests: false
+numberRetries: 3
+
+redis:
+  address: "127.0.0.1:6379"
+  replicas: ""
+  password: ""
+  db: 0
+  fullPersistence: false

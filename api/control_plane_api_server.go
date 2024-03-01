@@ -71,9 +71,6 @@ func CreateNewCpApiServer(args *CpApiServerCreationArguments) (*CpApiServer, cha
 		close(readyToElect)
 	}
 
-	// make sure the HAProxy is stopped before getting leadership
-	cpApiServer.HAProxyAPI.StopHAProxy()
-
 	return cpApiServer, isLeader
 }
 
@@ -301,7 +298,5 @@ func (c *CpApiServer) AppendEntries(_ context.Context, args *proto.AppendEntries
 
 func (c *CpApiServer) ReviseHAProxyServers() {
 	logrus.Infof("Revising HAProxy backend server list...")
-	c.HAProxyAPI.StartHAProxy()
-
 	c.ControlPlane.ReviseDataplanesInLB(c.HAProxyAPI.ReviseDataplanes)
 }

@@ -52,32 +52,40 @@ func NewHAProxyAPI(loadBalancerAddress string) *API {
 }
 
 func (api *API) StartHAProxy() {
-	err := exec.Command("sudo", "systemctl", "start", "haproxy").Run()
-	if err != nil {
-		logrus.Errorf("Error starting HAProxy - %v", err.Error())
-	}
+	go func() {
+		err := exec.Command("sudo", "systemctl", "start", "haproxy").Run()
+		if err != nil {
+			logrus.Errorf("Error starting HAProxy - %v", err.Error())
+		}
+	}()
 }
 
 func (api *API) StopHAProxy() {
-	err := exec.Command("sudo", "systemctl", "stop", "haproxy").Run()
-	if err != nil {
-		logrus.Errorf("Error stopping HAProxy - %v", err.Error())
-	}
+	go func() {
+		err := exec.Command("sudo", "systemctl", "stop", "haproxy").Run()
+		if err != nil {
+			logrus.Errorf("Error stopping HAProxy - %v", err.Error())
+		}
+	}()
 }
 
 // restartHAProxy Should be called to commit every action to the running instance of HAProxy
 func (api *API) restartHAProxy() {
-	err := exec.Command("sudo", "systemctl", "restart", "haproxy").Run()
-	if err != nil {
-		api.forceResetHAProxy()
-	}
+	go func() {
+		err := exec.Command("sudo", "systemctl", "restart", "haproxy").Run()
+		if err != nil {
+			api.forceResetHAProxy()
+		}
+	}()
 }
 
 func (api *API) forceResetHAProxy() {
-	err := exec.Command("sudo", "systemctl", "reset-failed", "haproxy").Run()
-	if err != nil {
-		logrus.Errorf("Error while doing force reset of HAProxy - %v", err.Error())
-	}
+	go func() {
+		err := exec.Command("sudo", "systemctl", "reset-failed", "haproxy").Run()
+		if err != nil {
+			logrus.Errorf("Error while doing force reset of HAProxy - %v", err.Error())
+		}
+	}()
 }
 
 func (api *API) GetLoadBalancerAddress() string {
@@ -296,8 +304,6 @@ func (api *API) genericRevise(backend string, addressesToKeep []string) bool {
 		return false
 	}
 
-	api.restartHAProxy()
-
 	return true
 }
 
@@ -307,6 +313,8 @@ func (api *API) ReviseRegistrationServers(addressesToKeep []string) {
 	for !success {
 		success = api.genericRevise(RegistrationServerBackend, addressesToKeep)
 	}
+
+	api.restartHAProxy()
 }
 
 func (api *API) ReviseDataplanes(addressesToKeep []string) {
@@ -315,6 +323,8 @@ func (api *API) ReviseDataplanes(addressesToKeep []string) {
 	for !success {
 		success = api.genericRevise(DataplaneBackend, addressesToKeep)
 	}
+
+	api.restartHAProxy()
 }
 
 func (api *API) DeleteAllDataplanes() {

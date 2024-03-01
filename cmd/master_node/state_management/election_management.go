@@ -54,6 +54,9 @@ func (electionState *CurrentState) UpdateLeadership(leadership leader_election.A
 		electionState.wasLeaderBefore = true
 		logrus.Infof("Proceeding as the leader for the term #%d...", leadership.Term)
 	} else {
+		// make sure the HAProxy is stopped if not the leader
+		electionState.cpApiServer.HAProxyAPI.StopHAProxy()
+
 		if electionState.wasLeaderBefore {
 			electionState.destroyStateFromPreviousElectionTerm()
 			electionState.stopNodeMonitoring, electionState.stopRegistrationServer = nil, nil
@@ -65,8 +68,6 @@ func (electionState *CurrentState) UpdateLeadership(leadership leader_election.A
 }
 
 func (electionState *CurrentState) destroyStateFromPreviousElectionTerm() {
-	electionState.cpApiServer.HAProxyAPI.StopHAProxy()
-
 	if electionState.stopRegistrationServer != nil {
 		electionState.stopRegistrationServer <- struct{}{}
 	}
