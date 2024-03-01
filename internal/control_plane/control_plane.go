@@ -12,6 +12,7 @@ import (
 	"cluster_manager/pkg/utils"
 	"context"
 	"errors"
+	"fmt"
 	"github.com/sirupsen/logrus"
 	"google.golang.org/protobuf/types/known/emptypb"
 	"strconv"
@@ -454,5 +455,10 @@ func (c *ControlPlane) ReviseDataplanesInLB(callback func([]string)) {
 	c.DataPlaneConnections.RLock()
 	defer c.DataPlaneConnections.RUnlock()
 
-	callback(c.DataPlaneConnections.GetKeys())
+	var dataplanes []string
+	for _, dp := range c.DataPlaneConnections.GetMap() {
+		dataplanes = append(dataplanes, fmt.Sprintf("%s:%s", dp.GetIP(), dp.GetProxyPort()))
+	}
+
+	callback(dataplanes)
 }

@@ -73,12 +73,12 @@ func GetLongLivingConnectionDialOptions() []grpc.DialOption {
 func SplitAddress(address string) (string, int) {
 	hostString, portString, err := net.SplitHostPort(address)
 	if err != nil {
-		logrus.Fatalf("Invalid network address of control plane replica - %s", address)
+		logrus.Fatalf("Invalid argument to SplitHostPort - %s", address)
 	}
 
 	port, err := strconv.Atoi(portString)
 	if err != nil {
-		logrus.Fatalf("Invalid port of control plane replica - %s.", portString)
+		logrus.Fatalf("Port represented as string cannot be converted to integer  - %s.", portString)
 	}
 
 	return hostString, port
