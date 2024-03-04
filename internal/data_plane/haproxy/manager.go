@@ -66,8 +66,8 @@ func (api *API) StopHAProxy() {
 	}()
 }
 
-// restartHAProxy Should be called to commit every action to the running instance of HAProxy
-func (api *API) restartHAProxy() {
+// RestartHAProxy Should be called to commit every action to the running instance of HAProxy
+func (api *API) RestartHAProxy() {
 	go func() {
 		err := exec.Command("sudo", "systemctl", "restart", "haproxy").Run()
 		if err != nil {
@@ -121,7 +121,7 @@ func (api *API) AddDataplane(ipAddress string, port int, restart bool) {
 	api.addServer(ipAddress, port, "", version)
 
 	if restart {
-		api.restartHAProxy()
+		api.RestartHAProxy()
 	}
 }
 
@@ -135,7 +135,7 @@ func (api *API) RemoveDataplane(ipAddress string, port int, restart bool) {
 	api.removeServerByName(ipAddress, port, "", version)
 
 	if restart {
-		api.restartHAProxy()
+		api.RestartHAProxy()
 	}
 }
 
@@ -304,6 +304,7 @@ func (api *API) genericRevise(backend string, addressesToKeep []string) bool {
 	return true
 }
 
+// ReviseRegistrationServers Need to call restart after this call
 func (api *API) ReviseRegistrationServers(addressesToKeep []string) {
 	success := false
 
@@ -315,10 +316,9 @@ func (api *API) ReviseRegistrationServers(addressesToKeep []string) {
 			api.client = getHAProxyClient()
 		}
 	}
-
-	api.restartHAProxy()
 }
 
+// ReviseDataplanes Need to call restart after this call
 func (api *API) ReviseDataplanes(addressesToKeep []string) {
 	success := false
 
@@ -330,8 +330,6 @@ func (api *API) ReviseDataplanes(addressesToKeep []string) {
 			api.client = getHAProxyClient()
 		}
 	}
-
-	api.restartHAProxy()
 }
 
 func (api *API) DeleteAllDataplanes() {
@@ -344,5 +342,5 @@ func (api *API) DeleteAllDataplanes() {
 		api.RemoveDataplane(s.Address, int(*s.Port), false)
 	}
 
-	api.restartHAProxy()
+	api.RestartHAProxy()
 }

@@ -133,6 +133,8 @@ func (c *ControlPlane) reconstructEndpointsState(ctx context.Context) error {
 
 		list, err := workerNode.ListEndpoints(ctx, &emptypb.Empty{})
 		if err != nil {
+			// this probably happens because connection with some of the worker nodes
+			// has not been established by the time this line is reached at runtime
 			logrus.Errorf("Failed to fetch endpoints from worker node %s - %v", workerNode.GetName(), err)
 		}
 

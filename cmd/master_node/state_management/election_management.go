@@ -33,25 +33,37 @@ func NewElectionState(cfg config.ControlPlaneConfig, cpiApiServer *api.CpApiServ
 	}
 }
 
+func (electionState *CurrentState) getRegistrationPort() string {
+	_, registrationPort, err := net.SplitHostPort(electionState.cfg.RegistrationServer)
+	if err != nil {
+		logrus.Fatal("Invalid registration server address.")
+	}
+
+	return registrationPort
+}
+
+func (electionState *CurrentState) SetCurrentControlPlaneLeader(leadership leader_election.AnnounceLeadership) {
+	electionState.destroyStateFromPreviousElectionTerm()
+
+	electionState.reconstructControlPlaneState()
+
+	electionState.stopNodeMonitoring = electionState.cpApiServer.StartNodeMonitoringLoop()
+	_, electionState.stopRegistrationServer = registration_server.StartServiceRegistrationServer(
+		electionState.cpApiServer,
+		electionState.getRegistrationPort(),
+		leadership.Term,
+	)
+
+	electionState.cpApiServer.ReviseHAProxyServers()
+	electionState.cpApiServer.HAProxyAPI.ReviseRegistrationServers([]string{electionState.cfg.RegistrationServer})
+	electionState.cpApiServer.HAProxyAPI.RestartHAProxy()
+
+	electionState.wasLeaderBefore = true
+}
+
 func (electionState *CurrentState) UpdateLeadership(leadership leader_election.AnnounceLeadership) {
 	if leadership.IsLeader && !electionState.wasLeaderBefore {
-		electionState.destroyStateFromPreviousElectionTerm()
-		electionState.stopNodeMonitoring, electionState.stopRegistrationServer = nil, nil
-
-		electionState.reconstructControlPlaneState()
-
-		electionState.cpApiServer.ReviseHAProxyServers()
-		electionState.stopNodeMonitoring = electionState.cpApiServer.StartNodeMonitoringLoop()
-
-		_, registrationPort, err := net.SplitHostPort(electionState.cfg.RegistrationServer)
-		if err != nil {
-			logrus.Fatal("Invalid registration server address.")
-		}
-
-		_, electionState.stopRegistrationServer = registration_server.StartServiceRegistrationServer(electionState.cpApiServer, registrationPort, leadership.Term)
-		electionState.cpApiServer.HAProxyAPI.ReviseRegistrationServers([]string{electionState.cfg.RegistrationServer})
-
-		electionState.wasLeaderBefore = true
+		electionState.SetCurrentControlPlaneLeader(leadership)
 		logrus.Infof("Proceeding as the leader for the term #%d...", leadership.Term)
 	} else {
 		// make sure the HAProxy is stopped if not the leader
