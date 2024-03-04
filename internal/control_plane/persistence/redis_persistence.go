@@ -62,6 +62,16 @@ func CreateRedisClient(ctx context.Context, redisLogin config.RedisConf) (*Redis
 	}, err
 }
 
+func (driver *RedisClient) WaitForQuorumWrite(ctx context.Context) *redis.IntCmd {
+	// 2 nodes -> 1 slave  -> need 1 more for quorum
+	// 3 nodes -> 2 slaves -> need 1 more for quorum
+	// 4 nodes -> 3 slaves -> need 2 more for quorum
+	// 5 nodes -> 4 slaves -> need 2 more for quorum
+	// requiredWrites := int(math.Ceil(float64(len(driver.OtherClients) / 2)))
+
+	return driver.RedisClient.Wait(ctx, len(driver.OtherClients), 0)
+}
+
 func (driver *RedisClient) StoreDataPlaneInformation(ctx context.Context, dataplaneInfo *proto.DataplaneInformation, timestamp time.Time) error {
 	driver.dataplaneLock.Lock()
 	defer driver.dataplaneLock.Unlock()
@@ -81,7 +91,12 @@ func (driver *RedisClient) StoreDataPlaneInformation(ctx context.Context, datapl
 
 	key := fmt.Sprintf("%s:%s", dataplanePrefix, dataplaneInfo.Address)
 
-	return driver.RedisClient.HSet(ctx, key, "data", data).Err()
+	err = driver.RedisClient.HSet(ctx, key, "data", data).Err()
+	if err != nil {
+		return err
+	}
+
+	return driver.WaitForQuorumWrite(ctx).Err()
 }
 
 func (driver *RedisClient) DeleteDataPlaneInformation(ctx context.Context, dataplaneInfo *proto.DataplaneInformation, timestamp time.Time) error {
@@ -98,7 +113,12 @@ func (driver *RedisClient) DeleteDataPlaneInformation(ctx context.Context, datap
 
 	key := fmt.Sprintf("%s:%s", dataplanePrefix, dataplaneInfo.Address)
 
-	return driver.RedisClient.Del(ctx, key).Err()
+	err := driver.RedisClient.Del(ctx, key).Err()
+	if err != nil {
+		return err
+	}
+
+	return driver.WaitForQuorumWrite(ctx).Err()
 }
 
 func (driver *RedisClient) GetDataPlaneInformation(ctx context.Context) ([]*proto.DataplaneInformation, error) {
@@ -151,7 +171,12 @@ func (driver *RedisClient) StoreWorkerNodeInformation(ctx context.Context, worke
 
 	key := fmt.Sprintf("%s:%s", workerPrefix, workerNodeInfo.Name)
 
-	return driver.RedisClient.HSet(ctx, key, "data", data).Err()
+	err = driver.RedisClient.HSet(ctx, key, "data", data).Err()
+	if err != nil {
+		return err
+	}
+
+	return driver.WaitForQuorumWrite(ctx).Err()
 }
 
 func (driver *RedisClient) DeleteWorkerNodeInformation(ctx context.Context, name string, timestamp time.Time) error {
@@ -168,7 +193,12 @@ func (driver *RedisClient) DeleteWorkerNodeInformation(ctx context.Context, name
 
 	key := fmt.Sprintf("%s:%s", workerPrefix, name)
 
-	return driver.RedisClient.Del(ctx, key, "data").Err()
+	err := driver.RedisClient.Del(ctx, key, "data").Err()
+	if err != nil {
+		return err
+	}
+
+	return driver.WaitForQuorumWrite(ctx).Err()
 }
 
 func (driver *RedisClient) GetWorkerNodeInformation(ctx context.Context) ([]*proto.WorkerNodeInformation, error) {
@@ -221,7 +251,12 @@ func (driver *RedisClient) StoreServiceInformation(ctx context.Context, serviceI
 
 	key := fmt.Sprintf("%s:%s", servicePrefix, serviceInfo.Name)
 
-	return driver.RedisClient.HSet(ctx, key, "data", data).Err()
+	err = driver.RedisClient.HSet(ctx, key, "data", data).Err()
+	if err != nil {
+		return err
+	}
+
+	return driver.WaitForQuorumWrite(ctx).Err()
 }
 
 func (driver *RedisClient) DeleteServiceInformation(ctx context.Context, serviceInfo *proto.ServiceInfo, timestamp time.Time) error {
@@ -238,7 +273,12 @@ func (driver *RedisClient) DeleteServiceInformation(ctx context.Context, service
 
 	key := fmt.Sprintf("%s:%s", servicePrefix, serviceInfo.Name)
 
-	return driver.RedisClient.Del(ctx, key, "data").Err()
+	err := driver.RedisClient.Del(ctx, key, "data").Err()
+	if err != nil {
+		return err
+	}
+
+	return driver.WaitForQuorumWrite(ctx).Err()
 }
 
 func (driver *RedisClient) GetServiceInformation(ctx context.Context) ([]*proto.ServiceInfo, error) {
