@@ -25,4 +25,4 @@ redis:
   replicas: "127.0.0.1:6380,127.0.0.1:6381"
   password: ""
   db: 0
-  fullPersistence: false
+  fullPersistence: true
