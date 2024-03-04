@@ -133,7 +133,7 @@ func (c *ControlPlane) reconstructEndpointsState(ctx context.Context) error {
 
 		list, err := workerNode.ListEndpoints(ctx, &emptypb.Empty{})
 		if err != nil {
-			return err
+			logrus.Errorf("Failed to fetch endpoints from worker node %s - %v", workerNode.GetName(), err)
 		}
 
 		endpoints = append(endpoints, list.Endpoint...)
