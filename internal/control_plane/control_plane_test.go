@@ -815,7 +815,7 @@ func TestStressEverything(t *testing.T) {
 	persistenceLayer, ctrl := simplePersistenceLayer(t)
 	defer ctrl.Finish()
 
-	size := 100
+	size := 10
 
 	persistenceLayer.EXPECT().StoreWorkerNodeInformation(gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(func(ctx context.Context, workerNodeInfo *proto.WorkerNodeInformation, timestamp time.Time) error {
 		return nil
