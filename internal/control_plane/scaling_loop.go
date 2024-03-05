@@ -288,10 +288,10 @@ func deleteSandbox(key *core.Endpoint) {
 }
 
 func (ss *ServiceInfoStorage) updateEndpoints(endpoints []*proto.EndpointInfo) {
+	ss.DataPlaneConnections.Lock()
+
 	wg := &sync.WaitGroup{}
 	wg.Add(ss.DataPlaneConnections.Len())
-
-	ss.DataPlaneConnections.Lock()
 
 	for _, dp := range ss.DataPlaneConnections.GetMap() {
 		go func(dataPlane core.DataPlaneInterface) {

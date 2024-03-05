@@ -45,7 +45,7 @@ func ApplyPlacementPolicy(placementPolicy PlacementPolicy, storage synchronizati
 }
 
 func getNumberNodes(storage synchronization.SyncStructure[string, core.WorkerNodeInterface]) int {
-	return storage.Len()
+	return storage.AtomicLen()
 }
 
 func noNodesInCluster(storage synchronization.SyncStructure[string, core.WorkerNodeInterface]) bool {

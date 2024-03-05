@@ -153,7 +153,7 @@ func prioritizeNodes(storage synchronization.SyncStructure[string, core.WorkerNo
 }
 
 func selectOneMachine(storage synchronization.SyncStructure[string, core.WorkerNodeInterface], scores map[string]uint64) core.WorkerNodeInterface {
-	if storage.Len() == 0 {
+	if storage.AtomicLen() == 0 {
 		logrus.Fatal("There is no candidate machine to select from.")
 	}
 

@@ -27,7 +27,6 @@ import (
 
 var mockConfig = config.ControlPlaneConfig{
 	Port:              "",
-	PortRegistration:  "",
 	Verbosity:         "",
 	TraceOutputFolder: "",
 	PlacementPolicy:   "",
@@ -874,6 +873,7 @@ func TestStressEverything(t *testing.T) {
 				PortForwarding:    nil,
 				AutoscalingConfig: nil,
 			})
+
 			assert.NotNil(t, status)
 			assert.NoError(t, err)
 			wg.Done()
@@ -1133,82 +1133,6 @@ func TestStressRegisterDeregisterDataplanes(t *testing.T) {
 }
 
 // Endpoints tests
-
-func TestOnMetricReceive(t *testing.T) {
-	t.Skip()
-	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
-
-	logrus.SetLevel(logrus.FatalLevel)
-
-	persistenceLayer := mock_persistence.NewMockPersistenceLayer(ctrl)
-
-	persistenceLayer.EXPECT().StoreServiceInformation(gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(func(_ context.Context, _ *proto.ServiceInfo, _ time.Time) error {
-		return nil
-	}).Times(1)
-
-	persistenceLayer.EXPECT().StoreWorkerNodeInformation(gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(func(ctx context.Context, workerNodeInfo *proto.WorkerNodeInformation, timestamp time.Time) error {
-		return nil
-	}).Times(1)
-
-	controlPlane := NewControlPlane(persistenceLayer, "", placement_policy.NewRandomPlacement(), empty_dataplane.NewDataplaneConnectionEmpty, empty_worker.NewEmptyWorkerNode, &mockConfig)
-
-	status, err := controlPlane.OnMetricsReceive(context.Background(), &proto.AutoscalingMetric{
-		ServiceName:      "unknown",
-		DataplaneName:    "",
-		InflightRequests: 1,
-	})
-
-	assert.False(t, status.Success)
-	assert.NoError(t, err)
-
-	autoscalingConfig := autoscaling.NewDefaultAutoscalingMetadata()
-	autoscalingConfig.ScalingUpperBound = 1
-	//autoscalingConfig.ScalingLowerBound = 1
-
-	status, err = controlPlane.RegisterService(context.Background(), &proto.ServiceInfo{
-		Name:              "mock",
-		Image:             "",
-		PortForwarding:    nil,
-		AutoscalingConfig: autoscalingConfig,
-	})
-
-	assert.True(t, status.Success, "status should be successful")
-	assert.NoError(t, err, "error should not be nil")
-
-	status, err = controlPlane.OnMetricsReceive(context.Background(), &proto.AutoscalingMetric{
-		ServiceName:      "mock",
-		DataplaneName:    "",
-		InflightRequests: 1,
-	})
-
-	assert.True(t, status.Success)
-	assert.NoError(t, err)
-
-	for _, value := range controlPlane.SIStorage.GetMap() {
-		assert.Equal(t, 0, len(value.Controller.Endpoints), "We should have one single endpoint")
-	}
-
-	status, err = controlPlane.RegisterNode(context.Background(), &proto.NodeInfo{
-		NodeID:     uuid.New().String(),
-		IP:         uuid.New().String(),
-		Port:       0,
-		CpuCores:   0,
-		MemorySize: 0,
-	})
-	assert.NotNil(t, status)
-	assert.NoError(t, err)
-
-	time.Sleep(300 * time.Millisecond)
-
-	for _, value := range controlPlane.SIStorage.GetMap() {
-		assert.Equal(t, 1, len(value.Controller.Endpoints), "We should have one single endpoint")
-	}
-
-	for _, value := range controlPlane.NIStorage.GetMap() {
-		assert.Equal(t, 1, value.GetEndpointMap().Len())
-	}
-}
 
 func TestEndpointsWithDeregistration(t *testing.T) {
 	ctrl := gomock.NewController(t)
@@ -1564,7 +1488,7 @@ func (t *testStructure) NewMockDataplaneConnection(IP, APIPort, ProxyPort string
 
 	mockInterface.EXPECT().UpdateEndpointList(gomock.Any(), gomock.Any()).DoAndReturn(func(context.Context, *proto.DeploymentEndpointPatch) (*proto.DeploymentUpdateSuccess, error) {
 		return &proto.DeploymentUpdateSuccess{}, nil
-	}).Times(1)
+	}).AnyTimes()
 
 	return mockInterface
 }

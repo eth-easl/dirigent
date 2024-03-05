@@ -29,7 +29,8 @@ type SyncStructure[K comparable, V any] interface {
 	AtomicGetNoCheck(key K) V
 	AtomicRemove(key K)
 
-	Len() int // Atomic operation
+	Len() int       // Atomic operation
+	AtomicLen() int // Atomic operation
 }
 
 type Structure[K comparable, V any] struct {
@@ -140,6 +141,10 @@ func (s *Structure[K, V]) AtomicRemove(key K) {
 }
 
 func (s *Structure[K, V]) Len() int {
+	return len(s.InternalMap)
+}
+
+func (s *Structure[K, V]) AtomicLen() int {
 	s.internalLock.RLock()
 	defer s.internalLock.RUnlock()
 

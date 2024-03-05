@@ -226,31 +226,34 @@ func (c *ControlPlane) NodeHeartbeat(_ context.Context, in *proto.NodeHeartbeatM
 func (c *ControlPlane) RegisterService(ctx context.Context, serviceInfo *proto.ServiceInfo) (*proto.ActionStatus, error) {
 	logrus.Infof("Received a service registration with name : %s", serviceInfo.Name)
 
-	if enter, timestamp := c.SIStorage.SetIfAbsent(serviceInfo.Name, &ServiceInfoStorage{}); enter {
-		err := c.PersistenceLayer.StoreServiceInformation(ctx, serviceInfo, timestamp)
-		if err != nil {
-			logrus.Errorf("Failed to store information to persistence layer (error : %s)", err.Error())
-			c.SIStorage.AtomicRemove(serviceInfo.Name)
-			return &proto.ActionStatus{Success: false}, err
-		}
+	c.SIStorage.Lock()
+	defer c.SIStorage.Unlock()
 
-		err = c.notifyDataplanesAndStartScalingLoop(ctx, serviceInfo, false)
-		if err != nil {
-			logrus.Warnf("Failed to connect registered service (error : %s)", err.Error())
-			c.SIStorage.AtomicRemove(serviceInfo.Name)
-
-			return &proto.ActionStatus{Success: false}, err
-		}
-
-		if c.config.PrecreateSnapshots {
-			c.precreateSnapshots(serviceInfo)
-		}
-
-		return &proto.ActionStatus{Success: true}, nil
+	if _, present := c.SIStorage.Get(serviceInfo.Name); present {
+		logrus.Errorf("Service with name %s is already registered", serviceInfo.Name)
+		return &proto.ActionStatus{Success: false}, errors.New("service is already registered")
 	}
 
-	logrus.Errorf("Service with name %s is already registered", serviceInfo.Name)
-	return &proto.ActionStatus{Success: false}, errors.New("service is already registered")
+	err := c.PersistenceLayer.StoreServiceInformation(ctx, serviceInfo, time.Now())
+	if err != nil {
+		logrus.Errorf("Failed to store information to persistence layer (error : %s)", err.Error())
+		c.SIStorage.AtomicRemove(serviceInfo.Name)
+		return &proto.ActionStatus{Success: false}, err
+	}
+
+	err = c.notifyDataplanesAndStartScalingLoop(ctx, serviceInfo, false)
+	if err != nil {
+		logrus.Warnf("Failed to connect registered service (error : %s)", err.Error())
+		c.SIStorage.AtomicRemove(serviceInfo.Name)
+
+		return &proto.ActionStatus{Success: false}, err
+	}
+
+	if c.config.PrecreateSnapshots {
+		c.precreateSnapshots(serviceInfo)
+	}
+
+	return &proto.ActionStatus{Success: true}, nil
 }
 
 func (c *ControlPlane) DeregisterService(ctx context.Context, serviceInfo *proto.ServiceInfo) (*proto.ActionStatus, error) {

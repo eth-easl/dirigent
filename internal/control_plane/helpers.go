@@ -32,7 +32,7 @@ func (c *ControlPlane) notifyDataplanesAndStartScalingLoop(ctx context.Context, 
 		startTime = time.Now()
 	}
 
-	c.SIStorage.AtomicSet(serviceInfo.Name, &ServiceInfoStorage{
+	c.SIStorage.Set(serviceInfo.Name, &ServiceInfoStorage{
 		ServiceInfo:             serviceInfo,
 		ControlPlane:            c,
 		Controller:              autoscaling.NewPerFunctionStateController(make(chan int), serviceInfo, 2*time.Second), // TODO: Hardcoded autoscaling for now
@@ -44,7 +44,7 @@ func (c *ControlPlane) notifyDataplanesAndStartScalingLoop(ctx context.Context, 
 		StartTime:               startTime,
 	})
 
-	go c.SIStorage.AtomicGetNoCheck(serviceInfo.Name).ScalingControllerLoop()
+	go c.SIStorage.GetNoCheck(serviceInfo.Name).ScalingControllerLoop()
 
 	return nil
 }
@@ -96,15 +96,15 @@ func searchEndpointByContainerName(endpoints []*core.Endpoint, cid string) *core
  */
 
 func (c *ControlPlane) GetNumberConnectedWorkers() int {
-	return c.NIStorage.Len()
+	return c.NIStorage.AtomicLen()
 }
 
 func (c *ControlPlane) GetNumberDataplanes() int {
-	return c.DataPlaneConnections.Len()
+	return c.DataPlaneConnections.AtomicLen()
 }
 
 func (c *ControlPlane) GetNumberServices() int {
-	return c.SIStorage.Len()
+	return c.SIStorage.AtomicLen()
 }
 
 // Parse placement policy
