@@ -6,7 +6,6 @@ import (
 	_map "cluster_manager/pkg/map"
 	"container/list"
 	"context"
-	"os"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -77,20 +76,16 @@ type ColdStartChannelStruct struct {
 	AddEndpointDuration time.Duration
 }
 
-func NewFunctionMetadata(name string) *FunctionMetadata {
-	hostName, err := os.Hostname()
-	if err != nil {
-		logrus.Warn("Error fetching host name.")
-	}
-
+func NewFunctionMetadata(name string, dataplaneID string) *FunctionMetadata {
 	return &FunctionMetadata{
-		dataPlaneID:        hostName,
+		dataPlaneID:        dataplaneID,
 		identifier:         name,
 		sandboxParallelism: 1, // TODO: make dynamic
 		queue:              list.New(),
 		scalingMetric: ScalingMetric{
 			timeWindowSize: 2 * time.Second,
 		},
+		statistics: &FunctionStatistics{},
 		loadBalancingMetadata: LoadBalancingMetadata{
 			RoundRobinCounter:           0,
 			KubernetesRoundRobinCounter: 0,
@@ -315,6 +310,7 @@ func (m *FunctionMetadata) TryWarmStart(cp proto.CpiInterfaceClient) (chan ColdS
 
 	// autoscaling metric
 	atomic.AddInt32(&m.scalingMetric.inflightRequests, 1)
+	m.statistics.IncrementInflight()
 
 	m.triggerAutoscaling(cp)
 
@@ -325,6 +321,7 @@ func (m *FunctionMetadata) TryWarmStart(cp proto.CpiInterfaceClient) (chan ColdS
 		defer m.Unlock()
 
 		m.queue.PushBack(waitChannel)
+		m.statistics.IncrementQueueDepth()
 
 		return waitChannel, time.Since(start)
 	} else {

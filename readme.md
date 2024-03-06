@@ -70,6 +70,14 @@ To run the cluster manager locally the following setting must be enabled:
 sudo sysctl -w net.ipv4.conf.all.route_localnet=1
 ```
 
+Install HAProxy
+
+```bash
+sudo apt update && sudo apt install -y haproxy
+sudo cp configs/haproxy.cfg /etc/haproxy/haproxy.cfg
+
+```
+
 kubernetes-cni must be installed.
 
 

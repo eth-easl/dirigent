@@ -51,6 +51,9 @@ func DoLoadBalancing(req *http.Request, metadata *function_metadata.FunctionMeta
 	var endpoint *function_metadata.UpstreamEndpoint
 	loadBalancingRetries := 60
 
+	metadata.GetStatistics().IncrementQueueDepth()
+	defer metadata.GetStatistics().DecrementQueueDepth()
+
 	// trying to get an endpoint and capacity for a couple of times
 	for i := 0; i < loadBalancingRetries; i++ {
 		lbStart := time.Now()

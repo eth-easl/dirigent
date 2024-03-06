@@ -15,8 +15,12 @@ func CreateMetricsHandler(deployments *function_metadata.Deployments) func(write
 		}
 
 		metadata, _ := deployments.GetDeployment(service)
-		statistics := metadata.GetStatistics()
+		if metadata == nil {
+			writer.WriteHeader(http.StatusBadRequest)
+			return
+		}
 
+		statistics := metadata.GetStatistics()
 		data, err := json.Marshal(*statistics)
 		if err != nil {
 			writer.WriteHeader(http.StatusInternalServerError)

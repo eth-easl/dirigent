@@ -40,7 +40,7 @@ func getTestEndpoints() (*function_metadata.FunctionMetadata, int) {
 		},
 	}
 
-	metadata := function_metadata.NewFunctionMetadata("mockName")
+	metadata := function_metadata.NewFunctionMetadata("mockName", "test")
 	metadata.SetEndpoints(endpoints)
 
 	return metadata, len(endpoints)

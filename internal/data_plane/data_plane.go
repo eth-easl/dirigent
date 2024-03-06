@@ -10,7 +10,10 @@ import (
 	"cluster_manager/pkg/utils"
 	"context"
 	"errors"
+	"fmt"
 	"k8s.io/apimachinery/pkg/util/wait"
+	"math/rand"
+	"os"
 	"path"
 	"strconv"
 	"time"
@@ -22,12 +25,22 @@ import (
 type Dataplane struct {
 	config      config.DataPlaneConfig
 	deployments *function_metadata.Deployments
+
+	dataplaneID string
 }
 
 func NewDataplane(config config.DataPlaneConfig) *Dataplane {
+	hostName, err := os.Hostname()
+	if err != nil {
+		logrus.Warn("Error fetching host name.")
+	}
+
+	nodeName := fmt.Sprintf("%s-%d", hostName, rand.Int())
+
 	return &Dataplane{
 		config:      config,
 		deployments: function_metadata.NewDeploymentList(),
+		dataplaneID: nodeName,
 	}
 }
 
@@ -86,7 +99,7 @@ func (d *Dataplane) registerDataPlane(cpApiServer proto.CpiInterfaceClient) erro
 }
 
 func (d *Dataplane) AddDeployment(in *proto.ServiceInfo) (*proto.DeploymentUpdateSuccess, error) {
-	return &proto.DeploymentUpdateSuccess{Success: d.deployments.AddDeployment(in.GetName())}, nil
+	return &proto.DeploymentUpdateSuccess{Success: d.deployments.AddDeployment(in.GetName(), d.dataplaneID)}, nil
 }
 
 func (d *Dataplane) UpdateEndpointList(patch *proto.DeploymentEndpointPatch) (*proto.DeploymentUpdateSuccess, error) {
@@ -186,7 +199,7 @@ func (d *Dataplane) syncDeploymentCache(cpApi *proto.CpiInterfaceClient, deploym
 	}
 
 	for i := 0; i < len(resp.Service); i++ {
-		deployments.AddDeployment(resp.Service[i])
+		deployments.AddDeployment(resp.Service[i], d.dataplaneID)
 	}
 
 	return nil

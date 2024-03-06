@@ -18,7 +18,7 @@ func NewDeploymentList() *Deployments {
 	}
 }
 
-func (d *Deployments) AddDeployment(name string) bool {
+func (d *Deployments) AddDeployment(name string, dataplaneID string) bool {
 	d.Lock()
 	defer d.Unlock()
 
@@ -27,7 +27,7 @@ func (d *Deployments) AddDeployment(name string) bool {
 		return false
 	}
 
-	d.data[name] = NewFunctionMetadata(name)
+	d.data[name] = NewFunctionMetadata(name, dataplaneID)
 
 	logrus.Debugf("Service with name %s has been registered.", name)
 	return true
