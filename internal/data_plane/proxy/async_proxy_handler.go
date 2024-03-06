@@ -238,7 +238,10 @@ func (ps *AsyncProxyingService) fireRequest(bufferedRequest *requests.BufferedRe
 	coldStartChannel, durationColdStart := metadata.TryWarmStart(ps.CPInterface)
 	addDeploymentDuration := time.Duration(0)
 
-	defer metadata.DecreaseInflight()
+	defer metadata.GetStatistics().DecrementInflight() // for statistics
+	defer metadata.DecreaseInflight()                  // for autoscaling
+
+	// unblock from cold start if context gets cancelled
 	go contextTerminationHandler(request, coldStartChannel)
 
 	if coldStartChannel != nil {
@@ -247,6 +250,7 @@ func (ps *AsyncProxyingService) fireRequest(bufferedRequest *requests.BufferedRe
 		// wait until a cold start is resolved
 		coldStartWaitTime := time.Now()
 		waitOutcome := <-coldStartChannel
+		metadata.GetStatistics().DecrementQueueDepth()
 		durationColdStart = time.Since(coldStartWaitTime) - waitOutcome.AddEndpointDuration
 		addDeploymentDuration = waitOutcome.AddEndpointDuration
 
@@ -310,6 +314,7 @@ func (ps *AsyncProxyingService) fireRequest(bufferedRequest *requests.BufferedRe
 		Serialization:    bufferedRequest.SerializationDuration,
 		PersistenceLayer: bufferedRequest.PersistenceDuration,
 	}
+	metadata.GetStatistics().IncrementSuccessfulInvocations()
 
 	return &requests.BufferedResponse{
 		StatusCode: http.StatusOK,
