@@ -160,6 +160,6 @@ func (ps *ProxyingService) createInvocationHandler(next http.Handler) http.Handl
 			Proxying:         time.Since(startProxy),
 			PersistenceLayer: 0,
 		}
-		metadata.GetStatistics().IncrementSuccessInvocations()
+		metadata.GetStatistics().IncrementSuccessfulInvocations()
 	}
 }

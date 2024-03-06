@@ -8,19 +8,21 @@ import (
 
 func CreateMetricsHandler(deployments *function_metadata.Deployments) func(writer http.ResponseWriter, r *http.Request) {
 	return func(writer http.ResponseWriter, r *http.Request) {
+		var statistics *function_metadata.FunctionStatistics
+
 		service := r.URL.Query().Get("service")
 		if service == "" {
-			writer.WriteHeader(http.StatusBadRequest)
-			return
+			statistics = function_metadata.AggregateStatistics(deployments.ListDeployments())
+		} else {
+			metadata, _ := deployments.GetDeployment(service)
+			if metadata == nil {
+				writer.WriteHeader(http.StatusBadRequest)
+				return
+			}
+
+			statistics = metadata.GetStatistics()
 		}
 
-		metadata, _ := deployments.GetDeployment(service)
-		if metadata == nil {
-			writer.WriteHeader(http.StatusBadRequest)
-			return
-		}
-
-		statistics := metadata.GetStatistics()
 		data, err := json.Marshal(*statistics)
 		if err != nil {
 			writer.WriteHeader(http.StatusInternalServerError)
