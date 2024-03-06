@@ -22,7 +22,7 @@ func (c *ControlPlane) notifyDataplanesAndStartScalingLoop(ctx context.Context, 
 	for _, conn := range c.DataPlaneConnections.GetMap() {
 		_, err := conn.AddDeployment(ctx, serviceInfo)
 		if err != nil {
-			return err
+			logrus.Warnf("Failed to add deployment to data plane %s - %v", conn.GetIP(), err)
 		}
 	}
 	c.DataPlaneConnections.Unlock()

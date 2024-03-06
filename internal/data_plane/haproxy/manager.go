@@ -69,6 +69,8 @@ func (api *API) StopHAProxy() {
 // RestartHAProxy Should be called to commit every action to the running instance of HAProxy
 func (api *API) RestartHAProxy() {
 	go func() {
+		logrus.Infof("Restarting HAProxy...")
+
 		err := exec.Command("sudo", "systemctl", "restart", "haproxy").Run()
 		if err != nil {
 			api.forceResetHAProxy()

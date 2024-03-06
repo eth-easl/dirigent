@@ -7,6 +7,7 @@ import (
 	"context"
 	"github.com/sirupsen/logrus"
 	"google.golang.org/protobuf/types/known/emptypb"
+	"sync"
 	"sync/atomic"
 	"time"
 )
@@ -110,13 +111,25 @@ func (c *ControlPlane) reconstructServiceState(ctx context.Context) error {
 		return err
 	}
 
+	wg := sync.WaitGroup{}
+	wg.Add(len(services))
+
 	for _, service := range services {
-		c.SIStorage.Set(service.Name, &ServiceInfoStorage{})
-		err = c.notifyDataplanesAndStartScalingLoop(ctx, service, true)
-		if err != nil {
-			return err
-		}
+		go func(service *proto.ServiceInfo) {
+			defer wg.Done()
+
+			c.SIStorage.Lock()
+			defer c.SIStorage.Unlock()
+
+			//c.SIStorage.Set(service.Name, &ServiceInfoStorage{})
+			err = c.notifyDataplanesAndStartScalingLoop(ctx, service, true)
+			if err != nil {
+				logrus.Warnf("Failed to reconstruct service state for %s - %v", service.Name, err)
+			}
+		}(service)
 	}
+
+	wg.Wait()
 
 	logrus.Infof("Reconstructed information for %d services", len(services))
 	return nil

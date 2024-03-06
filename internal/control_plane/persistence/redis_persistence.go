@@ -321,11 +321,11 @@ func (driver *RedisClient) SetLeader(ctx context.Context) error {
 	// TODO: Improve this part - make sure at least quorum is okay
 	for _, otherClient := range driver.OtherClients {
 		if err := otherClient.SlaveOf(ctx, driver.Addr, driver.Port).Err(); err != nil {
-			logrus.Errorf("Failed set slave of %s:%s : %s", driver.Addr, driver.Port, err.Error())
+			logrus.Errorf("Failed to set slave of %s:%s : %s", driver.Addr, driver.Port, err.Error())
 		}
 	}
 
-	logrus.Info("Set local redis instance as the new redis master")
+	logrus.Info("Set local Redis instance as the new Redis master")
 
 	return nil
 }
