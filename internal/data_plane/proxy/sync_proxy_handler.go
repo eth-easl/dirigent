@@ -55,6 +55,7 @@ func (ps *ProxyingService) StartProxyServer() {
 	mux := http.NewServeMux()
 	mux.Handle("/", composedHandler)
 	mux.HandleFunc("/health", HealthHandler)
+	mux.HandleFunc("/metrics", CreateMetricsHandler(ps.Cache))
 
 	proxyRxAddress := net.JoinHostPort(ps.Host, ps.Port)
 	logrus.Info("Creating a proxy server at ", proxyRxAddress)

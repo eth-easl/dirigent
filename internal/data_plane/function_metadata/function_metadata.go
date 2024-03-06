@@ -51,7 +51,8 @@ type FunctionMetadata struct {
 
 	loadBalancingMetadata LoadBalancingMetadata
 
-	metrics ScalingMetric
+	scalingMetric ScalingMetric
+	statistics    *FunctionStatistics
 
 	// autoscalingTriggered - 0 = not running; other = running
 	autoscalingTriggered int32
@@ -87,7 +88,7 @@ func NewFunctionMetadata(name string) *FunctionMetadata {
 		identifier:         name,
 		sandboxParallelism: 1, // TODO: make dynamic
 		queue:              list.New(),
-		metrics: ScalingMetric{
+		scalingMetric: ScalingMetric{
 			timeWindowSize: 2 * time.Second,
 		},
 		loadBalancingMetadata: LoadBalancingMetadata{
@@ -96,6 +97,10 @@ func NewFunctionMetadata(name string) *FunctionMetadata {
 			RequestCountPerInstance:     atomic_map.NewAtomicMapCounter[*UpstreamEndpoint](),
 		},
 	}
+}
+
+func (m *FunctionMetadata) GetStatistics() *FunctionStatistics {
+	return m.statistics
 }
 
 func (m *FunctionMetadata) GetIdentifier() string {
@@ -302,14 +307,14 @@ func (m *FunctionMetadata) SetEndpoints(newEndpoints []*UpstreamEndpoint) {
 }
 
 func (m *FunctionMetadata) DecreaseInflight() {
-	atomic.AddInt32(&m.metrics.inflightRequests, -1)
+	atomic.AddInt32(&m.scalingMetric.inflightRequests, -1)
 }
 
 func (m *FunctionMetadata) TryWarmStart(cp proto.CpiInterfaceClient) (chan ColdStartChannelStruct, time.Duration) {
 	start := time.Now()
 
 	// autoscaling metric
-	atomic.AddInt32(&m.metrics.inflightRequests, 1)
+	atomic.AddInt32(&m.scalingMetric.inflightRequests, 1)
 
 	m.triggerAutoscaling(cp)
 
@@ -339,20 +344,20 @@ func (m *FunctionMetadata) triggerAutoscaling(cp proto.CpiInterfaceClient) {
 	}
 
 	if swapped {
-		m.metrics.timestamp = time.Now()
+		m.scalingMetric.timestamp = time.Now()
 		go m.sendMetricsToAutoscaler(cp)
 	}
 }
 
 func (m *FunctionMetadata) sendMetricsToAutoscaler(cp proto.CpiInterfaceClient) {
-	timer := time.NewTicker(m.metrics.timeWindowSize)
+	timer := time.NewTicker(m.scalingMetric.timeWindowSize)
 
 	logrus.Debug("Started metrics loop")
 
 	for ; true; <-timer.C {
 		m.Lock()
 
-		inflightRequests := atomic.LoadInt32(&m.metrics.inflightRequests)
+		inflightRequests := atomic.LoadInt32(&m.scalingMetric.inflightRequests)
 
 		go func() {
 			// TODO: NEED TO IMPLEMENT - the data plane shouldn't stop send metrics until the control plane at least once confirms
@@ -362,7 +367,7 @@ func (m *FunctionMetadata) sendMetricsToAutoscaler(cp proto.CpiInterfaceClient) 
 				InflightRequests: inflightRequests,
 			})
 			if err != nil || !status.Success {
-				logrus.Warn("Failed to forward metrics to the control plane for service '", m.identifier, "'")
+				logrus.Warn("Failed to forward scaling metric to the control plane for service '", m.identifier, "'")
 			}
 
 			logrus.Debug("Metric value of ", inflightRequests, " was reported for ", m.identifier)
