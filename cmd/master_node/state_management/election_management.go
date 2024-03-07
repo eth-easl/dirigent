@@ -45,6 +45,8 @@ func (electionState *CurrentState) getRegistrationPort() string {
 func (electionState *CurrentState) SetCurrentControlPlaneLeader(leadership leader_election.AnnounceLeadership) {
 	electionState.destroyStateFromPreviousElectionTerm()
 
+	electionState.cpApiServer.HAProxyAPI.ReviseRegistrationServers([]string{electionState.cfg.RegistrationServer})
+
 	electionState.reconstructControlPlaneState()
 
 	electionState.stopNodeMonitoring = electionState.cpApiServer.StartNodeMonitoringLoop()
@@ -53,10 +55,6 @@ func (electionState *CurrentState) SetCurrentControlPlaneLeader(leadership leade
 		electionState.getRegistrationPort(),
 		leadership.Term,
 	)
-
-	electionState.cpApiServer.ReviseHAProxyServers()
-	electionState.cpApiServer.HAProxyAPI.ReviseRegistrationServers([]string{electionState.cfg.RegistrationServer})
-	electionState.cpApiServer.HAProxyAPI.RestartHAProxy()
 
 	electionState.wasLeaderBefore = true
 }

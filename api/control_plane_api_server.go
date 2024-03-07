@@ -252,7 +252,12 @@ func (c *CpApiServer) ReconstructState(ctx context.Context, config config2.Contr
 			"Perhaps the leader has changed in the meanwhile")
 	}
 
-	return c.ControlPlane.ReconstructState(ctx, config)
+	haproxyFunction := func() {
+		c.ReviseHAProxyServers()
+		c.HAProxyAPI.RestartHAProxy()
+	}
+
+	return c.ControlPlane.ReconstructState(ctx, config, haproxyFunction)
 }
 
 func (c *CpApiServer) ResetMeasurements(ctx context.Context, empty *emptypb.Empty) (*proto.ActionStatus, error) {

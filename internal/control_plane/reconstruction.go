@@ -13,7 +13,7 @@ import (
 )
 
 // Single threaded function - reconstruction happend before starting the control plane
-func (c *ControlPlane) ReconstructState(ctx context.Context, config config2.ControlPlaneConfig) error {
+func (c *ControlPlane) ReconstructState(ctx context.Context, config config2.ControlPlaneConfig, haproxyFunction func()) error {
 	if !config.Reconstruct {
 		return nil
 	}
@@ -34,6 +34,8 @@ func (c *ControlPlane) ReconstructState(ctx context.Context, config config2.Cont
 		duration := time.Since(start)
 		logrus.Infof("Worker nodes reconstruction took : %s", duration)
 	}
+	// Here we can already restart HAProxy
+	haproxyFunction()
 	{
 		start := time.Now()
 		if err := c.reconstructServiceState(ctx); err != nil {
