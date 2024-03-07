@@ -121,7 +121,6 @@ func (c *ControlPlane) reconstructServiceState(ctx context.Context) error {
 			c.SIStorage.Lock()
 			defer c.SIStorage.Unlock()
 
-			//c.SIStorage.Set(service.Name, &ServiceInfoStorage{})
 			err = c.notifyDataplanesAndStartScalingLoop(ctx, service, true)
 			if err != nil {
 				logrus.Warnf("Failed to reconstruct service state for %s - %v", service.Name, err)
