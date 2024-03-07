@@ -16,8 +16,6 @@ function SetupLoadBalancer() {
     sudo systemctl daemon-reload
 
     sudo systemctl restart keepalived
-    # Only one HAProxy should be active at a time in order not to propagate configurations on leader change
-    sudo systemctl stop haproxy
 }
 
 sudo apt-get update

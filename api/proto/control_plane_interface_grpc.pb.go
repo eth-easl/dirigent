@@ -33,6 +33,8 @@ type CpiInterfaceClient interface {
 	// RAFT leader election
 	RequestVote(ctx context.Context, in *RequestVoteArgs, opts ...grpc.CallOption) (*RequestVoteReply, error)
 	AppendEntries(ctx context.Context, in *AppendEntriesArgs, opts ...grpc.CallOption) (*AppendEntriesReply, error)
+	// HAProxy
+	ReviseHAProxyConfiguration(ctx context.Context, in *HAProxyConfig, opts ...grpc.CallOption) (*ActionStatus, error)
 }
 
 type cpiInterfaceClient struct {
@@ -160,6 +162,15 @@ func (c *cpiInterfaceClient) AppendEntries(ctx context.Context, in *AppendEntrie
 	return out, nil
 }
 
+func (c *cpiInterfaceClient) ReviseHAProxyConfiguration(ctx context.Context, in *HAProxyConfig, opts ...grpc.CallOption) (*ActionStatus, error) {
+	out := new(ActionStatus)
+	err := c.cc.Invoke(ctx, "/data_plane.CpiInterface/ReviseHAProxyConfiguration", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // CpiInterfaceServer is the server API for CpiInterface service.
 // All implementations must embed UnimplementedCpiInterfaceServer
 // for forward compatibility
@@ -178,6 +189,8 @@ type CpiInterfaceServer interface {
 	// RAFT leader election
 	RequestVote(context.Context, *RequestVoteArgs) (*RequestVoteReply, error)
 	AppendEntries(context.Context, *AppendEntriesArgs) (*AppendEntriesReply, error)
+	// HAProxy
+	ReviseHAProxyConfiguration(context.Context, *HAProxyConfig) (*ActionStatus, error)
 	mustEmbedUnimplementedCpiInterfaceServer()
 }
 
@@ -223,6 +236,9 @@ func (UnimplementedCpiInterfaceServer) RequestVote(context.Context, *RequestVote
 }
 func (UnimplementedCpiInterfaceServer) AppendEntries(context.Context, *AppendEntriesArgs) (*AppendEntriesReply, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method AppendEntries not implemented")
+}
+func (UnimplementedCpiInterfaceServer) ReviseHAProxyConfiguration(context.Context, *HAProxyConfig) (*ActionStatus, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method ReviseHAProxyConfiguration not implemented")
 }
 func (UnimplementedCpiInterfaceServer) mustEmbedUnimplementedCpiInterfaceServer() {}
 
@@ -471,6 +487,24 @@ func _CpiInterface_AppendEntries_Handler(srv interface{}, ctx context.Context, d
 	return interceptor(ctx, in, info, handler)
 }
 
+func _CpiInterface_ReviseHAProxyConfiguration_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(HAProxyConfig)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(CpiInterfaceServer).ReviseHAProxyConfiguration(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/data_plane.CpiInterface/ReviseHAProxyConfiguration",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(CpiInterfaceServer).ReviseHAProxyConfiguration(ctx, req.(*HAProxyConfig))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // CpiInterface_ServiceDesc is the grpc.ServiceDesc for CpiInterface service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -529,6 +563,10 @@ var CpiInterface_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "AppendEntries",
 			Handler:    _CpiInterface_AppendEntries_Handler,
+		},
+		{
+			MethodName: "ReviseHAProxyConfiguration",
+			Handler:    _CpiInterface_ReviseHAProxyConfiguration_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

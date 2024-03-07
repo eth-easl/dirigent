@@ -1,6 +1,7 @@
 port: "9090"
 replicas: "127.0.0.1:10000,127.0.0.1:10001"
-registrationServer: "127.0.0.1:9091"
+registrationServer: "127.0.0.1:13091"
+registrationServerReplicas: "127.0.0.1:14091,127.0.0.1:15091"
 verbosity: "debug"
 traceOutputFolder: "data"
 placementPolicy: "random"
@@ -8,7 +9,7 @@ persistence: true
 reconstruct: true
 
 # to use HAProxy load balancer put 127.0.0.1:8079, otherwise leave blank
-loadBalancerAddress: ""
+loadBalancerAddress: "127.0.0.1:8079"
 
 removeWorkerNode: false
 removeDataplane: false

@@ -140,6 +140,25 @@ func (c *ControlPlane) DeregisterDataplane(ctx context.Context, in *proto.Datapl
 
 // Node functions
 
+func (c *ControlPlane) GetHAProxyConfig() *proto.HAProxyConfig {
+	var dataPlanes []string
+	registrationServers := append(
+		[]string{c.config.RegistrationServer},
+		c.config.RegistrationServerReplicas...,
+	)
+
+	c.DataPlaneConnections.Lock()
+	for _, conn := range c.DataPlaneConnections.GetMap() {
+		dataPlanes = append(dataPlanes, fmt.Sprintf("%s:%s", conn.GetIP(), conn.GetProxyPort()))
+	}
+	c.DataPlaneConnections.Unlock()
+
+	return &proto.HAProxyConfig{
+		Dataplanes:          dataPlanes,
+		RegistrationServers: registrationServers,
+	}
+}
+
 func (c *ControlPlane) RegisterNode(ctx context.Context, in *proto.NodeInfo) (*proto.ActionStatus, error) {
 	logrus.Infof("Received a node registration with name : %s", in.NodeID)
 
@@ -454,7 +473,7 @@ func (c *ControlPlane) StopAllScalingLoops() {
 	}
 }
 
-func (c *ControlPlane) ReviseDataplanesInLB(callback func([]string)) {
+func (c *ControlPlane) ReviseDataplanesInLB(callback func([]string) bool) bool {
 	c.DataPlaneConnections.RLock()
 	defer c.DataPlaneConnections.RUnlock()
 
@@ -463,5 +482,5 @@ func (c *ControlPlane) ReviseDataplanesInLB(callback func([]string)) {
 		dataplanes = append(dataplanes, fmt.Sprintf("%s:%s", dp.GetIP(), dp.GetProxyPort()))
 	}
 
-	callback(dataplanes)
+	return callback(dataplanes)
 }

@@ -220,6 +220,7 @@ func (c *CpApiServer) RegisterDataplane(ctx context.Context, in *proto.Dataplane
 	status, err, isHeartbeat := c.ControlPlane.RegisterDataplane(ctx, in)
 	if status.Success && err == nil && !isHeartbeat {
 		c.HAProxyAPI.AddDataplane(in.IP, int(in.ProxyPort), true)
+		c.DisseminateHAProxyConfig()
 	}
 
 	return status, err
@@ -240,24 +241,20 @@ func (c *CpApiServer) DeregisterDataplane(ctx context.Context, in *proto.Datapla
 	status, err := c.ControlPlane.DeregisterDataplane(ctx, in)
 	if status.Success && err == nil {
 		c.HAProxyAPI.RemoveDataplane(in.IP, int(in.ProxyPort), true)
+		c.DisseminateHAProxyConfig()
 	}
 
 	return status, err
 }
 
-func (c *CpApiServer) ReconstructState(ctx context.Context, config config2.ControlPlaneConfig) error {
+func (c *CpApiServer) ReconstructState(ctx context.Context, config config2.ControlPlaneConfig, haProxyCallback func()) error {
 	if !c.LeaderElectionServer.IsLeader() {
 		// This API call is not exposed to the outside, but it's called only on process startup
 		return errors.New("cannot request cluster state reconstruction if not the leader. " +
 			"Perhaps the leader has changed in the meanwhile")
 	}
 
-	haproxyFunction := func() {
-		c.ReviseHAProxyServers()
-		c.HAProxyAPI.RestartHAProxy()
-	}
-
-	return c.ControlPlane.ReconstructState(ctx, config, haproxyFunction)
+	return c.ControlPlane.ReconstructState(ctx, config, haProxyCallback)
 }
 
 func (c *CpApiServer) ResetMeasurements(ctx context.Context, empty *emptypb.Empty) (*proto.ActionStatus, error) {
@@ -301,7 +298,29 @@ func (c *CpApiServer) AppendEntries(_ context.Context, args *proto.AppendEntries
 	return c.LeaderElectionServer.AppendEntries(args)
 }
 
-func (c *CpApiServer) ReviseHAProxyServers() {
-	logrus.Infof("Revising HAProxy backend server list...")
-	c.ControlPlane.ReviseDataplanesInLB(c.HAProxyAPI.ReviseDataplanes)
+// ReviseHAProxyConfiguration Local method for updating HAProxy configuration. Called by the remote leader to disseminate configuration.
+func (c *CpApiServer) ReviseHAProxyConfiguration(_ context.Context, args *proto.HAProxyConfig) (*proto.ActionStatus, error) {
+	dpChanges := c.HAProxyAPI.ReviseDataplanes(args.Dataplanes)
+	rsChanges := c.HAProxyAPI.ReviseRegistrationServers(args.RegistrationServers)
+
+	toRestart := dpChanges || rsChanges
+	if toRestart {
+		c.HAProxyAPI.RestartHAProxy()
+		logrus.Info("HAProxy configuration revision done with restart!")
+	} else {
+		logrus.Info("HAProxy configuration revision done without restart!")
+	}
+
+	return &proto.ActionStatus{Success: true}, nil
+}
+
+func (c *CpApiServer) DisseminateHAProxyConfig() {
+	newConfig := c.ControlPlane.GetHAProxyConfig()
+
+	for peer, conn := range c.LeaderElectionServer.GetPeers() {
+		_, err := conn.ReviseHAProxyConfiguration(context.Background(), newConfig)
+		if err != nil {
+			logrus.Errorf("Failed disseminating HAProxy configuration to peer #%d", peer)
+		}
+	}
 }

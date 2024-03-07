@@ -182,3 +182,7 @@ func (s *LeaderElectionServer) EstablishLeaderElectionMesh(replicas []string) {
 	// signal that a connection with at least half ot the nodes has been established
 	wg.Wait()
 }
+
+func (s *LeaderElectionServer) GetPeers() map[int]proto.CpiInterfaceClient {
+	return s.peerClients
+}

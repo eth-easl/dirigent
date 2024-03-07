@@ -34,8 +34,11 @@ func (c *ControlPlane) ReconstructState(ctx context.Context, config config2.Cont
 		duration := time.Since(start)
 		logrus.Infof("Worker nodes reconstruction took : %s", duration)
 	}
-	// Here we can already restart HAProxy
+
+	// Here we can already restart HAProxy as data about the registration
+	// servers and data planes have been recovered
 	haproxyFunction()
+
 	{
 		start := time.Now()
 		if err := c.reconstructServiceState(ctx); err != nil {
@@ -53,7 +56,6 @@ func (c *ControlPlane) ReconstructState(ctx context.Context, config config2.Cont
 		logrus.Infof("Endpoints reconstruction took : %s", duration)
 	}
 
-	// TODO: Is it the correct to set the persistence layer as leader?
 	return c.PersistenceLayer.SetLeader(ctx)
 }
 

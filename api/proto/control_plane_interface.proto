@@ -46,6 +46,11 @@ message Failure {
   repeated string SandboxIDs = 3;
 }
 
+message HAProxyConfig {
+  repeated string Dataplanes = 1;
+  repeated string RegistrationServers = 2;
+}
+
 service CpiInterface {
   rpc OnMetricsReceive(AutoscalingMetric) returns (ActionStatus);
   rpc ListServices(google.protobuf.Empty) returns (ServiceList);
@@ -66,4 +71,7 @@ service CpiInterface {
   // RAFT leader election
   rpc RequestVote(RequestVoteArgs) returns (RequestVoteReply);
   rpc AppendEntries(AppendEntriesArgs) returns (AppendEntriesReply);
+
+  // HAProxy
+  rpc ReviseHAProxyConfiguration(HAProxyConfig) returns (ActionStatus);
 }

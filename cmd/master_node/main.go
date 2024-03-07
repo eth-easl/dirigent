@@ -7,6 +7,7 @@ import (
 	"cluster_manager/internal/control_plane/data_plane"
 	"cluster_manager/internal/control_plane/data_plane/empty_dataplane"
 	"cluster_manager/internal/control_plane/persistence"
+	"cluster_manager/internal/control_plane/registration_server"
 	"cluster_manager/internal/control_plane/workers"
 	"cluster_manager/internal/control_plane/workers/empty_worker"
 	"cluster_manager/pkg/config"
@@ -14,6 +15,7 @@ import (
 	"cluster_manager/pkg/profiler"
 	"context"
 	"flag"
+	"net"
 	_ "net/http/pprof"
 	"os/signal"
 	"path"
@@ -72,6 +74,9 @@ func main() {
 	}
 
 	cpApiServer, isLeader := api.CreateNewCpApiServer(cpApiCreationArgs)
+	stopRegistrationServer := registration_server.StartServiceRegistrationServer(cpApiServer, getRegistrationPort(&cfg))
+
+	cpApiServer.HAProxyAPI.StartHAProxy()
 
 	go profiler.SetupProfilerServer(cfg.Profiler)
 
@@ -88,8 +93,19 @@ func main() {
 		case leadership := <-isLeader:
 			electionState.UpdateLeadership(leadership)
 		case <-ctx.Done():
+			stopRegistrationServer <- struct{}{}
+
 			logrus.Info("Received interruption signal, try to gracefully stop")
 			return
 		}
 	}
+}
+
+func getRegistrationPort(cfg *config.ControlPlaneConfig) string {
+	_, registrationPort, err := net.SplitHostPort(cfg.RegistrationServer)
+	if err != nil {
+		logrus.Fatal("Invalid registration server address.")
+	}
+
+	return registrationPort
 }

@@ -17,9 +17,6 @@ func registrationHandler(cpApi *api.CpApiServer) func(w http.ResponseWriter, r *
 		if r.Method != http.MethodPost {
 			http.Error(w, "Method not allowed.", http.StatusMethodNotAllowed)
 			return
-		} else if cpApi.ControlPlane.DataPlaneConnections.Len() == 0 {
-			http.Error(w, "No data plane found.", http.StatusPreconditionFailed)
-			return
 		}
 
 		err := r.ParseForm()
@@ -105,14 +102,26 @@ func registrationHandler(cpApi *api.CpApiServer) func(w http.ResponseWriter, r *
 			autoscalingConfig.ScalingLowerBound = int32(lowerBound)
 		}
 
-		service, err := cpApi.RegisterService(r.Context(), &proto.ServiceInfo{
-			Name:              name,
-			Image:             image,
-			PortForwarding:    portMapping,
-			AutoscalingConfig: autoscalingConfig,
-			RequestedCpu:      uint64(cpu),
-			RequestedMemory:   uint64(memory),
-		})
+		var service *proto.ActionStatus
+		if cpApi.LeaderElectionServer.IsLeader() {
+			service, err = cpApi.RegisterService(r.Context(), &proto.ServiceInfo{
+				Name:              name,
+				Image:             image,
+				PortForwarding:    portMapping,
+				AutoscalingConfig: autoscalingConfig,
+				RequestedCpu:      uint64(cpu),
+				RequestedMemory:   uint64(memory),
+			})
+		} else {
+			service, err = cpApi.LeaderElectionServer.GetLeader().RegisterService(r.Context(), &proto.ServiceInfo{
+				Name:              name,
+				Image:             image,
+				PortForwarding:    portMapping,
+				AutoscalingConfig: autoscalingConfig,
+				RequestedCpu:      uint64(cpu),
+				RequestedMemory:   uint64(memory),
+			})
+		}
 		if err != nil {
 			return
 		}
@@ -136,6 +145,10 @@ func registrationHandler(cpApi *api.CpApiServer) func(w http.ResponseWriter, r *
 
 func GetLoadBalancerAddress(cpApi *api.CpApiServer) string {
 	if cpApi.HAProxyAPI.GetLoadBalancerAddress() == "" {
+		if !cpApi.LeaderElectionServer.IsLeader() {
+			logrus.Fatal("Load balancer should always be used in high-availability mode.")
+		}
+
 		endpointList := ""
 		cnt := 0
 
@@ -164,7 +177,7 @@ func HealthHandler(writer http.ResponseWriter, _ *http.Request) {
 	writer.WriteHeader(http.StatusOK)
 }
 
-func StartServiceRegistrationServer(cpApi *api.CpApiServer, registrationPort string, term int) (*http.Server, chan struct{}) {
+func StartServiceRegistrationServer(cpApi *api.CpApiServer, registrationPort string) chan struct{} {
 	mux := http.NewServeMux()
 	mux.HandleFunc("/", registrationHandler(cpApi))
 	mux.HandleFunc("/health", HealthHandler)
@@ -184,14 +197,14 @@ func StartServiceRegistrationServer(cpApi *api.CpApiServer, registrationPort str
 		for {
 			select {
 			case <-time.After(50 * time.Millisecond):
-				logrus.Infof("Starting service registration service for term %d - attempt #%d", term, attempt+1)
+				logrus.Infof("Starting service registration service - attempt #%d", attempt+1)
 
 				err := server.ListenAndServe()
 				if err != http.ErrServerClosed {
 					logrus.Errorf("Failed to start service registration server (attempt: #%d, error: %s)", attempt+1, err.Error())
 					attempt++
 				} else {
-					logrus.Infof("Succesfully closed function registration server (term #%d).", term)
+					logrus.Infof("Succesfully closed function registration server")
 					return
 				}
 			}
@@ -212,5 +225,5 @@ func StartServiceRegistrationServer(cpApi *api.CpApiServer, registrationPort str
 		return
 	}()
 
-	return server, stopCh
+	return stopCh
 }

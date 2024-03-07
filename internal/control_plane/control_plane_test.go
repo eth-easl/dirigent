@@ -70,7 +70,7 @@ func TestCreationControlPlaneEmpty(t *testing.T) {
 
 	controlPlane := NewControlPlane(persistenceLayer, "", placement_policy.NewRandomPlacement(), data_plane.NewDataplaneConnection, workers.NewWorkerNode, &mockConfig)
 
-	err := controlPlane.ReconstructState(context.Background(), mockConfig)
+	err := controlPlane.ReconstructState(context.Background(), mockConfig, func() {})
 
 	assert.NoError(t, err, "reconstructing control plane state failed")
 
@@ -95,7 +95,7 @@ func TestRegisterWorker(t *testing.T) {
 
 	controlPlane := NewControlPlane(persistenceLayer, "", placement_policy.NewRandomPlacement(), data_plane.NewDataplaneConnection, workers.NewWorkerNode, &mockConfig)
 
-	err := controlPlane.ReconstructState(context.Background(), mockConfig)
+	err := controlPlane.ReconstructState(context.Background(), mockConfig, func() {})
 
 	assert.NoError(t, err, "reconstructing control plane state failed")
 
@@ -140,7 +140,7 @@ func TestRegisterDataplanes(t *testing.T) {
 
 	controlPlane := NewControlPlane(persistenceLayer, "", placement_policy.NewRandomPlacement(), empty_dataplane.NewDataplaneConnectionEmpty, empty_worker.NewEmptyWorkerNode, &mockConfig)
 
-	err := controlPlane.ReconstructState(context.Background(), mockConfig)
+	err := controlPlane.ReconstructState(context.Background(), mockConfig, func() {})
 
 	assert.NoError(t, err, "reconstructing control plane state failed")
 
@@ -189,7 +189,7 @@ func TestRegisterServices(t *testing.T) {
 
 	controlPlane := NewControlPlane(persistenceLayer, "", placement_policy.NewRandomPlacement(), empty_dataplane.NewDataplaneConnectionEmpty, empty_worker.NewEmptyWorkerNode, &mockConfig)
 
-	err := controlPlane.ReconstructState(context.Background(), mockConfig)
+	err := controlPlane.ReconstructState(context.Background(), mockConfig, func() {})
 
 	assert.NoError(t, err, "reconstructing control plane state failed")
 
@@ -246,7 +246,7 @@ func TestDeregisterWorker(t *testing.T) {
 
 	controlPlane := NewControlPlane(persistenceLayer, "", placement_policy.NewRandomPlacement(), data_plane.NewDataplaneConnection, workers.NewWorkerNode, &mockConfig)
 
-	err := controlPlane.ReconstructState(context.Background(), mockConfig)
+	err := controlPlane.ReconstructState(context.Background(), mockConfig, func() {})
 
 	assert.NoError(t, err, "reconstructing control plane state failed")
 
@@ -317,7 +317,7 @@ func TestDeregisterDataplanes(t *testing.T) {
 
 	controlPlane := NewControlPlane(persistenceLayer, "", placement_policy.NewRandomPlacement(), empty_dataplane.NewDataplaneConnectionEmpty, empty_worker.NewEmptyWorkerNode, &mockConfig)
 
-	err := controlPlane.ReconstructState(context.Background(), mockConfig)
+	err := controlPlane.ReconstructState(context.Background(), mockConfig, func() {})
 
 	assert.NoError(t, err, "reconstructing control plane state failed")
 
@@ -396,7 +396,7 @@ func TestDeregisterServices(t *testing.T) {
 
 	controlPlane := NewControlPlane(persistenceLayer, "", placement_policy.NewRandomPlacement(), empty_dataplane.NewDataplaneConnectionEmpty, empty_worker.NewEmptyWorkerNode, &mockConfig)
 
-	err := controlPlane.ReconstructState(context.Background(), mockConfig)
+	err := controlPlane.ReconstructState(context.Background(), mockConfig, func() {})
 
 	assert.NoError(t, err, "reconstructing control plane state failed")
 
@@ -523,7 +523,7 @@ func TestReconstructionService(t *testing.T) {
 	controlPlane := NewControlPlane(persistenceLayer, "", placement_policy.NewRandomPlacement(), data_plane.NewDataplaneConnection, workers.NewWorkerNode, &mockConfig)
 
 	start := time.Now()
-	err := controlPlane.ReconstructState(context.Background(), mockConfig)
+	err := controlPlane.ReconstructState(context.Background(), mockConfig, func() {})
 	elapsed := time.Since(start)
 
 	assert.NoError(t, err, "reconstructing control plane state failed")
@@ -590,7 +590,7 @@ func TestReconstructionWorkers(t *testing.T) {
 	controlPlane := NewControlPlane(persistenceLayer, "", placement_policy.NewRandomPlacement(), te.NewMockDataplaneConnection, te.NewMockWorkerConnection, &mockConfig)
 
 	start := time.Now()
-	err := controlPlane.ReconstructState(context.Background(), mockConfig)
+	err := controlPlane.ReconstructState(context.Background(), mockConfig, func() {})
 	elapsed := time.Since(start)
 
 	assert.NoError(t, err, "reconstructing control plane state failed")
@@ -651,7 +651,7 @@ func TestReconstructionDataplanes(t *testing.T) {
 	controlPlane := NewControlPlane(persistenceLayer, "", placement_policy.NewRandomPlacement(), te.NewMockDataplaneConnection, workers.NewWorkerNode, &mockConfig)
 
 	start := time.Now()
-	err := controlPlane.ReconstructState(context.Background(), mockConfig)
+	err := controlPlane.ReconstructState(context.Background(), mockConfig, func() {})
 	elapsed := time.Since(start)
 
 	assert.NoError(t, err, "reconstructing control plane state failed")
@@ -680,7 +680,7 @@ func TestStressRegisterServices(t *testing.T) {
 	controlPlane := NewControlPlane(persistenceLayer, "", placement_policy.NewRandomPlacement(), data_plane.NewDataplaneConnection, workers.NewWorkerNode, &mockConfig)
 
 	start := time.Now()
-	assert.NoError(t, controlPlane.ReconstructState(context.Background(), mockConfig))
+	assert.NoError(t, controlPlane.ReconstructState(context.Background(), mockConfig, func() {}))
 
 	elapsed := time.Since(start)
 
@@ -728,7 +728,7 @@ func TestStressRegisterNodes(t *testing.T) {
 	controlPlane := NewControlPlane(persistenceLayer, "", placement_policy.NewRandomPlacement(), empty_dataplane.NewDataplaneConnectionEmpty, empty_worker.NewEmptyWorkerNode, &mockConfig)
 
 	start := time.Now()
-	assert.NoError(t, controlPlane.ReconstructState(context.Background(), mockConfig))
+	assert.NoError(t, controlPlane.ReconstructState(context.Background(), mockConfig, func() {}))
 
 	elapsed := time.Since(start)
 
@@ -777,7 +777,7 @@ func TestStressRegisterDataplanes(t *testing.T) {
 	controlPlane := NewControlPlane(persistenceLayer, "", placement_policy.NewRandomPlacement(), empty_dataplane.NewDataplaneConnectionEmpty, empty_worker.NewEmptyWorkerNode, &mockConfig)
 
 	start := time.Now()
-	assert.NoError(t, controlPlane.ReconstructState(context.Background(), mockConfig))
+	assert.NoError(t, controlPlane.ReconstructState(context.Background(), mockConfig, func() {}))
 
 	elapsed := time.Since(start)
 
@@ -832,7 +832,7 @@ func TestStressEverything(t *testing.T) {
 	controlPlane := NewControlPlane(persistenceLayer, "", placement_policy.NewRandomPlacement(), empty_dataplane.NewDataplaneConnectionEmpty, empty_worker.NewEmptyWorkerNode, &mockConfig)
 
 	start := time.Now()
-	assert.NoError(t, controlPlane.ReconstructState(context.Background(), mockConfig))
+	assert.NoError(t, controlPlane.ReconstructState(context.Background(), mockConfig, func() {}))
 
 	elapsed := time.Since(start)
 
@@ -910,7 +910,7 @@ func TestStressRegisterDeregisterServices(t *testing.T) {
 	controlPlane := NewControlPlane(persistenceLayer, "", placement_policy.NewRandomPlacement(), data_plane.NewDataplaneConnection, workers.NewWorkerNode, &mockConfig)
 
 	start := time.Now()
-	assert.NoError(t, controlPlane.ReconstructState(context.Background(), mockConfig))
+	assert.NoError(t, controlPlane.ReconstructState(context.Background(), mockConfig, func() {}))
 
 	elapsed := time.Since(start)
 
@@ -991,7 +991,7 @@ func TestStressRegisterDeregisterNodes(t *testing.T) {
 	controlPlane := NewControlPlane(persistenceLayer, "", placement_policy.NewRandomPlacement(), empty_dataplane.NewDataplaneConnectionEmpty, empty_worker.NewEmptyWorkerNode, &mockConfig)
 
 	start := time.Now()
-	assert.NoError(t, controlPlane.ReconstructState(context.Background(), mockConfig))
+	assert.NoError(t, controlPlane.ReconstructState(context.Background(), mockConfig, func() {}))
 
 	elapsed := time.Since(start)
 
@@ -1074,7 +1074,7 @@ func TestStressRegisterDeregisterDataplanes(t *testing.T) {
 	controlPlane := NewControlPlane(persistenceLayer, "", placement_policy.NewRandomPlacement(), empty_dataplane.NewDataplaneConnectionEmpty, empty_worker.NewEmptyWorkerNode, &mockConfig)
 
 	start := time.Now()
-	assert.NoError(t, controlPlane.ReconstructState(context.Background(), mockConfig))
+	assert.NoError(t, controlPlane.ReconstructState(context.Background(), mockConfig, func() {}))
 
 	elapsed := time.Since(start)
 
