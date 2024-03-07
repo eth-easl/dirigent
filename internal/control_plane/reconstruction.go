@@ -178,6 +178,7 @@ func (c *ControlPlane) reconstructEndpointsState(ctx context.Context) error {
 				Node:      node,
 				HostPort:  endpoint.HostPort,
 			}
+			logrus.Infof("ID: %s, URL: %s, Node: %s, Host Port: %d", endpoint.SandboxID, endpoint.URL, node.GetName(), endpoint.HostPort)
 
 			c.SIStorage.RLock()
 			ss, found := c.SIStorage.Get(endpoint.ServiceName)
