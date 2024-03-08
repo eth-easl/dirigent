@@ -145,7 +145,7 @@ func registrationHandler(cpApi *api.CpApiServer) func(w http.ResponseWriter, r *
 
 func GetLoadBalancerAddress(cpApi *api.CpApiServer) string {
 	if cpApi.HAProxyAPI.GetLoadBalancerAddress() == "" {
-		if !cpApi.LeaderElectionServer.IsLeader() {
+		if len(cpApi.LeaderElectionServer.GetPeers()) > 0 {
 			logrus.Fatal("Load balancer should always be used in high-availability mode.")
 		}
 

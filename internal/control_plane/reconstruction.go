@@ -5,6 +5,7 @@ import (
 	"cluster_manager/internal/control_plane/core"
 	config2 "cluster_manager/pkg/config"
 	"context"
+	"fmt"
 	"github.com/sirupsen/logrus"
 	"google.golang.org/protobuf/types/known/emptypb"
 	"sync"
@@ -174,11 +175,10 @@ func (c *ControlPlane) reconstructEndpointsState(ctx context.Context) error {
 
 			controlPlaneEndpoint := &core.Endpoint{
 				SandboxID: endpoint.SandboxID,
-				URL:       endpoint.URL,
+				URL:       fmt.Sprintf("%s:%d", node.GetIP(), endpoint.HostPort),
 				Node:      node,
 				HostPort:  endpoint.HostPort,
 			}
-			logrus.Infof("ID: %s, URL: %s, Node: %s, Host Port: %d", endpoint.SandboxID, endpoint.URL, node.GetName(), endpoint.HostPort)
 
 			c.SIStorage.RLock()
 			ss, found := c.SIStorage.Get(endpoint.ServiceName)
