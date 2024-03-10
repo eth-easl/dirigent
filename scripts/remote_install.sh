@@ -32,7 +32,15 @@ python3 invitro_traces/generate_traces.py
 
 NODE_COUNTER=0
 
-for NODE in "$@"
+nodes=$@
+
+if [ "$#" -eq 0 ]
+then
+  echo "No nodes supplied, using string.py to generate the cloudlab addresses"
+  nodes=$(python3 string.py)
+fi
+
+for NODE in nodes
 do
     if [ "$NODE_COUNTER" -eq 0 ]; then
         HA_SETTING="REDIS"
