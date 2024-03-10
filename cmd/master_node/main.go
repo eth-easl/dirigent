@@ -13,6 +13,7 @@ import (
 	"cluster_manager/pkg/config"
 	"cluster_manager/pkg/logger"
 	"cluster_manager/pkg/profiler"
+	"cluster_manager/pkg/utils"
 	"context"
 	"flag"
 	"net"
@@ -29,6 +30,10 @@ var (
 )
 
 func main() {
+	if !utils.IsRoot() {
+		logrus.Fatalf("Master node must be started with sudo")
+	}
+
 	flag.Parse()
 	logrus.Debugf("Configuration path is : %s", *configPath)
 

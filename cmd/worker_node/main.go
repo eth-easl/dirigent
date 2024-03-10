@@ -24,6 +24,10 @@ var (
 func main() {
 	flag.Parse()
 
+	if !utils.IsRoot() {
+		logrus.Fatalf("Worker node must be started with sudo")
+	}
+
 	logrus.Debugf("Configuration path is : %s", *configPath)
 
 	cfg, err := config.ReadWorkedNodeConfiguration(*configPath)
