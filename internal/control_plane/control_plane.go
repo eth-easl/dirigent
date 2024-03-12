@@ -32,7 +32,7 @@ type ControlPlane struct {
 	dataPlaneCreator  core.DataplaneFactory
 	workerNodeCreator core.WorkerNodeFactory
 
-	config *config.ControlPlaneConfig
+	Config *config.ControlPlaneConfig
 }
 
 func NewControlPlane(client persistence.PersistenceLayer, outputFile string, placementPolicy placement_policy.PlacementPolicy,
@@ -50,7 +50,7 @@ func NewControlPlane(client persistence.PersistenceLayer, outputFile string, pla
 		dataPlaneCreator:  dataplaneCreator,
 		workerNodeCreator: workerNodeCreator,
 
-		config: cfg,
+		Config: cfg,
 	}
 }
 
@@ -143,8 +143,8 @@ func (c *ControlPlane) DeregisterDataplane(ctx context.Context, in *proto.Datapl
 func (c *ControlPlane) GetHAProxyConfig() *proto.HAProxyConfig {
 	var dataPlanes []string
 	registrationServers := append(
-		[]string{c.config.RegistrationServer},
-		c.config.RegistrationServerReplicas...,
+		[]string{c.Config.RegistrationServer},
+		c.Config.RegistrationServerReplicas...,
 	)
 
 	c.DataPlaneConnections.Lock()
@@ -268,7 +268,7 @@ func (c *ControlPlane) RegisterService(ctx context.Context, serviceInfo *proto.S
 		return &proto.ActionStatus{Success: false}, err
 	}
 
-	if c.config.PrecreateSnapshots {
+	if c.Config.PrecreateSnapshots {
 		c.precreateSnapshots(serviceInfo)
 	}
 

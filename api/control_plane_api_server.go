@@ -247,14 +247,14 @@ func (c *CpApiServer) DeregisterDataplane(ctx context.Context, in *proto.Datapla
 	return status, err
 }
 
-func (c *CpApiServer) ReconstructState(ctx context.Context, config config2.ControlPlaneConfig, haProxyCallback func()) error {
+func (c *CpApiServer) ReconstructState(ctx context.Context, config config2.ControlPlaneConfig) error {
 	if !c.LeaderElectionServer.IsLeader() {
 		// This API call is not exposed to the outside, but it's called only on process startup
 		return errors.New("cannot request cluster state reconstruction if not the leader. " +
 			"Perhaps the leader has changed in the meanwhile")
 	}
 
-	return c.ControlPlane.ReconstructState(ctx, config, haProxyCallback)
+	return c.ControlPlane.ReconstructState(ctx, config, c.HAProxyAPI)
 }
 
 func (c *CpApiServer) ResetMeasurements(ctx context.Context, empty *emptypb.Empty) (*proto.ActionStatus, error) {
@@ -300,27 +300,9 @@ func (c *CpApiServer) AppendEntries(_ context.Context, args *proto.AppendEntries
 
 // ReviseHAProxyConfiguration Local method for updating HAProxy configuration. Called by the remote leader to disseminate configuration.
 func (c *CpApiServer) ReviseHAProxyConfiguration(_ context.Context, args *proto.HAProxyConfig) (*proto.ActionStatus, error) {
-	dpChanges := c.HAProxyAPI.ReviseDataplanes(args.Dataplanes)
-	rsChanges := c.HAProxyAPI.ReviseRegistrationServers(args.RegistrationServers)
-
-	toRestart := dpChanges || rsChanges
-	if toRestart {
-		c.HAProxyAPI.RestartHAProxy()
-		logrus.Info("HAProxy configuration revision done with restart!")
-	} else {
-		logrus.Info("HAProxy configuration revision done without restart!")
-	}
-
-	return &proto.ActionStatus{Success: true}, nil
+	return c.HAProxyAPI.ReviseHAProxyConfiguration(args)
 }
 
 func (c *CpApiServer) DisseminateHAProxyConfig() {
-	newConfig := c.ControlPlane.GetHAProxyConfig()
-
-	for peer, conn := range c.LeaderElectionServer.GetPeers() {
-		_, err := conn.ReviseHAProxyConfiguration(context.Background(), newConfig)
-		if err != nil {
-			logrus.Errorf("Failed disseminating HAProxy configuration to peer #%d", peer)
-		}
-	}
+	haproxy.DisseminateHAProxyConfig(c.ControlPlane.GetHAProxyConfig(), c.LeaderElectionServer)
 }

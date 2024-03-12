@@ -3,6 +3,7 @@ package control_plane
 import (
 	"cluster_manager/api/proto"
 	"cluster_manager/internal/control_plane/core"
+	"cluster_manager/internal/data_plane/haproxy"
 	config2 "cluster_manager/pkg/config"
 	"context"
 	"fmt"
@@ -13,8 +14,8 @@ import (
 	"time"
 )
 
-// Single threaded function - reconstruction happend before starting the control plane
-func (c *ControlPlane) ReconstructState(ctx context.Context, config config2.ControlPlaneConfig, haproxyFunction func()) error {
+// ReconstructState Single threaded function - reconstruction happend before starting the control plane
+func (c *ControlPlane) ReconstructState(ctx context.Context, config config2.ControlPlaneConfig, haProxyApi *haproxy.API) error {
 	if !config.Reconstruct {
 		return nil
 	}
@@ -38,7 +39,9 @@ func (c *ControlPlane) ReconstructState(ctx context.Context, config config2.Cont
 
 	// Here we can already restart HAProxy as data about the registration
 	// servers and data planes have been recovered
-	haproxyFunction()
+	if haProxyApi != nil {
+		haProxyApi.HAProxyReconstructionCallback(c.Config, c.ReviseDataplanesInLB)
+	}
 
 	{
 		start := time.Now()

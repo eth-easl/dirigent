@@ -29,28 +29,10 @@ func NewElectionState(cfg config.ControlPlaneConfig, cpiApiServer *api.CpApiServ
 	}
 }
 
-func (electionState *CurrentState) HAProxyCallback() {
-	hApi := electionState.cpApiServer.HAProxyAPI
-
-	dpChanges := electionState.cpApiServer.ControlPlane.ReviseDataplanesInLB(hApi.ReviseDataplanes)
-	rsChanges := hApi.ReviseRegistrationServers(append(
-		[]string{electionState.cfg.RegistrationServer},
-		electionState.cfg.RegistrationServerReplicas...),
-	)
-
-	toRestart := dpChanges || rsChanges
-	if toRestart {
-		hApi.RestartHAProxy()
-		logrus.Info("HAProxy configuration revision done with restart!")
-	} else {
-		logrus.Info("HAProxy configuration revision done without restart!")
-	}
-}
-
 func (electionState *CurrentState) SetCurrentControlPlaneLeader(_ leader_election.AnnounceLeadership) {
 	electionState.destroyStateFromPreviousElectionTerm()
 
-	electionState.reconstructControlPlaneState(electionState.HAProxyCallback)
+	electionState.reconstructControlPlaneState()
 
 	electionState.stopNodeMonitoring = electionState.cpApiServer.StartNodeMonitoringLoop()
 
@@ -80,10 +62,10 @@ func (electionState *CurrentState) destroyStateFromPreviousElectionTerm() {
 	electionState.cpApiServer.CleanControlPlaneInMemoryData(electionState.cpApiCreationArgs)
 }
 
-func (electionState *CurrentState) reconstructControlPlaneState(haProxyCallback func()) {
+func (electionState *CurrentState) reconstructControlPlaneState() {
 	start := time.Now()
 
-	err := electionState.cpApiServer.ReconstructState(context.Background(), electionState.cfg, haProxyCallback)
+	err := electionState.cpApiServer.ReconstructState(context.Background(), electionState.cfg)
 	if err != nil {
 		logrus.Fatalf("Failed to reconstruct state (error : %s)", err.Error())
 	}

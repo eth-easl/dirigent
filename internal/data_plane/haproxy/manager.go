@@ -1,8 +1,12 @@
 package haproxy
 
 import (
+	"cluster_manager/api/proto"
+	"cluster_manager/internal/control_plane/leader_election"
+	"cluster_manager/pkg/config"
 	"cluster_manager/pkg/grpc_helpers"
 	_map "cluster_manager/pkg/map"
+	"context"
 	"fmt"
 	clientnative "github.com/haproxytech/client-native"
 	"github.com/haproxytech/models"
@@ -21,6 +25,8 @@ const (
 
 	ServerHealthCheckInterval = 2500
 )
+
+type ReviseDataplanesInLBCall func(func([]string) bool) bool
 
 type API struct {
 	client    *clientnative.HAProxyClient
@@ -69,7 +75,7 @@ func (api *API) StopHAProxy() {
 // RestartHAProxy Should be called to commit every action to the running instance of HAProxy
 func (api *API) RestartHAProxy() {
 	go func() {
-		logrus.Infof("Restarting HAProxy...")
+		logrus.Info("Restarting HAProxy...")
 
 		err := exec.Command("sudo", "systemctl", "restart", "haproxy").Run()
 		if err != nil {
@@ -342,4 +348,44 @@ func (api *API) DeleteAllDataplanes() {
 	}
 
 	api.RestartHAProxy()
+}
+
+func (api *API) ReviseHAProxyConfiguration(args *proto.HAProxyConfig) (*proto.ActionStatus, error) {
+	dpChanges := api.ReviseDataplanes(args.Dataplanes)
+	rsChanges := api.ReviseRegistrationServers(args.RegistrationServers)
+
+	toRestart := dpChanges || rsChanges
+	if toRestart {
+		api.RestartHAProxy()
+		logrus.Info("HAProxy configuration revision done with restart!")
+	} else {
+		logrus.Info("HAProxy configuration revision done without restart!")
+	}
+
+	return &proto.ActionStatus{Success: true}, nil
+}
+
+func DisseminateHAProxyConfig(config *proto.HAProxyConfig, les *leader_election.LeaderElectionServer) {
+	for peer, conn := range les.GetPeers() {
+		_, err := conn.ReviseHAProxyConfiguration(context.Background(), config)
+		if err != nil {
+			logrus.Errorf("Failed disseminating HAProxy configuration to peer #%d", peer)
+		}
+	}
+}
+
+func (api *API) HAProxyReconstructionCallback(config *config.ControlPlaneConfig, reviseDataplanes ReviseDataplanesInLBCall) {
+	dpChanges := reviseDataplanes(api.ReviseDataplanes)
+	rsChanges := api.ReviseRegistrationServers(append(
+		[]string{config.RegistrationServer},
+		config.RegistrationServerReplicas...),
+	)
+
+	toRestart := dpChanges || rsChanges
+	if toRestart {
+		api.RestartHAProxy()
+		logrus.Info("HAProxy configuration revision done with restart!")
+	} else {
+		logrus.Info("HAProxy configuration revision done without restart!")
+	}
 }
