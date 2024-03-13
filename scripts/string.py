@@ -7,11 +7,11 @@ start_addr = 0
 if args.type != "basic":
     start_addr = 3
 
-list = ["790","768","783","765","704", "788", "766", "796", "716", "772", "705", "792", "782"]
+# Change this line with the automatic script
+list = ["Francois@pc852.emulab.net","Francois@pc856.emulab.net","Francois@pc845.emulab.net"]
 ans = ""
 
 for i in range (start_addr,len(list)):
-    #ans = ans + " Francois@hp"+ str(list[i]) +".utah.cloudlab.us"
-    ans = ans + " Francois@pc"+ str(list[i]) +".emulab.net"
+    ans = ans + " " + str(list[i])
 
 print(ans)
