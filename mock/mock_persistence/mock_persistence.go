@@ -12,7 +12,6 @@ import (
 	proto "cluster_manager/api/proto"
 	context "context"
 	reflect "reflect"
-	time "time"
 
 	gomock "go.uber.org/mock/gomock"
 )
@@ -41,45 +40,45 @@ func (m *MockPersistenceLayer) EXPECT() *MockPersistenceLayerMockRecorder {
 }
 
 // DeleteDataPlaneInformation mocks base method.
-func (m *MockPersistenceLayer) DeleteDataPlaneInformation(ctx context.Context, dataplaneInfo *proto.DataplaneInformation, timestamp time.Time) error {
+func (m *MockPersistenceLayer) DeleteDataPlaneInformation(ctx context.Context, dataplaneInfo *proto.DataplaneInformation) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "DeleteDataPlaneInformation", ctx, dataplaneInfo, timestamp)
+	ret := m.ctrl.Call(m, "DeleteDataPlaneInformation", ctx, dataplaneInfo)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // DeleteDataPlaneInformation indicates an expected call of DeleteDataPlaneInformation.
-func (mr *MockPersistenceLayerMockRecorder) DeleteDataPlaneInformation(ctx, dataplaneInfo, timestamp any) *gomock.Call {
+func (mr *MockPersistenceLayerMockRecorder) DeleteDataPlaneInformation(ctx, dataplaneInfo any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteDataPlaneInformation", reflect.TypeOf((*MockPersistenceLayer)(nil).DeleteDataPlaneInformation), ctx, dataplaneInfo, timestamp)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteDataPlaneInformation", reflect.TypeOf((*MockPersistenceLayer)(nil).DeleteDataPlaneInformation), ctx, dataplaneInfo)
 }
 
 // DeleteServiceInformation mocks base method.
-func (m *MockPersistenceLayer) DeleteServiceInformation(ctx context.Context, serviceInfo *proto.ServiceInfo, timestamp time.Time) error {
+func (m *MockPersistenceLayer) DeleteServiceInformation(ctx context.Context, serviceInfo *proto.ServiceInfo) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "DeleteServiceInformation", ctx, serviceInfo, timestamp)
+	ret := m.ctrl.Call(m, "DeleteServiceInformation", ctx, serviceInfo)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // DeleteServiceInformation indicates an expected call of DeleteServiceInformation.
-func (mr *MockPersistenceLayerMockRecorder) DeleteServiceInformation(ctx, serviceInfo, timestamp any) *gomock.Call {
+func (mr *MockPersistenceLayerMockRecorder) DeleteServiceInformation(ctx, serviceInfo any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteServiceInformation", reflect.TypeOf((*MockPersistenceLayer)(nil).DeleteServiceInformation), ctx, serviceInfo, timestamp)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteServiceInformation", reflect.TypeOf((*MockPersistenceLayer)(nil).DeleteServiceInformation), ctx, serviceInfo)
 }
 
 // DeleteWorkerNodeInformation mocks base method.
-func (m *MockPersistenceLayer) DeleteWorkerNodeInformation(ctx context.Context, name string, timestamp time.Time) error {
+func (m *MockPersistenceLayer) DeleteWorkerNodeInformation(ctx context.Context, name string) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "DeleteWorkerNodeInformation", ctx, name, timestamp)
+	ret := m.ctrl.Call(m, "DeleteWorkerNodeInformation", ctx, name)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // DeleteWorkerNodeInformation indicates an expected call of DeleteWorkerNodeInformation.
-func (mr *MockPersistenceLayerMockRecorder) DeleteWorkerNodeInformation(ctx, name, timestamp any) *gomock.Call {
+func (mr *MockPersistenceLayerMockRecorder) DeleteWorkerNodeInformation(ctx, name any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteWorkerNodeInformation", reflect.TypeOf((*MockPersistenceLayer)(nil).DeleteWorkerNodeInformation), ctx, name, timestamp)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteWorkerNodeInformation", reflect.TypeOf((*MockPersistenceLayer)(nil).DeleteWorkerNodeInformation), ctx, name)
 }
 
 // GetDataPlaneInformation mocks base method.
@@ -142,43 +141,43 @@ func (mr *MockPersistenceLayerMockRecorder) SetLeader(ctx any) *gomock.Call {
 }
 
 // StoreDataPlaneInformation mocks base method.
-func (m *MockPersistenceLayer) StoreDataPlaneInformation(ctx context.Context, dataplaneInfo *proto.DataplaneInformation, timestamp time.Time) error {
+func (m *MockPersistenceLayer) StoreDataPlaneInformation(ctx context.Context, dataplaneInfo *proto.DataplaneInformation) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "StoreDataPlaneInformation", ctx, dataplaneInfo, timestamp)
+	ret := m.ctrl.Call(m, "StoreDataPlaneInformation", ctx, dataplaneInfo)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // StoreDataPlaneInformation indicates an expected call of StoreDataPlaneInformation.
-func (mr *MockPersistenceLayerMockRecorder) StoreDataPlaneInformation(ctx, dataplaneInfo, timestamp any) *gomock.Call {
+func (mr *MockPersistenceLayerMockRecorder) StoreDataPlaneInformation(ctx, dataplaneInfo any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "StoreDataPlaneInformation", reflect.TypeOf((*MockPersistenceLayer)(nil).StoreDataPlaneInformation), ctx, dataplaneInfo, timestamp)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "StoreDataPlaneInformation", reflect.TypeOf((*MockPersistenceLayer)(nil).StoreDataPlaneInformation), ctx, dataplaneInfo)
 }
 
 // StoreServiceInformation mocks base method.
-func (m *MockPersistenceLayer) StoreServiceInformation(ctx context.Context, serviceInfo *proto.ServiceInfo, timestamp time.Time) error {
+func (m *MockPersistenceLayer) StoreServiceInformation(ctx context.Context, serviceInfo *proto.ServiceInfo) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "StoreServiceInformation", ctx, serviceInfo, timestamp)
+	ret := m.ctrl.Call(m, "StoreServiceInformation", ctx, serviceInfo)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // StoreServiceInformation indicates an expected call of StoreServiceInformation.
-func (mr *MockPersistenceLayerMockRecorder) StoreServiceInformation(ctx, serviceInfo, timestamp any) *gomock.Call {
+func (mr *MockPersistenceLayerMockRecorder) StoreServiceInformation(ctx, serviceInfo any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "StoreServiceInformation", reflect.TypeOf((*MockPersistenceLayer)(nil).StoreServiceInformation), ctx, serviceInfo, timestamp)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "StoreServiceInformation", reflect.TypeOf((*MockPersistenceLayer)(nil).StoreServiceInformation), ctx, serviceInfo)
 }
 
 // StoreWorkerNodeInformation mocks base method.
-func (m *MockPersistenceLayer) StoreWorkerNodeInformation(ctx context.Context, workerNodeInfo *proto.WorkerNodeInformation, timestamp time.Time) error {
+func (m *MockPersistenceLayer) StoreWorkerNodeInformation(ctx context.Context, workerNodeInfo *proto.WorkerNodeInformation) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "StoreWorkerNodeInformation", ctx, workerNodeInfo, timestamp)
+	ret := m.ctrl.Call(m, "StoreWorkerNodeInformation", ctx, workerNodeInfo)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // StoreWorkerNodeInformation indicates an expected call of StoreWorkerNodeInformation.
-func (mr *MockPersistenceLayerMockRecorder) StoreWorkerNodeInformation(ctx, workerNodeInfo, timestamp any) *gomock.Call {
+func (mr *MockPersistenceLayerMockRecorder) StoreWorkerNodeInformation(ctx, workerNodeInfo any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "StoreWorkerNodeInformation", reflect.TypeOf((*MockPersistenceLayer)(nil).StoreWorkerNodeInformation), ctx, workerNodeInfo, timestamp)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "StoreWorkerNodeInformation", reflect.TypeOf((*MockPersistenceLayer)(nil).StoreWorkerNodeInformation), ctx, workerNodeInfo)
 }

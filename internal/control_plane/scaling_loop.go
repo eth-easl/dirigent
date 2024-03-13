@@ -289,7 +289,12 @@ func deleteSandbox(key *core.Endpoint) {
 
 func (ss *ServiceInfoStorage) updateEndpoints(endpoints []*proto.EndpointInfo) {
 	ss.DataPlaneConnections.Lock()
+	defer ss.DataPlaneConnections.Unlock()
 
+	ss.singlethreadUpdateEndpoints(endpoints)
+}
+
+func (ss *ServiceInfoStorage) singlethreadUpdateEndpoints(endpoints []*proto.EndpointInfo) {
 	wg := &sync.WaitGroup{}
 	wg.Add(ss.DataPlaneConnections.Len())
 
@@ -310,7 +315,6 @@ func (ss *ServiceInfoStorage) updateEndpoints(endpoints []*proto.EndpointInfo) {
 		}(dp)
 	}
 
-	ss.DataPlaneConnections.Unlock()
 	wg.Wait()
 }
 

@@ -10,8 +10,6 @@ import (
 	"github.com/redis/go-redis/v9"
 	"github.com/sirupsen/logrus"
 	"net"
-	"sync"
-	"time"
 )
 
 const (
@@ -26,15 +24,6 @@ type RedisClient struct {
 
 	Addr string
 	Port string
-
-	dataplaneTimestamp map[string]time.Time
-	dataplaneLock      sync.Mutex
-
-	workerTimestamp map[string]time.Time
-	workerLock      sync.Mutex
-
-	serviceTimestamp map[string]time.Time
-	serviceLock      sync.Mutex
 }
 
 func CreateRedisClient(ctx context.Context, redisLogin config.RedisConf) (*RedisClient, error) {
@@ -49,16 +38,10 @@ func CreateRedisClient(ctx context.Context, redisLogin config.RedisConf) (*Redis
 	}
 
 	return &RedisClient{
-		RedisClient:        redisClient,
-		OtherClients:       otherClients,
-		Addr:               address,
-		Port:               port,
-		dataplaneTimestamp: make(map[string]time.Time),
-		dataplaneLock:      sync.Mutex{},
-		workerTimestamp:    make(map[string]time.Time),
-		workerLock:         sync.Mutex{},
-		serviceTimestamp:   make(map[string]time.Time),
-		serviceLock:        sync.Mutex{},
+		RedisClient:  redisClient,
+		OtherClients: otherClients,
+		Addr:         address,
+		Port:         port,
 	}, err
 }
 
@@ -72,16 +55,7 @@ func (driver *RedisClient) WaitForQuorumWrite(ctx context.Context) *redis.IntCmd
 	return driver.RedisClient.Wait(ctx, len(driver.OtherClients), 0)
 }
 
-func (driver *RedisClient) StoreDataPlaneInformation(ctx context.Context, dataplaneInfo *proto.DataplaneInformation, timestamp time.Time) error {
-	driver.dataplaneLock.Lock()
-	defer driver.dataplaneLock.Unlock()
-
-	if timestamp.Before(driver.dataplaneTimestamp[dataplaneInfo.Address]) {
-		return nil
-	} else {
-		driver.dataplaneTimestamp[dataplaneInfo.Address] = timestamp
-	}
-
+func (driver *RedisClient) StoreDataPlaneInformation(ctx context.Context, dataplaneInfo *proto.DataplaneInformation) error {
 	logrus.Trace("store dataplane information in the database")
 
 	data, err := proto2.Marshal(dataplaneInfo)
@@ -99,16 +73,7 @@ func (driver *RedisClient) StoreDataPlaneInformation(ctx context.Context, datapl
 	return driver.WaitForQuorumWrite(ctx).Err()
 }
 
-func (driver *RedisClient) DeleteDataPlaneInformation(ctx context.Context, dataplaneInfo *proto.DataplaneInformation, timestamp time.Time) error {
-	driver.dataplaneLock.Lock()
-	defer driver.dataplaneLock.Unlock()
-
-	if timestamp.Before(driver.dataplaneTimestamp[dataplaneInfo.Address]) {
-		return nil
-	} else {
-		driver.dataplaneTimestamp[dataplaneInfo.Address] = timestamp
-	}
-
+func (driver *RedisClient) DeleteDataPlaneInformation(ctx context.Context, dataplaneInfo *proto.DataplaneInformation) error {
 	logrus.Trace("delete dataplane information in the database")
 
 	key := fmt.Sprintf("%s:%s", dataplanePrefix, dataplaneInfo.Address)
@@ -152,16 +117,7 @@ func (driver *RedisClient) GetDataPlaneInformation(ctx context.Context) ([]*prot
 	return dataPlanes, nil
 }
 
-func (driver *RedisClient) StoreWorkerNodeInformation(ctx context.Context, workerNodeInfo *proto.WorkerNodeInformation, timestamp time.Time) error {
-	driver.workerLock.Lock()
-	defer driver.workerLock.Unlock()
-
-	if timestamp.Before(driver.workerTimestamp[workerNodeInfo.Name]) {
-		return nil
-	} else {
-		driver.workerTimestamp[workerNodeInfo.Name] = timestamp
-	}
-
+func (driver *RedisClient) StoreWorkerNodeInformation(ctx context.Context, workerNodeInfo *proto.WorkerNodeInformation) error {
 	logrus.Trace("store worker node information in the database")
 
 	data, err := proto2.Marshal(workerNodeInfo)
@@ -179,16 +135,7 @@ func (driver *RedisClient) StoreWorkerNodeInformation(ctx context.Context, worke
 	return driver.WaitForQuorumWrite(ctx).Err()
 }
 
-func (driver *RedisClient) DeleteWorkerNodeInformation(ctx context.Context, name string, timestamp time.Time) error {
-	driver.workerLock.Lock()
-	defer driver.workerLock.Unlock()
-
-	if timestamp.Before(driver.workerTimestamp[name]) {
-		return nil
-	} else {
-		driver.workerTimestamp[name] = timestamp
-	}
-
+func (driver *RedisClient) DeleteWorkerNodeInformation(ctx context.Context, name string) error {
 	logrus.Trace("delete worker node information in the database")
 
 	key := fmt.Sprintf("%s:%s", workerPrefix, name)
@@ -232,16 +179,7 @@ func (driver *RedisClient) GetWorkerNodeInformation(ctx context.Context) ([]*pro
 	return workers, nil
 }
 
-func (driver *RedisClient) StoreServiceInformation(ctx context.Context, serviceInfo *proto.ServiceInfo, timestamp time.Time) error {
-	driver.serviceLock.Lock()
-	defer driver.serviceLock.Unlock()
-
-	if timestamp.Before(driver.serviceTimestamp[serviceInfo.Name]) {
-		return nil
-	} else {
-		driver.serviceTimestamp[serviceInfo.Name] = timestamp
-	}
-
+func (driver *RedisClient) StoreServiceInformation(ctx context.Context, serviceInfo *proto.ServiceInfo) error {
 	logrus.Trace("store service information in the database")
 
 	data, err := proto2.Marshal(serviceInfo)
@@ -259,16 +197,7 @@ func (driver *RedisClient) StoreServiceInformation(ctx context.Context, serviceI
 	return driver.WaitForQuorumWrite(ctx).Err()
 }
 
-func (driver *RedisClient) DeleteServiceInformation(ctx context.Context, serviceInfo *proto.ServiceInfo, timestamp time.Time) error {
-	driver.serviceLock.Lock()
-	defer driver.serviceLock.Unlock()
-
-	if timestamp.Before(driver.serviceTimestamp[serviceInfo.Name]) {
-		return nil
-	} else {
-		driver.serviceTimestamp[serviceInfo.Name] = timestamp
-	}
-
+func (driver *RedisClient) DeleteServiceInformation(ctx context.Context, serviceInfo *proto.ServiceInfo) error {
 	logrus.Trace("delete service information in the database")
 
 	key := fmt.Sprintf("%s:%s", servicePrefix, serviceInfo.Name)

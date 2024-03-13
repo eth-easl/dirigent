@@ -89,7 +89,7 @@ func TestRegisterWorker(t *testing.T) {
 
 	nbRegistrations := 100
 
-	persistenceLayer.EXPECT().StoreWorkerNodeInformation(gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(func(_ context.Context, _ *proto.WorkerNodeInformation, _ time.Time) error {
+	persistenceLayer.EXPECT().StoreWorkerNodeInformation(gomock.Any(), gomock.Any()).DoAndReturn(func(_ context.Context, _ *proto.WorkerNodeInformation) error {
 		return nil
 	}).Times(nbRegistrations)
 
@@ -134,7 +134,7 @@ func TestRegisterDataplanes(t *testing.T) {
 
 	nbRegistrations := 100
 
-	persistenceLayer.EXPECT().StoreDataPlaneInformation(gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(func(_ context.Context, _ *proto.DataplaneInformation, _ time.Time) error {
+	persistenceLayer.EXPECT().StoreDataPlaneInformation(gomock.Any(), gomock.Any()).DoAndReturn(func(_ context.Context, _ *proto.DataplaneInformation) error {
 		return nil
 	}).Times(nbRegistrations)
 
@@ -183,7 +183,7 @@ func TestRegisterServices(t *testing.T) {
 
 	nbRegistrations := 100
 
-	persistenceLayer.EXPECT().StoreServiceInformation(gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(func(_ context.Context, _ *proto.ServiceInfo, _ time.Time) error {
+	persistenceLayer.EXPECT().StoreServiceInformation(gomock.Any(), gomock.Any()).DoAndReturn(func(_ context.Context, _ *proto.ServiceInfo) error {
 		return nil
 	}).Times(nbRegistrations)
 
@@ -236,11 +236,11 @@ func TestDeregisterWorker(t *testing.T) {
 
 	nbRegistrations := 100
 
-	persistenceLayer.EXPECT().StoreWorkerNodeInformation(gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(func(_ context.Context, _ *proto.WorkerNodeInformation, _ time.Time) error {
+	persistenceLayer.EXPECT().StoreWorkerNodeInformation(gomock.Any(), gomock.Any()).DoAndReturn(func(_ context.Context, _ *proto.WorkerNodeInformation) error {
 		return nil
 	}).Times(nbRegistrations)
 
-	persistenceLayer.EXPECT().DeleteWorkerNodeInformation(gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(func(_ context.Context, _ string, _ time.Time) error {
+	persistenceLayer.EXPECT().DeleteWorkerNodeInformation(gomock.Any(), gomock.Any()).DoAndReturn(func(_ context.Context, _ string) error {
 		return nil
 	}).Times(nbRegistrations)
 
@@ -307,11 +307,11 @@ func TestDeregisterDataplanes(t *testing.T) {
 
 	nbRegistrations := 1
 
-	persistenceLayer.EXPECT().StoreDataPlaneInformation(gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(func(_ context.Context, _ *proto.DataplaneInformation, _ time.Time) error {
+	persistenceLayer.EXPECT().StoreDataPlaneInformation(gomock.Any(), gomock.Any()).DoAndReturn(func(_ context.Context, _ *proto.DataplaneInformation) error {
 		return nil
 	}).Times(nbRegistrations)
 
-	persistenceLayer.EXPECT().DeleteDataPlaneInformation(gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(func(_ context.Context, _ *proto.DataplaneInformation, _ time.Time) error {
+	persistenceLayer.EXPECT().DeleteDataPlaneInformation(gomock.Any(), gomock.Any()).DoAndReturn(func(_ context.Context, _ *proto.DataplaneInformation) error {
 		return nil
 	}).Times(nbRegistrations)
 
@@ -386,11 +386,11 @@ func TestDeregisterServices(t *testing.T) {
 
 	nbRegistrations := 100
 
-	persistenceLayer.EXPECT().StoreServiceInformation(gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(func(_ context.Context, _ *proto.ServiceInfo, _ time.Time) error {
+	persistenceLayer.EXPECT().StoreServiceInformation(gomock.Any(), gomock.Any()).DoAndReturn(func(_ context.Context, _ *proto.ServiceInfo) error {
 		return nil
 	}).Times(nbRegistrations)
 
-	persistenceLayer.EXPECT().DeleteServiceInformation(gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(func(_ context.Context, _ *proto.ServiceInfo, _ time.Time) error {
+	persistenceLayer.EXPECT().DeleteServiceInformation(gomock.Any(), gomock.Any()).DoAndReturn(func(_ context.Context, _ *proto.ServiceInfo) error {
 		return nil
 	}).Times(nbRegistrations)
 
@@ -673,7 +673,7 @@ func TestStressRegisterServices(t *testing.T) {
 
 	size := 100
 
-	persistenceLayer.EXPECT().StoreServiceInformation(gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(func(_ context.Context, _ *proto.ServiceInfo, _ time.Time) error {
+	persistenceLayer.EXPECT().StoreServiceInformation(gomock.Any(), gomock.Any()).DoAndReturn(func(_ context.Context, _ *proto.ServiceInfo) error {
 		return nil
 	}).Times(size)
 
@@ -721,7 +721,7 @@ func TestStressRegisterNodes(t *testing.T) {
 
 	size := 100
 
-	persistenceLayer.EXPECT().StoreWorkerNodeInformation(gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(func(ctx context.Context, workerNodeInfo *proto.WorkerNodeInformation, timestamp time.Time) error {
+	persistenceLayer.EXPECT().StoreWorkerNodeInformation(gomock.Any(), gomock.Any()).DoAndReturn(func(ctx context.Context, workerNodeInfo *proto.WorkerNodeInformation) error {
 		return nil
 	}).Times(size)
 
@@ -770,7 +770,7 @@ func TestStressRegisterDataplanes(t *testing.T) {
 
 	size := 100
 
-	persistenceLayer.EXPECT().StoreDataPlaneInformation(gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(func(ctx context.Context, dataplaneInfo *proto.DataplaneInformation, timestamp time.Time) error {
+	persistenceLayer.EXPECT().StoreDataPlaneInformation(gomock.Any(), gomock.Any()).DoAndReturn(func(ctx context.Context, dataplaneInfo *proto.DataplaneInformation) error {
 		return nil
 	}).Times(size)
 
@@ -817,15 +817,15 @@ func TestStressEverything(t *testing.T) {
 
 	size := 10
 
-	persistenceLayer.EXPECT().StoreWorkerNodeInformation(gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(func(ctx context.Context, workerNodeInfo *proto.WorkerNodeInformation, timestamp time.Time) error {
+	persistenceLayer.EXPECT().StoreWorkerNodeInformation(gomock.Any(), gomock.Any()).DoAndReturn(func(ctx context.Context, workerNodeInfo *proto.WorkerNodeInformation) error {
 		return nil
 	}).Times(size)
 
-	persistenceLayer.EXPECT().StoreServiceInformation(gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(func(_ context.Context, _ *proto.ServiceInfo, _ time.Time) error {
+	persistenceLayer.EXPECT().StoreServiceInformation(gomock.Any(), gomock.Any()).DoAndReturn(func(_ context.Context, _ *proto.ServiceInfo) error {
 		return nil
 	}).Times(size)
 
-	persistenceLayer.EXPECT().StoreDataPlaneInformation(gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(func(ctx context.Context, dataplaneInfo *proto.DataplaneInformation, timestamp time.Time) error {
+	persistenceLayer.EXPECT().StoreDataPlaneInformation(gomock.Any(), gomock.Any()).DoAndReturn(func(ctx context.Context, dataplaneInfo *proto.DataplaneInformation) error {
 		return nil
 	}).Times(size)
 
@@ -899,11 +899,11 @@ func TestStressRegisterDeregisterServices(t *testing.T) {
 	defer ctrl.Finish()
 	size := 100
 
-	persistenceLayer.EXPECT().StoreServiceInformation(gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(func(_ context.Context, _ *proto.ServiceInfo, _ time.Time) error {
+	persistenceLayer.EXPECT().StoreServiceInformation(gomock.Any(), gomock.Any()).DoAndReturn(func(_ context.Context, _ *proto.ServiceInfo) error {
 		return nil
 	}).AnyTimes()
 
-	persistenceLayer.EXPECT().DeleteServiceInformation(gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(func(_ context.Context, _ *proto.ServiceInfo, _ time.Time) error {
+	persistenceLayer.EXPECT().DeleteServiceInformation(gomock.Any(), gomock.Any()).DoAndReturn(func(_ context.Context, _ *proto.ServiceInfo) error {
 		return nil
 	}).AnyTimes()
 
@@ -980,11 +980,11 @@ func TestStressRegisterDeregisterNodes(t *testing.T) {
 
 	size := 100
 
-	persistenceLayer.EXPECT().StoreWorkerNodeInformation(gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(func(_ context.Context, _ *proto.WorkerNodeInformation, _ time.Time) error {
+	persistenceLayer.EXPECT().StoreWorkerNodeInformation(gomock.Any(), gomock.Any()).DoAndReturn(func(_ context.Context, _ *proto.WorkerNodeInformation) error {
 		return nil
 	}).AnyTimes()
 
-	persistenceLayer.EXPECT().DeleteWorkerNodeInformation(gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(func(_ context.Context, _ string, _ time.Time) error {
+	persistenceLayer.EXPECT().DeleteWorkerNodeInformation(gomock.Any(), gomock.Any()).DoAndReturn(func(_ context.Context, _ string) error {
 		return nil
 	}).AnyTimes()
 
@@ -1063,11 +1063,11 @@ func TestStressRegisterDeregisterDataplanes(t *testing.T) {
 
 	size := 100
 
-	persistenceLayer.EXPECT().StoreDataPlaneInformation(gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(func(ctx context.Context, dataplaneInfo *proto.DataplaneInformation, timestamp time.Time) error {
+	persistenceLayer.EXPECT().StoreDataPlaneInformation(gomock.Any(), gomock.Any()).DoAndReturn(func(ctx context.Context, dataplaneInfo *proto.DataplaneInformation) error {
 		return nil
 	}).AnyTimes()
 
-	persistenceLayer.EXPECT().DeleteDataPlaneInformation(gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(func(ctx context.Context, dataplaneInfo *proto.DataplaneInformation, timestamp time.Time) error {
+	persistenceLayer.EXPECT().DeleteDataPlaneInformation(gomock.Any(), gomock.Any()).DoAndReturn(func(ctx context.Context, dataplaneInfo *proto.DataplaneInformation) error {
 		return nil
 	}).AnyTimes()
 
@@ -1144,15 +1144,15 @@ func TestEndpointsWithDeregistration(t *testing.T) {
 
 	persistenceLayer := mock_persistence.NewMockPersistenceLayer(ctrl)
 
-	persistenceLayer.EXPECT().StoreServiceInformation(gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(func(_ context.Context, _ *proto.ServiceInfo, _ time.Time) error {
+	persistenceLayer.EXPECT().StoreServiceInformation(gomock.Any(), gomock.Any()).DoAndReturn(func(_ context.Context, _ *proto.ServiceInfo) error {
 		return nil
 	}).Times(size)
 
-	persistenceLayer.EXPECT().StoreWorkerNodeInformation(gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(func(ctx context.Context, workerNodeInfo *proto.WorkerNodeInformation, timestamp time.Time) error {
+	persistenceLayer.EXPECT().StoreWorkerNodeInformation(gomock.Any(), gomock.Any()).DoAndReturn(func(ctx context.Context, workerNodeInfo *proto.WorkerNodeInformation) error {
 		return nil
 	}).Times(1)
 
-	persistenceLayer.EXPECT().DeleteWorkerNodeInformation(gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(func(_ context.Context, _ string, _ time.Time) error {
+	persistenceLayer.EXPECT().DeleteWorkerNodeInformation(gomock.Any(), gomock.Any()).DoAndReturn(func(_ context.Context, _ string) error {
 		return nil
 	}).Times(1)
 
@@ -1237,15 +1237,15 @@ func TestEndpointsWithDeregistrationMultipleNodes(t *testing.T) {
 
 	persistenceLayer := mock_persistence.NewMockPersistenceLayer(ctrl)
 
-	persistenceLayer.EXPECT().StoreServiceInformation(gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(func(_ context.Context, _ *proto.ServiceInfo, _ time.Time) error {
+	persistenceLayer.EXPECT().StoreServiceInformation(gomock.Any(), gomock.Any()).DoAndReturn(func(_ context.Context, _ *proto.ServiceInfo) error {
 		return nil
 	}).Times(size)
 
-	persistenceLayer.EXPECT().StoreWorkerNodeInformation(gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(func(ctx context.Context, workerNodeInfo *proto.WorkerNodeInformation, timestamp time.Time) error {
+	persistenceLayer.EXPECT().StoreWorkerNodeInformation(gomock.Any(), gomock.Any()).DoAndReturn(func(ctx context.Context, workerNodeInfo *proto.WorkerNodeInformation) error {
 		return nil
 	}).Times(2)
 
-	persistenceLayer.EXPECT().DeleteWorkerNodeInformation(gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(func(_ context.Context, _ string, _ time.Time) error {
+	persistenceLayer.EXPECT().DeleteWorkerNodeInformation(gomock.Any(), gomock.Any()).DoAndReturn(func(_ context.Context, _ string) error {
 		return nil
 	}).Times(2)
 

@@ -3,7 +3,6 @@ package persistence
 import (
 	"cluster_manager/api/proto"
 	"context"
-	"time"
 )
 
 func NewEmptyPeristenceLayer() *EmptyPersistence {
@@ -12,11 +11,11 @@ func NewEmptyPeristenceLayer() *EmptyPersistence {
 
 type EmptyPersistence struct{}
 
-func (e *EmptyPersistence) StoreDataPlaneInformation(_ context.Context, _ *proto.DataplaneInformation, _ time.Time) error {
+func (e *EmptyPersistence) StoreDataPlaneInformation(_ context.Context, _ *proto.DataplaneInformation) error {
 	return nil
 }
 
-func (e *EmptyPersistence) DeleteDataPlaneInformation(_ context.Context, _ *proto.DataplaneInformation, _ time.Time) error {
+func (e *EmptyPersistence) DeleteDataPlaneInformation(_ context.Context, _ *proto.DataplaneInformation) error {
 	return nil
 }
 
@@ -24,11 +23,11 @@ func (e *EmptyPersistence) GetDataPlaneInformation(_ context.Context) ([]*proto.
 	return make([]*proto.DataplaneInformation, 0), nil
 }
 
-func (e *EmptyPersistence) StoreWorkerNodeInformation(_ context.Context, _ *proto.WorkerNodeInformation, _ time.Time) error {
+func (e *EmptyPersistence) StoreWorkerNodeInformation(_ context.Context, _ *proto.WorkerNodeInformation) error {
 	return nil
 }
 
-func (e *EmptyPersistence) DeleteWorkerNodeInformation(_ context.Context, _ string, _ time.Time) error {
+func (e *EmptyPersistence) DeleteWorkerNodeInformation(_ context.Context, _ string) error {
 	return nil
 }
 
@@ -36,11 +35,11 @@ func (e *EmptyPersistence) GetWorkerNodeInformation(_ context.Context) ([]*proto
 	return make([]*proto.WorkerNodeInformation, 0), nil
 }
 
-func (e *EmptyPersistence) StoreServiceInformation(_ context.Context, _ *proto.ServiceInfo, _ time.Time) error {
+func (e *EmptyPersistence) StoreServiceInformation(_ context.Context, _ *proto.ServiceInfo) error {
 	return nil
 }
 
-func (e *EmptyPersistence) DeleteServiceInformation(_ context.Context, _ *proto.ServiceInfo, _ time.Time) error {
+func (e *EmptyPersistence) DeleteServiceInformation(_ context.Context, _ *proto.ServiceInfo) error {
 	return nil
 }
 

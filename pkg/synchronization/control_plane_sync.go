@@ -2,13 +2,9 @@ package synchronization
 
 import (
 	"sync"
-	"time"
 )
 
 type SyncStructure[K comparable, V any] interface {
-	SetIfAbsent(key K, value V) (bool, time.Time) // Atomic operation
-	RemoveIfPresent(key K) (bool, time.Time)      // Atomic operation
-
 	Lock()
 	RLock()
 	Unlock()
@@ -43,30 +39,6 @@ func NewControlPlaneSyncStructure[K comparable, V any]() *Structure[K, V] {
 		InternalMap:  make(map[K]V),
 		internalLock: &sync.RWMutex{},
 	}
-}
-
-func (s *Structure[K, V]) SetIfAbsent(key K, value V) (bool, time.Time) {
-	s.internalLock.Lock()
-	defer s.internalLock.Unlock()
-
-	if _, ok := s.InternalMap[key]; !ok {
-		s.InternalMap[key] = value
-		return true, time.Now()
-	}
-
-	return false, time.Now()
-}
-
-func (s *Structure[K, V]) RemoveIfPresent(key K) (bool, time.Time) {
-	s.internalLock.Lock()
-	defer s.internalLock.Unlock()
-
-	if _, ok := s.InternalMap[key]; ok {
-		delete(s.InternalMap, key)
-		return true, time.Now()
-	}
-
-	return false, time.Now()
 }
 
 func (s *Structure[K, V]) Lock() {
