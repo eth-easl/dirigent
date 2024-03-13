@@ -27,7 +27,7 @@ func Deployservice() {
 	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), utils.GRPCFunctionTimeout)
-	defer cancel() //
+	defer cancel()
 
 	autoscalingConfig := autoscaling.NewDefaultAutoscalingMetadata()
 	autoscalingConfig.ScalingUpperBound = 1
