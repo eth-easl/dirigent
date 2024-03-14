@@ -20,6 +20,7 @@ function SetupLoadBalancer() {
 
 sudo apt-get update
 sudo apt-get install git-lfs htop
+sudo apt-get install -y python3-pip && pip3 install psutil
 
 # Install Golang
 if [ -x "$(command -v go)" ]; then
