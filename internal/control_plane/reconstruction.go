@@ -17,6 +17,11 @@ import (
 // ReconstructState Single threaded function - reconstruction happend before starting the control plane
 func (c *ControlPlane) ReconstructState(ctx context.Context, config config2.ControlPlaneConfig, haProxyApi *haproxy.API) error {
 	if !config.Reconstruct {
+		// This is to propagate registration servers to HAProxy
+		if haProxyApi != nil {
+			haProxyApi.HAProxyReconstructionCallback(c.Config, c.ReviseDataplanesInLB)
+		}
+
 		return nil
 	}
 

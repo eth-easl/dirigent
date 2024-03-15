@@ -21,7 +21,7 @@ profiler:
   mutex: false
 
 redis:
-  address: "10.0.1.1:6379"
+  address: "10.0.1.2:6379"
   replicas: ""
   password: ""
   db: 0
