@@ -22,7 +22,7 @@ func getConfigClient() *configuration.Client {
 
 		confClient, err = configuration.DefaultClient()
 		if err != nil {
-			logrus.Fatalf("Error setting up default HAProxy configuration client; exiting...")
+			logrus.Fatalf("Error setting up default HAProxy configuration client; exiting... : %s", err.Error())
 		}
 	}
 
