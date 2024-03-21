@@ -42,6 +42,7 @@ func (electionState *CurrentState) SetCurrentControlPlaneLeader(_ leader_electio
 func (electionState *CurrentState) UpdateLeadership(leadership leader_election.AnnounceLeadership) {
 	if leadership.IsLeader && !electionState.wasLeaderBefore {
 		electionState.SetCurrentControlPlaneLeader(leadership)
+		go electionState.cpApiServer.ControlPlane.ColdStartTracing.StartTracingService()
 		logrus.Infof("Proceeding as the leader for the term #%d...", leadership.Term)
 	} else {
 		if electionState.wasLeaderBefore {
