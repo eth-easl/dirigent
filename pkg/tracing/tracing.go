@@ -102,7 +102,7 @@ func NewProxyTracingService(outputFile string) *TracingService[ProxyLogEntry] {
 func CreateFileIfNotExist(path string) *os.File {
 	directory := filepath.Dir(path)
 	if _, err := os.Stat(directory); os.IsNotExist(err) {
-		err = os.MkdirAll(directory, 0700)
+		err = os.MkdirAll(directory, 777)
 		if err != nil {
 			log.Fatal(err)
 		}
@@ -125,7 +125,7 @@ func coldStartWriteFunction(f *os.File, msg ColdStartLogEntry) {
 		msg.LatencyBreakdown.ReadinessProbing.AsDuration() + msg.LatencyBreakdown.SnapshotCreation.AsDuration() +
 		msg.LatencyBreakdown.ConfigureMonitoring.AsDuration() + msg.LatencyBreakdown.FindSnapshot.AsDuration())
 
-	_, _ = f.WriteString(fmt.Sprintf("%d,%s,%s,%t,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d\n",
+	if _, err := f.WriteString(fmt.Sprintf("%d,%s,%s,%t,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d\n",
 		time.Now().UnixNano(),
 		msg.ServiceName,
 		msg.ContainerID,
@@ -141,13 +141,15 @@ func coldStartWriteFunction(f *os.File, msg ColdStartLogEntry) {
 		msg.LatencyBreakdown.ConfigureMonitoring.AsDuration().Microseconds(),
 		msg.LatencyBreakdown.FindSnapshot.AsDuration().Microseconds(),
 		other.Microseconds(),
-	))
+	)); err != nil {
+		logrus.Errorf("Failed to write to file : %s", err.Error())
+	}
 }
 
 func proxyWriteFunction(f *os.File, msg ProxyLogEntry) {
 	other := msg.Total - (msg.GetMetadata + msg.AddDeployment + msg.ColdStart + msg.LoadBalancing + msg.CCThrottling + msg.Proxying + msg.PersistenceLayer + msg.Serialization)
 
-	_, _ = f.WriteString(fmt.Sprintf("%d,%s,%s,%d,%d,%d,%d,%d,%d,%d,%d,%d\n",
+	if _, err := f.WriteString(fmt.Sprintf("%d,%s,%s,%d,%d,%d,%d,%d,%d,%d,%d,%d\n",
 		time.Now().UnixNano(),
 		msg.ServiceName,
 		msg.ContainerID,
@@ -160,5 +162,7 @@ func proxyWriteFunction(f *os.File, msg ProxyLogEntry) {
 		msg.Serialization.Microseconds(),
 		msg.PersistenceLayer.Microseconds(),
 		other.Microseconds(),
-	))
+	)); err != nil {
+		logrus.Errorf("Failed to write to file : %s", err.Error())
+	}
 }
