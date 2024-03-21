@@ -22,7 +22,7 @@ function SetupNode() {
     RemoteExec $1 'if [ ! -d ~/cluster_manager ];then git clone git@github.com:eth-easl/cluster_manager.git; fi'
     RemoteExec $1 "bash ~/cluster_manager/scripts/setup_node.sh $2"
     # LFS pull for VM kernel image and rootfs
-    RemoteExec $1 'cd ~/cluster_manager; git pull; git lfs pull'
+    RemoteExec $1 'cd ~/cluster_manager; git pull;git lfs pull;'
     RemoteExec $1 'sudo cp -r ~/cluster_manager/ /cluster_manager'
     RemoteExec $1 'git clone https://github.com/vhive-serverless/invitro'
     rsync -av invitro_traces/* $1:invitro
@@ -32,15 +32,7 @@ python3 invitro_traces/generate_traces.py
 
 NODE_COUNTER=0
 
-nodes=$@
-
-if [ "$#" -eq 0 ]
-then
-  echo "No nodes supplied, using string.py to generate the cloudlab addresses"
-  nodes=$(python3 string.py)
-fi
-
-for NODE in nodes
+for NODE in "$@"
 do
     if [ "$NODE_COUNTER" -eq 0 ]; then
         HA_SETTING="REDIS"

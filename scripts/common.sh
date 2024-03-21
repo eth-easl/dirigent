@@ -1,8 +1,20 @@
 #!/bin/bash
 
-readonly CONTROLPLANE=Francois@hp143.utah.cloudlab.us
-readonly DATAPLANE=Francois@hp157.utah.cloudlab.us
-readonly INVITRO=Francois@hp132.utah.cloudlab.us
+readonly INVITRO=Francois@hp080.utah.cloudlab.us
+
+readonly CONTROLPLANE=Francois@hp091.utah.cloudlab.us
+
+readonly CONTROLPLANE_1=Francois@hp091.utah.cloudlab.us
+readonly CONTROLPLANE_2=Francois@hp081.utah.cloudlab.us
+readonly CONTROLPLANE_3=Francois@hp023.utah.cloudlab.us
+
+readonly DATAPLANE=Francois@hp081.utah.cloudlab.us
+
+readonly DATAPLANE_1=Francois@hp149.utah.cloudlab.us
+readonly DATAPLANE_2=Francois@hp077.utah.cloudlab.us
+readonly DATAPLANE_3=Francois@hp134.utah.cloudlab.us
+
+readonly HA=false
 
 function RemoteExec() {
     ssh -oStrictHostKeyChecking=no -p 22 "$1" "$2";
@@ -42,7 +54,7 @@ function SetupDataPlane() {
     # Remove old logs
     RemoteExec $1 "sudo journalctl --vacuum-time=1s && sudo journalctl --vacuum-time=1d"
     # Update systemd
-    RemoteExec $1 "sudo cp -a ~/cluster_manager/scripts/systemd/* /etc/systemd/system/"
+    RemoteExec $1 "sudo cp -a ~/cluster_manager/sripts/systemd/* /etc/systemd/system/"
     # Start data plane
     RemoteExec $1 "sudo systemctl daemon-reload && sudo systemctl restart data_plane.service"
 }
@@ -99,4 +111,20 @@ function KillSystemdServices() {
     done
 
     wait
+}
+
+function StoreResults() {
+    if [ "$HA" = true ] ;
+    then
+      scp $DATAPLANE_1:~/cluster_manager/cmd/data_plane/data/proxy_trace.csv plotting/proxy_trace_$1_1.csv
+      scp $DATAPLANE_2:~/cluster_manager/cmd/data_plane/data/proxy_trace.csv plotting/proxy_trace_$1_2.csv
+      scp $DATAPLANE_3:~/cluster_manager/cmd/data_plane/data/proxy_trace.csv plotting/proxy_trace_$1_3.csv
+
+      scp $CONTROLPLANE_1:~/cluster_manager/cmd/master_node/data/cold_start_trace.csv plotting/cold_start_trace_$1_1.csv
+      scp $CONTROLPLANE_2:~/cluster_manager/cmd/master_node/data/cold_start_trace.csv plotting/cold_start_trace_$1_2.csv
+      scp $CONTROLPLANE_3:~/cluster_manager/cmd/master_node/data/cold_start_trace.csv plotting/cold_start_trace_$1_3.csv
+    else
+      scp $DATAPLANE:~/cluster_manager/cmd/data_plane/data/proxy_trace.csv plotting/proxy_trace_$1_1.csv
+      scp $CONTROLPLANE:~/cluster_manager/cmd/master_node/data/cold_start_trace.csv plotting/cold_start_trace_$1_1.csv
+    fi
 }

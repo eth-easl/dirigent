@@ -1,7 +1,7 @@
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
-
+import glob
 
 def processQuantile(d, percentile):
     p = d.reset_index()
@@ -13,19 +13,29 @@ def processQuantile(d, percentile):
     return p
 
 
+def getTraces(load, rootPath):
+
+    joined_list = glob.glob(f'{rootPath}/cold_start_trace_{load}_*.csv')
+    cpTrace = pd.concat(map(pd.read_csv, joined_list), ignore_index=True)
+
+    joined_list = glob.glob(f'{rootPath}/proxy_trace_{load}_*.csv')
+    proxyTrace = pd.concat(map(pd.read_csv, joined_list), ignore_index=True)
+
+    return cpTrace, proxyTrace
+
+
 def getResult(load, rootPath):
     result = []
     groupedResults = []
 
     for l in load:
-        cpTrace = pd.read_csv(f'{rootPath}/cold_start_trace_{l}.csv')
-        proxyTrace = pd.read_csv(f'{rootPath}/proxy_trace_{l}.csv')
+        cpTrace, proxyTrace = getTraces(l, rootPath)
 
         # filter first 10 minutes
         minimalTimestamp = proxyTrace['time'].min()  # nanoseconds
         minimalTimestamp += 60 * 10e9  # 10 minutes
 
-        proxyTrace = proxyTrace[proxyTrace['time'] >= minimalTimestamp]
+        # proxyTrace = proxyTrace[proxyTrace['time'] >= minimalTimestamp]
 
         print(f"Number of sandboxes created over time: {proxyTrace['container_id'].nunique()}")
 
@@ -48,7 +58,7 @@ def getResult(load, rootPath):
         data = data.drop(columns=['cold_start'])
 
         p50 = data.quantile(0.5)
-        p99 = data.quantile(0.99)
+        p99 = data.quantile(0.95)
 
         dataToPlot = processQuantile(p50, 0.5)
         dataToPlot = pd.concat([dataToPlot, processQuantile(p99, 0.99)])
@@ -106,7 +116,7 @@ def getResult(load, rootPath):
         result.append(dataToPlot)
         groupedResults.append(grouped)
 
-    return result, groupedResults
+    return result
 
 
 # Taken from https://stackoverflow.com/questions/22787209/how-to-have-clusters-of-stacked-bars
@@ -169,5 +179,7 @@ def plotClusteredStackedBarchart(dataToPlot,
 
     if clusterLabels is not None and n_df <= 8 and clusterLabelPosition is not None:
         plt.legend(n, clusterLabels)  # , bbox_to_anchor=clusterLabelPosition)
+
+
 
     return axe

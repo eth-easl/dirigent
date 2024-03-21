@@ -10,9 +10,7 @@ dict_rps_containerd = {
   "Seed": 42,
 
   "Platform": "Dirigent-RPS",
-  "EndpointPort": 80,
-
-  "DirigentControlPlaneIP": "10.0.1.2",
+  "DirigentControlPlaneIP": "10.0.1.253:9092",
 
   "RpsTarget": 10,
   "RpsColdStartRatioPercentage": 100,
@@ -37,16 +35,15 @@ dict_rps_containerd = {
   "AutoscalingMetric": "concurrency",
 
   "GRPCConnectionTimeoutSeconds": 15,
-  "GRPCFunctionTimeoutSeconds": 900
+  "GRPCFunctionTimeoutSeconds": 120
 }
 
 dict_rps_firecracker = {
   "Seed": 42,
 
   "Platform": "Dirigent-RPS",
-  "EndpointPort": 80,
 
-  "DirigentControlPlaneIP": "10.0.1.2",
+  "DirigentControlPlaneIP": "10.0.1.253:9092",
 
   "RpsTarget": 10,
   "RpsColdStartRatioPercentage": 100,
@@ -71,7 +68,7 @@ dict_rps_firecracker = {
   "AutoscalingMetric": "concurrency",
 
   "GRPCConnectionTimeoutSeconds": 15,
-  "GRPCFunctionTimeoutSeconds": 900
+  "GRPCFunctionTimeoutSeconds": 20
 }
 
 if os.path.isdir("rps"):
@@ -79,7 +76,7 @@ if os.path.isdir("rps"):
 
 os.mkdir("rps")
 
-for i in range(25,1000, 25):
+for i in range(25,2500, 25):
     obj2 = dict_rps_containerd
     obj2['RpsTarget'] = i
 

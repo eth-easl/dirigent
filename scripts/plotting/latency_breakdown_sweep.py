@@ -1,7 +1,7 @@
 from common import *
 
-rootPath = './francois'
-load = [1, 50, 100, 200, 400]
+rootPath = '.'
+load = [500,1000,1500,2000]
 
 labels = []
 [labels.append(f'{x}  colds starts per second') for x in load]

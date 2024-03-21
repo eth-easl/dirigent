@@ -9,10 +9,13 @@ function RestartWorkers() {
         RemoteExec $1 "tmux kill-session -t worker"
         RemoteExec $1 "tmux new -s worker -d"
 
-        CMD=$"cd ~/cluster_manager/cmd/worker_node;git pull;git reset --hard origin/master; sudo env 'PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/games:/usr/local/games:/snap/bin:/usr/local/go/bin:/usr/local/bin/firecracker:/usr/local/bin/firecracker' /usr/local/go/bin/go run main.go --config config_cluster.yaml"
         RemoteExec $1 "sudo sysctl -w net.ipv4.conf.all.route_localnet=1"
+        RemoteExec $1 "sudo iptables -t nat -F"
 
-        # CMD=$"cd ~/cluster_manager; git fetch origin; cd ~/cluster_manager/cmd/worker_node; sudo /usr/local/go/bin/go run main.go --config config_cluster.yaml"
+        RemoteExec $1 "sudo cp ~/cluster_manager/configs/firecracker/vmlinux-4.14.bin /cluster_manager/configs/firecracker/vmlinux-4.14.bin"
+        RemoteExec $1 "sudo cp ~/cluster_manager/configs/firecracker/rootfs.ext4 /cluster_manager/configs/firecracker/rootfs.ext4"
+
+        CMD=$"cd ~/cluster_manager/cmd/worker_node;git pull; git lfs pull ;git reset --hard origin/current; sudo env 'PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/games:/usr/local/games:/snap/bin:/usr/local/go/bin:/usr/local/bin/firecracker:/usr/local/bin/firecracker' /usr/local/go/bin/go run main.go --config config_cluster.yaml"
 
         RemoteExec $1 "tmux send -t worker \"$CMD\" ENTER"
     }
@@ -21,6 +24,7 @@ function RestartWorkers() {
     do
         internal_setup $NODE &
     done
+
 
     wait
 }
@@ -42,8 +46,8 @@ function StopWorkers() {
 }
 
 
-#StopWorkers $@
-RestartWorkers $(python string.py --type worker)
+# StopWorkers $@
+RestartWorkers $(python3 string.py --type worker-ha)
 
 # sudo env 'PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/games:/usr/local/games:/snap/bin:/usr/local/go/bin:/usr/local/bin/firecracker:/usr/local/bin/firecracker' /usr/local/go/bin/go run main.go --config config_cluster.yaml
 # rsync -av samples Francois@pc704.emulab.net:invitro/
