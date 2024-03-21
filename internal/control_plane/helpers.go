@@ -36,7 +36,7 @@ func (c *ControlPlane) notifyDataplanesAndStartScalingLoop(ctx context.Context, 
 		ServiceInfo:             serviceInfo,
 		ControlPlane:            c,
 		Controller:              autoscaling.NewPerFunctionStateController(make(chan int), serviceInfo, 2*time.Second), // TODO: Hardcoded autoscaling for now
-		ColdStartTracingChannel: &c.ColdStartTracing.InputChannel,
+		ColdStartTracingChannel: c.ColdStartTracing.InputChannel,
 		PlacementPolicy:         c.PlacementPolicy,
 		PersistenceLayer:        c.PersistenceLayer,
 		NIStorage:               c.NIStorage,

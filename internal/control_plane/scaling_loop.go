@@ -24,7 +24,7 @@ type ServiceInfoStorage struct {
 	ControlPlane *ControlPlane
 
 	Controller              *autoscaling.PFStateController
-	ColdStartTracingChannel *chan tracing.ColdStartLogEntry
+	ColdStartTracingChannel chan tracing.ColdStartLogEntry
 
 	PlacementPolicy  placement2.PlacementPolicy
 	PersistenceLayer persistence.PersistenceLayer
@@ -158,7 +158,7 @@ func (ss *ServiceInfoStorage) doUpscaling(toCreateCount int, loopStarted time.Ti
 
 			newEndpoint.CreationHistory.LatencyBreakdown.DataplanePropagation = durationpb.New(time.Since(startEndpointPropagation))
 
-			*ss.ColdStartTracingChannel <- newEndpoint.CreationHistory
+			ss.ColdStartTracingChannel <- newEndpoint.CreationHistory
 		}()
 	}
 
