@@ -45,11 +45,11 @@ func makeFirecrackerConfig(vmcs *VMControlStructure, vmDebugMode bool, metadata 
 			IsRootDevice: firecracker.Bool(true),
 		}},
 		// TODO: add resource requests/limits
-		/*MachineCfg: models.MachineConfiguration{
+		MachineCfg: models.MachineConfiguration{
 			MemSizeMib: firecracker.Int64(128),
 			VcpuCount:  firecracker.Int64(1),
 			Smt:        firecracker.Bool(false),
-		},*/
+		},
 		NetworkInterfaces: []firecracker.NetworkInterface{{
 			StaticConfiguration: &firecracker.StaticNetworkConfiguration{
 				HostDevName: vmcs.NetworkConfiguration.TapDeviceName,
