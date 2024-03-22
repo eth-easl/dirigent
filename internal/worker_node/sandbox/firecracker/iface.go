@@ -46,8 +46,8 @@ func makeFirecrackerConfig(vmcs *VMControlStructure, vmDebugMode bool, metadata 
 		}},
 		// TODO: add resource requests/limits
 		MachineCfg: models.MachineConfiguration{
-			MemSizeMib: firecracker.Int64(128),
-			VcpuCount:  firecracker.Int64(1),
+			MemSizeMib: firecracker.Int64(2048),
+			VcpuCount:  firecracker.Int64(2),
 			Smt:        firecracker.Bool(false),
 		},
 		NetworkInterfaces: []firecracker.NetworkInterface{{
