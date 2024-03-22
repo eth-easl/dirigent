@@ -34,6 +34,17 @@ func (c *AtomicMap[K, V]) Get(key K) (V, bool) {
 	return val, true
 }
 
+func (c *AtomicMap[K, V]) GetOrSet(key K, value V) (V, bool) {
+	val, loaded := c.LoadOrStore(key, value)
+
+	typedVal, ok := val.(V)
+	if !ok {
+		logrus.Fatal("Type assertion failed")
+	}
+
+	return typedVal, loaded
+}
+
 func (c *AtomicMap[K, V]) GetUnsafe(key K) V {
 	val, _ := c.Get(key)
 	return val
