@@ -6,6 +6,7 @@ cpp_legacy/cmake-build-debug
 data
 data/*
 scripts/__pycache__/
+scripts/plotting/__pycache__/
 
 cmd/test
 

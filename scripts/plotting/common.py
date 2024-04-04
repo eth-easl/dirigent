@@ -33,7 +33,7 @@ def getResult(load, rootPath):
 
         # filter first 10 minutes
         minimalTimestamp = proxyTrace['time'].min()  # nanoseconds
-        minimalTimestamp += 60 * 10e9  # 10 minutes
+        #minimalTimestamp += 60 * 10e9  # 10 minutes
 
         # proxyTrace = proxyTrace[proxyTrace['time'] >= minimalTimestamp]
 
@@ -41,6 +41,7 @@ def getResult(load, rootPath):
 
         data = pd.merge(proxyTrace, cpTrace, on=['container_id', 'service_name'], how='inner')
         data = data[data['success'] == True]  # keep only successful invocations
+        data = data[data['image_fetch'] < 1_000]
 
         data = data.drop(columns=['time_x', 'time_y', 'success', 'service_name', 'container_id'])
 
@@ -57,11 +58,13 @@ def getResult(load, rootPath):
         # drop column that was broken down
         data = data.drop(columns=['cold_start'])
 
-        p50 = data.quantile(0.5)
+        p50 = data.quantile(0.50)
+        p95 = data.quantile(0.95)
         p99 = data.quantile(0.99)
 
         dataToPlot = processQuantile(p50, 0.5)
-        dataToPlot = pd.concat([dataToPlot, processQuantile(p99, 0.99)])
+        #dataToPlot = pd.concat([dataToPlot, processQuantile(p95, 0.95)])
+        #dataToPlot = pd.concat([dataToPlot, processQuantile(p99, 0.99)])
         dataToPlot = dataToPlot / 1000  # μs -> ms
 
         # drop queueing and user code execution
@@ -88,11 +91,11 @@ def getResult(load, rootPath):
 
         grouped = pd.DataFrame([
             [cm[0]],  # [worker_node[0], readiness_wait[0]],
-            [cm[1]]  # [worker_node[1]], readiness_wait[1]],
+            #[cm[1]]  # [worker_node[1]], readiness_wait[1]],
         ], columns=['Cluster manager'])  # 'Container creation', 'Readiness probes'])
-        grouped.index = ['p50', 'p99']
+        grouped.index = ['p50']#, 'p99']
 
-        dataToPlot = dataToPlot.rename(columns={
+        """dataToPlot = dataToPlot.rename(columns={
             "get_metadata": "DP - find function",
             "add_deployment": "DP - update endpoints",
             "load_balancing": "DP - load balancing",
@@ -111,7 +114,7 @@ def getResult(load, rootPath):
             "other_worker_node": "WN - other",
             "data_plane_propagation": "CP - propagate endpoints",
             "control_plane_other": "CP - rest",
-        })
+        })"""
 
         result.append(dataToPlot)
         groupedResults.append(grouped)
