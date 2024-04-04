@@ -54,7 +54,7 @@ function SetupDataPlane() {
     # Remove old logs
     RemoteExec $1 "sudo journalctl --vacuum-time=1s && sudo journalctl --vacuum-time=1d"
     # Update systemd
-    RemoteExec $1 "sudo cp -a ~/cluster_manager/sripts/systemd/* /etc/systemd/system/"
+    RemoteExec $1 "sudo cp -a ~/cluster_manager/scripts/systemd/* /etc/systemd/system/"
     # Start data plane
     RemoteExec $1 "sudo systemctl daemon-reload && sudo systemctl restart data_plane.service"
 }
