@@ -2,7 +2,7 @@ workerNodeIp: "dynamic"
 controlPlaneAddress: "10.0.1.2:9090"
 port: "10010"
 verbosity: "trace"
-criType: "firecracker"
+criType: "containerd"
 criPath: "/run/containerd/containerd.sock"
 cniConfigPath: "/cluster_manager/configs/cni.conf"
 prefetchImage: false
@@ -13,4 +13,4 @@ firecrackerInternalIPPrefix: "100"
 firecrackerExposedIPPrefix: "192.254"
 firecrackerVMDebugMode: false
 firecrackerUseSnapshots: true
-firecrackerNetworkPoolSize: 64
+firecrackerNetworkPoolSize: 256
