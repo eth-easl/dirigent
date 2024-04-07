@@ -18,13 +18,13 @@ import (
 // }
 import "C"
 
-const EXEC_UNIT int = 1e2
+const ExecUnit int = 1e2
 
 var machineName string
 
 func takeSqrts() C.double {
 	var tmp C.double // Circumvent compiler optimizations
-	for i := 0; i < EXEC_UNIT; i++ {
+	for i := 0; i < ExecUnit; i++ {
 		tmp = C.SQRTSD(C.double(10))
 	}
 	return tmp
@@ -41,7 +41,7 @@ func busySpin(multiplier, runtimeMilli uint32) {
 func rootHandler(w http.ResponseWriter, req *http.Request) {
 	workload := req.Header.Get("workload")
 	function := req.Header.Get("function")
-	requested_cpu := req.Header.Get("requested_cpu")
+	requestedCpu := req.Header.Get("requested_cpu")
 	multiplier := req.Header.Get("multiplier")
 
 	switch workload {
@@ -56,7 +56,7 @@ func rootHandler(w http.ResponseWriter, req *http.Request) {
 		_, _ = w.Write(responseBytes)
 		w.WriteHeader(http.StatusOK)
 	case "trace":
-		tlm, err := strconv.Atoi(requested_cpu)
+		tlm, err := strconv.Atoi(requestedCpu)
 		if err != nil {
 			w.WriteHeader(http.StatusBadRequest)
 			return
@@ -100,7 +100,7 @@ type FunctionResponse struct {
 	ExecutionTime int64  `json:"ExecutionTime"`
 }
 
-func healthHandler(w http.ResponseWriter, r *http.Request) {
+func healthHandler(w http.ResponseWriter, _ *http.Request) {
 	w.WriteHeader(http.StatusOK)
 }
 
@@ -157,10 +157,10 @@ func StartHTTPServer() {
 
 	mux := NewMultiplexer()
 	mux.HandleFunc("/", rootHandler)
-	mux.HandleFunc("/health", healthHandler)
+	mux.HandleFunc("/_/health", healthHandler)
 
 	server := &http.Server{
-		Addr:    "0.0.0.0:80",
+		Addr:    "0.0.0.0:8080",
 		Handler: h2c.NewHandler(mux.Handler, &http2.Server{}),
 	}
 
