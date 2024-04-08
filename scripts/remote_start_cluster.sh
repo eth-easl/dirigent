@@ -38,6 +38,7 @@ done
 
 
 if [ "$FAKE_WORKER_MODE" -eq 1 ]; then
+    KillFakeWorkerNodes $@
     SetupFakeWorkerNodes $CONTROL_PLANE_REPLICAS $@
 else
     SetupWorkerNodes $CONTROL_PLANE_REPLICAS $@

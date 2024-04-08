@@ -140,8 +140,9 @@ function SetupFakeWorkerNodes() {
 
             RemoteExec $1 "export DAEMON_PORT=${DAEMON_PORT}; cd cluster_manager; cat cmd/worker_node/config_cluster_fake_worker$2.yaml | envsubst > cmd/worker_node/tmp && mv cmd/worker_node/tmp cmd/worker_node/config_cluster_fake_worker_${INDEX}.yaml"
 
+            local CPU_CORE=$((INDEX % 20))
             local ARGS="--config cmd/worker_node/config_cluster_fake_worker_${INDEX}.yaml"
-            local CMD="cd ~/cluster_manager; sudo env 'PATH=\$PATH:/usr/local/bin/firecracker:/usr/bin' taskset -c ${INDEX} /usr/local/go/bin/go run cmd/worker_node/main.go ${ARGS}"
+            local CMD="cd ~/cluster_manager; sudo env 'PATH=\$PATH:/usr/local/bin/firecracker:/usr/bin' taskset -c ${CPU_CORE} /usr/local/go/bin/go run cmd/worker_node/main.go ${ARGS}"
 
             RemoteExec $1 "tmux new -s worker_daemon_${INDEX} -d"
             RemoteExec $1 "tmux send -t worker_daemon_${INDEX} \"$CMD\" ENTER"
