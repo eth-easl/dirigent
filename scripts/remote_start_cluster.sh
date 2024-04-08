@@ -36,4 +36,9 @@ do
     shift
 done
 
-SetupWorkerNodes $CONTROL_PLANE_REPLICAS $@
+
+if [ "$FAKE_WORKER_MODE" -eq 1 ]; then
+    SetupFakeWorkerNodes $CONTROL_PLANE_REPLICAS $@
+else
+    SetupWorkerNodes $CONTROL_PLANE_REPLICAS $@
+fi
