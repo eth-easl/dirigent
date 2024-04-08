@@ -157,10 +157,10 @@ func StartHTTPServer() {
 
 	mux := NewMultiplexer()
 	mux.HandleFunc("/", rootHandler)
-	mux.HandleFunc("/_/health", healthHandler)
+	mux.HandleFunc("/health", healthHandler)
 
 	server := &http.Server{
-		Addr:    "0.0.0.0:8080",
+		Addr:    "0.0.0.0:80",
 		Handler: h2c.NewHandler(mux.Handler, &http2.Server{}),
 	}
 
