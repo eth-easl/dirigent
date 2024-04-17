@@ -12,6 +12,7 @@ function StartControlplane() {
   RemoteExec $1 "sudo kill -9 \$(sudo lsof -t -i:9091)"
 
   # Start new data plane
+  #RemoteExec $1 "cd ~/cluster_manager; sudo docker-compose up -d"
   RemoteExec $1 "cd ~/cluster_manager/cmd/master_node; git pull; git reset --hard origin/current; sudo /usr/local/go/bin/go run main.go --config $2"
 }
 

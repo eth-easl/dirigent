@@ -5,7 +5,6 @@ import (
 	"context"
 	"fmt"
 	"github.com/redis/go-redis/v9"
-	"github.com/sirupsen/logrus"
 )
 
 func CreateRedisConnector(ctx context.Context, redisLogin config.RedisConf) (*redis.Client, []*redis.Client, error) {
@@ -16,7 +15,6 @@ func CreateRedisConnector(ctx context.Context, redisLogin config.RedisConf) (*re
 	})
 
 	if redisLogin.FullPersistence {
-		logrus.Warn("Modifications")
 		if err := redisClient.ConfigSet(ctx, "appendonly", "yes").Err(); err != nil {
 			return nil, nil, err
 		}
