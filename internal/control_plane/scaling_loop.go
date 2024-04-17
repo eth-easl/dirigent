@@ -134,7 +134,7 @@ func (ss *ServiceInfoStorage) doUpscaling(toCreateCount int, loopStarted time.Ti
 
 			costPersistStart := time.Now()
 
-			if false {
+			if ss.ControlPlane.Config.EndpointPersistence {
 				ss.ControlPlane.PersistenceLayer.StoreEndpoint(context.Background(), core.Endpoint{
 					SandboxID: resp.ID,
 					URL:       fmt.Sprintf("%s:%d", node.GetIP(), resp.PortMappings.HostPort),

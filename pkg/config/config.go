@@ -25,6 +25,7 @@ type ControlPlaneConfig struct {
 	RemoveWorkerNode           bool           `mapstructure:"removeWorkerNode"`
 	RemoveDataplane            bool           `mapstructure:"removeDataplane"`
 	PrecreateSnapshots         bool           `mapstructure:"precreateSnapshots"`
+	EndpointPersistence        bool           `mapstructure:"endpointPersistence"`
 }
 
 type DataPlaneConfig struct {
