@@ -92,3 +92,20 @@ for i in range(25,2500, 25):
 
     with open(path + '/config_firecracker.json', 'w') as fp:
       json.dump(obj3, fp)
+
+for i in range(0,11):
+    obj2 = dict_rps_containerd
+    obj2['RpsTarget'] = i
+
+    path = "rps/" + str(i)
+    os.mkdir(path)
+
+    with open(path + '/config_containerd.json', 'w') as fp:
+        json.dump(obj2, fp)
+
+    obj3 = dict_rps_firecracker
+    obj3['RpsTarget'] = i
+    obj3['RpsImage'] = "empty"
+
+    with open(path + '/config_firecracker.json', 'w') as fp:
+        json.dump(obj3, fp)

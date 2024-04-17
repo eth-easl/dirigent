@@ -12,14 +12,15 @@ import (
 )
 
 const (
-	coldStartLogHeader = "time,service_name,container_id,success,image_fetch,sandbox_create,sandbox_start,network_setup,iptables,readiness_probe,data_plane_propagation,snapshot_creation,configure_monitoring,find_snapshot,other_worker_node\n"
+	coldStartLogHeader = "time,service_name,container_id,success,image_fetch,sandbox_create,sandbox_start,network_setup,iptables,readiness_probe,data_plane_propagation,snapshot_creation,configure_monitoring,find_snapshot,db,other_worker_node\n"
 	proxyLogHeader     = "time,service_name,container_id,get_metadata,add_deployment,cold_start,load_balancing,cc_throttling,proxying,serialization,persistence_layer,other\n"
 )
 
 type ColdStartLogEntry struct {
-	ServiceName string
-	ContainerID string
-	Success     bool
+	ServiceName     string
+	ContainerID     string
+	Success         bool
+	PersistenceCost time.Duration
 
 	LatencyBreakdown *proto.SandboxCreationBreakdown
 }
@@ -125,7 +126,7 @@ func coldStartWriteFunction(f *os.File, msg ColdStartLogEntry) {
 		msg.LatencyBreakdown.ReadinessProbing.AsDuration() + msg.LatencyBreakdown.SnapshotCreation.AsDuration() +
 		msg.LatencyBreakdown.ConfigureMonitoring.AsDuration() + msg.LatencyBreakdown.FindSnapshot.AsDuration())
 
-	if _, err := f.WriteString(fmt.Sprintf("%d,%s,%s,%t,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d\n",
+	if _, err := f.WriteString(fmt.Sprintf("%d,%s,%s,%t,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d\n",
 		time.Now().UnixNano(),
 		msg.ServiceName,
 		msg.ContainerID,
@@ -140,6 +141,7 @@ func coldStartWriteFunction(f *os.File, msg ColdStartLogEntry) {
 		msg.LatencyBreakdown.SnapshotCreation.AsDuration().Microseconds(),
 		msg.LatencyBreakdown.ConfigureMonitoring.AsDuration().Microseconds(),
 		msg.LatencyBreakdown.FindSnapshot.AsDuration().Microseconds(),
+		msg.PersistenceCost.Microseconds(),
 		other.Microseconds(),
 	)); err != nil {
 		logrus.Errorf("Failed to write to file : %s", err.Error())

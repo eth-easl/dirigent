@@ -1,0 +1,2 @@
+{"Seed": 42, "Platform": "Dirigent", "DirigentControlPlaneIP": "10.0.1.253:9092", "TracePath": "./samples/4000", "Granularity": "minute", "OutputPathPrefix": "data/out/experiment", "IATDistribution": "equidistant", "ExperimentDuration": 30, "WarmupDuration": 0, "IsPartiallyPanic": false, "EnableZipkinTracing": false, "EnableMetricsScrapping": false, "MetricScrapingPeriodSeconds": 15, "AutoscalingMetric": "concurrency", "GRPCConnectionTimeoutSeconds": 120, "GRPCFunctionTimeoutSeconds": 120}
+

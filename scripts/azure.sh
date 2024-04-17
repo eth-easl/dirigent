@@ -6,11 +6,9 @@ source $DIR/common.sh
 
 function RunMeasure() {
       function Run() {
-          RemoteExec $DATAPLANE "cd ~/cluster_manager/tests/cleaner; sudo /usr/local/go/bin/go run cleaner.go"
           RemoteExec $INVITRO "cd ~/invitro;git checkout rps_mode; sudo /usr/local/go/bin/go run cmd/loader.go  --config ~/invitro/samples/$1/config.json --verbosity trace"
 
-          scp $DATAPLANE:~/cluster_manager/cmd/data_plane/data/proxy_trace.csv proxy_trace_$1.csv
-          scp $CONTROLPLANE:~/cluster_manager/cmd/master_node/data/cold_start_trace.csv cold_start_trace_$1.csv
+          scp $INVITRO:~/invitro/data/out/experiment_duration_30.csv azure_$1.csv
       }
 
       for VALUE in "$@"

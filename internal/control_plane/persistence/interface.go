@@ -2,6 +2,7 @@ package persistence
 
 import (
 	"cluster_manager/api/proto"
+	"cluster_manager/internal/control_plane/core"
 	"context"
 )
 
@@ -16,4 +17,5 @@ type PersistenceLayer interface {
 	DeleteServiceInformation(ctx context.Context, serviceInfo *proto.ServiceInfo) error
 	GetServiceInformation(ctx context.Context) ([]*proto.ServiceInfo, error)
 	SetLeader(ctx context.Context) error
+	StoreEndpoint(ctx context.Context, endpoint core.Endpoint) error
 }

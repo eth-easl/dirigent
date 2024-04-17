@@ -132,7 +132,16 @@ func (ss *ServiceInfoStorage) doUpscaling(toCreateCount int, loopStarted time.Ti
 			resp.LatencyBreakdown.Total = durationpb.New(sandboxCreationTook)
 			logrus.Debug("Sandbox creation took: ", sandboxCreationTook.Milliseconds(), " ms")
 
-			startEndpointPropagation := time.Now()
+			costPersistStart := time.Now()
+
+			if false {
+				ss.ControlPlane.PersistenceLayer.StoreEndpoint(context.Background(), core.Endpoint{
+					SandboxID: resp.ID,
+					URL:       fmt.Sprintf("%s:%d", node.GetIP(), resp.PortMappings.HostPort),
+					Node:      node,
+					HostPort:  resp.PortMappings.HostPort,
+				})
+			}
 
 			newEndpoint := &core.Endpoint{
 				SandboxID: resp.ID,
@@ -143,9 +152,12 @@ func (ss *ServiceInfoStorage) doUpscaling(toCreateCount int, loopStarted time.Ti
 					ServiceName:      ss.ServiceInfo.Name,
 					ContainerID:      resp.ID,
 					Success:          resp.Success,
+					PersistenceCost:  time.Since(costPersistStart),
 					LatencyBreakdown: resp.LatencyBreakdown,
 				},
 			}
+
+			startEndpointPropagation := time.Now()
 
 			// Update worker node structure
 			ss.NIStorage.AtomicGetNoCheck(node.GetName()).GetEndpointMap().AtomicSet(newEndpoint, ss.ServiceInfo.Name)

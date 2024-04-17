@@ -2,6 +2,7 @@ package persistence
 
 import (
 	"cluster_manager/api/proto"
+	"cluster_manager/internal/control_plane/core"
 	"context"
 )
 
@@ -48,5 +49,9 @@ func (e *EmptyPersistence) GetServiceInformation(_ context.Context) ([]*proto.Se
 }
 
 func (e *EmptyPersistence) SetLeader(_ context.Context) error {
+	return nil
+}
+
+func (e *EmptyPersistence) StoreEndpoint(ctx context.Context, endpoint core.Endpoint) error {
 	return nil
 }
