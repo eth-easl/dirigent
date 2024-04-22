@@ -15,10 +15,10 @@ def processQuantile(d, percentile):
 
 def getTraces(load, rootPath):
 
-    joined_list = glob.glob(f'{rootPath}/cold_start_trace_{load}_*.csv')
+    joined_list = glob.glob(f'{rootPath}/cold_start_trace_{load}*.csv')
     cpTrace = pd.concat(map(pd.read_csv, joined_list), ignore_index=True)
 
-    joined_list = glob.glob(f'{rootPath}/proxy_trace_{load}_*.csv')
+    joined_list = glob.glob(f'{rootPath}/proxy_trace_{load}*.csv')
     proxyTrace = pd.concat(map(pd.read_csv, joined_list), ignore_index=True)
 
     return cpTrace, proxyTrace

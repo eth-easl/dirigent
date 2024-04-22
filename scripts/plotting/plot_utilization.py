@@ -3,9 +3,10 @@ import glob
 import matplotlib.pyplot as plt
 import pandas as pd
 
-input_folder_knative = 'a'
-input_folder_dirigent = '/home/lcvetkovic/Desktop/replay/sosp/dirigent_1cp_1dp/azure_500_containerd/run_2'
-output_folder = '/home/lcvetkovic/Desktop/replay/sosp/dirigent_1cp_1dp/azure_500_containerd/run_2'
+input_folder_knative = '/home/lcvetkovic/Desktop/replay/sosp/knative_3cp_3dp/azure_500'
+input_folder_dirigent = '/home/lcvetkovic/Desktop/replay/sosp/dirigent_3cp_3dp/azure_500'
+
+output_folder = '/home/lcvetkovic/Desktop/replay/sosp/dirigent_3cp_3dp/azure_500'
 
 
 def plot_experiment(experiment_name, input_folder, column):
@@ -14,7 +15,7 @@ def plot_experiment(experiment_name, input_folder, column):
 
     for n in nodes:
         # Master node
-        if experiment_name == "Knative-on-K8s" and "hp156" in n: #023
+        if experiment_name == "Knative-on-K8s" and ("hp156" in n or "hp091" in n or "hp155" in n): #023
             master_nodes.append(n)
             nodes.remove(n)
 
@@ -23,12 +24,12 @@ def plot_experiment(experiment_name, input_folder, column):
             nodes.remove(n)
 
         # Master node(s)
-        if experiment_name == "Dirigent" and "hp023" in n: #("hp023" in n or "hp091" in n or "hp081" in n):
+        if experiment_name == "Dirigent" and ("hp023" in n):# or "hp091" in n or "hp081" in n):
             master_nodes.append(n)
             nodes.remove(n)
 
         # Data plane(s)
-        if experiment_name == "Dirigent" and "hp091" in n: #("hp149" in n or "hp077" in n or "hp134" in n):
+        if experiment_name == "Dirigent" and ("hp091" in n): # or "hp077" in n or "hp134" in n):
             nodes.remove(n)
 
         # Loader node
@@ -91,7 +92,7 @@ def plot_experiment(experiment_name, input_folder, column):
 for column in [' CPUUtilization', ' memoryUtilization ']:
     fig, (ax1, ax2) = plt.subplots(2, 1, sharex=True, figsize=(8, 6))
 
-    # plot_experiment("Knative-on-K8s", input_folder_knative, column=column)
+    plot_experiment("Knative", input_folder_knative, column=column)
     plot_experiment("Dirigent", input_folder_dirigent, column=column)
 
     ax1.set_title("Master Nodes")
