@@ -1,10 +1,7 @@
 package main
 
 import (
-	proto2 "cluster_manager/api/proto"
-	"cluster_manager/internal/control_plane/autoscaling"
-	common "cluster_manager/pkg/grpc_helpers"
-	"cluster_manager/pkg/utils"
+	"cluster_manager/clients/utils"
 	"context"
 	"crypto/tls"
 	"fmt"
@@ -15,41 +12,10 @@ import (
 	"net/http"
 	"strconv"
 	"strings"
-	"sync"
-	"sync/atomic"
 	"time"
 )
 
-func Deployservice() {
-	cpApi, err := common.NewControlPlaneConnection([]string{"127.0.0.1:9090"})
-	if err != nil {
-		logrus.Fatalf("Failed to start control plane connection (error %s)", err.Error())
-	}
-
-	ctx, cancel := context.WithTimeout(context.Background(), utils.GRPCFunctionTimeout)
-	defer cancel()
-
-	autoscalingConfig := autoscaling.NewDefaultAutoscalingMetadata()
-	autoscalingConfig.ScalingUpperBound = 1
-
-	resp, err := cpApi.RegisterService(ctx, &proto2.ServiceInfo{
-		Name:  "test",
-		Image: "docker.io/cvetkovic/dirigent_empty_function:latest",
-		PortForwarding: &proto2.PortMapping{
-			GuestPort: 80,
-			Protocol:  proto2.L4Protocol_TCP,
-		},
-		AutoscalingConfig: autoscalingConfig,
-	})
-
-	if err != nil || !resp.Success {
-		logrus.Errorf("Failed to deploy service")
-	}
-}
-
-var counter int32 = 0
-
-func Fire() {
+func AsyncRequest() {
 
 	logrus.Info("Invocating async function")
 
@@ -103,7 +69,7 @@ func Fire() {
 
 	code := string(body[:])
 
-	time.Sleep(750 * time.Millisecond)
+	time.Sleep(1500 * time.Millisecond)
 
 	req, err = http.NewRequest("GET", "http://localhost:8082", strings.NewReader(code))
 	if err != nil {
@@ -120,56 +86,10 @@ func Fire() {
 		logrus.Fatalf(err.Error())
 	}
 
-	response := string(responseInBytes[:])
-
-	//fmt.Println(response)
-	if strings.Contains(response, "OK") {
-		atomic.AddInt32(&counter, 1)
-	}
-
-}
-
-func latency() {
-	for i := 0; i < 10; i++ {
-		Fire()
-		time.Sleep(500 * time.Millisecond)
-	}
-}
-
-func tp() {
-
-	size := 2000
-
-	wg := sync.WaitGroup{}
-
-	wg.Add(size)
-
-	start := time.Now()
-
-	for i := 0; i < size; i++ {
-		go func() {
-			Fire()
-			wg.Done()
-		}()
-	}
-
-	wg.Wait()
-	since := time.Since(start)
-
-	fmt.Println(int64(size) * 1e6 / since.Microseconds())
-
-	fmt.Println(counter)
+	logrus.Infof("Response from server: %s", string(responseInBytes[:]))
 }
 
 func main() {
-	Deployservice()
-
-	time.Sleep(200 * time.Millisecond)
-
-	if false {
-		latency()
-	} else {
-		tp()
-	}
-
+	utils.Deployservice()
+	AsyncRequest()
 }

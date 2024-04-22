@@ -1,0 +1,37 @@
+package utils
+
+import (
+	proto2 "cluster_manager/api/proto"
+	"cluster_manager/internal/control_plane/autoscaling"
+	common "cluster_manager/pkg/grpc_helpers"
+	"cluster_manager/pkg/utils"
+	"context"
+	"github.com/sirupsen/logrus"
+)
+
+func Deployservice() {
+	cpApi, err := common.NewControlPlaneConnection([]string{"127.0.0.1:9090"})
+	if err != nil {
+		logrus.Fatalf("Failed to start control plane connection (error %s)", err.Error())
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), utils.GRPCFunctionTimeout)
+	defer cancel()
+
+	autoscalingConfig := autoscaling.NewDefaultAutoscalingMetadata()
+	autoscalingConfig.ScalingUpperBound = 1
+
+	resp, err := cpApi.RegisterService(ctx, &proto2.ServiceInfo{
+		Name:  "test",
+		Image: "docker.io/cvetkovic/dirigent_empty_function:latest",
+		PortForwarding: &proto2.PortMapping{
+			GuestPort: 80,
+			Protocol:  proto2.L4Protocol_TCP,
+		},
+		AutoscalingConfig: autoscalingConfig,
+	})
+
+	if err != nil || !resp.Success {
+		logrus.Errorf("Failed to deploy service, maybe service is already registered?")
+	}
+}
