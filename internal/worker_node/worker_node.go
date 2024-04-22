@@ -13,6 +13,7 @@ import (
 	"cluster_manager/pkg/utils"
 	"context"
 	"fmt"
+	"google.golang.org/protobuf/types/known/emptypb"
 	"math/rand"
 	"os"
 	"time"
@@ -27,6 +28,8 @@ const (
 )
 
 type WorkerNode struct {
+	proto.UnimplementedWorkerNodeInterfaceServer
+
 	cpApi          proto.CpiInterfaceClient
 	SandboxRuntime sandbox.RuntimeInterface
 
@@ -103,6 +106,18 @@ func NewWorkerNode(cpApi proto.CpiInterfaceClient, config config.WorkerNodeConfi
 	return workerNode
 }
 
+func (w *WorkerNode) CreateSandbox(grpcCtx context.Context, in *proto.ServiceInfo) (*proto.SandboxCreationStatus, error) {
+	return w.SandboxRuntime.CreateSandbox(grpcCtx, in)
+}
+
+func (w *WorkerNode) DeleteSandbox(grpcCtx context.Context, in *proto.SandboxID) (*proto.ActionStatus, error) {
+	return w.SandboxRuntime.DeleteSandbox(grpcCtx, in)
+}
+
+func (w *WorkerNode) ListEndpoints(grpcCtx context.Context, in *emptypb.Empty) (*proto.EndpointsList, error) {
+	return w.SandboxRuntime.ListEndpoints(grpcCtx, in)
+}
+
 func (w *WorkerNode) RegisterNodeWithControlPlane(config config.WorkerNodeConfig, cpApi *proto.CpiInterfaceClient) {
 	logrus.Info("Trying to register the node with the control plane")
 
@@ -117,27 +132,6 @@ func (w *WorkerNode) RegisterNodeWithControlPlane(config config.WorkerNodeConfig
 	logrus.Info("Successfully registered the node with the control plane")
 }
 
-func (w *WorkerNode) StopWorkerNode(config config.WorkerNodeConfig, cpApi *proto.CpiInterfaceClient) {
-	w.CleanResources()
-	w.DeregisterNodeFromControlPlane(config, cpApi)
-}
-
-func (w *WorkerNode) CleanResources() {
-	keys := make([]string, 0)
-	for _, key := range w.SandboxManager.Metadata.Keys() {
-		keys = append(keys, key)
-	}
-
-	for _, key := range keys {
-		_, err := w.SandboxRuntime.DeleteSandbox(context.Background(), &proto.SandboxID{
-			ID: key,
-		})
-		if err != nil {
-			logrus.Warn("Failed to clean resource (sandbox) - ", key)
-		}
-	}
-}
-
 func (w *WorkerNode) DeregisterNodeFromControlPlane(config config.WorkerNodeConfig, cpApi *proto.CpiInterfaceClient) {
 	logrus.Info("Trying to deregister the node with the control plane")
 
@@ -149,7 +143,21 @@ func (w *WorkerNode) DeregisterNodeFromControlPlane(config config.WorkerNodeConf
 		logrus.Fatal("Failed to deregister from the control plane")
 	}
 
-	logrus.Info("Successfully registered the node with the control plane")
+	logrus.Info("Successfully registered the node with the control plane, cleaning resources")
+
+	w.cleanResources()
+
+	logrus.Info("Successfully clean-up resources")
+}
+
+func (w *WorkerNode) SetupHeartbeatLoop(cfg *config.WorkerNodeConfig) {
+	for {
+		// Send
+		w.sendHeartbeatLoop(cfg)
+
+		// Wait
+		time.Sleep(utils.HeartbeatInterval)
+	}
 }
 
 func (w *WorkerNode) sendInstructionToControlPlane(ctx context.Context, config config.WorkerNodeConfig, cpi *proto.CpiInterfaceClient, action int) error {
@@ -186,13 +194,19 @@ func (w *WorkerNode) sendInstructionToControlPlane(ctx context.Context, config c
 	return nil
 }
 
-func (w *WorkerNode) SetupHeartbeatLoop(cfg *config.WorkerNodeConfig) {
-	for {
-		// Send
-		w.sendHeartbeatLoop(cfg)
+func (w *WorkerNode) cleanResources() {
+	keys := make([]string, 0)
+	for _, key := range w.SandboxManager.Metadata.Keys() {
+		keys = append(keys, key)
+	}
 
-		// Wait
-		time.Sleep(utils.HeartbeatInterval)
+	for _, key := range keys {
+		_, err := w.SandboxRuntime.DeleteSandbox(context.Background(), &proto.SandboxID{
+			ID: key,
+		})
+		if err != nil {
+			logrus.Warn("Failed to clean resource (sandbox) - ", key)
+		}
 	}
 }
 

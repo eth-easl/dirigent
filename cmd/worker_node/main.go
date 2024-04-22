@@ -1,7 +1,6 @@
 package main
 
 import (
-	"cluster_manager/api"
 	"cluster_manager/api/proto"
 	"cluster_manager/internal/worker_node"
 	"cluster_manager/internal/worker_node/sandbox/firecracker"
@@ -57,7 +56,7 @@ func main() {
 	logrus.Info("Starting API handlers")
 
 	go grpc_helpers.CreateGRPCServer(strconv.Itoa(cfg.Port), func(sr grpc.ServiceRegistrar) {
-		proto.RegisterWorkerNodeInterfaceServer(sr, api.NewWorkerNodeApi(workerNode))
+		proto.RegisterWorkerNodeInterfaceServer(sr, workerNode)
 	})
 
 	utils.WaitTerminationSignal(func() {
