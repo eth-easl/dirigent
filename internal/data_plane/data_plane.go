@@ -23,6 +23,8 @@ import (
 )
 
 type Dataplane struct {
+	proto.UnimplementedDpiInterfaceServer
+
 	config      config.DataPlaneConfig
 	deployments *function_metadata.Deployments
 
@@ -98,11 +100,11 @@ func (d *Dataplane) registerDataPlane(cpApiServer proto.CpiInterfaceClient) erro
 	return err
 }
 
-func (d *Dataplane) AddDeployment(in *proto.ServiceInfo) (*proto.DeploymentUpdateSuccess, error) {
+func (d *Dataplane) AddDeployment(_ context.Context, in *proto.ServiceInfo) (*proto.DeploymentUpdateSuccess, error) {
 	return &proto.DeploymentUpdateSuccess{Success: d.deployments.AddDeployment(in.GetName(), d.dataplaneID)}, nil
 }
 
-func (d *Dataplane) UpdateEndpointList(patch *proto.DeploymentEndpointPatch) (*proto.DeploymentUpdateSuccess, error) {
+func (d *Dataplane) UpdateEndpointList(_ context.Context, patch *proto.DeploymentEndpointPatch) (*proto.DeploymentUpdateSuccess, error) {
 	if patch.Service == nil && patch.Endpoints == nil {
 		d.cleanCache()
 
@@ -128,7 +130,7 @@ func (d *Dataplane) cleanCache() {
 	logrus.Info("Successfully cleaned the whole cache initiated by the control plane.")
 }
 
-func (d *Dataplane) DeleteDeployment(name *proto.ServiceInfo) (*proto.DeploymentUpdateSuccess, error) {
+func (d *Dataplane) DeleteDeployment(_ context.Context, name *proto.ServiceInfo) (*proto.DeploymentUpdateSuccess, error) {
 	return &proto.DeploymentUpdateSuccess{Success: d.deployments.DeleteDeployment(name.GetName())}, nil
 }
 
@@ -205,7 +207,7 @@ func (d *Dataplane) syncDeploymentCache(cpApi *proto.CpiInterfaceClient, deploym
 	return nil
 }
 
-func (d *Dataplane) DrainSandbox(patch *proto.DeploymentEndpointPatch) (*proto.DeploymentUpdateSuccess, error) {
+func (d *Dataplane) DrainSandbox(_ context.Context, patch *proto.DeploymentEndpointPatch) (*proto.DeploymentUpdateSuccess, error) {
 	deployment, _ := d.deployments.GetDeployment(patch.GetService().GetName())
 	if deployment == nil {
 		return &proto.DeploymentUpdateSuccess{Success: false}, errors.New("deployment does not exists on the data plane side")
@@ -213,4 +215,11 @@ func (d *Dataplane) DrainSandbox(patch *proto.DeploymentEndpointPatch) (*proto.D
 
 	err := deployment.DrainEndpoints(patch.Endpoints)
 	return &proto.DeploymentUpdateSuccess{Success: true}, err
+}
+
+func (d *Dataplane) ResetMeasurements(ctx context.Context, in *emptypb.Empty) (*proto.ActionStatus, error) {
+	return &proto.ActionStatus{
+		Success: true,
+		Message: "",
+	}, nil
 }

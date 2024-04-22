@@ -1,7 +1,6 @@
 package main
 
 import (
-	"cluster_manager/api"
 	"cluster_manager/api/proto"
 	"cluster_manager/internal/data_plane"
 	"cluster_manager/pkg/config"
@@ -31,10 +30,8 @@ func main() {
 
 	dataPlane := data_plane.NewDataplane(cfg)
 
-	apiServer := api.NewDpApiServer(dataPlane)
-
 	go grpc_helpers.CreateGRPCServer(cfg.PortGRPC, func(sr grpc.ServiceRegistrar) {
-		proto.RegisterDpiInterfaceServer(sr, apiServer)
+		proto.RegisterDpiInterfaceServer(sr, dataPlane)
 	})
 
 	proxyServer, err := dataPlane.GetProxyServer(cfg.Async)
