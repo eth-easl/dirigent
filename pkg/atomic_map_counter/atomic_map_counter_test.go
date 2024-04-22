@@ -1,4 +1,4 @@
-package atomic_map
+package atomic_map_counter
 
 import (
 	"sync"
@@ -38,7 +38,7 @@ func TestNewAtomicMapCounter_AtomicDecrement(t *testing.T) {
 	atomicMap := NewAtomicMapCounter[int]()
 	nb := int64(10000)
 
-	atomicMap.AtomicAdd(mockKey, nb)
+	atomicMap.atomicUpdate(mockKey, nb)
 
 	for i := nb; i >= 0; i-- {
 		assert.Equal(t, i, atomicMap.Get(mockKey), "Values should be similar")
@@ -49,9 +49,9 @@ func TestNewAtomicMapCounter_AtomicDecrement(t *testing.T) {
 func TestNewAtomicMapCounter_AtomicDelete(t *testing.T) {
 	atomicMap := NewAtomicMapCounter[int]()
 	nb := int64(10000)
-	atomicMap.AtomicAdd(mockKey, nb)
+	atomicMap.atomicUpdate(mockKey, nb)
 	assert.Equal(t, nb, atomicMap.Get(mockKey), "Values should be similar")
-	atomicMap.AtomicAdd(mockKey, -nb)
+	atomicMap.atomicUpdate(mockKey, -nb)
 	assert.Equal(t, int64(0), atomicMap.Get(mockKey), "Values should be the same")
 }
 

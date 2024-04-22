@@ -2,7 +2,7 @@ package function_metadata
 
 import (
 	"cluster_manager/api/proto"
-	"cluster_manager/pkg/atomic_map"
+	"cluster_manager/pkg/atomic_map_counter"
 	_map "cluster_manager/pkg/map"
 	"container/list"
 	"context"
@@ -32,7 +32,7 @@ type UpstreamEndpoint struct {
 type LoadBalancingMetadata struct {
 	RoundRobinCounter           uint32
 	KubernetesRoundRobinCounter uint32
-	RequestCountPerInstance     *atomic_map.AtomicMapCounter[*UpstreamEndpoint]
+	RequestCountPerInstance     *atomic_map_counter.AtomicMapCounter[*UpstreamEndpoint]
 }
 
 type FunctionMetadata struct {
@@ -89,7 +89,7 @@ func NewFunctionMetadata(name string, dataplaneID string) *FunctionMetadata {
 		loadBalancingMetadata: LoadBalancingMetadata{
 			RoundRobinCounter:           0,
 			KubernetesRoundRobinCounter: 0,
-			RequestCountPerInstance:     atomic_map.NewAtomicMapCounter[*UpstreamEndpoint](),
+			RequestCountPerInstance:     atomic_map_counter.NewAtomicMapCounter[*UpstreamEndpoint](),
 		},
 	}
 }
@@ -126,7 +126,7 @@ func (m *FunctionMetadata) IncrementKubernetesRoundRobinCounter() {
 	atomic.AddUint32(&m.loadBalancingMetadata.KubernetesRoundRobinCounter, 1)
 }
 
-func (m *FunctionMetadata) GetRequestCountPerInstance() *atomic_map.AtomicMapCounter[*UpstreamEndpoint] {
+func (m *FunctionMetadata) GetRequestCountPerInstance() *atomic_map_counter.AtomicMapCounter[*UpstreamEndpoint] {
 	return m.loadBalancingMetadata.RequestCountPerInstance
 }
 

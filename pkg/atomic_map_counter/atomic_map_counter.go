@@ -1,4 +1,4 @@
-package atomic_map
+package atomic_map_counter
 
 import (
 	"github.com/sirupsen/logrus"
@@ -28,7 +28,15 @@ func (c *AtomicMapCounter[K]) Get(key K) int64 {
 	return 0
 }
 
-func (c *AtomicMapCounter[K]) AtomicAdd(key K, value int64) int64 {
+func (c *AtomicMapCounter[K]) AtomicIncrement(key K) {
+	c.atomicUpdate(key, 1)
+}
+
+func (c *AtomicMapCounter[K]) AtomicDecrement(key K) {
+	c.atomicUpdate(key, -1)
+}
+
+func (c *AtomicMapCounter[K]) atomicUpdate(key K, value int64) int64 {
 	count, loaded := c.m.LoadOrStore(key, &value)
 	if loaded {
 		val, ok := count.(*int64)
@@ -45,14 +53,6 @@ func (c *AtomicMapCounter[K]) AtomicAdd(key K, value int64) int64 {
 	}
 
 	return *val
-}
-
-func (c *AtomicMapCounter[K]) AtomicIncrement(key K) {
-	c.AtomicAdd(key, 1)
-}
-
-func (c *AtomicMapCounter[K]) AtomicDecrement(key K) {
-	c.AtomicAdd(key, -1)
 }
 
 func (c *AtomicMapCounter[K]) Delete(key K) {
