@@ -47,7 +47,7 @@ func NewCpiInterfaceClient(cc grpc.ClientConnInterface) CpiInterfaceClient {
 
 func (c *cpiInterfaceClient) OnMetricsReceive(ctx context.Context, in *AutoscalingMetric, opts ...grpc.CallOption) (*ActionStatus, error) {
 	out := new(ActionStatus)
-	err := c.cc.Invoke(ctx, "/data_plane.CpiInterface/OnMetricsReceive", in, out, opts...)
+	err := c.cc.Invoke(ctx, "/data_plane.CpiInterface/onMetricsReceive", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -56,7 +56,7 @@ func (c *cpiInterfaceClient) OnMetricsReceive(ctx context.Context, in *Autoscali
 
 func (c *cpiInterfaceClient) ListServices(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*ServiceList, error) {
 	out := new(ServiceList)
-	err := c.cc.Invoke(ctx, "/data_plane.CpiInterface/ListServices", in, out, opts...)
+	err := c.cc.Invoke(ctx, "/data_plane.CpiInterface/listServices", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -65,7 +65,7 @@ func (c *cpiInterfaceClient) ListServices(ctx context.Context, in *emptypb.Empty
 
 func (c *cpiInterfaceClient) RegisterDataplane(ctx context.Context, in *DataplaneInfo, opts ...grpc.CallOption) (*ActionStatus, error) {
 	out := new(ActionStatus)
-	err := c.cc.Invoke(ctx, "/data_plane.CpiInterface/RegisterDataplane", in, out, opts...)
+	err := c.cc.Invoke(ctx, "/data_plane.CpiInterface/registerDataplane", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -74,7 +74,7 @@ func (c *cpiInterfaceClient) RegisterDataplane(ctx context.Context, in *Dataplan
 
 func (c *cpiInterfaceClient) RegisterService(ctx context.Context, in *ServiceInfo, opts ...grpc.CallOption) (*ActionStatus, error) {
 	out := new(ActionStatus)
-	err := c.cc.Invoke(ctx, "/data_plane.CpiInterface/RegisterService", in, out, opts...)
+	err := c.cc.Invoke(ctx, "/data_plane.CpiInterface/registerService", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -83,7 +83,7 @@ func (c *cpiInterfaceClient) RegisterService(ctx context.Context, in *ServiceInf
 
 func (c *cpiInterfaceClient) RegisterNode(ctx context.Context, in *NodeInfo, opts ...grpc.CallOption) (*ActionStatus, error) {
 	out := new(ActionStatus)
-	err := c.cc.Invoke(ctx, "/data_plane.CpiInterface/RegisterNode", in, out, opts...)
+	err := c.cc.Invoke(ctx, "/data_plane.CpiInterface/registerNode", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -92,7 +92,7 @@ func (c *cpiInterfaceClient) RegisterNode(ctx context.Context, in *NodeInfo, opt
 
 func (c *cpiInterfaceClient) NodeHeartbeat(ctx context.Context, in *NodeHeartbeatMessage, opts ...grpc.CallOption) (*ActionStatus, error) {
 	out := new(ActionStatus)
-	err := c.cc.Invoke(ctx, "/data_plane.CpiInterface/NodeHeartbeat", in, out, opts...)
+	err := c.cc.Invoke(ctx, "/data_plane.CpiInterface/nodeHeartbeat", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -110,7 +110,7 @@ func (c *cpiInterfaceClient) ReportFailure(ctx context.Context, in *Failure, opt
 
 func (c *cpiInterfaceClient) DeregisterDataplane(ctx context.Context, in *DataplaneInfo, opts ...grpc.CallOption) (*ActionStatus, error) {
 	out := new(ActionStatus)
-	err := c.cc.Invoke(ctx, "/data_plane.CpiInterface/DeregisterDataplane", in, out, opts...)
+	err := c.cc.Invoke(ctx, "/data_plane.CpiInterface/deregisterDataplane", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -119,7 +119,7 @@ func (c *cpiInterfaceClient) DeregisterDataplane(ctx context.Context, in *Datapl
 
 func (c *cpiInterfaceClient) DeregisterNode(ctx context.Context, in *NodeInfo, opts ...grpc.CallOption) (*ActionStatus, error) {
 	out := new(ActionStatus)
-	err := c.cc.Invoke(ctx, "/data_plane.CpiInterface/DeregisterNode", in, out, opts...)
+	err := c.cc.Invoke(ctx, "/data_plane.CpiInterface/deregisterNode", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -128,7 +128,7 @@ func (c *cpiInterfaceClient) DeregisterNode(ctx context.Context, in *NodeInfo, o
 
 func (c *cpiInterfaceClient) DeregisterService(ctx context.Context, in *ServiceInfo, opts ...grpc.CallOption) (*ActionStatus, error) {
 	out := new(ActionStatus)
-	err := c.cc.Invoke(ctx, "/data_plane.CpiInterface/DeregisterService", in, out, opts...)
+	err := c.cc.Invoke(ctx, "/data_plane.CpiInterface/deregisterService", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -199,34 +199,34 @@ type UnimplementedCpiInterfaceServer struct {
 }
 
 func (UnimplementedCpiInterfaceServer) OnMetricsReceive(context.Context, *AutoscalingMetric) (*ActionStatus, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method OnMetricsReceive not implemented")
+	return nil, status.Errorf(codes.Unimplemented, "method onMetricsReceive not implemented")
 }
 func (UnimplementedCpiInterfaceServer) ListServices(context.Context, *emptypb.Empty) (*ServiceList, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method ListServices not implemented")
+	return nil, status.Errorf(codes.Unimplemented, "method listServices not implemented")
 }
 func (UnimplementedCpiInterfaceServer) RegisterDataplane(context.Context, *DataplaneInfo) (*ActionStatus, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method RegisterDataplane not implemented")
+	return nil, status.Errorf(codes.Unimplemented, "method registerDataplane not implemented")
 }
 func (UnimplementedCpiInterfaceServer) RegisterService(context.Context, *ServiceInfo) (*ActionStatus, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method RegisterService not implemented")
+	return nil, status.Errorf(codes.Unimplemented, "method registerService not implemented")
 }
 func (UnimplementedCpiInterfaceServer) RegisterNode(context.Context, *NodeInfo) (*ActionStatus, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method RegisterNode not implemented")
+	return nil, status.Errorf(codes.Unimplemented, "method registerNode not implemented")
 }
 func (UnimplementedCpiInterfaceServer) NodeHeartbeat(context.Context, *NodeHeartbeatMessage) (*ActionStatus, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method NodeHeartbeat not implemented")
+	return nil, status.Errorf(codes.Unimplemented, "method nodeHeartbeat not implemented")
 }
 func (UnimplementedCpiInterfaceServer) ReportFailure(context.Context, *Failure) (*ActionStatus, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method ReportFailure not implemented")
 }
 func (UnimplementedCpiInterfaceServer) DeregisterDataplane(context.Context, *DataplaneInfo) (*ActionStatus, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method DeregisterDataplane not implemented")
+	return nil, status.Errorf(codes.Unimplemented, "method deregisterDataplane not implemented")
 }
 func (UnimplementedCpiInterfaceServer) DeregisterNode(context.Context, *NodeInfo) (*ActionStatus, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method DeregisterNode not implemented")
+	return nil, status.Errorf(codes.Unimplemented, "method deregisterNode not implemented")
 }
 func (UnimplementedCpiInterfaceServer) DeregisterService(context.Context, *ServiceInfo) (*ActionStatus, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method DeregisterService not implemented")
+	return nil, status.Errorf(codes.Unimplemented, "method deregisterService not implemented")
 }
 func (UnimplementedCpiInterfaceServer) ResetMeasurements(context.Context, *emptypb.Empty) (*ActionStatus, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method ResetMeasurements not implemented")
@@ -263,7 +263,7 @@ func _CpiInterface_OnMetricsReceive_Handler(srv interface{}, ctx context.Context
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: "/data_plane.CpiInterface/OnMetricsReceive",
+		FullMethod: "/data_plane.CpiInterface/onMetricsReceive",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(CpiInterfaceServer).OnMetricsReceive(ctx, req.(*AutoscalingMetric))
@@ -281,7 +281,7 @@ func _CpiInterface_ListServices_Handler(srv interface{}, ctx context.Context, de
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: "/data_plane.CpiInterface/ListServices",
+		FullMethod: "/data_plane.CpiInterface/listServices",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(CpiInterfaceServer).ListServices(ctx, req.(*emptypb.Empty))
@@ -299,7 +299,7 @@ func _CpiInterface_RegisterDataplane_Handler(srv interface{}, ctx context.Contex
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: "/data_plane.CpiInterface/RegisterDataplane",
+		FullMethod: "/data_plane.CpiInterface/registerDataplane",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(CpiInterfaceServer).RegisterDataplane(ctx, req.(*DataplaneInfo))
@@ -317,7 +317,7 @@ func _CpiInterface_RegisterService_Handler(srv interface{}, ctx context.Context,
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: "/data_plane.CpiInterface/RegisterService",
+		FullMethod: "/data_plane.CpiInterface/registerService",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(CpiInterfaceServer).RegisterService(ctx, req.(*ServiceInfo))
@@ -335,7 +335,7 @@ func _CpiInterface_RegisterNode_Handler(srv interface{}, ctx context.Context, de
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: "/data_plane.CpiInterface/RegisterNode",
+		FullMethod: "/data_plane.CpiInterface/registerNode",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(CpiInterfaceServer).RegisterNode(ctx, req.(*NodeInfo))
@@ -353,7 +353,7 @@ func _CpiInterface_NodeHeartbeat_Handler(srv interface{}, ctx context.Context, d
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: "/data_plane.CpiInterface/NodeHeartbeat",
+		FullMethod: "/data_plane.CpiInterface/nodeHeartbeat",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(CpiInterfaceServer).NodeHeartbeat(ctx, req.(*NodeHeartbeatMessage))
@@ -389,7 +389,7 @@ func _CpiInterface_DeregisterDataplane_Handler(srv interface{}, ctx context.Cont
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: "/data_plane.CpiInterface/DeregisterDataplane",
+		FullMethod: "/data_plane.CpiInterface/deregisterDataplane",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(CpiInterfaceServer).DeregisterDataplane(ctx, req.(*DataplaneInfo))
@@ -407,7 +407,7 @@ func _CpiInterface_DeregisterNode_Handler(srv interface{}, ctx context.Context, 
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: "/data_plane.CpiInterface/DeregisterNode",
+		FullMethod: "/data_plane.CpiInterface/deregisterNode",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(CpiInterfaceServer).DeregisterNode(ctx, req.(*NodeInfo))
@@ -425,7 +425,7 @@ func _CpiInterface_DeregisterService_Handler(srv interface{}, ctx context.Contex
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: "/data_plane.CpiInterface/DeregisterService",
+		FullMethod: "/data_plane.CpiInterface/deregisterService",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(CpiInterfaceServer).DeregisterService(ctx, req.(*ServiceInfo))
@@ -506,34 +506,34 @@ func _CpiInterface_ReviseHAProxyConfiguration_Handler(srv interface{}, ctx conte
 }
 
 // CpiInterface_ServiceDesc is the grpc.ServiceDesc for CpiInterface service.
-// It's only intended for direct use with grpc.RegisterService,
+// It's only intended for direct use with grpc.registerService,
 // and not to be introspected or modified (even as a copy)
 var CpiInterface_ServiceDesc = grpc.ServiceDesc{
 	ServiceName: "data_plane.CpiInterface",
 	HandlerType: (*CpiInterfaceServer)(nil),
 	Methods: []grpc.MethodDesc{
 		{
-			MethodName: "OnMetricsReceive",
+			MethodName: "onMetricsReceive",
 			Handler:    _CpiInterface_OnMetricsReceive_Handler,
 		},
 		{
-			MethodName: "ListServices",
+			MethodName: "listServices",
 			Handler:    _CpiInterface_ListServices_Handler,
 		},
 		{
-			MethodName: "RegisterDataplane",
+			MethodName: "registerDataplane",
 			Handler:    _CpiInterface_RegisterDataplane_Handler,
 		},
 		{
-			MethodName: "RegisterService",
+			MethodName: "registerService",
 			Handler:    _CpiInterface_RegisterService_Handler,
 		},
 		{
-			MethodName: "RegisterNode",
+			MethodName: "registerNode",
 			Handler:    _CpiInterface_RegisterNode_Handler,
 		},
 		{
-			MethodName: "NodeHeartbeat",
+			MethodName: "nodeHeartbeat",
 			Handler:    _CpiInterface_NodeHeartbeat_Handler,
 		},
 		{
@@ -541,15 +541,15 @@ var CpiInterface_ServiceDesc = grpc.ServiceDesc{
 			Handler:    _CpiInterface_ReportFailure_Handler,
 		},
 		{
-			MethodName: "DeregisterDataplane",
+			MethodName: "deregisterDataplane",
 			Handler:    _CpiInterface_DeregisterDataplane_Handler,
 		},
 		{
-			MethodName: "DeregisterNode",
+			MethodName: "deregisterNode",
 			Handler:    _CpiInterface_DeregisterNode_Handler,
 		},
 		{
-			MethodName: "DeregisterService",
+			MethodName: "deregisterService",
 			Handler:    _CpiInterface_DeregisterService_Handler,
 		},
 		{

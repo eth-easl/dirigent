@@ -106,7 +106,7 @@ func TestRegisterWorker(t *testing.T) {
 	for i := 1; i <= nbRegistrations; i++ {
 		name := "mock" + fmt.Sprint(i)
 
-		status, err := controlPlane.RegisterNode(context.Background(), &proto.NodeInfo{
+		status, err := controlPlane.registerNode(context.Background(), &proto.NodeInfo{
 			NodeID: name,
 		})
 
@@ -115,7 +115,7 @@ func TestRegisterWorker(t *testing.T) {
 
 		assert.Equal(t, i, controlPlane.GetNumberConnectedWorkers())
 
-		status, err = controlPlane.RegisterNode(context.Background(), &proto.NodeInfo{
+		status, err = controlPlane.registerNode(context.Background(), &proto.NodeInfo{
 			NodeID: name,
 		})
 
@@ -151,7 +151,7 @@ func TestRegisterDataplanes(t *testing.T) {
 	for i := 1; i <= nbRegistrations; i++ {
 		name := "mock" + fmt.Sprint(i)
 
-		status, err, _ := controlPlane.RegisterDataplane(context.Background(), &proto.DataplaneInfo{
+		status, err, _ := controlPlane.registerDataplane(context.Background(), &proto.DataplaneInfo{
 			IP:        name,
 			APIPort:   0,
 			ProxyPort: 0,
@@ -162,7 +162,7 @@ func TestRegisterDataplanes(t *testing.T) {
 
 		assert.Equal(t, i, controlPlane.GetNumberDataplanes())
 
-		status, err, _ = controlPlane.RegisterDataplane(context.Background(), &proto.DataplaneInfo{
+		status, err, _ = controlPlane.registerDataplane(context.Background(), &proto.DataplaneInfo{
 			IP:        name,
 			APIPort:   0,
 			ProxyPort: 0,
@@ -200,7 +200,7 @@ func TestRegisterServices(t *testing.T) {
 	for i := 1; i <= nbRegistrations; i++ {
 		name := "mock" + fmt.Sprint(i)
 
-		status, err := controlPlane.RegisterService(context.Background(), &proto.ServiceInfo{
+		status, err := controlPlane.registerService(context.Background(), &proto.ServiceInfo{
 			Name:              name,
 			Image:             "",
 			PortForwarding:    nil,
@@ -212,7 +212,7 @@ func TestRegisterServices(t *testing.T) {
 
 		assert.Equal(t, i, controlPlane.GetNumberServices())
 
-		status, err = controlPlane.RegisterService(context.Background(), &proto.ServiceInfo{
+		status, err = controlPlane.registerService(context.Background(), &proto.ServiceInfo{
 			Name:              name,
 			Image:             "",
 			PortForwarding:    nil,
@@ -257,7 +257,7 @@ func TestDeregisterWorker(t *testing.T) {
 	for i := 1; i <= nbRegistrations; i++ {
 		name := "mock" + fmt.Sprint(i)
 
-		status, err := controlPlane.RegisterNode(context.Background(), &proto.NodeInfo{
+		status, err := controlPlane.registerNode(context.Background(), &proto.NodeInfo{
 			NodeID: name,
 		})
 
@@ -266,7 +266,7 @@ func TestDeregisterWorker(t *testing.T) {
 
 		assert.Equal(t, i, controlPlane.GetNumberConnectedWorkers())
 
-		status, err = controlPlane.RegisterNode(context.Background(), &proto.NodeInfo{
+		status, err = controlPlane.registerNode(context.Background(), &proto.NodeInfo{
 			NodeID: name,
 		})
 
@@ -279,7 +279,7 @@ func TestDeregisterWorker(t *testing.T) {
 	for i := nbRegistrations; i >= 1; i-- {
 		name := "mock" + fmt.Sprint(i)
 
-		status, err := controlPlane.DeregisterNode(context.Background(), &proto.NodeInfo{
+		status, err := controlPlane.deregisterNode(context.Background(), &proto.NodeInfo{
 			NodeID: name,
 		})
 
@@ -288,7 +288,7 @@ func TestDeregisterWorker(t *testing.T) {
 
 		assert.Equal(t, i-1, controlPlane.GetNumberConnectedWorkers())
 
-		status, err = controlPlane.DeregisterNode(context.Background(), &proto.NodeInfo{
+		status, err = controlPlane.deregisterNode(context.Background(), &proto.NodeInfo{
 			NodeID: name,
 		})
 
@@ -328,7 +328,7 @@ func TestDeregisterDataplanes(t *testing.T) {
 	for i := 1; i <= nbRegistrations; i++ {
 		name := "mock" + fmt.Sprint(i)
 
-		status, err, _ := controlPlane.RegisterDataplane(context.Background(), &proto.DataplaneInfo{
+		status, err, _ := controlPlane.registerDataplane(context.Background(), &proto.DataplaneInfo{
 			IP:        name,
 			APIPort:   0,
 			ProxyPort: 0,
@@ -339,7 +339,7 @@ func TestDeregisterDataplanes(t *testing.T) {
 
 		assert.Equal(t, i, controlPlane.GetNumberDataplanes())
 
-		status, err, _ = controlPlane.RegisterDataplane(context.Background(), &proto.DataplaneInfo{
+		status, err, _ = controlPlane.registerDataplane(context.Background(), &proto.DataplaneInfo{
 			IP:        name,
 			APIPort:   0,
 			ProxyPort: 0,
@@ -354,7 +354,7 @@ func TestDeregisterDataplanes(t *testing.T) {
 	for i := nbRegistrations; i >= 1; i-- {
 		name := "mock" + fmt.Sprint(i)
 
-		status, err := controlPlane.DeregisterDataplane(context.Background(), &proto.DataplaneInfo{
+		status, err := controlPlane.deregisterDataplane(context.Background(), &proto.DataplaneInfo{
 			IP:        name,
 			APIPort:   0,
 			ProxyPort: 0,
@@ -365,7 +365,7 @@ func TestDeregisterDataplanes(t *testing.T) {
 
 		assert.Equal(t, i-1, controlPlane.GetNumberDataplanes())
 
-		status, err = controlPlane.DeregisterDataplane(context.Background(), &proto.DataplaneInfo{
+		status, err = controlPlane.deregisterDataplane(context.Background(), &proto.DataplaneInfo{
 			IP:        name,
 			APIPort:   0,
 			ProxyPort: 0,
@@ -407,7 +407,7 @@ func TestDeregisterServices(t *testing.T) {
 	for i := 1; i <= nbRegistrations; i++ {
 		name := "mock" + fmt.Sprint(i)
 
-		status, err := controlPlane.RegisterService(context.Background(), &proto.ServiceInfo{
+		status, err := controlPlane.registerService(context.Background(), &proto.ServiceInfo{
 			Name:              name,
 			Image:             "",
 			PortForwarding:    nil,
@@ -419,7 +419,7 @@ func TestDeregisterServices(t *testing.T) {
 
 		assert.Equal(t, i, controlPlane.GetNumberServices())
 
-		status, err = controlPlane.RegisterService(context.Background(), &proto.ServiceInfo{
+		status, err = controlPlane.registerService(context.Background(), &proto.ServiceInfo{
 			Name:              name,
 			Image:             "",
 			PortForwarding:    nil,
@@ -435,7 +435,7 @@ func TestDeregisterServices(t *testing.T) {
 	for i := nbRegistrations; i >= 1; i-- {
 		name := "mock" + fmt.Sprint(i)
 
-		status, err := controlPlane.DeregisterService(context.Background(), &proto.ServiceInfo{
+		status, err := controlPlane.deregisterService(context.Background(), &proto.ServiceInfo{
 			Name:              name,
 			Image:             "",
 			PortForwarding:    nil,
@@ -447,7 +447,7 @@ func TestDeregisterServices(t *testing.T) {
 
 		assert.Equal(t, i-1, controlPlane.GetNumberServices())
 
-		status, err = controlPlane.DeregisterService(context.Background(), &proto.ServiceInfo{
+		status, err = controlPlane.deregisterService(context.Background(), &proto.ServiceInfo{
 			Name:              name,
 			Image:             "",
 			PortForwarding:    nil,
@@ -691,7 +691,7 @@ func TestStressRegisterServices(t *testing.T) {
 
 	for cnt < size {
 		go func() {
-			status, err := controlPlane.RegisterService(context.Background(), &proto.ServiceInfo{
+			status, err := controlPlane.registerService(context.Background(), &proto.ServiceInfo{
 				Name:              uuid.New().String(),
 				Image:             "",
 				PortForwarding:    nil,
@@ -739,7 +739,7 @@ func TestStressRegisterNodes(t *testing.T) {
 
 	for cnt < size {
 		go func() {
-			status, err := controlPlane.RegisterNode(context.Background(), &proto.NodeInfo{
+			status, err := controlPlane.registerNode(context.Background(), &proto.NodeInfo{
 				NodeID:     uuid.New().String(),
 				IP:         uuid.New().String(),
 				Port:       0,
@@ -788,7 +788,7 @@ func TestStressRegisterDataplanes(t *testing.T) {
 
 	for cnt < size {
 		go func() {
-			status, err, _ := controlPlane.RegisterDataplane(context.Background(), &proto.DataplaneInfo{
+			status, err, _ := controlPlane.registerDataplane(context.Background(), &proto.DataplaneInfo{
 				IP:        uuid.New().String(),
 				APIPort:   0,
 				ProxyPort: 0,
@@ -843,7 +843,7 @@ func TestStressEverything(t *testing.T) {
 
 	for cnt < size {
 		go func() {
-			status, err := controlPlane.RegisterNode(context.Background(), &proto.NodeInfo{
+			status, err := controlPlane.registerNode(context.Background(), &proto.NodeInfo{
 				NodeID:     uuid.New().String(),
 				IP:         uuid.New().String(),
 				Port:       0,
@@ -856,7 +856,7 @@ func TestStressEverything(t *testing.T) {
 		}()
 
 		go func() {
-			status, err, _ := controlPlane.RegisterDataplane(context.Background(), &proto.DataplaneInfo{
+			status, err, _ := controlPlane.registerDataplane(context.Background(), &proto.DataplaneInfo{
 				IP:        uuid.New().String(),
 				APIPort:   0,
 				ProxyPort: 0,
@@ -867,7 +867,7 @@ func TestStressEverything(t *testing.T) {
 		}()
 
 		go func() {
-			status, err := controlPlane.RegisterService(context.Background(), &proto.ServiceInfo{
+			status, err := controlPlane.registerService(context.Background(), &proto.ServiceInfo{
 				Name:              uuid.New().String(),
 				Image:             "",
 				PortForwarding:    nil,
@@ -923,7 +923,7 @@ func TestStressRegisterDeregisterServices(t *testing.T) {
 		go func(idx int) {
 			defer wg.Done()
 
-			_, err := controlPlane.RegisterService(context.Background(), &proto.ServiceInfo{
+			_, err := controlPlane.registerService(context.Background(), &proto.ServiceInfo{
 				Name:              "mock" + fmt.Sprint(idx),
 				Image:             "",
 				PortForwarding:    nil,
@@ -932,7 +932,7 @@ func TestStressRegisterDeregisterServices(t *testing.T) {
 
 			assert.NoError(t, err)
 
-			_, err = controlPlane.DeregisterService(context.Background(), &proto.ServiceInfo{
+			_, err = controlPlane.deregisterService(context.Background(), &proto.ServiceInfo{
 				Name:              "mock" + fmt.Sprint(idx),
 				Image:             "",
 				PortForwarding:    nil,
@@ -952,7 +952,7 @@ func TestStressRegisterDeregisterServices(t *testing.T) {
 	for cnt < size {
 		go func(idx int) {
 			defer wg.Done()
-			controlPlane.RegisterService(context.Background(), &proto.ServiceInfo{
+			controlPlane.registerService(context.Background(), &proto.ServiceInfo{
 				Name:              "mock" + fmt.Sprint(idx),
 				Image:             "",
 				PortForwarding:    nil,
@@ -1002,7 +1002,7 @@ func TestStressRegisterDeregisterNodes(t *testing.T) {
 
 	for cnt < size {
 		go func(idx int) {
-			controlPlane.RegisterNode(context.Background(), &proto.NodeInfo{
+			controlPlane.registerNode(context.Background(), &proto.NodeInfo{
 				NodeID:     "mock" + fmt.Sprint(idx),
 				IP:         "",
 				Port:       0,
@@ -1013,7 +1013,7 @@ func TestStressRegisterDeregisterNodes(t *testing.T) {
 		}(cnt)
 
 		go func(idx int) {
-			controlPlane.DeregisterNode(context.Background(), &proto.NodeInfo{
+			controlPlane.deregisterNode(context.Background(), &proto.NodeInfo{
 				NodeID:     "mock" + fmt.Sprint(idx),
 				IP:         "",
 				Port:       0,
@@ -1034,7 +1034,7 @@ func TestStressRegisterDeregisterNodes(t *testing.T) {
 
 	for cnt < size {
 		go func(idx int) {
-			controlPlane.RegisterNode(context.Background(), &proto.NodeInfo{
+			controlPlane.registerNode(context.Background(), &proto.NodeInfo{
 				NodeID:     "mock" + fmt.Sprint(idx),
 				IP:         "",
 				Port:       0,
@@ -1085,7 +1085,7 @@ func TestStressRegisterDeregisterDataplanes(t *testing.T) {
 
 	for cnt < size {
 		go func(idx int) {
-			controlPlane.RegisterDataplane(context.Background(), &proto.DataplaneInfo{
+			controlPlane.registerDataplane(context.Background(), &proto.DataplaneInfo{
 				IP:        "mock" + fmt.Sprint(idx),
 				APIPort:   0,
 				ProxyPort: 0,
@@ -1094,7 +1094,7 @@ func TestStressRegisterDeregisterDataplanes(t *testing.T) {
 		}(cnt)
 
 		go func(idx int) {
-			controlPlane.DeregisterDataplane(context.Background(), &proto.DataplaneInfo{
+			controlPlane.deregisterDataplane(context.Background(), &proto.DataplaneInfo{
 				IP:        "mock" + fmt.Sprint(idx),
 				APIPort:   0,
 				ProxyPort: 0,
@@ -1113,7 +1113,7 @@ func TestStressRegisterDeregisterDataplanes(t *testing.T) {
 
 	for cnt < size {
 		go func(idx int) {
-			controlPlane.RegisterDataplane(context.Background(), &proto.DataplaneInfo{
+			controlPlane.registerDataplane(context.Background(), &proto.DataplaneInfo{
 				IP:        "mock" + fmt.Sprint(idx),
 				APIPort:   0,
 				ProxyPort: 0,
@@ -1162,7 +1162,7 @@ func TestEndpointsWithDeregistration(t *testing.T) {
 
 	controlPlane := NewControlPlane(persistenceLayer, "", placement_policy.NewRandomPlacement(), empty_dataplane.NewDataplaneConnectionEmpty, empty_worker.NewEmptyWorkerNode, &mockConfig)
 
-	status, err := controlPlane.RegisterNode(context.Background(), &proto.NodeInfo{
+	status, err := controlPlane.registerNode(context.Background(), &proto.NodeInfo{
 		NodeID:     "mockNode",
 		IP:         uuid.New().String(),
 		Port:       0,
@@ -1178,7 +1178,7 @@ func TestEndpointsWithDeregistration(t *testing.T) {
 		autoscalingConfig.ScalingUpperBound = 1
 		//autoscalingConfig.ScalingLowerBound = 1
 
-		status, err = controlPlane.RegisterService(context.Background(), &proto.ServiceInfo{
+		status, err = controlPlane.registerService(context.Background(), &proto.ServiceInfo{
 			Name:              "mock" + fmt.Sprint(i),
 			Image:             "",
 			PortForwarding:    nil,
@@ -1190,7 +1190,7 @@ func TestEndpointsWithDeregistration(t *testing.T) {
 	}
 
 	for i := 0; i < size; i++ {
-		status, err = controlPlane.OnMetricsReceive(context.Background(), &proto.AutoscalingMetric{
+		status, err = controlPlane.onMetricsReceive(context.Background(), &proto.AutoscalingMetric{
 			ServiceName:      "mock" + fmt.Sprint(i),
 			DataplaneName:    "",
 			InflightRequests: 1,
@@ -1202,7 +1202,7 @@ func TestEndpointsWithDeregistration(t *testing.T) {
 
 	time.Sleep(500 * time.Millisecond)
 
-	status, err = controlPlane.DeregisterNode(context.Background(), &proto.NodeInfo{
+	status, err = controlPlane.deregisterNode(context.Background(), &proto.NodeInfo{
 		NodeID:     "mockNode",
 		IP:         uuid.New().String(),
 		Port:       0,

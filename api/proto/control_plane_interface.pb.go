@@ -615,30 +615,30 @@ var file_control_plane_interface_proto_goTypes = []interface{}{
 }
 var file_control_plane_interface_proto_depIdxs = []int32{
 	0,  // 0: data_plane.Failure.Type:type_name -> data_plane.FailureType
-	3,  // 1: data_plane.CpiInterface.OnMetricsReceive:input_type -> data_plane.AutoscalingMetric
-	7,  // 2: data_plane.CpiInterface.ListServices:input_type -> google.protobuf.Empty
-	4,  // 3: data_plane.CpiInterface.RegisterDataplane:input_type -> data_plane.DataplaneInfo
-	8,  // 4: data_plane.CpiInterface.RegisterService:input_type -> data_plane.ServiceInfo
-	1,  // 5: data_plane.CpiInterface.RegisterNode:input_type -> data_plane.NodeInfo
-	2,  // 6: data_plane.CpiInterface.NodeHeartbeat:input_type -> data_plane.NodeHeartbeatMessage
+	3,  // 1: data_plane.CpiInterface.onMetricsReceive:input_type -> data_plane.AutoscalingMetric
+	7,  // 2: data_plane.CpiInterface.listServices:input_type -> google.protobuf.Empty
+	4,  // 3: data_plane.CpiInterface.registerDataplane:input_type -> data_plane.DataplaneInfo
+	8,  // 4: data_plane.CpiInterface.registerService:input_type -> data_plane.ServiceInfo
+	1,  // 5: data_plane.CpiInterface.registerNode:input_type -> data_plane.NodeInfo
+	2,  // 6: data_plane.CpiInterface.nodeHeartbeat:input_type -> data_plane.NodeHeartbeatMessage
 	5,  // 7: data_plane.CpiInterface.ReportFailure:input_type -> data_plane.Failure
-	4,  // 8: data_plane.CpiInterface.DeregisterDataplane:input_type -> data_plane.DataplaneInfo
-	1,  // 9: data_plane.CpiInterface.DeregisterNode:input_type -> data_plane.NodeInfo
-	8,  // 10: data_plane.CpiInterface.DeregisterService:input_type -> data_plane.ServiceInfo
+	4,  // 8: data_plane.CpiInterface.deregisterDataplane:input_type -> data_plane.DataplaneInfo
+	1,  // 9: data_plane.CpiInterface.deregisterNode:input_type -> data_plane.NodeInfo
+	8,  // 10: data_plane.CpiInterface.deregisterService:input_type -> data_plane.ServiceInfo
 	7,  // 11: data_plane.CpiInterface.ResetMeasurements:input_type -> google.protobuf.Empty
 	9,  // 12: data_plane.CpiInterface.RequestVote:input_type -> RequestVoteArgs
 	10, // 13: data_plane.CpiInterface.AppendEntries:input_type -> AppendEntriesArgs
 	6,  // 14: data_plane.CpiInterface.ReviseHAProxyConfiguration:input_type -> data_plane.HAProxyConfig
-	11, // 15: data_plane.CpiInterface.OnMetricsReceive:output_type -> data_plane.ActionStatus
-	12, // 16: data_plane.CpiInterface.ListServices:output_type -> data_plane.ServiceList
-	11, // 17: data_plane.CpiInterface.RegisterDataplane:output_type -> data_plane.ActionStatus
-	11, // 18: data_plane.CpiInterface.RegisterService:output_type -> data_plane.ActionStatus
-	11, // 19: data_plane.CpiInterface.RegisterNode:output_type -> data_plane.ActionStatus
-	11, // 20: data_plane.CpiInterface.NodeHeartbeat:output_type -> data_plane.ActionStatus
+	11, // 15: data_plane.CpiInterface.onMetricsReceive:output_type -> data_plane.ActionStatus
+	12, // 16: data_plane.CpiInterface.listServices:output_type -> data_plane.ServiceList
+	11, // 17: data_plane.CpiInterface.registerDataplane:output_type -> data_plane.ActionStatus
+	11, // 18: data_plane.CpiInterface.registerService:output_type -> data_plane.ActionStatus
+	11, // 19: data_plane.CpiInterface.registerNode:output_type -> data_plane.ActionStatus
+	11, // 20: data_plane.CpiInterface.nodeHeartbeat:output_type -> data_plane.ActionStatus
 	11, // 21: data_plane.CpiInterface.ReportFailure:output_type -> data_plane.ActionStatus
-	11, // 22: data_plane.CpiInterface.DeregisterDataplane:output_type -> data_plane.ActionStatus
-	11, // 23: data_plane.CpiInterface.DeregisterNode:output_type -> data_plane.ActionStatus
-	11, // 24: data_plane.CpiInterface.DeregisterService:output_type -> data_plane.ActionStatus
+	11, // 22: data_plane.CpiInterface.deregisterDataplane:output_type -> data_plane.ActionStatus
+	11, // 23: data_plane.CpiInterface.deregisterNode:output_type -> data_plane.ActionStatus
+	11, // 24: data_plane.CpiInterface.deregisterService:output_type -> data_plane.ActionStatus
 	11, // 25: data_plane.CpiInterface.ResetMeasurements:output_type -> data_plane.ActionStatus
 	13, // 26: data_plane.CpiInterface.RequestVote:output_type -> RequestVoteReply
 	14, // 27: data_plane.CpiInterface.AppendEntries:output_type -> AppendEntriesReply

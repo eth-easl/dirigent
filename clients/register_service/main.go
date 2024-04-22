@@ -1,4 +1,4 @@
-package utils
+package register_service
 
 import (
 	proto2 "cluster_manager/api/proto"
@@ -34,4 +34,8 @@ func Deployservice() {
 	if err != nil || !resp.Success {
 		logrus.Errorf("Failed to deploy service, maybe service is already registered?")
 	}
+}
+
+func main() {
+	Deployservice()
 }

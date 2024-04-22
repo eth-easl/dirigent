@@ -19,7 +19,7 @@ func (c *ControlPlane) ReconstructState(ctx context.Context, config config2.Cont
 	if !config.Reconstruct {
 		// This is to propagate registration servers to HAProxy
 		if haProxyApi != nil {
-			haProxyApi.HAProxyReconstructionCallback(c.Config, c.ReviseDataplanesInLB)
+			haProxyApi.HAProxyReconstructionCallback(c.Config, c.reviseDataplanesInLB)
 		}
 
 		return nil
@@ -45,7 +45,7 @@ func (c *ControlPlane) ReconstructState(ctx context.Context, config config2.Cont
 	// Here we can already restart HAProxy as data about the registration
 	// servers and data planes have been recovered
 	if haProxyApi != nil {
-		haProxyApi.HAProxyReconstructionCallback(c.Config, c.ReviseDataplanesInLB)
+		haProxyApi.HAProxyReconstructionCallback(c.Config, c.reviseDataplanesInLB)
 	}
 
 	{

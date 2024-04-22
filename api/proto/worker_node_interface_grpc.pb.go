@@ -150,7 +150,7 @@ func _WorkerNodeInterface_ListEndpoints_Handler(srv interface{}, ctx context.Con
 }
 
 // WorkerNodeInterface_ServiceDesc is the grpc.ServiceDesc for WorkerNodeInterface service.
-// It's only intended for direct use with grpc.RegisterService,
+// It's only intended for direct use with grpc.registerService,
 // and not to be introspected or modified (even as a copy)
 var WorkerNodeInterface_ServiceDesc = grpc.ServiceDesc{
 	ServiceName: "data_plane.WorkerNodeInterface",

@@ -1,8 +1,8 @@
 package registration_server
 
 import (
-	"cluster_manager/api"
 	"cluster_manager/api/proto"
+	"cluster_manager/internal/control_plane"
 	"cluster_manager/internal/control_plane/autoscaling"
 	"fmt"
 	"net/http"
@@ -12,7 +12,7 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-func registrationHandler(cpApi *api.CpApiServer) func(w http.ResponseWriter, r *http.Request) {
+func registrationHandler(cpApi *control_plane.CpApiServer) func(w http.ResponseWriter, r *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodPost {
 			http.Error(w, "Method not allowed.", http.StatusMethodNotAllowed)
@@ -143,7 +143,7 @@ func registrationHandler(cpApi *api.CpApiServer) func(w http.ResponseWriter, r *
 	}
 }
 
-func GetLoadBalancerAddress(cpApi *api.CpApiServer) string {
+func GetLoadBalancerAddress(cpApi *control_plane.CpApiServer) string {
 	if cpApi.HAProxyAPI.GetLoadBalancerAddress() == "" {
 		if len(cpApi.LeaderElectionServer.GetPeers()) > 0 {
 			logrus.Fatal("Load balancer should always be used in high-availability mode.")
@@ -177,7 +177,7 @@ func HealthHandler(writer http.ResponseWriter, _ *http.Request) {
 	writer.WriteHeader(http.StatusOK)
 }
 
-func StartServiceRegistrationServer(cpApi *api.CpApiServer, registrationPort string) chan struct{} {
+func StartServiceRegistrationServer(cpApi *control_plane.CpApiServer, registrationPort string) chan struct{} {
 	mux := http.NewServeMux()
 	mux.HandleFunc("/", registrationHandler(cpApi))
 	mux.HandleFunc("/health", HealthHandler)

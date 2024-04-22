@@ -1,7 +1,6 @@
 package main
 
 import (
-	"cluster_manager/api"
 	"cluster_manager/cmd/master_node/state_management"
 	"cluster_manager/internal/control_plane"
 	"cluster_manager/internal/control_plane/data_plane"
@@ -69,7 +68,7 @@ func main() {
 		logrus.Warn("Firecracker snapshot precreation is enabled. Make sure snapshots are enabled on each worker node.")
 	}
 
-	cpApiCreationArgs := &api.CpApiServerCreationArguments{
+	cpApiCreationArgs := &control_plane.CpApiServerCreationArguments{
 		Client:            persistenceLayer,
 		OutputFile:        path.Join(cfg.TraceOutputFolder, "cold_start_trace.csv"),
 		PlacementPolicy:   control_plane.ParsePlacementPolicy(cfg),
@@ -78,7 +77,7 @@ func main() {
 		Cfg:               &cfg,
 	}
 
-	cpApiServer, isLeader := api.CreateNewCpApiServer(cpApiCreationArgs)
+	cpApiServer, isLeader := control_plane.CreateNewCpApiServer(cpApiCreationArgs)
 	stopRegistrationServer := registration_server.StartServiceRegistrationServer(cpApiServer, getRegistrationPort(&cfg))
 
 	cpApiServer.HAProxyAPI.StartHAProxy()

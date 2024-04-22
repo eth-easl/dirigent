@@ -103,8 +103,7 @@ func NewProxyTracingService(outputFile string) *TracingService[ProxyLogEntry] {
 func CreateFileIfNotExist(path string) *os.File {
 	directory := filepath.Dir(path)
 	if _, err := os.Stat(directory); os.IsNotExist(err) {
-		err = os.MkdirAll(directory, 777)
-		if err != nil {
+		if err := os.Mkdir(directory, 0777); err != nil {
 			log.Fatal(err)
 		}
 	}
@@ -112,7 +111,7 @@ func CreateFileIfNotExist(path string) *os.File {
 	os.Remove(path) // We don't want previous values
 	f, err := os.Create(path)
 	if err != nil {
-		logrus.Fatal("Unable to open output log file.")
+		logrus.Fatalf("Unable to open output log file : %s", err.Error())
 	}
 
 	return f

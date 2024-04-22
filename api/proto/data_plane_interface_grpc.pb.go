@@ -214,7 +214,7 @@ func _DpiInterface_ResetMeasurements_Handler(srv interface{}, ctx context.Contex
 }
 
 // DpiInterface_ServiceDesc is the grpc.ServiceDesc for DpiInterface service.
-// It's only intended for direct use with grpc.RegisterService,
+// It's only intended for direct use with grpc.registerService,
 // and not to be introspected or modified (even as a copy)
 var DpiInterface_ServiceDesc = grpc.ServiceDesc{
 	ServiceName: "data_plane.DpiInterface",

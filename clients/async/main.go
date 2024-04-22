@@ -1,7 +1,7 @@
 package main
 
 import (
-	"cluster_manager/clients/utils"
+	"cluster_manager/clients/register_service"
 	"context"
 	"crypto/tls"
 	"fmt"
@@ -11,12 +11,13 @@ import (
 	"net"
 	"net/http"
 	"strconv"
+	"strings"
 	"time"
 )
 
-func SyncRequest() {
+func AsyncRequest() {
 
-	logrus.Info("Invocating sync function")
+	logrus.Info("Invocating async function")
 
 	////////////////////////////////////
 	// INVOKE FUNCTION
@@ -64,10 +65,31 @@ func SyncRequest() {
 		logrus.Fatalf(msg)
 	}
 
-	logrus.Infof("Response : %s", string(body[:]))
+	fmt.Println(string(body[:]))
+
+	code := string(body[:])
+
+	time.Sleep(1500 * time.Millisecond)
+
+	req, err = http.NewRequest("GET", "http://localhost:8082", strings.NewReader(code))
+	if err != nil {
+		logrus.Fatalf(err.Error())
+	}
+
+	resp, err = client.Do(req)
+	if err != nil {
+		logrus.Fatalf(err.Error())
+	}
+
+	responseInBytes, err := io.ReadAll(resp.Body)
+	if err != nil {
+		logrus.Fatalf(err.Error())
+	}
+
+	logrus.Infof("Response from server: %s", string(responseInBytes[:]))
 }
 
 func main() {
-	utils.Deployservice()
-	SyncRequest()
+	register_service.Deployservice()
+	AsyncRequest()
 }

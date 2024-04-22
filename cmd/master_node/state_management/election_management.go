@@ -1,7 +1,7 @@
 package state_management
 
 import (
-	"cluster_manager/api"
+	"cluster_manager/internal/control_plane"
 	"cluster_manager/internal/control_plane/leader_election"
 	"cluster_manager/pkg/config"
 	"context"
@@ -10,15 +10,15 @@ import (
 )
 
 type CurrentState struct {
-	cpApiServer       *api.CpApiServer
-	cpApiCreationArgs *api.CpApiServerCreationArguments
+	cpApiServer       *control_plane.CpApiServer
+	cpApiCreationArgs *control_plane.CpApiServerCreationArguments
 	cfg               config.ControlPlaneConfig
 
 	stopNodeMonitoring chan struct{}
 	wasLeaderBefore    bool
 }
 
-func NewElectionState(cfg config.ControlPlaneConfig, cpiApiServer *api.CpApiServer, cpApiCreationArgs *api.CpApiServerCreationArguments) *CurrentState {
+func NewElectionState(cfg config.ControlPlaneConfig, cpiApiServer *control_plane.CpApiServer, cpApiCreationArgs *control_plane.CpApiServerCreationArguments) *CurrentState {
 	return &CurrentState{
 		stopNodeMonitoring: nil,
 		wasLeaderBefore:    false,
