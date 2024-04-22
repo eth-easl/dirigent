@@ -47,6 +47,10 @@ func main() {
 
 	workerNode := worker_node.NewWorkerNode(cpApi, cfg)
 
+	go grpc_helpers.CreateGRPCServer(strconv.Itoa(cfg.Port), func(sr grpc.ServiceRegistrar) {
+		proto.RegisterWorkerNodeInterfaceServer(sr, workerNode)
+	})
+
 	workerNode.RegisterNodeWithControlPlane(cfg, &cpApi)
 	defer workerNode.DeregisterNodeFromControlPlane(cfg, &cpApi)
 
@@ -54,10 +58,6 @@ func main() {
 	defer resetIPTables()
 
 	logrus.Info("Starting API handlers")
-
-	go grpc_helpers.CreateGRPCServer(strconv.Itoa(cfg.Port), func(sr grpc.ServiceRegistrar) {
-		proto.RegisterWorkerNodeInterfaceServer(sr, workerNode)
-	})
 
 	utils.WaitTerminationSignal(func() {
 		firecracker.DeleteAllSnapshots()

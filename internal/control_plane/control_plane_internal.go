@@ -200,7 +200,7 @@ func (c *ControlPlane) registerNode(ctx context.Context, in *proto.NodeInfo) (*p
 
 	c.NIStorage.Set(in.NodeID, wn)
 
-	go wn.ConnectToWorker()
+	wn.ConnectToWorker()
 	wn.SetSchedulability(true)
 
 	logrus.Infof("Node %s has been successfully registered with the control plane and cluster has %d nodes", in.NodeID, c.NIStorage.Len())
