@@ -58,7 +58,7 @@ def getResult(load, rootPath):
         data = data.drop(columns=['cold_start'])
 
         p50 = data.quantile(0.5)
-        p99 = data.quantile(0.95)
+        p99 = data.quantile(0.99)
 
         dataToPlot = processQuantile(p50, 0.5)
         dataToPlot = pd.concat([dataToPlot, processQuantile(p99, 0.99)])

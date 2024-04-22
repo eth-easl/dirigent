@@ -1,14 +1,12 @@
 #!/bin/bash
 
-readonly INVITRO=Francois@hp080.utah.cloudlab.us
-
-readonly CONTROLPLANE=Francois@hp091.utah.cloudlab.us
+readonly INVITRO=Francois@pc841.emulab.net
+readonly CONTROLPLANE=Francois@pc790.emulab.net
+readonly DATAPLANE=Francois@pc738.emulab.net
 
 readonly CONTROLPLANE_1=Francois@hp091.utah.cloudlab.us
 readonly CONTROLPLANE_2=Francois@hp081.utah.cloudlab.us
 readonly CONTROLPLANE_3=Francois@hp023.utah.cloudlab.us
-
-readonly DATAPLANE=Francois@hp081.utah.cloudlab.us
 
 readonly DATAPLANE_1=Francois@hp149.utah.cloudlab.us
 readonly DATAPLANE_2=Francois@hp077.utah.cloudlab.us

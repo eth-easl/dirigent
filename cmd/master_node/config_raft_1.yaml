@@ -2,7 +2,7 @@ port: "9090"
 replicas: "127.0.0.1:10000,127.0.0.1:10001"
 registrationServer: "127.0.0.1:13091"
 registrationServerReplicas: "127.0.0.1:14091,127.0.0.1:15091"
-verbosity: "debug"
+verbosity: "trace"
 traceOutputFolder: "data"
 placementPolicy: "random"
 persistence: true
