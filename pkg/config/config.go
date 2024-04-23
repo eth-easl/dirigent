@@ -68,12 +68,12 @@ type ProfilerConfig struct {
 }
 
 type RedisConf struct {
-	Address         string   `mapstructure:"address"`
-	DockerAddress   string   `mapstructure:"dockerAddress"`
-	Password        string   `mapstructure:"password"`
-	Replicas        []string `mapstructure:"replicas"`
-	Db              int      `mapstructure:"db"`
-	FullPersistence bool     `mapstructure:"fullPersistence"`
+	Address                  string   `mapstructure:"address"`
+	AddressFromDockerNetwork string   `mapstructure:"addressFromDockerNetwork"`
+	Password                 string   `mapstructure:"password"`
+	Replicas                 []string `mapstructure:"replicas"`
+	Db                       int      `mapstructure:"db"`
+	FullPersistence          bool     `mapstructure:"fullPersistence"`
 }
 
 func parseConfigPath(configPath string) (string, string, string) {

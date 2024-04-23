@@ -34,7 +34,7 @@ func CreateRedisClient(ctx context.Context, redisLogin config.RedisConf) (*Redis
 		logrus.Fatalf("Failed to create Redis client")
 	}
 
-	address, port, err := net.SplitHostPort(redisLogin.DockerAddress)
+	address, port, err := net.SplitHostPort(redisLogin.AddressFromDockerNetwork)
 	if err != nil {
 		logrus.Fatalf("Invalid Redis parameters (address).")
 	}

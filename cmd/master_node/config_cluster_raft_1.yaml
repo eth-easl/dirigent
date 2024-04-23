@@ -22,7 +22,7 @@ profiler:
 
 redis:
   address: "10.0.1.2:6379"
-  dockerAddress: "10.0.1.2:6379"
+  addressFromDockerNetwork: "10.0.1.2:6379"
   replicas: "10.0.1.3:6379,10.0.1.4:6379"
   password: ""
   db: 0

@@ -22,7 +22,7 @@ profiler:
 
 redis:
   address: "127.0.0.1:6379"
-  dockerAddress: "127.0.0.1:6379"
+  addressFromDockerNetwork: "127.0.0.1:6379"
   password: ""
   db: 0
   fullPersistence: true
