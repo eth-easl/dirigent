@@ -37,9 +37,3 @@ trace_container:
 		-f Dockerfile \
 		-t cvetkovic/dirigent_trace_function .
 	docker push cvetkovic/dirigent_trace_function:latest
-
-openfaas_empty:
-	docker build \
-		-f Dockerfile \
-		-t cvetkovic/openfaas_empty .
-	docker push cvetkovic/openfaas_empty:latest

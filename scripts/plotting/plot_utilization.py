@@ -1,12 +1,12 @@
 import glob
+import sys
 
 import matplotlib.pyplot as plt
 import pandas as pd
 
-input_folder_knative = '/home/lcvetkovic/Desktop/replay/sosp/knative_3cp_3dp/azure_500'
-input_folder_dirigent = '/home/lcvetkovic/Desktop/replay/sosp/dirigent_3cp_3dp/azure_500'
-
-output_folder = '/home/lcvetkovic/Desktop/replay/sosp/dirigent_3cp_3dp/azure_500'
+input_folder_knative = sys.argv[1]
+input_folder_dirigent = sys.argv[2]
+output_folder = sys.argv[3]
 
 
 def plot_experiment(experiment_name, input_folder, column):
@@ -15,21 +15,21 @@ def plot_experiment(experiment_name, input_folder, column):
 
     for n in nodes:
         # Master node
-        if experiment_name == "Knative-on-K8s" and ("hp156" in n or "hp091" in n or "hp155" in n): #023
+        if experiment_name == "Knative-on-K8s" and ("hp156" in n or "hp091" in n or "hp155" in n):  # 023
             master_nodes.append(n)
             nodes.remove(n)
 
         # Loader node
-        if experiment_name == "Knative-on-K8s" and "hp004" in n: #075
+        if experiment_name == "Knative-on-K8s" and "hp004" in n:  # 075
             nodes.remove(n)
 
         # Master node(s)
-        if experiment_name == "Dirigent" and ("hp023" in n):# or "hp091" in n or "hp081" in n):
+        if experiment_name == "Dirigent" and ("hp023" in n):  # or "hp091" in n or "hp081" in n):
             master_nodes.append(n)
             nodes.remove(n)
 
         # Data plane(s)
-        if experiment_name == "Dirigent" and ("hp091" in n): # or "hp077" in n or "hp134" in n):
+        if experiment_name == "Dirigent" and ("hp091" in n):  # or "hp077" in n or "hp134" in n):
             nodes.remove(n)
 
         # Loader node
