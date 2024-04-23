@@ -1,10 +1,10 @@
 package firecracker
 
 import (
-	"cluster_manager/api/proto"
 	"cluster_manager/internal/worker_node/managers"
 	"cluster_manager/internal/worker_node/sandbox"
 	"cluster_manager/internal/worker_node/sandbox/containerd"
+	"cluster_manager/proto"
 	"context"
 	"fmt"
 	"github.com/coreos/go-iptables/iptables"

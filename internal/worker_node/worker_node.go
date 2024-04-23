@@ -1,7 +1,6 @@
 package worker_node
 
 import (
-	"cluster_manager/api/proto"
 	"cluster_manager/internal/worker_node/managers"
 	"cluster_manager/internal/worker_node/sandbox"
 	"cluster_manager/internal/worker_node/sandbox/containerd"
@@ -11,6 +10,7 @@ import (
 	"cluster_manager/pkg/grpc_helpers"
 	"cluster_manager/pkg/hardware"
 	"cluster_manager/pkg/utils"
+	"cluster_manager/proto"
 	"context"
 	"fmt"
 	"google.golang.org/protobuf/types/known/emptypb"

@@ -1,9 +1,9 @@
 package function_metadata
 
 import (
-	"cluster_manager/api/proto"
 	"cluster_manager/pkg/atomic_map_counter"
 	_map "cluster_manager/pkg/map"
+	"cluster_manager/proto"
 	"container/list"
 	"context"
 	"sync"

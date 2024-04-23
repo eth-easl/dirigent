@@ -1,11 +1,11 @@
 package haproxy
 
 import (
-	"cluster_manager/api/proto"
-	"cluster_manager/internal/control_plane/leader_election"
+	"cluster_manager/internal/control_plane/control_plane/leader_election"
 	"cluster_manager/pkg/config"
 	"cluster_manager/pkg/grpc_helpers"
 	_map "cluster_manager/pkg/map"
+	"cluster_manager/proto"
 	"context"
 	"fmt"
 	clientnative "github.com/haproxytech/client-native"

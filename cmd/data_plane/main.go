@@ -1,12 +1,12 @@
 package main
 
 import (
-	"cluster_manager/api/proto"
 	"cluster_manager/internal/data_plane"
 	"cluster_manager/pkg/config"
 	"cluster_manager/pkg/grpc_helpers"
 	"cluster_manager/pkg/logger"
 	"cluster_manager/pkg/utils"
+	"cluster_manager/proto"
 	"flag"
 	"github.com/sirupsen/logrus"
 	"google.golang.org/grpc"

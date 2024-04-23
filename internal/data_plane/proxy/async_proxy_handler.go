@@ -2,7 +2,6 @@ package proxy
 
 import (
 	"bytes"
-	"cluster_manager/api/proto"
 	common "cluster_manager/internal/data_plane/function_metadata"
 	"cluster_manager/internal/data_plane/proxy/load_balancing"
 	request_persistence "cluster_manager/internal/data_plane/proxy/persistence"
@@ -10,6 +9,7 @@ import (
 	"cluster_manager/pkg/config"
 	"cluster_manager/pkg/tracing"
 	"cluster_manager/pkg/utils"
+	"cluster_manager/proto"
 	"context"
 	"fmt"
 	"github.com/sirupsen/logrus"

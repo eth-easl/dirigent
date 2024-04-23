@@ -1,13 +1,13 @@
 package data_plane
 
 import (
-	"cluster_manager/api/proto"
 	"cluster_manager/internal/data_plane/function_metadata"
 	"cluster_manager/internal/data_plane/proxy"
 	"cluster_manager/internal/data_plane/proxy/load_balancing"
 	"cluster_manager/pkg/config"
 	"cluster_manager/pkg/grpc_helpers"
 	"cluster_manager/pkg/utils"
+	"cluster_manager/proto"
 	"context"
 	"errors"
 	"fmt"

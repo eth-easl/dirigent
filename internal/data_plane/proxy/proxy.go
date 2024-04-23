@@ -1,6 +1,6 @@
 package proxy
 
-import "cluster_manager/api/proto"
+import "cluster_manager/proto"
 
 type Proxy interface {
 	StartProxyServer()

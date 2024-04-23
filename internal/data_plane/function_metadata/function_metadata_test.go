@@ -1,7 +1,7 @@
 package function_metadata
 
 import (
-	"cluster_manager/api/proto"
+	"cluster_manager/proto"
 	"github.com/stretchr/testify/assert"
 	"testing"
 )

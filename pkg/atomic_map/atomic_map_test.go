@@ -8,6 +8,9 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
+type mockTypeStruct struct {
+}
+
 func TestNewAtomicMapString(t *testing.T) {
 	assert.NotNil(t, NewAtomicMap[string, string](), "Atomic map should not be nil")
 	assert.NotNil(t, NewAtomicMap[string, float64](), "Atomic map should not be nil")

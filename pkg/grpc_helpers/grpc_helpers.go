@@ -1,9 +1,9 @@
 package grpc_helpers
 
 import (
-	"cluster_manager/api/proto"
 	"cluster_manager/pkg/config"
 	"cluster_manager/pkg/utils"
+	"cluster_manager/proto"
 	"context"
 	"errors"
 	"fmt"

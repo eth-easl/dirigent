@@ -1,17 +1,16 @@
 package main
 
 import (
-	"cluster_manager/cmd/master_node/state_management"
-	"cluster_manager/internal/control_plane"
-	"cluster_manager/internal/control_plane/data_plane"
-	"cluster_manager/internal/control_plane/data_plane/empty_dataplane"
-	"cluster_manager/internal/control_plane/persistence"
-	"cluster_manager/internal/control_plane/registration_server"
-	"cluster_manager/internal/control_plane/workers"
-	"cluster_manager/internal/control_plane/workers/empty_worker"
+	"cluster_manager/internal/control_plane/control_plane"
+	"cluster_manager/internal/control_plane/control_plane/data_plane"
+	"cluster_manager/internal/control_plane/control_plane/data_plane/empty_dataplane"
+	"cluster_manager/internal/control_plane/control_plane/persistence"
+	"cluster_manager/internal/control_plane/control_plane/registration_server"
+	"cluster_manager/internal/control_plane/control_plane/workers"
+	"cluster_manager/internal/control_plane/control_plane/workers/empty_worker"
+	"cluster_manager/internal/control_plane/election_management"
 	"cluster_manager/pkg/config"
 	"cluster_manager/pkg/logger"
-	"cluster_manager/pkg/profiler"
 	"cluster_manager/pkg/utils"
 	"context"
 	"flag"
@@ -82,15 +81,13 @@ func main() {
 
 	cpApiServer.HAProxyAPI.StartHAProxy()
 
-	go profiler.SetupProfilerServer(cfg.Profiler)
-
 	go cpApiServer.ControlPlane.ColdStartTracing.StartTracingService()
 	defer close(cpApiServer.ControlPlane.ColdStartTracing.InputChannel)
 
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer stop()
 
-	electionState := state_management.NewElectionState(cfg, cpApiServer, cpApiCreationArgs)
+	electionState := election_management.NewElectionState(cfg, cpApiServer, cpApiCreationArgs)
 
 	for {
 		select {

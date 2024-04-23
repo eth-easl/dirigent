@@ -1,8 +1,8 @@
 package managers
 
 import (
-	"cluster_manager/api/proto"
 	"cluster_manager/pkg/atomic_map"
+	"cluster_manager/proto"
 )
 
 type SandboxManager struct {

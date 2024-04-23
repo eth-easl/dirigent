@@ -1,7 +1,7 @@
 package tracing
 
 import (
-	"cluster_manager/api/proto"
+	"cluster_manager/proto"
 	"fmt"
 	"log"
 	"os"

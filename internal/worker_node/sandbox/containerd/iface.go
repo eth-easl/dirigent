@@ -1,8 +1,8 @@
 package containerd
 
 import (
-	"cluster_manager/api/proto"
 	"cluster_manager/internal/worker_node/managers"
+	"cluster_manager/proto"
 	"context"
 	"fmt"
 	"log"

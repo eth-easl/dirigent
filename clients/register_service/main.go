@@ -1,10 +1,10 @@
 package register_service
 
 import (
-	proto2 "cluster_manager/api/proto"
-	"cluster_manager/internal/control_plane/autoscaling"
+	"cluster_manager/internal/control_plane/control_plane/autoscaling"
 	common "cluster_manager/pkg/grpc_helpers"
 	"cluster_manager/pkg/utils"
+	"cluster_manager/proto"
 	"context"
 	"github.com/sirupsen/logrus"
 )
@@ -21,12 +21,12 @@ func Deployservice() {
 	autoscalingConfig := autoscaling.NewDefaultAutoscalingMetadata()
 	autoscalingConfig.ScalingUpperBound = 1
 
-	resp, err := cpApi.RegisterService(ctx, &proto2.ServiceInfo{
+	resp, err := cpApi.RegisterService(ctx, &proto.ServiceInfo{
 		Name:  "test",
 		Image: "docker.io/cvetkovic/dirigent_empty_function:latest",
-		PortForwarding: &proto2.PortMapping{
+		PortForwarding: &proto.PortMapping{
 			GuestPort: 80,
-			Protocol:  proto2.L4Protocol_TCP,
+			Protocol:  proto.L4Protocol_TCP,
 		},
 		AutoscalingConfig: autoscalingConfig,
 	})

@@ -1,7 +1,7 @@
 package sandbox
 
 import (
-	"cluster_manager/api/proto"
+	"cluster_manager/proto"
 	"context"
 	"google.golang.org/protobuf/types/known/emptypb"
 )

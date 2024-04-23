@@ -1,12 +1,12 @@
 package proxy
 
 import (
-	"cluster_manager/api/proto"
 	common "cluster_manager/internal/data_plane/function_metadata"
 	"cluster_manager/internal/data_plane/proxy/load_balancing"
 	net2 "cluster_manager/internal/data_plane/proxy/net"
 	"cluster_manager/pkg/tracing"
 	"cluster_manager/pkg/utils"
+	"cluster_manager/proto"
 	"net"
 	"net/http"
 	"time"

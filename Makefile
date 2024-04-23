@@ -15,9 +15,9 @@ install_mockgen:
 	go install go.uber.org/mock/mockgen@latest
 
 generate_mock_files:
-	mockgen -source internal/control_plane/persistence/interface.go > mock/mock_persistence/mock_persistence.go
-	mockgen -source internal/control_plane/core/interface.go > mock/mock_core/mock_core.go
-	mockgen -source api/proto/control_plane_interface_grpc.pb.go -package mock_cp_api > mock/mock_cp_api/mock_cp_api.go
+	mockgen -source internal/control_plane/control_plane/persistence/interface.go > mock/mock_persistence/mock_persistence.go
+	mockgen -source internal/control_plane/control_plane/core/interface.go > mock/mock_core/mock_core.go
+	mockgen -source proto/control_plane_interface_grpc.pb.go -package mock_cp_api > mock/mock_cp_api/mock_cp_api.go
 
 build_rootfs:
 	sudo rm -rf $(ROOT_DIR)/configs/firecracker/app $(ROOT_DIR)/configs/firecracker/rootfs.ext4

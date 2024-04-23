@@ -1,7 +1,6 @@
 package main
 
 import (
-	"cluster_manager/api/proto"
 	"cluster_manager/internal/worker_node"
 	"cluster_manager/internal/worker_node/sandbox/firecracker"
 	"cluster_manager/pkg/config"
@@ -9,6 +8,7 @@ import (
 	"cluster_manager/pkg/logger"
 	"cluster_manager/pkg/network"
 	"cluster_manager/pkg/utils"
+	"cluster_manager/proto"
 	"flag"
 	"github.com/sirupsen/logrus"
 	"google.golang.org/grpc"
