@@ -76,8 +76,7 @@ func proxyHandler(request *http.Request, requestMetadata requestMetadata, proxyC
 	coldStartChannel, durationColdStart := metadata.TryWarmStart(proxyContext.cpInterface)
 	addDeploymentDuration := time.Duration(0)
 
-	defer metadata.GetStatistics().DecrementInflight() // for statistics
-	defer metadata.DecreaseInflight()                  // for autoscaling
+	defer metadata.GetStatistics().DecrementInflight()
 
 	// unblock from cold start if context gets cancelled
 	go contextTerminationHandler(request, coldStartChannel)
