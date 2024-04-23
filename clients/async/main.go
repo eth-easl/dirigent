@@ -65,9 +65,9 @@ func AsyncRequest() {
 		logrus.Fatalf(msg)
 	}
 
-	fmt.Println(string(body[:]))
-
 	code := string(body[:])
+
+	logrus.Infof("Unique code : %s", code)
 
 	time.Sleep(1500 * time.Millisecond)
 

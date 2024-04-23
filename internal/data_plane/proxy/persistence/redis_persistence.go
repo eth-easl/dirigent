@@ -13,7 +13,7 @@ import (
 
 const (
 	bufferedRequestPrefix  string = "req_"
-	bufferedResponsePredix string = "res_"
+	bufferedResponsePrefix string = "res_"
 )
 
 type requestRedisClient struct {
@@ -49,7 +49,7 @@ func (driver *requestRedisClient) PersistBufferedResponse(ctx context.Context, b
 		return err
 	}
 
-	return driver.RedisClient.HSet(ctx, bufferedResponsePredix+bufferedResponse.Code, "data", data).Err()
+	return driver.RedisClient.HSet(ctx, bufferedResponsePrefix+bufferedResponse.UniqueCodeIdentifier, "data", data).Err()
 }
 
 // TODO: Deduplicate code
@@ -89,7 +89,7 @@ func (driver *requestRedisClient) ScanBufferedRequests(ctx context.Context) ([]*
 func (driver *requestRedisClient) ScanBufferedResponses(ctx context.Context) ([]*requests.BufferedResponse, error) {
 	logrus.Trace("get buffered responses from the database")
 
-	keys, err := redis_helpers.ScanKeys(ctx, driver.RedisClient, bufferedResponsePredix)
+	keys, err := redis_helpers.ScanKeys(ctx, driver.RedisClient, bufferedResponsePrefix)
 	if err != nil {
 		return nil, err
 	}

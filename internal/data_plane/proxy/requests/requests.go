@@ -38,10 +38,10 @@ type BufferedRequest struct {
 }
 
 type BufferedResponse struct {
-	StatusCode int
-	Body       string
-	Timestamp  time.Time
-	Code       string
+	StatusCode           int
+	Body                 string
+	Timestamp            time.Time
+	UniqueCodeIdentifier string
 }
 
 func BufferedRequestFromRequest(request *http.Request, code string) *BufferedRequest {

@@ -11,12 +11,8 @@ import (
 	"cluster_manager/pkg/utils"
 	"cluster_manager/proto"
 	"context"
-	"fmt"
 	"github.com/sirupsen/logrus"
-	"golang.org/x/net/http2"
-	"golang.org/x/net/http2/h2c"
 	"io"
-	"net"
 	"net/http"
 	"strings"
 	"sync"
@@ -24,14 +20,11 @@ import (
 )
 
 type AsyncProxyingService struct {
-	Host                string
-	Port                string
-	PortRead            string
-	Cache               *common.Deployments
-	CPInterface         proto.CpiInterfaceClient
-	LoadBalancingPolicy load_balancing.LoadBalancingPolicy
+	Host     string
+	Port     string
+	PortRead string
 
-	Tracing *tracing.TracingService[tracing.ProxyLogEntry]
+	Context proxyContext
 
 	RequestChannel chan *requests.BufferedRequest
 	Responses      map[string]*requests.BufferedResponse
@@ -42,11 +35,11 @@ type AsyncProxyingService struct {
 }
 
 func (ps *AsyncProxyingService) GetCpApiServer() proto.CpiInterfaceClient {
-	return ps.CPInterface
+	return ps.Context.cpInterface
 }
 
 func (ps *AsyncProxyingService) SetCpApiServer(client proto.CpiInterfaceClient) {
-	ps.CPInterface = client
+	ps.Context.cpInterface = client
 }
 
 func NewAsyncProxyingService(cfg config.DataPlaneConfig, cache *common.Deployments, cp proto.CpiInterfaceClient, outputFile string, loadBalancingPolicy load_balancing.LoadBalancingPolicy) *AsyncProxyingService {
@@ -56,21 +49,24 @@ func NewAsyncProxyingService(cfg config.DataPlaneConfig, cache *common.Deploymen
 	if cfg.PersistRequests {
 		persistenceLayer, err = request_persistence.CreateRequestRedisClient(context.Background(), cfg.RedisConf)
 		if err != nil {
-			return nil
+			logrus.Fatalf("Failed to connect to redis client %s", err.Error())
 		}
 	} else {
 		persistenceLayer = request_persistence.CreateEmptyRequestPersistence()
 	}
 
 	proxy := &AsyncProxyingService{
-		Host:                utils.Localhost,
-		Port:                cfg.PortProxy,
-		PortRead:            cfg.PortProxyRead,
-		Cache:               cache,
-		CPInterface:         cp,
-		LoadBalancingPolicy: loadBalancingPolicy,
+		Host:     utils.Localhost,
+		Port:     cfg.PortProxy,
+		PortRead: cfg.PortProxyRead,
 
-		Tracing: tracing.NewProxyTracingService(outputFile),
+		Context: proxyContext{
+			cache:               cache,
+			cpInterface:         cp,
+			loadBalancingPolicy: loadBalancingPolicy,
+
+			tracing: tracing.NewProxyTracingService(outputFile),
+		},
 
 		RequestChannel: make(chan *requests.BufferedRequest),
 		Responses:      make(map[string]*requests.BufferedResponse),
@@ -86,39 +82,11 @@ func NewAsyncProxyingService(cfg config.DataPlaneConfig, cache *common.Deploymen
 
 func (ps *AsyncProxyingService) StartProxyServer() {
 	go func() {
-		composedHandler := ps.createAsyncInvocationHandler()
-
-		mux := http.NewServeMux()
-		mux.Handle("/", composedHandler)
-		mux.HandleFunc("/health", HealthHandler)
-		mux.HandleFunc("/metrics", CreateMetricsHandler(ps.Cache))
-
-		proxyRxAddress := net.JoinHostPort(ps.Host, ps.Port)
-		logrus.Info("Creating a proxy server at ", proxyRxAddress)
-
-		requestServer := &http.Server{
-			Addr:    proxyRxAddress,
-			Handler: h2c.NewHandler(mux, &http2.Server{}),
-		}
-		if err := requestServer.ListenAndServe(); err != nil {
-			logrus.Fatalf("Failed to create a proxy server : (err : %s)", err.Error())
-		}
+		startProxy(ps.createAsyncInvocationHandler(), ps.Context, ps.Host, ps.Port)
 	}()
 
 	go func() {
-		readRequestHandler := ps.createAsyncReadHandler()
-
-		proxyRxReadAddress := net.JoinHostPort(ps.Host, ps.PortRead)
-		logrus.Info("Creating a read proxy server at ", proxyRxReadAddress)
-
-		readServer := http.Server{
-			Addr:    proxyRxReadAddress,
-			Handler: h2c.NewHandler(readRequestHandler, &http2.Server{}),
-		}
-
-		if err := readServer.ListenAndServe(); err != nil {
-			logrus.Fatalf("Failed to create a async proxy server : (err : %s)", err.Error())
-		}
+		startProxy(ps.createAsyncReadHandler(), ps.Context, ps.Host, ps.PortRead)
 	}()
 
 	// Load responses and requests and resend requests without response
@@ -129,7 +97,7 @@ func (ps *AsyncProxyingService) StartProxyServer() {
 
 	ps.ResponsesLock.Lock()
 	for _, response := range responses {
-		ps.Responses[response.Code] = response
+		ps.Responses[response.UniqueCodeIdentifier] = response
 	}
 	ps.ResponsesLock.Unlock()
 
@@ -150,7 +118,7 @@ func (ps *AsyncProxyingService) StartProxyServer() {
 }
 
 func (ps *AsyncProxyingService) StartTracingService() {
-	ps.Tracing.StartTracingService()
+	ps.Context.tracing.StartTracingService()
 }
 
 func (ps *AsyncProxyingService) createAsyncInvocationHandler() http.HandlerFunc {
@@ -192,7 +160,7 @@ func (ps *AsyncProxyingService) asyncRequestHandler() {
 				response := ps.fireRequest(bufferedRequest)
 				if response.StatusCode == http.StatusOK || response.StatusCode == http.StatusBadRequest {
 					response.Timestamp = time.Now()
-					response.Code = bufferedRequest.Code
+					response.UniqueCodeIdentifier = bufferedRequest.Code
 					ps.ResponsesLock.Lock()
 					ps.Responses[bufferedRequest.Code] = response
 					ps.ResponsesLock.Unlock()
@@ -213,113 +181,13 @@ func (ps *AsyncProxyingService) asyncRequestHandler() {
 	}
 }
 
-// TODO: Deduplicate code
 func (ps *AsyncProxyingService) fireRequest(bufferedRequest *requests.BufferedRequest) *requests.BufferedResponse {
 	request := requests.RequestFromBufferedRequest(bufferedRequest)
-
-	///////////////////////////////////////////////
-	// METADATA FETCHING
-	///////////////////////////////////////////////
-	serviceName := GetServiceName(request)
-	metadata, durationGetDeployment := ps.Cache.GetDeployment(serviceName)
-	if metadata == nil {
-		logrus.Trace("Invocation for non-existing service ", serviceName, " has been dumped.")
-		return &requests.BufferedResponse{
-			StatusCode: http.StatusBadRequest,
-			Body:       "Invocation for non-existing service " + serviceName + " has been dumped.",
-		}
-	}
-
-	logrus.Trace("Invocation for service ", serviceName, " has been received.")
-
-	///////////////////////////////////////////////
-	// COLD/WARM START
-	///////////////////////////////////////////////
-	coldStartChannel, durationColdStart := metadata.TryWarmStart(ps.CPInterface)
-	addDeploymentDuration := time.Duration(0)
-
-	defer metadata.GetStatistics().DecrementInflight() // for statistics
-	defer metadata.DecreaseInflight()                  // for autoscaling
-
-	// unblock from cold start if context gets cancelled
-	go contextTerminationHandler(request, coldStartChannel)
-
-	if coldStartChannel != nil {
-		logrus.Debug("Enqueued invocation for ", serviceName)
-
-		// wait until a cold start is resolved
-		coldStartWaitTime := time.Now()
-		waitOutcome := <-coldStartChannel
-		metadata.GetStatistics().DecrementQueueDepth()
-		durationColdStart = time.Since(coldStartWaitTime) - waitOutcome.AddEndpointDuration
-		addDeploymentDuration = waitOutcome.AddEndpointDuration
-
-		// TODO: Resend the request in the channel & execute until it works
-		if waitOutcome.Outcome == common.CanceledColdStart {
-			return &requests.BufferedResponse{
-				StatusCode: http.StatusGatewayTimeout,
-				Body:       fmt.Sprintf("Invocation context canceled for %s.", serviceName),
-			}
-		}
-	}
-
-	///////////////////////////////////////////////
-	// LOAD BALANCING AND ROUTING
-	///////////////////////////////////////////////
-	endpoint, durationLB, durationCC := load_balancing.DoLoadBalancing(request, metadata, ps.LoadBalancingPolicy)
-	if endpoint == nil {
-		return &requests.BufferedResponse{
-			StatusCode: http.StatusGone,
-			Body:       fmt.Sprintf("Cold start passed, but no sandbox available for %s.", serviceName),
-		}
-	}
-
-	defer giveBackCCCapacity(endpoint)
-
-	///////////////////////////////////////////////
-	// PROXYING - LEAVING THE MACHINE
-	///////////////////////////////////////////////
-	startProxy := time.Now()
-
-	workerResponse, err := http.DefaultClient.Do(request)
-	if err != nil {
-		return &requests.BufferedResponse{
-			StatusCode: http.StatusInternalServerError,
-			Body:       err.Error(),
-		}
-	}
-
-	buf := new(bytes.Buffer)
-	if _, err := buf.ReadFrom(workerResponse.Body); err != nil {
-		return &requests.BufferedResponse{
-			StatusCode: http.StatusInternalServerError,
-			Body:       err.Error(),
-		}
-	}
-
-	///////////////////////////////////////////////
-	// ON THE WAY BACK
-	///////////////////////////////////////////////
-
-	ps.Tracing.InputChannel <- tracing.ProxyLogEntry{
-		ServiceName:      serviceName,
-		ContainerID:      endpoint.ID,
-		Total:            time.Since(bufferedRequest.Start),
-		GetMetadata:      durationGetDeployment,
-		AddDeployment:    addDeploymentDuration,
-		ColdStart:        durationColdStart,
-		LoadBalancing:    durationLB,
-		CCThrottling:     durationCC,
-		Proxying:         time.Since(startProxy),
-		Serialization:    bufferedRequest.SerializationDuration,
-		PersistenceLayer: bufferedRequest.PersistenceDuration,
-	}
-	metadata.GetStatistics().IncrementSuccessfulInvocations()
-
-	return &requests.BufferedResponse{
-		StatusCode: http.StatusOK,
-		Body:       buf.String(),
-	}
+	return proxyHandler(request, requestMetadata{
+		start:            bufferedRequest.Start,
+		serialization:    bufferedRequest.SerializationDuration,
+		persistenceLayer: bufferedRequest.PersistenceDuration,
+	}, ps.Context)
 }
 
 func (ps *AsyncProxyingService) createAsyncReadHandler() http.HandlerFunc {
