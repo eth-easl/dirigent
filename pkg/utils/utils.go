@@ -28,3 +28,12 @@ func IsRoot() bool {
 	}
 	return currentUser.Username == "root"
 }
+
+func ExponentialMovingAverage(today uint32, yesterday uint32) uint32 {
+	const smoothing uint32 = 2
+	const days uint32 = 20
+
+	frac := (smoothing / (1 + days))
+
+	return today*frac + yesterday*(1-frac)
+}

@@ -4,6 +4,7 @@ import (
 	"bytes"
 	common "cluster_manager/internal/data_plane/function_metadata"
 	"cluster_manager/internal/data_plane/proxy/load_balancing"
+	"cluster_manager/internal/data_plane/proxy/metrics_collection"
 	"cluster_manager/internal/data_plane/proxy/requests"
 	"cluster_manager/pkg/tracing"
 	"cluster_manager/proto"
@@ -25,6 +26,9 @@ type proxyContext struct {
 	loadBalancingPolicy load_balancing.LoadBalancingPolicy
 
 	tracing *tracing.TracingService[tracing.ProxyLogEntry]
+
+	incomingRequestChannel chan string
+	doneRequestChannel     chan metrics_collection.DurationInvocation
 }
 
 type requestMetadata struct {
@@ -67,6 +71,9 @@ func proxyHandler(request *http.Request, requestMetadata requestMetadata, proxyC
 			Body:       "Invocation for non-existing service " + serviceName + " has been dumped.",
 		}
 	}
+
+	// Notify metric collector we got a request
+	proxyContext.incomingRequestChannel <- serviceName
 
 	logrus.Trace("Invocation for service ", serviceName, " has been received.")
 
@@ -135,6 +142,12 @@ func proxyHandler(request *http.Request, requestMetadata requestMetadata, proxyC
 			StatusCode: http.StatusInternalServerError,
 			Body:       err.Error(),
 		}
+	}
+
+	// Notify metric collector we got a response
+	proxyContext.doneRequestChannel <- metrics_collection.DurationInvocation{
+		Duration:    uint32(time.Since(startProxy).Milliseconds()),
+		ServiceName: serviceName,
 	}
 
 	///////////////////////////////////////////////

@@ -154,7 +154,7 @@ func (d *Dataplane) GetProxyServer(async bool) (proxy.Proxy, error) {
 
 	if !async {
 		return proxy.NewProxyingService(
-			d.config.PortProxy,
+			d.config,
 			d.deployments,
 			cpApi,
 			path.Join(d.config.TraceOutputFolder, "proxy_trace.csv"),

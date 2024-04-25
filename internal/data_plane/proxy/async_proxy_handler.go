@@ -4,6 +4,7 @@ import (
 	"bytes"
 	common "cluster_manager/internal/data_plane/function_metadata"
 	"cluster_manager/internal/data_plane/proxy/load_balancing"
+	"cluster_manager/internal/data_plane/proxy/metrics_collection"
 	request_persistence "cluster_manager/internal/data_plane/proxy/persistence"
 	"cluster_manager/internal/data_plane/proxy/requests"
 	"cluster_manager/pkg/config"
@@ -55,6 +56,8 @@ func NewAsyncProxyingService(cfg config.DataPlaneConfig, cache *common.Deploymen
 		persistenceLayer = request_persistence.CreateEmptyRequestPersistence()
 	}
 
+	incomingRequestChannel, doneRequestChannel := metrics_collection.NewMetricsCollector(cfg.ControlPlaneNotifyInterval)
+
 	proxy := &AsyncProxyingService{
 		Host:     utils.Localhost,
 		Port:     cfg.PortProxy,
@@ -66,6 +69,9 @@ func NewAsyncProxyingService(cfg config.DataPlaneConfig, cache *common.Deploymen
 			loadBalancingPolicy: loadBalancingPolicy,
 
 			tracing: tracing.NewProxyTracingService(outputFile),
+
+			incomingRequestChannel: incomingRequestChannel,
+			doneRequestChannel:     doneRequestChannel,
 		},
 
 		RequestChannel: make(chan *requests.BufferedRequest),

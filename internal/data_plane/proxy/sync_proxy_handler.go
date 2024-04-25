@@ -3,6 +3,8 @@ package proxy
 import (
 	common "cluster_manager/internal/data_plane/function_metadata"
 	"cluster_manager/internal/data_plane/proxy/load_balancing"
+	"cluster_manager/internal/data_plane/proxy/metrics_collection"
+	"cluster_manager/pkg/config"
 	"cluster_manager/pkg/tracing"
 	"cluster_manager/pkg/utils"
 	"cluster_manager/proto"
@@ -25,16 +27,21 @@ func (ps *ProxyingService) SetCpApiServer(client proto.CpiInterfaceClient) {
 	ps.Context.cpInterface = client
 }
 
-func NewProxyingService(port string, cache *common.Deployments, cp proto.CpiInterfaceClient, outputFile string, loadBalancingPolicy load_balancing.LoadBalancingPolicy) *ProxyingService {
+func NewProxyingService(cfg config.DataPlaneConfig, cache *common.Deployments, cp proto.CpiInterfaceClient, outputFile string, loadBalancingPolicy load_balancing.LoadBalancingPolicy) *ProxyingService {
+
+	incomingRequestChannel, doneRequestChannel := metrics_collection.NewMetricsCollector(cfg.ControlPlaneNotifyInterval)
+
 	return &ProxyingService{
 		Host: utils.Localhost,
-		Port: port,
+		Port: cfg.PortProxy,
 		Context: proxyContext{
 			cache:               cache,
 			cpInterface:         cp,
 			loadBalancingPolicy: loadBalancingPolicy,
 
-			tracing: tracing.NewProxyTracingService(outputFile),
+			tracing:                tracing.NewProxyTracingService(outputFile),
+			incomingRequestChannel: incomingRequestChannel,
+			doneRequestChannel:     doneRequestChannel,
 		},
 	}
 }

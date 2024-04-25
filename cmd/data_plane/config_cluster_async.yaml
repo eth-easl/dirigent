@@ -15,3 +15,5 @@ redis:
   password: ""
   db: 0
   fullPersistence: false
+
+controlPlaneNotifyIntervalMinutes: 15
