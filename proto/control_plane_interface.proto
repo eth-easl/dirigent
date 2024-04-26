@@ -51,8 +51,17 @@ message HAProxyConfig {
   repeated string RegistrationServers = 2;
 }
 
+message MetricsPredictiveAutoscaler {
+  repeated string functionNames = 1;
+  repeated uint32 functionDuration = 2;
+  // 60 first entries corresponds to the first function, 60 next ones to the second,...
+  repeated uint32 invocationsPerMinute = 3;
+}
+
 service CpiInterface {
   rpc OnMetricsReceive(AutoscalingMetric) returns (ActionStatus);
+  rpc SendMetricsToPredictiveAutoscaler(MetricsPredictiveAutoscaler) returns (ActionStatus);
+
   rpc ListServices(google.protobuf.Empty) returns (ServiceList);
 
   rpc RegisterDataplane(DataplaneInfo) returns (ActionStatus);

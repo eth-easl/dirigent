@@ -4,10 +4,7 @@ import (
 	"cluster_manager/internal/control_plane/control_plane/core"
 	"cluster_manager/proto"
 	"sync"
-	"sync/atomic"
 	"time"
-
-	"github.com/sirupsen/logrus"
 )
 
 type PFStateController struct {
@@ -38,7 +35,8 @@ func NewPerFunctionStateController(scalingChannel chan int, serviceInfo *proto.S
 	}
 }
 
-func (as *PFStateController) Start() bool {
+// TODO: Extract this in a common function
+/*func (as *PFStateController) Start() bool {
 	if atomic.CompareAndSwapInt32(&as.AutoscalingRunning, 0, 1) {
 		as.StopCh = make(chan struct{}, 1)
 		go as.ScalingLoop()
@@ -98,4 +96,4 @@ func (as *PFStateController) ScalingLoop() {
 			return
 		}
 	}
-}
+}*/

@@ -29,7 +29,7 @@ func (ps *ProxyingService) SetCpApiServer(client proto.CpiInterfaceClient) {
 
 func NewProxyingService(cfg config.DataPlaneConfig, cache *common.Deployments, cp proto.CpiInterfaceClient, outputFile string, loadBalancingPolicy load_balancing.LoadBalancingPolicy) *ProxyingService {
 
-	incomingRequestChannel, doneRequestChannel := metrics_collection.NewMetricsCollector(cfg.ControlPlaneNotifyInterval)
+	incomingRequestChannel, doneRequestChannel := metrics_collection.NewMetricsCollector(cfg.ControlPlaneNotifyInterval, cp)
 
 	return &ProxyingService{
 		Host: utils.Localhost,

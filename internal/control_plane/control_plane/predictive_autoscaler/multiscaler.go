@@ -17,7 +17,9 @@ limitations under the License.
 package predictive_autoscaler
 
 import (
+	"cluster_manager/proto"
 	"context"
+	"errors"
 	"github.com/sirupsen/logrus"
 	"k8s.io/apimachinery/pkg/types"
 	"math"
@@ -125,10 +127,17 @@ type UniScaler interface {
 	SharePredictions()
 
 	LimitScalingDecisions() ([]int32, bool)
+
+	GetDesiredStateChannel() chan int
+
+	ComputeInvocationsPerMinute(invocationsPerMinuteFromDataplane []float64)
+
+	EstimateCapacity(averageDurationFromDataplane int32)
 }
 
 // UniScalerFactory creates a UniScaler for a given PA using the given dynamic configuration.
-type UniScalerFactory func(*Decider, chan ScalingDecisions, chan ScalingDecisions, chan bool) (UniScaler, error)
+// Unique to Dirigent, we add the desired state channel
+type UniScalerFactory func(*Decider, chan ScalingDecisions, chan ScalingDecisions, chan bool, chan int) (UniScaler, error)
 
 // scalerRunner wraps a UniScaler and a channel for implementing shutdown behavior.
 type scalerRunner struct {
@@ -186,7 +195,7 @@ func (sr *scalerRunner) updateLatestScale(sRes ScaleResult) bool {
 // MultiScaler maintains a collection of UniScalers.
 type MultiScaler struct {
 	scalersMutex sync.RWMutex
-	scalers      map[types.NamespacedName]*scalerRunner
+	scalers      map[string]*scalerRunner
 
 	scalersStopCh <-chan struct{}
 
@@ -207,7 +216,7 @@ func NewMultiScaler(
 	stopCh <-chan struct{},
 	uniScalerFactory UniScalerFactory) *MultiScaler {
 	return &MultiScaler{
-		scalers:          make(map[types.NamespacedName]*scalerRunner),
+		scalers:          make(map[string]*scalerRunner),
 		scalersStopCh:    stopCh,
 		uniScalerFactory: uniScalerFactory,
 		tickProvider:     time.NewTicker,
@@ -216,42 +225,40 @@ func NewMultiScaler(
 
 // Get returns the copy of the current Decider.
 func (m *MultiScaler) Get(_ context.Context, namespace, name string) (*Decider, error) {
-	key := types.NamespacedName{Namespace: namespace, Name: name}
 	m.scalersMutex.RLock()
 	defer m.scalersMutex.RUnlock()
-	scaler, exists := m.scalers[key]
+	scaler, exists := m.scalers[name]
 	if !exists {
 		// This GroupResource is a lie, but unfortunately this interface requires one.
 		// TODO: What to do here
-		return nil, nil
-		// return nil, errors.NewNotFound(autoscalingv1alpha1.Resource("Deciders"), key.String())
+		return nil, errors.New("Scaler isn't present")
 	}
 	return scaler.safeDecider(), nil
 }
 
 // Create instantiates the desired Decider.
-func (m *MultiScaler) Create(_ context.Context, decider *Decider) (*Decider, error) {
+// Last parameter is unique to Dirigent
+func (m *MultiScaler) Create(_ context.Context, decider *Decider, desiredStateChannel chan int) (*Decider, error) {
 	key := types.NamespacedName{Namespace: decider.Namespace, Name: decider.Name}
 	m.scalersMutex.Lock()
 	defer m.scalersMutex.Unlock()
-	scaler, exists := m.scalers[key]
+	scaler, exists := m.scalers[decider.Name]
 	if !exists {
 		var err error
-		scaler, err = m.createScaler(decider, key)
+		scaler, err = m.createScaler(decider, key, desiredStateChannel)
 		if err != nil {
 			return nil, err
 		}
-		m.scalers[key] = scaler
+		m.scalers[decider.Name] = scaler
 	}
 	return scaler.safeDecider(), nil
 }
 
 // Update applies the desired DeciderSpec to a currently running Decider.
 func (m *MultiScaler) Update(_ context.Context, decider *Decider) (*Decider, error) {
-	key := types.NamespacedName{Namespace: decider.Namespace, Name: decider.Name}
 	m.scalersMutex.Lock()
 	defer m.scalersMutex.Unlock()
-	if scaler, exists := m.scalers[key]; exists {
+	if scaler, exists := m.scalers[decider.Name]; exists {
 		scaler.mux.Lock()
 		defer scaler.mux.Unlock()
 		// Make sure we store the copy.
@@ -260,19 +267,46 @@ func (m *MultiScaler) Update(_ context.Context, decider *Decider) (*Decider, err
 		return decider, nil
 	}
 	// This GroupResource is a lie, but unfortunately this interface requires one.
-	// TODO: What to do here
-	return nil, nil
-	// return nil, errors.NewNotFound(autoscalingv1alpha1.Resource("Deciders"), key.String())
+	return nil, errors.New("Scaler isn't present")
+}
+
+// TODO: This is really hugly, at some point remove
+func (m *MultiScaler) intToFloat(data []uint32) []float64 {
+	output := make([]float64, len(data))
+	for i, value := range data {
+		output[i] = float64(value)
+	}
+	return output
+}
+
+// Unique to Dirigent
+func (m *MultiScaler) ForwardDataplaneMetrics(dataplaneMetrics *proto.MetricsPredictiveAutoscaler) error {
+	m.scalersMutex.Lock()
+	defer m.scalersMutex.Unlock()
+
+	for i := 0; i < len(dataplaneMetrics.GetFunctionDuration()); i++ {
+		// TODO: Fix this type error
+		if scaler, exists := m.scalers[dataplaneMetrics.GetFunctionNames()[i]]; exists {
+			// TODO: Call somehow the two functions here
+			// TODO: Change type in data plane
+			// TODO: Change data types in the autoscaler
+			scaler.scaler.EstimateCapacity(int32(dataplaneMetrics.GetFunctionDuration()[i]))
+			// TODO: Change type in the autoscaler
+			sliceToSend := dataplaneMetrics.GetInvocationsPerMinute()[60*i : 60*(i+1)]
+			scaler.scaler.ComputeInvocationsPerMinute(m.intToFloat(sliceToSend))
+		}
+	}
+
+	return nil
 }
 
 // Delete stops and removes a Decider.
 func (m *MultiScaler) Delete(_ context.Context, namespace, name string) {
-	key := types.NamespacedName{Namespace: namespace, Name: name}
 	m.scalersMutex.Lock()
 	defer m.scalersMutex.Unlock()
-	if scaler, exists := m.scalers[key]; exists {
+	if scaler, exists := m.scalers[name]; exists {
 		close(scaler.stopCh)
-		delete(m.scalers, key)
+		delete(m.scalers, name)
 	}
 }
 
@@ -318,12 +352,12 @@ func (m *MultiScaler) runScalerTicker(runner *scalerRunner, metricKey types.Name
 	}()
 }
 
-func (m *MultiScaler) createScaler(decider *Decider, key types.NamespacedName) (*scalerRunner, error) {
+func (m *MultiScaler) createScaler(decider *Decider, key types.NamespacedName, desiredStateChannel chan int) (*scalerRunner, error) {
 	d := decider.DeepCopy()
 	predictionsCh := make(chan ScalingDecisions, 5)
 	shiftedScalingCh := make(chan ScalingDecisions, 5)
 	startCh := make(chan bool, 5)
-	scaler, err := m.uniScalerFactory(d, predictionsCh, shiftedScalingCh, startCh)
+	scaler, err := m.uniScalerFactory(d, predictionsCh, shiftedScalingCh, startCh, desiredStateChannel)
 	if err != nil {
 		return nil, err
 	}
@@ -354,6 +388,12 @@ func (m *MultiScaler) createScaler(decider *Decider, key types.NamespacedName) (
 func (m *MultiScaler) tickScaler(scaler UniScaler, runner *scalerRunner, metricKey types.NamespacedName) {
 	go m.receivePredictions(runner)
 	sr := scaler.Scale(time.Now())
+
+	// Unique to Dirigent
+	tunnelToScalingLoop := scaler.GetDesiredStateChannel()
+	// Forward values to scaling loop in Dirigent
+	tunnelToScalingLoop <- int(sr.DesiredPodCount)
+
 	if !sr.ScaleValid {
 		logrus.Info("Multiscaler got invalid scale")
 		return
@@ -398,7 +438,7 @@ func (m *MultiScaler) receivePredictions(runner *scalerRunner) {
 	}
 }
 
-// Poke checks if the autoscaler needs to be run immediately.
+/*// Poke checks if the autoscaler needs to be run immediately.
 func (m *MultiScaler) Poke(key types.NamespacedName, stat Stat) {
 	m.scalersMutex.RLock()
 	defer m.scalersMutex.RUnlock()
@@ -411,7 +451,7 @@ func (m *MultiScaler) Poke(key types.NamespacedName, stat Stat) {
 	if scaler.latestScale() == 0 && stat.average_concurrent_requests != 0 {
 		scaler.pokeCh <- struct{}{}
 	}
-}
+}*/
 
 func (m *MultiScaler) checkIfGlobalScalingLimitsCanBeComputed() {
 	defer m.scalersMutex.Unlock()
@@ -444,7 +484,7 @@ func (m *MultiScaler) checkIfGlobalScalingLimitsCanBeComputed() {
 
 func (m *MultiScaler) computeGlobalScalingLimits() {
 	limitComputationStartTime := time.Now()
-	scalePerFunctionBinned := make(map[types.NamespacedName][]int32)
+	scalePerFunctionBinned := make(map[string][]int32)
 	for f, r := range m.scalers {
 		scalePerFunctionBinned[f] = r.scalePerMinute
 		logrus.Infof("Adding key %s with length %d to scale per function",
@@ -469,8 +509,8 @@ func (m *MultiScaler) computeGlobalScalingLimits() {
 	logrus.Infof("Limit computation time %d nanoseconds", limitComputationEndTime.Nanoseconds())
 }
 
-func (m *MultiScaler) computeTotalScalingDecisions(scalePerFunction map[types.NamespacedName][]int32) ([]int32, []int32) {
-	functions := make([]types.NamespacedName, len(scalePerFunction))
+func (m *MultiScaler) computeTotalScalingDecisions(scalePerFunction map[string][]int32) ([]int32, []int32) {
+	functions := make([]string, len(scalePerFunction))
 	i := 0
 	for f := range scalePerFunction {
 		functions[i] = f
@@ -496,8 +536,8 @@ func (m *MultiScaler) computeTotalScalingDecisions(scalePerFunction map[types.Na
 }
 
 func (m *MultiScaler) shiftUpscaling(threshold int32, totalUpscaling []int32,
-	scalePerFunctionBinned map[types.NamespacedName][]int32) {
-	functions := make([]types.NamespacedName, len(scalePerFunctionBinned))
+	scalePerFunctionBinned map[string][]int32) {
+	functions := make([]string, len(scalePerFunctionBinned))
 	j := 0
 	for f := range scalePerFunctionBinned {
 		functions[j] = f
@@ -506,7 +546,7 @@ func (m *MultiScaler) shiftUpscaling(threshold int32, totalUpscaling []int32,
 
 	for i := len(totalUpscaling) - 1; i > 0; i-- {
 		if totalUpscaling[i] > threshold {
-			functionsToUpscale := make(map[types.NamespacedName]int32)
+			functionsToUpscale := make(map[string]int32)
 			for _, f := range functions {
 				if scalePerFunctionBinned[f][i] > scalePerFunctionBinned[f][i-1] {
 					functionsToUpscale[f] = scalePerFunctionBinned[f][i] - scalePerFunctionBinned[f][i-1]
@@ -549,8 +589,8 @@ func (m *MultiScaler) shiftUpscaling(threshold int32, totalUpscaling []int32,
 }
 
 func (m *MultiScaler) shiftDownscaling(threshold int32, totalDownscaling []int32,
-	scalePerFunctionBinned map[types.NamespacedName][]int32) {
-	functions := make([]types.NamespacedName, len(scalePerFunctionBinned))
+	scalePerFunctionBinned map[string][]int32) {
+	functions := make([]string, len(scalePerFunctionBinned))
 	j := 0
 	for f := range scalePerFunctionBinned {
 		functions[j] = f
@@ -559,7 +599,7 @@ func (m *MultiScaler) shiftDownscaling(threshold int32, totalDownscaling []int32
 
 	for i := 0; i < len(totalDownscaling)-1; i++ {
 		if totalDownscaling[i] > threshold {
-			functionsToDownscale := make(map[types.NamespacedName]int32)
+			functionsToDownscale := make(map[string]int32)
 			for _, f := range functions {
 				if scalePerFunctionBinned[f][i] > scalePerFunctionBinned[f][i+1] {
 					functionsToDownscale[f] = scalePerFunctionBinned[f][i] - scalePerFunctionBinned[f][i+1]
@@ -601,7 +641,7 @@ func (m *MultiScaler) shiftDownscaling(threshold int32, totalDownscaling []int32
 	}
 }
 
-func sumValues(data map[types.NamespacedName]int32) int32 {
+func sumValues(data map[string]int32) int32 {
 	var sum int32 = 0
 	for _, value := range data {
 		sum += value

@@ -4,6 +4,7 @@ import (
 	"cluster_manager/internal/control_plane/control_plane/core"
 	"cluster_manager/internal/control_plane/control_plane/persistence"
 	"cluster_manager/internal/control_plane/control_plane/placement_policy"
+	"cluster_manager/internal/control_plane/control_plane/predictive_autoscaler"
 	"cluster_manager/pkg/config"
 	_map "cluster_manager/pkg/map"
 	"cluster_manager/pkg/synchronization"
@@ -14,7 +15,9 @@ import (
 	"errors"
 	"fmt"
 	"github.com/sirupsen/logrus"
+	"google.golang.org/grpc"
 	"google.golang.org/protobuf/types/known/emptypb"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"strconv"
 	"sync"
 	"time"
@@ -33,7 +36,34 @@ type ControlPlane struct {
 	workerNodeCreator core.WorkerNodeFactory
 
 	Config *config.ControlPlaneConfig
+
+	// TODO: Refactor this in better code
+	multiscaler *predictive_autoscaler.MultiScaler
 }
+
+/*func uniscalerFactoryCreator(decider *predictive_autoscaler.Decider, predictionsCh chan predictive_autoscaler.ScalingDecisions,
+	shiftedScalingCh chan predictive_autoscaler.ScalingDecisions, startCh chan bool) (predictive_autoscaler.UniScaler, error) {
+	configName := decider.Labels[serving.ConfigurationLabelKey]
+	if configName == "" {
+		return nil, fmt.Errorf("label %q not found or empty in Decider %s", serving.ConfigurationLabelKey, decider.Name)
+	}
+	revisionName := decider.Labels[serving.RevisionLabelKey]
+	if revisionName == "" {
+		return nil, fmt.Errorf("label %q not found or empty in Decider %s", serving.RevisionLabelKey, decider.Name)
+	}
+	serviceName := decider.Labels[serving.ServiceLabelKey] // This can be empty.
+
+	// Create a stats reporter which tags statistics by PA namespace, configuration name, and PA name.
+	ctx := smetrics.RevisionContext(decider.Namespace, serviceName, configName, revisionName)
+
+	// podAccessor := resources.NewPodAccessor(podLister, decider.Namespace, revisionName)
+
+	// TODO: Replace channel by correct value
+	// TODO: What about context.background() is it okay?
+	// TODO: Can I ignore metric client?
+	return predictive_autoscaler.New(ctx, decider.Namespace, decider.Name, metricClient,
+		podAccessor, &decider.Spec, predictionsCh, shiftedScalingCh, startCh, make(chan int)), nil
+}*/
 
 func NewControlPlane(client persistence.PersistenceLayer, outputFile string, placementPolicy placement_policy.PlacementPolicy,
 	dataplaneCreator core.DataplaneFactory, workerNodeCreator core.WorkerNodeFactory, cfg *config.ControlPlaneConfig) *ControlPlane {
@@ -51,6 +81,9 @@ func NewControlPlane(client persistence.PersistenceLayer, outputFile string, pla
 		workerNodeCreator: workerNodeCreator,
 
 		Config: cfg,
+
+		// Seems like the stop channel is useless
+		// multiscaler: predictive_autoscaler.NewMultiScaler(make(chan struct{}), createAutoscaler),
 	}
 }
 
@@ -282,6 +315,15 @@ func (c *ControlPlane) registerService(ctx context.Context, serviceInfo *proto.S
 		return &proto.ActionStatus{Success: false}, err
 	}
 
+	// Create autoscaler object
+	c.multiscaler.Create(context.Background(),
+		&predictive_autoscaler.Decider{
+			// TODO: Update those fields to match with Dirigent at the moment
+			ObjectMeta: metav1.ObjectMeta{},
+			Spec:       predictive_autoscaler.DeciderSpec{},
+			Status:     predictive_autoscaler.DeciderStatus{},
+		}, c.SIStorage.GetNoCheck(serviceInfo.Name).Controller.DesiredStateChannel)
+
 	if c.Config.PrecreateSnapshots {
 		c.precreateSnapshots(serviceInfo)
 	}
@@ -335,7 +377,17 @@ func (c *ControlPlane) onMetricsReceive(_ context.Context, metric *proto.Autosca
 	storage.Controller.ScalingMetadata.SetCachedScalingMetric(metric)
 	logrus.Debug("Scaling metric for '", storage.ServiceInfo.Name, "' is ", metric.InflightRequests)
 
-	storage.Controller.Start()
+	// TODO: Make it modular with base autoscaler
+	// storage.Controller.Start()
+
+	return &proto.ActionStatus{Success: true}, nil
+}
+
+func (c *ControlPlane) SendMetricsToPredictiveAutoscaler(ctx context.Context, in *proto.MetricsPredictiveAutoscaler, opts ...grpc.CallOption) (*proto.ActionStatus, error) {
+	if err := c.multiscaler.ForwardDataplaneMetrics(in); err != nil {
+		logrus.Errorf("Failed to forward dataplane metrics (error : %s)", err.Error())
+		return &proto.ActionStatus{Success: false}, err
+	}
 
 	return &proto.ActionStatus{Success: true}, nil
 }
@@ -482,9 +534,10 @@ func (c *ControlPlane) stopAllScalingLoops() {
 	c.SIStorage.Lock()
 	defer c.SIStorage.Unlock()
 
-	for _, function := range c.SIStorage.GetMap() {
+	// TODO: Create generic Start / Stop function for predictive autoscaling
+	/*for _, function := range c.SIStorage.GetMap() {
 		function.Controller.Stop()
-	}
+	}*/
 }
 
 func (c *ControlPlane) reviseDataplanesInLB(callback func([]string) bool) bool {

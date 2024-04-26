@@ -212,7 +212,8 @@ func (c *ControlPlane) reconstructEndpointsState(ctx context.Context) error {
 			ss.Controller.ScalingMetadata.StartPanickingTimestamp = time.Now()
 			atomic.AddInt64(&ss.Controller.ScalingMetadata.ActualScale, 1)
 
-			ss.Controller.Start()
+			// TODO: Create Start / Stop functions
+			// ss.Controller.Start()
 		}(e)
 	}
 

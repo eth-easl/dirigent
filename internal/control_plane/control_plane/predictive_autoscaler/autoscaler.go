@@ -87,6 +87,9 @@ type autoscaler struct {
 	scale        []int
 	epochCounter int
 	timeToWait   int64
+
+	// Unique to Dirigent
+	desiredStateChannel chan int
 }
 
 // New creates a new instance of default autoscaler implementation.
@@ -98,7 +101,8 @@ func New(
 	deciderSpec *DeciderSpec,
 	predictionsCh chan ScalingDecisions,
 	shiftedScalingCh chan ScalingDecisions,
-	startCh chan bool) UniScaler {
+	startCh chan bool,
+	desiredStateChannel chan int) UniScaler {
 
 	var delayer *max.TimeWindow
 	if deciderSpec.ScaleDownDelay > 0 {
@@ -106,7 +110,7 @@ func New(
 	}
 
 	return newAutoscaler(reporterCtx, namespace, revision, metricClient,
-		podCounter, deciderSpec, delayer, predictionsCh, shiftedScalingCh, startCh)
+		podCounter, deciderSpec, delayer, predictionsCh, shiftedScalingCh, startCh, desiredStateChannel)
 }
 
 const debugEnabled bool = false
@@ -120,7 +124,8 @@ func newAutoscaler(
 	delayWindow *max.TimeWindow,
 	predictionsCh chan ScalingDecisions,
 	shiftedScalingCh chan ScalingDecisions,
-	startCh chan bool) *autoscaler {
+	startCh chan bool,
+	desiredStateChannel chan int) *autoscaler {
 
 	// We always start in the panic mode, if the deployment is scaled up over 1 pod.
 	// If the scale is 0 or 1, normal Autoscaler behavior is fine.
@@ -383,6 +388,10 @@ func (a *autoscaler) Scale(now time.Time) ScaleResult {
 	}
 }
 
+func (a *autoscaler) GetDesiredStateChannel() chan int {
+	return a.desiredStateChannel
+}
+
 func (a *autoscaler) currentSpec() *DeciderSpec {
 	a.specMux.RLock()
 	defer a.specMux.RUnlock()
@@ -443,10 +452,11 @@ func (a *autoscaler) predictiveAutoscaling(readyPodsCount float64, metricKey typ
 	logrus.Info("Autoscaler "+a.revision+" observedConcurrency, averagingCase, total, validCount ",
 		observedConcurrency, averagingCase, total, validCount)
 
-	if prevMinute < a.currentMinute {
-		a.computeInvocationsPerMinute(metricKey, now)
-		a.estimateCapacity(a.invocationsPerMinute[prevMinute], total)
-	}
+	// We don't need this. Dirigent takes care of it
+	/*if prevMinute < a.currentMinute {
+		a.ComputeInvocationsPerMinute(metricKey, now)
+		a.EstimateCapacity(a.invocationsPerMinute[prevMinute], total)
+	}*/
 
 	if err != nil {
 		if errors.Is(err, metrics.ErrNoData) {
@@ -509,7 +519,8 @@ func (a *autoscaler) predictiveAutoscaling(readyPodsCount float64, metricKey typ
 	return float64(desiredScale)
 }
 
-func (a *autoscaler) computeInvocationsPerMinute(metricKey types.NamespacedName,
+// TODO: Replace this function with gRPC call in Dirigent (60 buckets)
+/*func (a *autoscaler) ComputeInvocationsPerMinute(metricKey types.NamespacedName,
 	now time.Time) {
 	observedRps, _, err, _, averagingCase, total, validCount := a.metricClient.StableAndPanicRPS(metricKey, now)
 	logrus.Info("Autoscaler "+a.revision+" observedRps*60, averagingCase, total, validCount ",
@@ -527,9 +538,19 @@ func (a *autoscaler) computeInvocationsPerMinute(metricKey types.NamespacedName,
 		a.revision, a.currentMinute, ipm)
 	a.invocationsPerMinute = append(a.invocationsPerMinute, ipm)
 	logrus.Info("Autoscaler "+a.revision+" Invocations per Minute:", a.invocationsPerMinute)
+}*/
+
+// In Dirigent, we receive the values from the data plane
+func (a *autoscaler) ComputeInvocationsPerMinute(invocationsPerMinuteFromDataplane []float64) {
+	if len(invocationsPerMinuteFromDataplane) != 60 {
+		logrus.Fatal("Len of invocationsPerMinuteFromDataplane is not 60")
+	}
+
+	a.invocationsPerMinute = invocationsPerMinuteFromDataplane
 }
 
-func (a *autoscaler) estimateCapacity(ipm float64, totalConcurrency float64) {
+// TODO: Replace this function with a gRPC call in Dirigent (1 / averageInvocationDuration)
+/*func (a *autoscaler) EstimateCapacity(ipm float64, totalConcurrency float64) {
 	observedConcurrency := totalConcurrency / 1200 // TODO: currently hard-coded for 50 ms scraping frequency
 	if observedConcurrency > 0 {
 		// concurrency multiplied by 60 seconds gives us total execution time in seconds
@@ -549,6 +570,14 @@ func (a *autoscaler) estimateCapacity(ipm float64, totalConcurrency float64) {
 			}
 		}
 	}
+}*/
+
+// In Dirigent, we receive the values from the data plane
+func (a *autoscaler) EstimateCapacity(averageDurationFromDataplane int32) {
+	if averageDurationFromDataplane == 0 {
+		logrus.Fatal("AverageDurationFromDataplane is zero")
+	}
+	a.averageCapacity = 1 / float64(averageDurationFromDataplane)
 }
 
 func (a *autoscaler) predictionToScale(pred []float64) []int32 {

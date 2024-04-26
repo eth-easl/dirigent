@@ -114,6 +114,21 @@ func (c *CpApiServer) OnMetricsReceive(ctx context.Context, metric *proto.Autosc
 	return c.ControlPlane.onMetricsReceive(ctx, metric)
 }
 
+func (c *CpApiServer) SendMetricsToPredictiveAutoscaler(ctx context.Context, in *proto.MetricsPredictiveAutoscaler) (*proto.ActionStatus, error) {
+	if !c.LeaderElectionServer.IsLeader() {
+		leader := c.LeaderElectionServer.GetLeader()
+
+		if leader != nil {
+			logrus.Warn("Received sendMetricsToPredictiveAutoscaler call although not the leader. Forwarding the call...")
+			return leader.SendMetricsToPredictiveAutoscaler(ctx, in)
+		} else {
+			return &proto.ActionStatus{Success: false}, nil
+		}
+	}
+
+	return c.ControlPlane.SendMetricsToPredictiveAutoscaler(ctx, in)
+}
+
 func (c *CpApiServer) ListServices(ctx context.Context, empty *emptypb.Empty) (*proto.ServiceList, error) {
 	if !c.LeaderElectionServer.IsLeader() {
 		logrus.Warn("Received listServices call although not the leader. Forwarding the call...")

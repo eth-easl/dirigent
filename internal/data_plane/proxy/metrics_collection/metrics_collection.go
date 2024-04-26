@@ -2,6 +2,8 @@ package metrics_collection
 
 import (
 	"cluster_manager/pkg/utils"
+	"cluster_manager/proto"
+	"context"
 	"github.com/sirupsen/logrus"
 	"time"
 )
@@ -13,9 +15,15 @@ type DurationInvocation struct {
 	ServiceName string
 }
 
+type MetadataPerFunction struct {
+	invocationPerSeconds []uint32
+	averageDuration      uint32
+}
+
 type MetricsCollector struct {
-	current         [number_minutes]map[string]uint
-	averageDuration map[string]uint32
+	controlPlane proto.CpiInterfaceClient
+
+	metadata map[string]*MetadataPerFunction
 
 	controlPlaneNotifyInterval int
 
@@ -26,10 +34,11 @@ type MetricsCollector struct {
 	doneRequestChannel     chan DurationInvocation
 }
 
-func NewMetricsCollector(controlPlaneNotifyInterval int) (chan string, chan DurationInvocation) {
+func NewMetricsCollector(controlPlaneNotifyInterval int, cp proto.CpiInterfaceClient) (chan string, chan DurationInvocation) {
 	metricsCollector := &MetricsCollector{
-		current:         [number_minutes]map[string]uint(make([]map[string]uint, number_minutes)),
-		averageDuration: make(map[string]uint32),
+		controlPlane: cp,
+
+		metadata: make(map[string]*MetadataPerFunction),
 
 		controlPlaneNotifyInterval: controlPlaneNotifyInterval,
 
@@ -55,10 +64,13 @@ func (c *MetricsCollector) metricGatheringLoop() {
 			c.shitBins()
 		case service := <-c.incomingRequestChannel:
 			logrus.Tracef("Received data from incomingRequestChannel : %s", service)
-			c.current[0][service]++
+			currentSlice := c.metadata[service]
+			currentSlice.invocationPerSeconds[0]++
 		case duration := <-c.doneRequestChannel:
 			logrus.Tracef("Received data from doneRequestChannel : %s", duration.ServiceName)
-			c.averageDuration[duration.ServiceName] = utils.ExponentialMovingAverage(duration.Duration, c.averageDuration[duration.ServiceName])
+			// TODO: Clean this
+			tmp := c.metadata[duration.ServiceName]
+			tmp.averageDuration = utils.ExponentialMovingAverage(duration.Duration, tmp.averageDuration)
 		}
 	}
 }
@@ -86,15 +98,35 @@ func (c *MetricsCollector) minuteShiftLoop() {
 func (c *MetricsCollector) sendMetricsToControlPlane() {
 	logrus.Infof("Sending values in the control plane")
 
-	// TODO: Implement the gRPC call as second milestone
+	// TODO: Change the context
+	c.controlPlane.SendMetricsToPredictiveAutoscaler(context.Background(), c.parseMetrics())
+}
+
+func (c *MetricsCollector) parseMetrics() *proto.MetricsPredictiveAutoscaler {
+	functionNames := make([]string, 0, len(c.metadata))
+	functionsDurations := make([]uint32, 0, len(c.metadata))
+	invocationsPerMinute := make([]uint32, 0, 60*len(c.metadata))
+
+	for functionName, values := range c.metadata {
+		functionNames = append(functionNames, functionName)
+		functionsDurations = append(functionsDurations, values.averageDuration)
+		invocationsPerMinute = append(invocationsPerMinute, values.invocationPerSeconds...)
+	}
+
+	return &proto.MetricsPredictiveAutoscaler{
+		FunctionNames:        nil,
+		FunctionDuration:     nil,
+		InvocationsPerMinute: nil,
+	}
 }
 
 func (c *MetricsCollector) shitBins() {
 	logrus.Infof("Shifting bins")
 
-	for i := number_minutes - 1; i > 0; i-- {
-		c.current[i] = c.current[i-1]
+	for _, value := range c.metadata {
+		for i := number_minutes - 1; i > 0; i-- {
+			value.invocationPerSeconds[i] = value.invocationPerSeconds[i-1]
+		}
+		value.invocationPerSeconds[0] = 0
 	}
-
-	c.current[0] = make(map[string]uint)
 }
