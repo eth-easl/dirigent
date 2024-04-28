@@ -38,7 +38,6 @@ sudo chmod +x /usr/local/bin/docker-compose
 sudo apt-get install -y docker.io
 sudo groupadd docker
 sudo usermod -aG docker $USER
-newgrp docker
 
 # Install CNI
 sudo apt-get update >> /dev/null
