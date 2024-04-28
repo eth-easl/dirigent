@@ -17,8 +17,19 @@ readonly DATAPLANE_3=Francois@hp134.utah.cloudlab.us
 
 readonly HA=false
 
+# Colors as useful indicators to users running these scripts.
+readonly color_white="\033[0;37m"
+readonly color_green="\033[1;32m"
+readonly color_red="\033[1;31m"
+readonly color_cyan="\033[1;36m"
+readonly color_reset="\033[0m"
+
 function RemoteExec() {
-    ssh -oStrictHostKeyChecking=no -p 22 "$1" "$2";
+    ssh -oStrictHostKeyChecking=no -p 22 "$1" "$2"
+}
+
+function CopyToRemote() {
+    rsync -av "$1" "$2"
 }
 
 function SetupControlPlane() {

@@ -136,14 +136,16 @@ sudo sysctl -w net.ipv4.conf.all.route_localnet=1
 
 ## Clone the code
 
-First we need to install a copy of a master node on one machine, a dataplane on another machine, a copy of redis on a third machine and finally copy the code base on several other machines for the workers. You can simply call the script remote_install.sh with the ssh address of the computers. Before calling the script you have to make sure you have a github token on the following path which can install ssh keys.
+Firstly, you need to install the control plane and Redis on one machine, data plane on another machine and workers on several other machines. You can simply call the script `remote_install.sh` with the addresses of the machines:
 
 ```bash
-ACCESS_TOKEN="$(cat ~/.git_token_loader)"
+./remote_install.sh machine1 machine2 ...
 ```
 
+If your local username differs from your remote username on these machines, you also need to include your remote username in the address:
+
 ```bash
-./remote_install.sh ip1 ip2 ...
+./remote_install.sh username@machine1 username@machine2 ...
 ```
 
 ## Launch code

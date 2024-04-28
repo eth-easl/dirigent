@@ -21,3 +21,5 @@ notes.txt
 scripts/invitro_traces/rps/*
 
 .venv
+ssh-dirigent
+ssh-dirigent.pub
