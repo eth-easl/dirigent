@@ -89,6 +89,8 @@ function SetupWorkerNodes() {
 
         # Remove old snapshots
         RemoteExec $1 "sudo rm -rf /tmp/snapshots"
+        # Remove old containers and network
+        RemoteExec $1 "source ~/cluster_manager/scripts/common.sh; WipeContainerdCNI"
 
         # Remove old logs
         RemoteExec $1 "sudo journalctl --vacuum-time=1s && sudo journalctl --vacuum-time=1d"
@@ -123,6 +125,22 @@ function KillSystemdServices() {
     done
 
     wait
+}
+
+function WipeContainerdCNI() {
+    # Remove all containers
+    sudo pkill -9 server || true
+    ctr --namespace cm container ls -q | xargs ctr --namespace cm container delete || true
+
+    # Remove all unused images
+    ctr --namespace cm image prune --all
+
+    # Remove all CNI networks
+    sudo iptables -t nat -F
+    for chain in $(sudo iptables -t nat -L | grep "CNI-" | cut -d' ' -f2)
+    do
+        sudo iptables -t nat -X $chain
+    done
 }
 
 function StoreResults() {
