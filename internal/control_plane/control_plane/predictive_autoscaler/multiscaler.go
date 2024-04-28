@@ -17,6 +17,7 @@ limitations under the License.
 package predictive_autoscaler
 
 import (
+	"cluster_manager/internal/control_plane/control_plane/per_function_state"
 	"cluster_manager/proto"
 	"context"
 	"errors"
@@ -137,7 +138,7 @@ type UniScaler interface {
 
 // UniScalerFactory creates a UniScaler for a given PA using the given dynamic configuration.
 // Unique to Dirigent, we add the desired state channel
-type UniScalerFactory func(*Decider, chan ScalingDecisions, chan ScalingDecisions, chan bool, chan int) (UniScaler, error)
+type UniScalerFactory func(*per_function_state.PFState, *Decider, chan ScalingDecisions, chan ScalingDecisions, chan bool) (UniScaler, error)
 
 // scalerRunner wraps a UniScaler and a channel for implementing shutdown behavior.
 type scalerRunner struct {
@@ -216,6 +217,7 @@ func NewMultiScaler(
 	stopCh <-chan struct{},
 	uniScalerFactory UniScalerFactory) *MultiScaler {
 	return &MultiScaler{
+		scalersMutex:     sync.RWMutex{},
 		scalers:          make(map[string]*scalerRunner),
 		scalersStopCh:    stopCh,
 		uniScalerFactory: uniScalerFactory,
@@ -238,14 +240,14 @@ func (m *MultiScaler) Get(_ context.Context, namespace, name string) (*Decider, 
 
 // Create instantiates the desired Decider.
 // Last parameter is unique to Dirigent
-func (m *MultiScaler) Create(_ context.Context, decider *Decider, desiredStateChannel chan int) (*Decider, error) {
+func (m *MultiScaler) Create(_ context.Context, functionState *per_function_state.PFState, decider *Decider) (*Decider, error) {
 	key := types.NamespacedName{Namespace: decider.Namespace, Name: decider.Name}
 	m.scalersMutex.Lock()
 	defer m.scalersMutex.Unlock()
 	scaler, exists := m.scalers[decider.Name]
 	if !exists {
 		var err error
-		scaler, err = m.createScaler(decider, key, desiredStateChannel)
+		scaler, err = m.createScaler(functionState, decider, key)
 		if err != nil {
 			return nil, err
 		}
@@ -352,12 +354,12 @@ func (m *MultiScaler) runScalerTicker(runner *scalerRunner, metricKey types.Name
 	}()
 }
 
-func (m *MultiScaler) createScaler(decider *Decider, key types.NamespacedName, desiredStateChannel chan int) (*scalerRunner, error) {
+func (m *MultiScaler) createScaler(functionState *per_function_state.PFState, decider *Decider, key types.NamespacedName) (*scalerRunner, error) {
 	d := decider.DeepCopy()
 	predictionsCh := make(chan ScalingDecisions, 5)
 	shiftedScalingCh := make(chan ScalingDecisions, 5)
 	startCh := make(chan bool, 5)
-	scaler, err := m.uniScalerFactory(d, predictionsCh, shiftedScalingCh, startCh, desiredStateChannel)
+	scaler, err := m.uniScalerFactory(functionState, d, predictionsCh, shiftedScalingCh, startCh)
 	if err != nil {
 		return nil, err
 	}

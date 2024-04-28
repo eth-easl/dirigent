@@ -303,7 +303,7 @@ func (m *FunctionMetadata) SetEndpoints(newEndpoints []*UpstreamEndpoint) {
 func (m *FunctionMetadata) TryWarmStart(cp proto.CpiInterfaceClient) (chan ColdStartChannelStruct, time.Duration) {
 	start := time.Now()
 
-	// autoscaling metric
+	// per_function_state metric
 	atomic.AddInt64(&m.scalingMetric.statistics.Inflight, 1)
 
 	m.triggerAutoscaling(cp)

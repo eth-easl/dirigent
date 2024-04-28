@@ -1,9 +1,9 @@
 package control_plane
 
 import (
-	"cluster_manager/internal/control_plane/control_plane/autoscaling"
 	"cluster_manager/internal/control_plane/control_plane/core"
 	"cluster_manager/internal/control_plane/control_plane/eviction_policy"
+	"cluster_manager/internal/control_plane/control_plane/per_function_state"
 	"cluster_manager/internal/control_plane/control_plane/persistence"
 	"cluster_manager/internal/control_plane/control_plane/placement_policy"
 	"cluster_manager/pkg/synchronization"
@@ -23,7 +23,7 @@ type ServiceInfoStorage struct {
 	ServiceInfo  *proto.ServiceInfo
 	ControlPlane *ControlPlane
 
-	Controller              *autoscaling.PFStateController
+	Controller              *per_function_state.PFState
 	ColdStartTracingChannel chan tracing.ColdStartLogEntry
 
 	PlacementPolicy  placement_policy.PlacementPolicy

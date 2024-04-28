@@ -1,8 +1,8 @@
 package control_plane
 
 import (
-	"cluster_manager/internal/control_plane/control_plane/autoscaling"
 	"cluster_manager/internal/control_plane/control_plane/core"
+	"cluster_manager/internal/control_plane/control_plane/per_function_state"
 	"cluster_manager/internal/control_plane/control_plane/placement_policy"
 	"cluster_manager/pkg/config"
 	"cluster_manager/proto"
@@ -35,7 +35,7 @@ func (c *ControlPlane) notifyDataplanesAndStartScalingLoop(ctx context.Context, 
 	c.SIStorage.Set(serviceInfo.Name, &ServiceInfoStorage{
 		ServiceInfo:             serviceInfo,
 		ControlPlane:            c,
-		Controller:              autoscaling.NewPerFunctionStateController(make(chan int), serviceInfo, 2*time.Second), // TODO: Hardcoded autoscaling for now
+		Controller:              per_function_state.NewPerFunctionState(make(chan int), serviceInfo, 2*time.Second), // TODO: Hardcoded per_function_state for now
 		ColdStartTracingChannel: c.ColdStartTracing.InputChannel,
 		PlacementPolicy:         c.PlacementPolicy,
 		PersistenceLayer:        c.PersistenceLayer,

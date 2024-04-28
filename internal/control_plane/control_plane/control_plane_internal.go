@@ -2,6 +2,7 @@ package control_plane
 
 import (
 	"cluster_manager/internal/control_plane/control_plane/core"
+	"cluster_manager/internal/control_plane/control_plane/per_function_state"
 	"cluster_manager/internal/control_plane/control_plane/persistence"
 	"cluster_manager/internal/control_plane/control_plane/placement_policy"
 	"cluster_manager/internal/control_plane/control_plane/predictive_autoscaler"
@@ -18,6 +19,7 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/protobuf/types/known/emptypb"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"knative.dev/serving/pkg/apis/serving"
 	"strconv"
 	"sync"
 	"time"
@@ -41,7 +43,7 @@ type ControlPlane struct {
 	multiscaler *predictive_autoscaler.MultiScaler
 }
 
-/*func uniscalerFactoryCreator(decider *predictive_autoscaler.Decider, predictionsCh chan predictive_autoscaler.ScalingDecisions,
+func uniscalerFactoryCreator(functionState *per_function_state.PFState, decider *predictive_autoscaler.Decider, predictionsCh chan predictive_autoscaler.ScalingDecisions,
 	shiftedScalingCh chan predictive_autoscaler.ScalingDecisions, startCh chan bool) (predictive_autoscaler.UniScaler, error) {
 	configName := decider.Labels[serving.ConfigurationLabelKey]
 	if configName == "" {
@@ -51,19 +53,11 @@ type ControlPlane struct {
 	if revisionName == "" {
 		return nil, fmt.Errorf("label %q not found or empty in Decider %s", serving.RevisionLabelKey, decider.Name)
 	}
-	serviceName := decider.Labels[serving.ServiceLabelKey] // This can be empty.
 
-	// Create a stats reporter which tags statistics by PA namespace, configuration name, and PA name.
-	ctx := smetrics.RevisionContext(decider.Namespace, serviceName, configName, revisionName)
-
-	// podAccessor := resources.NewPodAccessor(podLister, decider.Namespace, revisionName)
-
-	// TODO: Replace channel by correct value
-	// TODO: What about context.background() is it okay?
-	// TODO: Can I ignore metric client?
-	return predictive_autoscaler.New(ctx, decider.Namespace, decider.Name, metricClient,
-		podAccessor, &decider.Spec, predictionsCh, shiftedScalingCh, startCh, make(chan int)), nil
-}*/
+	// TODO: Replace metricClient calls with Dirigent gRPC calls
+	return predictive_autoscaler.New(functionState, decider.Namespace, decider.Name,
+		&decider.Spec, predictionsCh, shiftedScalingCh, startCh), nil
+}
 
 func NewControlPlane(client persistence.PersistenceLayer, outputFile string, placementPolicy placement_policy.PlacementPolicy,
 	dataplaneCreator core.DataplaneFactory, workerNodeCreator core.WorkerNodeFactory, cfg *config.ControlPlaneConfig) *ControlPlane {
@@ -83,7 +77,7 @@ func NewControlPlane(client persistence.PersistenceLayer, outputFile string, pla
 		Config: cfg,
 
 		// Seems like the stop channel is useless
-		// multiscaler: predictive_autoscaler.NewMultiScaler(make(chan struct{}), createAutoscaler),
+		multiscaler: predictive_autoscaler.NewMultiScaler(make(chan struct{}), uniscalerFactoryCreator),
 	}
 }
 
@@ -317,12 +311,13 @@ func (c *ControlPlane) registerService(ctx context.Context, serviceInfo *proto.S
 
 	// Create autoscaler object
 	c.multiscaler.Create(context.Background(),
+		c.SIStorage.GetNoCheck(serviceInfo.Name).Controller,
 		&predictive_autoscaler.Decider{
 			// TODO: Update those fields to match with Dirigent at the moment
 			ObjectMeta: metav1.ObjectMeta{},
 			Spec:       predictive_autoscaler.DeciderSpec{},
 			Status:     predictive_autoscaler.DeciderStatus{},
-		}, c.SIStorage.GetNoCheck(serviceInfo.Name).Controller.DesiredStateChannel)
+		})
 
 	if c.Config.PrecreateSnapshots {
 		c.precreateSnapshots(serviceInfo)
@@ -534,7 +529,7 @@ func (c *ControlPlane) stopAllScalingLoops() {
 	c.SIStorage.Lock()
 	defer c.SIStorage.Unlock()
 
-	// TODO: Create generic Start / Stop function for predictive autoscaling
+	// TODO: Create generic Start / Stop function for predictive per_function_state
 	/*for _, function := range c.SIStorage.GetMap() {
 		function.Controller.Stop()
 	}*/

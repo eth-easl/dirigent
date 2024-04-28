@@ -1,10 +1,10 @@
 package control_plane
 
 import (
-	"cluster_manager/internal/control_plane/control_plane/autoscaling"
 	"cluster_manager/internal/control_plane/control_plane/core"
 	"cluster_manager/internal/control_plane/control_plane/data_plane"
 	"cluster_manager/internal/control_plane/control_plane/data_plane/empty_dataplane"
+	"cluster_manager/internal/control_plane/control_plane/per_function_state"
 	"cluster_manager/internal/control_plane/control_plane/placement_policy"
 	"cluster_manager/internal/control_plane/control_plane/workers/empty_worker"
 	"cluster_manager/mock/mock_core"
@@ -1173,7 +1173,7 @@ func TestEndpointsWithDeregistration(t *testing.T) {
 	assert.NoError(t, err)
 
 	for i := 0; i < size; i++ {
-		autoscalingConfig := autoscaling.NewDefaultAutoscalingMetadata()
+		autoscalingConfig := per_function_state.NewDefaultAutoscalingMetadata()
 		autoscalingConfig.ScalingUpperBound = 1
 		//autoscalingConfig.ScalingLowerBound = 1
 

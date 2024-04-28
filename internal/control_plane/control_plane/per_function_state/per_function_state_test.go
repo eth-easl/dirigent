@@ -1,4 +1,4 @@
-package autoscaling
+package per_function_state
 
 import (
 	"cluster_manager/proto"
@@ -35,7 +35,7 @@ func TestSimpleController(t *testing.T) {
 	scalingChannel := getScalingChannel()
 	serviceInfo := getServiceInfo()
 
-	pfStateController := NewPerFunctionStateController(scalingChannel, serviceInfo, time.Millisecond*100)
+	pfStateController := NewPerFunctionState(scalingChannel, serviceInfo, time.Millisecond*100)
 
 	assert.True(t, pfStateController.Start(), "Start should return true")
 }
@@ -44,7 +44,7 @@ func TestMultipleStarts(t *testing.T) {
 	scalingChannel := getScalingChannel()
 	serviceInfo := getServiceInfo()
 
-	pfStateController := NewPerFunctionStateController(scalingChannel, serviceInfo, time.Millisecond*100)
+	pfStateController := NewPerFunctionState(scalingChannel, serviceInfo, time.Millisecond*100)
 	assert.True(t, pfStateController.Start(), "Start should return true")
 	for i := 0; i < 10000; i++ {
 		assert.False(t, pfStateController.Start(), "Start should return false")

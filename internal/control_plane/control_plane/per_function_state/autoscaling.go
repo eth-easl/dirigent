@@ -1,4 +1,4 @@
-package autoscaling
+package per_function_state
 
 import (
 	"cluster_manager/proto"
@@ -30,9 +30,9 @@ type AutoscalingMetadata struct {
 	inflightRequestsPerDataPlane map[string]int32
 	inflightRequestsLock         sync.RWMutex
 
-	cachedScalingMetric int32
-	scalingMetrics      []float64
-	windowHead          int64
+	CachedScalingMetrics int32
+	ScalingMetrics       []float64
+	WindowHead           int64
 }
 
 func NewDefaultAutoscalingMetadata() *proto.AutoscalingConfiguration {
@@ -55,7 +55,7 @@ func (s *AutoscalingMetadata) RemoveDataplane(dataplaneName string) {
 	s.inflightRequestsLock.Lock()
 	defer s.inflightRequestsLock.Unlock()
 
-	atomic.AddInt32(&s.cachedScalingMetric, -s.inflightRequestsPerDataPlane[dataplaneName])
+	atomic.AddInt32(&s.CachedScalingMetrics, -s.inflightRequestsPerDataPlane[dataplaneName])
 	delete(s.inflightRequestsPerDataPlane, dataplaneName)
 }
 
@@ -63,7 +63,7 @@ func (s *AutoscalingMetadata) SetCachedScalingMetric(metrics *proto.AutoscalingM
 	s.inflightRequestsLock.Lock()
 	defer s.inflightRequestsLock.Unlock()
 
-	atomic.AddInt32(&s.cachedScalingMetric, metrics.InflightRequests-s.inflightRequestsPerDataPlane[metrics.DataplaneName])
+	atomic.AddInt32(&s.CachedScalingMetrics, metrics.InflightRequests-s.inflightRequestsPerDataPlane[metrics.DataplaneName])
 	s.inflightRequestsPerDataPlane[metrics.DataplaneName] = metrics.InflightRequests
 }
 
@@ -72,7 +72,7 @@ func (s *AutoscalingMetadata) KnativeScaling(isScaleFromZero bool) int {
 		return 1
 	}
 
-	desiredScale, _ := s.internalScaleAlgorithm(float64(s.cachedScalingMetric))
+	desiredScale, _ := s.internalScaleAlgorithm(float64(s.CachedScalingMetrics))
 
 	return mathutil.Clamp(desiredScale, int(s.AutoscalingConfig.ScalingLowerBound), int(s.AutoscalingConfig.ScalingUpperBound))
 }
@@ -173,22 +173,22 @@ func (s *AutoscalingMetadata) windowAverage(observedStableValue float64) (float6
 	}
 
 	// because we get metrics every 2s, so 30 buckets are 60s
-	if len(s.scalingMetrics) < int(stableBucketCount) {
+	if len(s.ScalingMetrics) < int(stableBucketCount) {
 		// append value as new bucket if we have not reached max number of buckets
-		s.scalingMetrics = append(s.scalingMetrics, observedStableValue)
+		s.ScalingMetrics = append(s.ScalingMetrics, observedStableValue)
 	} else {
 		// otherwise replace the least recent measurement
-		s.scalingMetrics[s.windowHead] = observedStableValue
+		s.ScalingMetrics[s.WindowHead] = observedStableValue
 	}
 
-	currentWindowIndex := s.windowHead
+	currentWindowIndex := s.WindowHead
 	avgStable := 0.0
 
-	windowLength := int(math.Min(float64(stableBucketCount), float64(len(s.scalingMetrics))))
+	windowLength := int(math.Min(float64(stableBucketCount), float64(len(s.ScalingMetrics))))
 	for i := 0; i < windowLength; i++ {
 		// sum values of buckets, starting at most recent measurement
 		// most recent one has the highest weight
-		value := s.scalingMetrics[currentWindowIndex]
+		value := s.ScalingMetrics[currentWindowIndex]
 		if s.AutoscalingConfig.ScalingMethod == Exponential {
 			value = value * multiplierStable
 			multiplierStable = (1 - smoothingCoefficientStable) * multiplierStable
@@ -207,13 +207,13 @@ func (s *AutoscalingMetadata) windowAverage(observedStableValue float64) (float6
 		avgStable = avgStable / float64(windowLength)
 	}
 
-	currentWindowIndex = s.windowHead
+	currentWindowIndex = s.WindowHead
 	avgPanic := 0.0
 
-	windowLength = int(math.Min(float64(panicBucketCount), float64(len(s.scalingMetrics))))
+	windowLength = int(math.Min(float64(panicBucketCount), float64(len(s.ScalingMetrics))))
 	for i := 0; i < windowLength; i++ {
 		// sum values of buckets, starting at most recent measurement
-		value := s.scalingMetrics[currentWindowIndex]
+		value := s.ScalingMetrics[currentWindowIndex]
 		if s.AutoscalingConfig.ScalingMethod == Exponential {
 			value = value * multiplierPanic
 			multiplierPanic = (1 - smoothingCoefficientPanic) * multiplierPanic
@@ -227,9 +227,9 @@ func (s *AutoscalingMetadata) windowAverage(observedStableValue float64) (float6
 		}
 	}
 
-	s.windowHead++
-	if s.windowHead >= stableBucketCount {
-		s.windowHead = 0 // move windowHead back to 0 if it exceeds the maximum number of buckets
+	s.WindowHead++
+	if s.WindowHead >= stableBucketCount {
+		s.WindowHead = 0 // move WindowHead back to 0 if it exceeds the maximum number of buckets
 	}
 
 	if s.AutoscalingConfig.ScalingMethod == Arithmetic {
