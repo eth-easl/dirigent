@@ -36,14 +36,14 @@ fi
 sudo curl -L "https://github.com/docker/compose/releases/download/1.29.2/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose
 sudo chmod +x /usr/local/bin/docker-compose
 sudo apt-get install -y docker.io
-sudo groupadd docker
+sudo groupadd -f docker
 sudo usermod -aG docker $USER
 
 # Install CNI
 sudo apt-get update >> /dev/null
 sudo apt-get install -y apt-transport-https ca-certificates curl >> /dev/null
 sudo mkdir -p -m 755 /etc/apt/keyrings
-curl -fsSL https://pkgs.k8s.io/core:/stable:/v1.29/deb/Release.key | sudo gpg --dearmor -o /etc/apt/keyrings/kubernetes-apt-keyring.gpg
+curl -fsSL https://pkgs.k8s.io/core:/stable:/v1.29/deb/Release.key | sudo gpg --batch --yes --dearmor -o /etc/apt/keyrings/kubernetes-apt-keyring.gpg
 echo 'deb [signed-by=/etc/apt/keyrings/kubernetes-apt-keyring.gpg] https://pkgs.k8s.io/core:/stable:/v1.29/deb/ /' | sudo tee /etc/apt/sources.list.d/kubernetes.list
 sudo apt-get update >> /dev/null
 sudo apt-get -y install containerd kubernetes-cni >> /dev/null
@@ -52,11 +52,11 @@ sudo apt-get -y install containerd kubernetes-cni >> /dev/null
 ARCH="$(uname -m)"
 release_url="https://github.com/firecracker-microvm/firecracker/releases"
 latest=$(basename $(curl -fsSLI -o /dev/null -w  %{url_effective} ${release_url}/latest))
-curl -L ${release_url}/download/${latest}/firecracker-${latest}-${ARCH}.tgz \
-| tar -xz
+curl -L ${release_url}/download/${latest}/firecracker-${latest}-${ARCH}.tgz | tar -xz
+sudo rm -rf /usr/local/bin/firecracker
 sudo mv release-${latest}-$(uname -m) /usr/local/bin/firecracker
 sudo mv /usr/local/bin/firecracker/firecracker-${latest}-${ARCH} /usr/local/bin/firecracker/firecracker
-sudo sh -c  "echo 'export PATH=\$PATH:/usr/local/bin/firecracker' >> /etc/profile"
+echo "export PATH=$PATH:/usr/local/bin/firecracker" | sudo tee -a /etc/profile
 
 # Copy systemd services
 sudo cp -a ~/cluster_manager/scripts/systemd/* /etc/systemd/system/
