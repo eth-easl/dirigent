@@ -1,10 +1,6 @@
-import numpy as np
-import pandas as pd
-import glob
 import os
 import json
 import shutil
-
 
 dict_rps_containerd = {
   "Seed": 42,
@@ -71,41 +67,44 @@ dict_rps_firecracker = {
   "GRPCFunctionTimeoutSeconds": 20
 }
 
-if os.path.isdir("rps"):
-    shutil.rmtree('rps')
+script_dir = os.path.dirname(os.path.realpath(__file__))
+rps_dir = os.path.join(script_dir, 'rps')
 
-os.mkdir("rps")
+if os.path.isdir(rps_dir):
+    shutil.rmtree(rps_dir)
+
+os.mkdir(rps_dir)
 
 for i in range(25,2500, 25):
     obj2 = dict_rps_containerd
     obj2['RpsTarget'] = i
 
-    path = "rps/" + str(i)
+    path = os.path.join(rps_dir, str(i))
     os.mkdir(path)
 
-    with open(path + '/config_containerd.json', 'w') as fp:
+    with open(os.path.join(path, 'config_containerd.json'), 'w') as fp:
       json.dump(obj2, fp)
 
     obj3 = dict_rps_firecracker
     obj3['RpsTarget'] = i
     obj3['RpsImage'] = "empty"
 
-    with open(path + '/config_firecracker.json', 'w') as fp:
+    with open(os.path.join(path, 'config_firecracker.json'), 'w') as fp:
       json.dump(obj3, fp)
 
 for i in range(0,11):
     obj2 = dict_rps_containerd
     obj2['RpsTarget'] = i
 
-    path = "rps/" + str(i)
+    path = os.path.join(rps_dir, str(i))
     os.mkdir(path)
 
-    with open(path + '/config_containerd.json', 'w') as fp:
+    with open(os.path.join(path, 'config_containerd.json'), 'w') as fp:
         json.dump(obj2, fp)
 
     obj3 = dict_rps_firecracker
     obj3['RpsTarget'] = i
     obj3['RpsImage'] = "empty"
 
-    with open(path + '/config_firecracker.json', 'w') as fp:
+    with open(os.path.join(path, 'config_firecracker.json'), 'w') as fp:
         json.dump(obj3, fp)

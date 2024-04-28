@@ -38,7 +38,7 @@ function SetupNode() {
 }
 
 git lfs pull
-python3 invitro_traces/generate_traces.py
+python3 "$DIR/invitro_traces/generate_traces.py"
 
 GenerateSSHKeys
 
