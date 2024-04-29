@@ -157,12 +157,6 @@ type scalerRunner struct {
 	decider *Decider
 }
 
-func (sr *scalerRunner) latestScale() int32 {
-	sr.mux.RLock()
-	defer sr.mux.RUnlock()
-	return sr.decider.Status.DesiredScale
-}
-
 func sameSign(a, b int32) bool {
 	return (a&math.MinInt32)^(b&math.MinInt32) == 0
 }
@@ -441,21 +435,6 @@ func (m *MultiScaler) Poke(key string) {
 	scaler.pokeCh <- struct{}{}
 }
 
-/*// Poke checks if the autoscaler needs to be run immediately.
-func (m *MultiScaler) Poke(key types.NamespacedName, stat Stat) {
-	m.scalersMutex.RLock()
-	defer m.scalersMutex.RUnlock()
-
-	scaler, exists := m.scalers[key]
-	if !exists {
-		return
-	}
-
-	if scaler.latestScale() == 0 && stat.average_concurrent_requests != 0 {
-		scaler.pokeCh <- struct{}{}
-	}
-}*/
-
 func (m *MultiScaler) checkIfGlobalScalingLimitsCanBeComputed() {
 	defer m.scalersMutex.Unlock()
 
@@ -485,6 +464,10 @@ func (m *MultiScaler) checkIfGlobalScalingLimitsCanBeComputed() {
 	}
 }
 
+func (m *MultiScaler) getGlobalThreshold() int32 {
+	return 80
+}
+
 func (m *MultiScaler) computeGlobalScalingLimits() {
 	limitComputationStartTime := time.Now()
 	scalePerFunctionBinned := make(map[string][]int32)
@@ -496,7 +479,7 @@ func (m *MultiScaler) computeGlobalScalingLimits() {
 	totalUpscaling, totalDownscaling := m.computeTotalScalingDecisions(scalePerFunctionBinned)
 	logrus.Infof("totalUpscaling length %d, totalDownscaling length %d",
 		len(totalUpscaling), len(totalDownscaling))
-	var threshold int32 = 2
+	var threshold int32 = m.getGlobalThreshold()
 	m.shiftUpscaling(threshold, totalUpscaling, scalePerFunctionBinned)
 	totalUpscaling, totalDownscaling = m.computeTotalScalingDecisions(scalePerFunctionBinned)
 	logrus.Infof("totalUpscaling length %d, totalDownscaling length %d after shiting upscaling",

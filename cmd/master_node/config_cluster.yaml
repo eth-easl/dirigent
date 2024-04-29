@@ -5,8 +5,8 @@ registrationServerReplicas: ""
 verbosity: "trace"
 traceOutputFolder: "data"
 placementPolicy: "random"
-persistence: true
-reconstruct: true
+persistence: false
+reconstruct: false
 
 # to use HAProxy load balancer put 10.0.1.254:8079, otherwise leave blank
 loadBalancerAddress: "10.0.1.254:8079"

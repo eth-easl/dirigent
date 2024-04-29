@@ -146,7 +146,7 @@ func proxyHandler(request *http.Request, requestMetadata requestMetadata, proxyC
 
 	// Notify metric collector we got a response
 	proxyContext.doneRequestChannel <- metrics_collection.DurationInvocation{
-		Duration:    uint32(time.Since(startProxy).Milliseconds()),
+		Duration:    max(uint32(time.Since(startProxy).Seconds()), 1),
 		ServiceName: serviceName,
 	}
 

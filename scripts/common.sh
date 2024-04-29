@@ -3,9 +3,9 @@
 readonly DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" > /dev/null 2>&1 && pwd)"
 source $DIR/setup.cfg
 
-readonly INVITRO=Francois@pc841.emulab.net
-readonly CONTROLPLANE=Francois@pc790.emulab.net
-readonly DATAPLANE=Francois@pc738.emulab.net
+readonly INVITRO=Francois@hp122.utah.cloudlab.us
+readonly CONTROLPLANE=Francois@hp123.utah.cloudlab.us
+readonly DATAPLANE=Francois@hp133.utah.cloudlab.us
 
 readonly CONTROLPLANE_1=Francois@hp091.utah.cloudlab.us
 readonly CONTROLPLANE_2=Francois@hp081.utah.cloudlab.us

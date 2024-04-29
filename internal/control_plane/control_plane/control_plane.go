@@ -126,7 +126,7 @@ func (c *CpApiServer) SendMetricsToPredictiveAutoscaler(ctx context.Context, in 
 		}
 	}
 
-	return c.ControlPlane.SendMetricsToPredictiveAutoscaler(ctx, in)
+	return c.ControlPlane.sendMetricsToPredictiveAutoscaler(ctx, in)
 }
 
 func (c *CpApiServer) ListServices(ctx context.Context, empty *emptypb.Empty) (*proto.ServiceList, error) {

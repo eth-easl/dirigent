@@ -52,19 +52,15 @@ type autoscaler struct {
 
 	startPredictiveScaling bool
 
-	invocationsPerMinute       []float64
-	processedRequestsPerMinute []float64
-	capacityEstimateWindow     []float64
-	startTime                  time.Time
-	currentMinute              int
-	currentEpoch               int
-	previousReadyPodsCount     float64
-	averageCapacity            float64
-	previousPrediction         []float64
-	predictedScale             []int32
-	shiftedScale               []int32
-	limitsComputed             bool
-	prevPredictionMinute       int
+	invocationsPerMinute []float64
+	startTime            time.Time
+	currentMinute        int
+	currentEpoch         int
+	averageCapacity      float64
+	predictedScale       []int32
+	shiftedScale         []int32
+	limitsComputed       bool
+	prevPredictionMinute int
 
 	// oracle
 	scale        []int
@@ -119,7 +115,8 @@ func newAutoscaler(
 		namespace:     namespace,
 		revision:      revision,
 
-		metricClient: metric_client.NewMetricClient(functionState.ScalingMetadata),
+		metricClient:         metric_client.NewMetricClient(functionState.ScalingMetadata),
+		invocationsPerMinute: make([]float64, 60),
 
 		deciderSpec: deciderSpec,
 
@@ -378,9 +375,10 @@ func (a *autoscaler) predictiveAutoscaling(readyPodsCount float64,
 		a.currentEpoch++
 		return math.Ceil(observedConcurrency)
 	}
+
 	// This is only executed after 60 minutes of gathering data!
 	var prediction []float64
-	if a.currentMinute > a.prevPredictionMinute+15 {
+	if a.currentMinute > a.prevPredictionMinute+1 {
 		a.prevPredictionMinute = a.currentMinute
 		invocationsWindow := a.invocationsPerMinute[len(a.invocationsPerMinute)-60 : len(a.invocationsPerMinute)]
 		// we only use fft on a window of the past 60 invocations per minute
@@ -391,7 +389,7 @@ func (a *autoscaler) predictiveAutoscaling(readyPodsCount float64,
 		a.SharePredictions()
 		logrus.Infof("Autoscaler %s sharing predictions of length %d at epoch %d",
 			a.revision, len(pred), a.currentEpoch)
-		logrus.Info("Autoscaler "+a.revision+"sharing predictedScale as ", a.predictedScale)
+		logrus.Info("Autoscaler "+a.revision+" sharing predictedScale as ", a.predictedScale)
 		s := make([]int32, a.currentEpoch-1)
 		s = append(s, pred...)
 		a.predictedScale = s
@@ -411,11 +409,20 @@ func (a *autoscaler) predictiveAutoscaling(readyPodsCount float64,
 		desiredScale = a.shiftedScale[a.currentEpoch]
 		logrus.Infof("Autoscaler %s using shifted scale %d with current epoch %d",
 			a.revision, desiredScale, a.currentEpoch)
+	} else {
+		logrus.Infof("Autoscaler %s using predicted scale without limits %d with current epoch %d",
+			a.revision, desiredScale, a.currentEpoch)
 	}
 	if desiredScale < 1 && observedConcurrency > 0 {
 		desiredScale = 1
 		logrus.Infof("Autoscaler %s scaling to 1 as concurrency is %f",
 			a.revision, observedConcurrency)
+	}
+	if observedConcurrency/readyPodsCount > 2 && float64(desiredScale) <= readyPodsCount {
+		prevDesired := desiredScale
+		desiredScale = int32(readyPodsCount) + 1
+		logrus.Infof("Autoscaler %s scaling to %d as concurrency is %f, predicted scale was %d, readyPodsCount is %f",
+			a.revision, desiredScale, observedConcurrency, prevDesired, readyPodsCount)
 	}
 	a.currentEpoch++
 	return float64(desiredScale)
@@ -428,12 +435,19 @@ func (a *autoscaler) ComputeInvocationsPerMinute(invocationsPerMinuteFromDatapla
 	}
 
 	a.invocationsPerMinute = invocationsPerMinuteFromDataplane
+
+	/*logrus.Warnf("Service : %s", a.functionState.ServiceName)
+	for _, val := range invocationsPerMinuteFromDataplane {
+		fmt.Print(fmt.Sprintf("%f | ", val))
+	}*/
 }
 
 // In Dirigent, we receive the values from the data plane
 func (a *autoscaler) EstimateCapacity(averageDurationFromDataplane int32) {
 	if averageDurationFromDataplane == 0 {
-		logrus.Fatal("AverageDurationFromDataplane is zero")
+		// TODO: What to do here
+		// logrus.Fatal("AverageDurationFromDataplane is zero")
+		averageDurationFromDataplane = 1
 	}
 	a.averageCapacity = 1 / float64(averageDurationFromDataplane)
 }
@@ -449,7 +463,11 @@ func (a *autoscaler) predictionToScale(pred []float64) []int32 {
 		}
 		poissonMultiplier := 1.5
 		// should account for invocation iats not being equidistant
-		s := poissonMultiplier * (1 / a.averageCapacity) * p / 60
+		capacity := a.averageCapacity
+		if capacity <= 0 {
+			capacity = 1
+		}
+		s := poissonMultiplier * (1 / capacity) * p / 60
 		if s > p || s <= 0 {
 			s = p // scale to at most the number of invocations within that minute
 		}

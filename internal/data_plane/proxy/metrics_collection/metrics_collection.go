@@ -88,7 +88,8 @@ func (c *MetricsCollector) controlPlaneNotifierLoop() {
 		c.sendChannel <- struct{}{}
 
 		// Sleep
-		time.Sleep(time.Duration(c.controlPlaneNotifyInterval) * time.Second)
+		//time.Sleep(time.Minute)
+		time.Sleep(time.Duration(c.controlPlaneNotifyInterval) * time.Minute)
 	}
 }
 
@@ -121,14 +122,23 @@ func (c *MetricsCollector) parseMetrics() *proto.MetricsPredictiveAutoscaler {
 	}
 
 	return &proto.MetricsPredictiveAutoscaler{
-		FunctionNames:        nil,
-		FunctionDuration:     nil,
-		InvocationsPerMinute: nil,
+		FunctionNames:        functionNames,
+		FunctionDuration:     functionsDurations,
+		InvocationsPerMinute: invocationsPerMinute,
 	}
 }
 
 func (c *MetricsCollector) shitBins() {
 	logrus.Infof("Shifting bins")
+
+	/*for service, functionName := range c.metadata {
+		logrus.Infof("Service : %s", service)
+		for _, val := range functionName.invocationPerSeconds {
+			fmt.Print(fmt.Sprintf("%d | ", val))
+		}
+		fmt.Println()
+		fmt.Println(functionName.averageDuration)
+	}*/
 
 	for _, value := range c.metadata {
 		for i := number_minutes - 1; i > 0; i-- {

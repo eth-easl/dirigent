@@ -309,7 +309,13 @@ func (c *ControlPlane) registerService(ctx context.Context, serviceInfo *proto.S
 				Name: serviceInfo.Name,
 			},
 			Spec: predictive_autoscaler.DeciderSpec{
-				ScalingMetric: utils.PREDICTIVE_AUTOSCALER,
+				MaxScaleUpRate:   1000,
+				MaxScaleDownRate: 2,
+				ScalingMetric:    utils.PREDICTIVE_AUTOSCALER,
+				TotalValue:       10000,
+				PanicThreshold:   200,
+				StableWindow:     60,
+				ScaleDownDelay:   2,
 			},
 			Status: predictive_autoscaler.DeciderStatus{},
 		})
@@ -380,7 +386,7 @@ func (c *ControlPlane) onMetricsReceive(_ context.Context, metric *proto.Autosca
 	return &proto.ActionStatus{Success: true}, nil
 }
 
-func (c *ControlPlane) SendMetricsToPredictiveAutoscaler(ctx context.Context, in *proto.MetricsPredictiveAutoscaler, opts ...grpc.CallOption) (*proto.ActionStatus, error) {
+func (c *ControlPlane) sendMetricsToPredictiveAutoscaler(ctx context.Context, in *proto.MetricsPredictiveAutoscaler, opts ...grpc.CallOption) (*proto.ActionStatus, error) {
 	if err := c.multiscaler.ForwardDataplaneMetrics(in); err != nil {
 		logrus.Errorf("Failed to forward dataplane metrics (error : %s)", err.Error())
 		return &proto.ActionStatus{Success: false}, err

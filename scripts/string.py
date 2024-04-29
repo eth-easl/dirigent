@@ -10,7 +10,7 @@ elif args.type == "worker-ha":
     start_addr = 7
 
 # Change this line with the automatic script
-list = ["Francois@pc841.emulab.net","Francois@pc790.emulab.net","Francois@pc738.emulab.net","Francois@pc734.emulab.net","Francois@pc848.emulab.net","Francois@pc737.emulab.net","Francois@pc795.emulab.net"]
+list = ["Francois@hp122.utah.cloudlab.us","Francois@hp123.utah.cloudlab.us","Francois@hp133.utah.cloudlab.us","Francois@hp130.utah.cloudlab.us","Francois@hp138.utah.cloudlab.us","Francois@hp143.utah.cloudlab.us","Francois@hp155.utah.cloudlab.us","Francois@hp121.utah.cloudlab.us","Francois@hp124.utah.cloudlab.us","Francois@hp159.utah.cloudlab.us"]
 ans = ""
 
 for i in range (start_addr,len(list)):
