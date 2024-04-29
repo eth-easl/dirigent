@@ -29,19 +29,19 @@ type ControlPlaneConfig struct {
 }
 
 type DataPlaneConfig struct {
-	DataPlaneIp                string    `mapstructure:"dataPlaneIp"`
-	ControlPlaneAddress        []string  `mapstructure:"controlPlaneAddress"`
-	PortProxy                  string    `mapstructure:"portProxy"`
-	PortProxyRead              string    `mapstructure:"portProxyRead"`
-	PortGRPC                   string    `mapstructure:"portGRPC"`
-	Verbosity                  string    `mapstructure:"verbosity"`
-	TraceOutputFolder          string    `mapstructure:"traceOutputFolder"`
-	LoadBalancingPolicy        string    `mapstructure:"loadBalancingPolicy"`
-	Async                      bool      `mapstructure:"async"`
-	RedisConf                  RedisConf `mapstructure:"redis"`
-	PersistRequests            bool      `mapstructure:"persistRequests"`
-	NumberRetries              int       `mapstructure:"numberRetries"`
-	ControlPlaneNotifyInterval int       `mapstructure:"controlPlaneNotifyInterval"`
+	DataPlaneIp                         string    `mapstructure:"dataPlaneIp"`
+	ControlPlaneAddress                 []string  `mapstructure:"controlPlaneAddress"`
+	PortProxy                           string    `mapstructure:"portProxy"`
+	PortProxyRead                       string    `mapstructure:"portProxyRead"`
+	PortGRPC                            string    `mapstructure:"portGRPC"`
+	Verbosity                           string    `mapstructure:"verbosity"`
+	TraceOutputFolder                   string    `mapstructure:"traceOutputFolder"`
+	LoadBalancingPolicy                 string    `mapstructure:"loadBalancingPolicy"`
+	Async                               bool      `mapstructure:"async"`
+	RedisConf                           RedisConf `mapstructure:"redis"`
+	PersistRequests                     bool      `mapstructure:"persistRequests"`
+	NumberRetries                       int       `mapstructure:"numberRetries"`
+	ControlPlaneNotifyIntervalInMinutes int       `mapstructure:"controlPlaneNotifyIntervalMinutes"`
 }
 
 type WorkerNodeConfig struct {

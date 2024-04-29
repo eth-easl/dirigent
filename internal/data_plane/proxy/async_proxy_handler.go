@@ -56,7 +56,7 @@ func NewAsyncProxyingService(cfg config.DataPlaneConfig, cache *common.Deploymen
 		persistenceLayer = request_persistence.CreateEmptyRequestPersistence()
 	}
 
-	incomingRequestChannel, doneRequestChannel := metrics_collection.NewMetricsCollector(cfg.ControlPlaneNotifyInterval, cp)
+	incomingRequestChannel, doneRequestChannel := metrics_collection.NewMetricsCollector(cfg.ControlPlaneNotifyIntervalInMinutes, cp)
 
 	proxy := &AsyncProxyingService{
 		Host:     utils.Localhost,

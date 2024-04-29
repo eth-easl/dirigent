@@ -19,7 +19,6 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/protobuf/types/known/emptypb"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"knative.dev/serving/pkg/apis/serving"
 	"strconv"
 	"sync"
 	"time"
@@ -45,14 +44,6 @@ type ControlPlane struct {
 
 func uniscalerFactoryCreator(functionState *per_function_state.PFState, decider *predictive_autoscaler.Decider, predictionsCh chan predictive_autoscaler.ScalingDecisions,
 	shiftedScalingCh chan predictive_autoscaler.ScalingDecisions, startCh chan bool) (predictive_autoscaler.UniScaler, error) {
-	configName := decider.Labels[serving.ConfigurationLabelKey]
-	if configName == "" {
-		return nil, fmt.Errorf("label %q not found or empty in Decider %s", serving.ConfigurationLabelKey, decider.Name)
-	}
-	revisionName := decider.Labels[serving.RevisionLabelKey]
-	if revisionName == "" {
-		return nil, fmt.Errorf("label %q not found or empty in Decider %s", serving.RevisionLabelKey, decider.Name)
-	}
 
 	// TODO: Replace metricClient calls with Dirigent gRPC calls
 	return predictive_autoscaler.New(functionState, decider.Namespace, decider.Name,
@@ -314,9 +305,13 @@ func (c *ControlPlane) registerService(ctx context.Context, serviceInfo *proto.S
 		c.SIStorage.GetNoCheck(serviceInfo.Name).Controller,
 		&predictive_autoscaler.Decider{
 			// TODO: Update those fields to match with Dirigent at the moment
-			ObjectMeta: metav1.ObjectMeta{},
-			Spec:       predictive_autoscaler.DeciderSpec{},
-			Status:     predictive_autoscaler.DeciderStatus{},
+			ObjectMeta: metav1.ObjectMeta{
+				Name: serviceInfo.Name,
+			},
+			Spec: predictive_autoscaler.DeciderSpec{
+				ScalingMetric: utils.PREDICTIVE_AUTOSCALER,
+			},
+			Status: predictive_autoscaler.DeciderStatus{},
 		})
 
 	if c.Config.PrecreateSnapshots {

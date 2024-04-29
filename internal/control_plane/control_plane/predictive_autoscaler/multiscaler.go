@@ -22,7 +22,6 @@ import (
 	"context"
 	"errors"
 	"github.com/sirupsen/logrus"
-	"k8s.io/apimachinery/pkg/types"
 	"math"
 	"sync"
 	"time"
@@ -203,7 +202,7 @@ type MultiScaler struct {
 	uniScalerFactory UniScalerFactory
 
 	watcherMutex sync.RWMutex
-	watcher      func(types.NamespacedName)
+	watcher      func(string)
 
 	tickProvider func(time.Duration) *time.Ticker
 
@@ -241,13 +240,13 @@ func (m *MultiScaler) Get(_ context.Context, namespace, name string) (*Decider, 
 // Create instantiates the desired Decider.
 // Last parameter is unique to Dirigent
 func (m *MultiScaler) Create(_ context.Context, functionState *per_function_state.PFState, decider *Decider) (*Decider, error) {
-	key := types.NamespacedName{Namespace: decider.Namespace, Name: decider.Name}
 	m.scalersMutex.Lock()
 	defer m.scalersMutex.Unlock()
 	scaler, exists := m.scalers[decider.Name]
 	if !exists {
 		var err error
-		scaler, err = m.createScaler(functionState, decider, key)
+		logrus.Warnf("%s", decider.Name)
+		scaler, err = m.createScaler(functionState, decider, decider.Name)
 		if err != nil {
 			return nil, err
 		}
@@ -312,19 +311,8 @@ func (m *MultiScaler) Delete(_ context.Context, namespace, name string) {
 	}
 }
 
-// Watch registers a singleton function to call when DeciderStatus is updated.
-func (m *MultiScaler) Watch(fn func(types.NamespacedName)) {
-	m.watcherMutex.Lock()
-	defer m.watcherMutex.Unlock()
-
-	if m.watcher != nil {
-		logrus.Fatal("Multiple calls to Watch() not supported")
-	}
-	m.watcher = fn
-}
-
 // Inform sends an update to the registered watcher function, if it is set.
-func (m *MultiScaler) Inform(event types.NamespacedName) bool {
+func (m *MultiScaler) Inform(event string) bool {
 	m.watcherMutex.RLock()
 	defer m.watcherMutex.RUnlock()
 
@@ -335,7 +323,7 @@ func (m *MultiScaler) Inform(event types.NamespacedName) bool {
 	return false
 }
 
-func (m *MultiScaler) runScalerTicker(runner *scalerRunner, metricKey types.NamespacedName) {
+func (m *MultiScaler) runScalerTicker(runner *scalerRunner, metricKey string) {
 	ticker := m.tickProvider(tickInterval)
 	go func() {
 		defer ticker.Stop()
@@ -354,7 +342,7 @@ func (m *MultiScaler) runScalerTicker(runner *scalerRunner, metricKey types.Name
 	}()
 }
 
-func (m *MultiScaler) createScaler(functionState *per_function_state.PFState, decider *Decider, key types.NamespacedName) (*scalerRunner, error) {
+func (m *MultiScaler) createScaler(functionState *per_function_state.PFState, decider *Decider, key string) (*scalerRunner, error) {
 	d := decider.DeepCopy()
 	predictionsCh := make(chan ScalingDecisions, 5)
 	shiftedScalingCh := make(chan ScalingDecisions, 5)
@@ -387,7 +375,7 @@ func (m *MultiScaler) createScaler(functionState *per_function_state.PFState, de
 	return runner, nil
 }
 
-func (m *MultiScaler) tickScaler(scaler UniScaler, runner *scalerRunner, metricKey types.NamespacedName) {
+func (m *MultiScaler) tickScaler(scaler UniScaler, runner *scalerRunner, metricKey string) {
 	go m.receivePredictions(runner)
 	sr := scaler.Scale(time.Now())
 

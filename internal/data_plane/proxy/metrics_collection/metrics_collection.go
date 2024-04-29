@@ -64,6 +64,13 @@ func (c *MetricsCollector) metricGatheringLoop() {
 			c.shitBins()
 		case service := <-c.incomingRequestChannel:
 			logrus.Tracef("Received data from incomingRequestChannel : %s", service)
+			if _, ok := c.metadata[service]; !ok {
+				c.metadata[service] = &MetadataPerFunction{
+					invocationPerSeconds: make([]uint32, 60),
+					averageDuration:      0,
+				}
+			}
+
 			currentSlice := c.metadata[service]
 			currentSlice.invocationPerSeconds[0]++
 		case duration := <-c.doneRequestChannel:
@@ -81,7 +88,7 @@ func (c *MetricsCollector) controlPlaneNotifierLoop() {
 		c.sendChannel <- struct{}{}
 
 		// Sleep
-		time.Sleep(time.Duration(c.controlPlaneNotifyInterval) * time.Minute)
+		time.Sleep(time.Duration(c.controlPlaneNotifyInterval) * time.Second)
 	}
 }
 
