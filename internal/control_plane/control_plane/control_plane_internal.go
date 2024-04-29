@@ -364,8 +364,15 @@ func (c *ControlPlane) onMetricsReceive(_ context.Context, metric *proto.Autosca
 		return &proto.ActionStatus{Success: false}, nil
 	}
 
+	prev := storage.Controller.ScalingMetadata.CachedScalingMetrics
+
 	storage.Controller.ScalingMetadata.SetCachedScalingMetric(metric)
 	logrus.Debug("Scaling metric for '", storage.ServiceInfo.Name, "' is ", metric.InflightRequests)
+
+	if prev == 0 {
+		// First invocation, we trigger the autoscaler immediatly
+		c.multiscaler.Poke(storage.ServiceInfo.Name)
+	}
 
 	// TODO: Make it modular with base autoscaler
 	// storage.Controller.Start()

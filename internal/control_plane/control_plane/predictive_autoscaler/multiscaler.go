@@ -428,6 +428,19 @@ func (m *MultiScaler) receivePredictions(runner *scalerRunner) {
 	}
 }
 
+func (m *MultiScaler) Poke(key string) {
+	m.scalersMutex.RLock()
+	defer m.scalersMutex.RUnlock()
+
+	scaler, exists := m.scalers[key]
+	if !exists {
+		return
+	}
+
+	// Tick here
+	scaler.pokeCh <- struct{}{}
+}
+
 /*// Poke checks if the autoscaler needs to be run immediately.
 func (m *MultiScaler) Poke(key types.NamespacedName, stat Stat) {
 	m.scalersMutex.RLock()
