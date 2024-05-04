@@ -457,8 +457,7 @@ func (a *autoscaler) predictionToScale(pred []float64) []int32 {
 	logrus.Infof("Autoscaler %s average capacity: %f at minute %d",
 		a.revision, a.averageCapacity, a.currentMinute)
 	for _, p := range pred {
-		p = math.Round(p)
-		if p < 0 {
+		if p < 0.1 {
 			p = 0
 		}
 		poissonMultiplier := 1.5
@@ -471,7 +470,7 @@ func (a *autoscaler) predictionToScale(pred []float64) []int32 {
 		if s > p || s <= 0 {
 			s = p // scale to at most the number of invocations within that minute
 		}
-		if p == 1 {
+		if p > 0.1 && p <= 1 {
 			s = 1
 			// if there's only 1 invocation there's no need for more than 1 pod
 		}
