@@ -13,6 +13,7 @@ import (
 	"github.com/containerd/containerd"
 	"github.com/containerd/containerd/cio"
 	"github.com/containerd/containerd/oci"
+	"github.com/containerd/containerd/remotes/docker"
 	"github.com/containerd/go-cni"
 	"github.com/sirupsen/logrus"
 )
@@ -40,7 +41,10 @@ func GetCNIClient(configFile string) cni.CNI {
 }
 
 func FetchImage(ctx context.Context, client *containerd.Client, imageURL string) (containerd.Image, error) {
-	image, err := client.Pull(ctx, imageURL, containerd.WithPullUnpack)
+	resolver := docker.NewResolver(docker.ResolverOptions{
+		PlainHTTP: true,
+	})
+	image, err := client.Pull(ctx, imageURL, containerd.WithPullUnpack, containerd.WithResolver(resolver))
 	if err != nil {
 		return nil, err
 	}
