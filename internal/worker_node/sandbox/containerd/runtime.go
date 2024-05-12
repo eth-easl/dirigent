@@ -8,6 +8,8 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"time"
+
 	"github.com/containerd/containerd"
 	"github.com/containerd/containerd/namespaces"
 	"github.com/containerd/go-cni"
@@ -15,7 +17,6 @@ import (
 	"github.com/sirupsen/logrus"
 	"google.golang.org/protobuf/types/known/durationpb"
 	"google.golang.org/protobuf/types/known/emptypb"
-	"time"
 )
 
 type ContainerdRuntime struct {
@@ -87,19 +88,61 @@ func (cr *ContainerdRuntime) CreateSandbox(grpcCtx context.Context, in *proto.Se
 
 	if err != nil {
 		logrus.Warn("Failed fetching image - ", err)
-		return &proto.SandboxCreationStatus{Success: false}, err
+		return &proto.SandboxCreationStatus{
+			Success: false,
+			LatencyBreakdown: &proto.SandboxCreationBreakdown{
+				Total:               durationpb.New(time.Since(start)),
+				ImageFetch:          durationpb.New(durationFetch),
+				SandboxCreate:       durationpb.New(0),
+				NetworkSetup:        durationpb.New(0),
+				SandboxStart:        durationpb.New(0),
+				Iptables:            durationpb.New(0),
+				ReadinessProbing:    durationpb.New(0),
+				SnapshotCreation:    durationpb.New(0),
+				ConfigureMonitoring: durationpb.New(0),
+				FindSnapshot:        durationpb.New(0),
+			},
+		}, err
 	}
 
 	container, err, durationContainerCreation := CreateContainer(ctx, cr.ContainerdClient, image, in.SandboxConfiguration)
 	if err != nil {
 		logrus.Warn("Failed creating a container - ", err)
-		return &proto.SandboxCreationStatus{Success: false}, err
+		return &proto.SandboxCreationStatus{
+			Success: false,
+			LatencyBreakdown: &proto.SandboxCreationBreakdown{
+				Total:               durationpb.New(time.Since(start)),
+				ImageFetch:          durationpb.New(durationFetch),
+				SandboxCreate:       durationpb.New(durationContainerCreation),
+				NetworkSetup:        durationpb.New(0),
+				SandboxStart:        durationpb.New(0),
+				Iptables:            durationpb.New(0),
+				ReadinessProbing:    durationpb.New(0),
+				SnapshotCreation:    durationpb.New(0),
+				ConfigureMonitoring: durationpb.New(0),
+				FindSnapshot:        durationpb.New(0),
+			},
+		}, err
 	}
 
 	task, _, ip, netNs, err, durationContainerStart, durationCNI := StartContainer(ctx, container, cr.CNIClient)
 	if err != nil {
 		logrus.Warn("Failed starting a container - ", err)
-		return &proto.SandboxCreationStatus{Success: false}, err
+		return &proto.SandboxCreationStatus{
+			Success: false,
+			LatencyBreakdown: &proto.SandboxCreationBreakdown{
+				Total:               durationpb.New(time.Since(start)),
+				ImageFetch:          durationpb.New(durationFetch),
+				SandboxCreate:       durationpb.New(durationContainerCreation),
+				NetworkSetup:        durationpb.New(durationCNI),
+				SandboxStart:        durationpb.New(durationContainerStart),
+				Iptables:            durationpb.New(0),
+				ReadinessProbing:    durationpb.New(0),
+				SnapshotCreation:    durationpb.New(0),
+				ConfigureMonitoring: durationpb.New(0),
+				FindSnapshot:        durationpb.New(0),
+			},
+		}, err
 	}
 
 	startConfigureMonitoring := time.Now()

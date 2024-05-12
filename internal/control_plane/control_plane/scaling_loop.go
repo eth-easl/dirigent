@@ -12,11 +12,12 @@ import (
 	"cluster_manager/proto"
 	"context"
 	"fmt"
-	"github.com/sirupsen/logrus"
-	"google.golang.org/protobuf/types/known/durationpb"
 	"sync"
 	"sync/atomic"
 	"time"
+
+	"github.com/sirupsen/logrus"
+	"google.golang.org/protobuf/types/known/durationpb"
 )
 
 type ServiceInfoStorage struct {
@@ -129,6 +130,31 @@ func (ss *ServiceInfoStorage) doUpscaling(toCreateCount int, loopStarted time.Ti
 				logrus.Warnf("Failed to start a sandbox on worker node %s (error %s)", node.GetName(), text)
 
 				atomic.AddInt64(&ss.PerFunctionState.ActualScale, -1)
+
+				var latencyBreakdown *proto.SandboxCreationBreakdown
+				if resp != nil {
+					latencyBreakdown = resp.LatencyBreakdown
+				} else {
+					latencyBreakdown = &proto.SandboxCreationBreakdown{
+						Total:               durationpb.New(utils.WorkerNodeTrafficTimeout),
+						ImageFetch:          durationpb.New(0),
+						SandboxCreate:       durationpb.New(0),
+						NetworkSetup:        durationpb.New(0),
+						SandboxStart:        durationpb.New(0),
+						Iptables:            durationpb.New(0),
+						ReadinessProbing:    durationpb.New(0),
+						SnapshotCreation:    durationpb.New(0),
+						ConfigureMonitoring: durationpb.New(0),
+						FindSnapshot:        durationpb.New(0),
+					}
+				}
+				ss.ColdStartTracingChannel <- tracing.ColdStartLogEntry{
+					ServiceName:      ss.ServiceInfo.Name,
+					ContainerID:      "",
+					Success:          false,
+					PersistenceCost:  0,
+					LatencyBreakdown: latencyBreakdown,
+				}
 				return
 			}
 
