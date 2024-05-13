@@ -49,6 +49,9 @@ function SetupNode() {
     RemoteExec $1 'sudo cp -r ~/cluster_manager/ /cluster_manager'
     RemoteExec $1 '[ ! -d ~/invitro ] && git clone https://github.com/vhive-serverless/invitro.git'
     CopyToRemote "$DIR/invitro_traces" "$1:invitro"
+
+    # TODO: Copy from cluster_manager repo and only in invitro node
+    rsync -av invitro_traces/* $1:invitro/invitro_traces
 }
 
 git lfs pull

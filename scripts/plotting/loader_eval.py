@@ -42,10 +42,10 @@ def process_latency(path):
         idx = 1
     print("check what instance name is to change idx on line 44")
     idx = 1
-    df['function_hash'] = df['instance'].str.split("-").str[2]
+    df['function_hash'] = df['instance']
     print(f"Number of functios {len(df['function_hash'].unique())}")
     df = df.reset_index(drop=True)
-    df['slowdown'] = df['responseTime'] / df['requestedDuration']
+    df['slowdown'] = df['responseTime'] / df['actualDuration']
     df = df.groupby(df.function_hash).slowdown.apply(stats.gmean)
     df = df.to_frame()
     cdf = get_cdf(df, 'slowdown')
@@ -65,10 +65,10 @@ def slowdown_over_time(path):
         idx = 1
     print("check what instance name is to change idx on line 63")
     idx = 1
-    df['function_hash'] = df['instance'].str.split("-").str[2]
+    df['function_hash'] = df['instance']
     print(f"Number of functios {len(df['function_hash'].unique())}")
     df = df.reset_index(drop=True)
-    df['slowdown'] = df['responseTime'] / df['requestedDuration']
+    df['slowdown'] = df['responseTime'] / df['actualDuration']
 
     # for each minute:
     # group by function applying geo mean
