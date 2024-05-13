@@ -12,11 +12,11 @@ type ResourceMap struct {
 }
 
 func (r *ResourceMap) GetCPUCores() uint64 {
-	return r.resources[RM_CPU_KEY]
+	return r.GetByKey(RM_CPU_KEY)
 }
 
 func (r *ResourceMap) GetMemory() uint64 {
-	return r.resources[RM_MEMORY_KEY]
+	return r.GetByKey(RM_MEMORY_KEY)
 }
 
 func (r *ResourceMap) SetCPUCores(v uint64) {

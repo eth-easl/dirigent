@@ -20,10 +20,10 @@ type KubernetesPolicy struct {
 }
 
 func (policy *KubernetesPolicy) Place(storage synchronization.SyncStructure[string, core.WorkerNodeInterface], requested *ResourceMap) core.WorkerNodeInterface {
-	filteredStorage := filterMachines(storage, policy.resourceMap)
-	scores := prioritizeNodes(filteredStorage, requested)
+	filteredNodes := filterMachines(storage, policy.resourceMap)
+	scores := prioritizeNodes(filteredNodes, storage, requested)
 
-	return selectOneMachine(filteredStorage, scores)
+	return selectOneMachine(storage, scores)
 }
 
 type ScoringAlgorithmType func(ResourceMap, ResourceMap) uint64
@@ -123,8 +123,8 @@ func ScoreBalancedAllocation(installed ResourceMap, requested ResourceMap) uint6
 	return uint64((1 - std) * float64(100))
 }
 
-func filterMachines(storage synchronization.SyncStructure[string, core.WorkerNodeInterface], resourceMap *ResourceMap) synchronization.SyncStructure[string, core.WorkerNodeInterface] {
-	var resultingNodes synchronization.SyncStructure[string, core.WorkerNodeInterface]
+func filterMachines(storage synchronization.SyncStructure[string, core.WorkerNodeInterface], resourceMap *ResourceMap) []string {
+	var resultingNodes []string
 
 	// Model implementation - kubernetes/pkg/scheduler/framework/plugins/noderesources/fit.go:fitsRequest:256
 	for key, value := range storage.GetMap() {
@@ -135,7 +135,7 @@ func filterMachines(storage synchronization.SyncStructure[string, core.WorkerNod
 			continue
 		}
 
-		resultingNodes.Set(key, value)
+		resultingNodes = append(resultingNodes, key)
 	}
 
 	return resultingNodes
@@ -150,20 +150,24 @@ func getRequestedResources(machine core.WorkerNodeInterface, request *ResourceMa
 	return SumResources(currentUsage, request)
 }
 
-func prioritizeNodes(storage synchronization.SyncStructure[string, core.WorkerNodeInterface], request *ResourceMap) map[string]uint64 {
+func prioritizeNodes(nodes []string, storage synchronization.SyncStructure[string, core.WorkerNodeInterface], request *ResourceMap) map[string]uint64 {
 	scores := make(map[string]uint64)
+	if len(nodes) == 0 {
+		return scores
+	}
 
 	filterAlgorithms := CreateScoringPipeline()
-
 	for _, alg := range filterAlgorithms {
-		for key, machine := range storage.GetMap() {
-			installedResources := getInstalledResources(machine)
-			requestedResources := getRequestedResources(machine, request)
+		for _, machine := range nodes {
+			wni := storage.GetNoCheck(machine)
+
+			installedResources := getInstalledResources(wni)
+			requestedResources := getRequestedResources(wni, request)
 
 			sc := alg.Score(*installedResources, *requestedResources)
-			scores[key] += sc
+			scores[machine] += sc
 
-			logrus.Debugf("%s on node #%s has scored %d.\n", alg.Name, machine.GetName(), sc)
+			logrus.Tracef("%s on node #%s has scored %d.\n", alg.Name, machine, sc)
 		}
 	}
 
@@ -171,15 +175,15 @@ func prioritizeNodes(storage synchronization.SyncStructure[string, core.WorkerNo
 }
 
 func selectOneMachine(storage synchronization.SyncStructure[string, core.WorkerNodeInterface], scores map[string]uint64) core.WorkerNodeInterface {
-	if storage.AtomicLen() == 0 {
-		logrus.Fatal("There is no candidate machine to select from.")
-	}
-
 	var (
 		selected      core.WorkerNodeInterface = nil
 		maxScore      uint64                   = 0
 		cntOfMaxScore uint64                   = 1
 	)
+
+	if storage.AtomicLen() == 0 || len(scores) == 0 {
+		return selected
+	}
 
 	for key, element := range storage.GetMap() {
 		if scores[key] > maxScore {
