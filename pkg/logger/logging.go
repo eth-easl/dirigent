@@ -13,11 +13,19 @@ func SetupLogger(verbosity string) {
 	logrus.SetFormatter(&logrus.TextFormatter{TimestampFormat: time.StampMilli, FullTimestamp: true})
 
 	switch verbosity {
-	case "debug":
-		logrus.SetLevel(logrus.DebugLevel)
 	case "trace":
 		logrus.SetLevel(logrus.TraceLevel)
-	default:
+	case "debug":
+		logrus.SetLevel(logrus.DebugLevel)
+	case "info":
 		logrus.SetLevel(logrus.InfoLevel)
+	case "warn":
+		logrus.SetLevel(logrus.WarnLevel)
+	case "error":
+		logrus.SetLevel(logrus.ErrorLevel)
+	case "fatal":
+		logrus.SetLevel(logrus.FatalLevel)
+	default:
+		logrus.Fatalf("Invalid log level given in the configuarion : %s !", verbosity)
 	}
 }
