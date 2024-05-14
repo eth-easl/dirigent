@@ -47,6 +47,34 @@ type autoscaler struct {
 	scale        []int
 	epochCounter int
 	timeToWait   int64
+
+	// Mu policy
+
+	// custom scalar parameters
+	maxWaitingTimeInSec   float64
+	executionTimeInSec    float64
+	incomingRequestPerSec float64
+	totalServingRate      float64
+	maxPerPodServingRate  float64
+	prevDesiredPodCount   float64
+	DecreaseCounter       int32
+
+	// for CalculatePodCountUsingCustomSLO()
+	graceFlag                 int
+	desiredPodCountSLO_old    float64
+	incomingRequestPerSec_old float64
+	totalServingRate_old      float64
+	PerPodServingRate_old     float64
+	servingRate_list          []float64
+	servingRate_list_index    int32
+
+	podCPUUsage_old float64
+	podMemUsage_old float64
+
+	// Linear Predictor
+	modelList []ModelUnit
+	pattern   Pattern
+	MaxIRSeen float64
 }
 
 // New creates a new instance of default autoscaler implementation.
@@ -87,6 +115,22 @@ func newAutoscaler(
 		// A new instance of autoscaler is created in panic mode.
 	}
 
+	servingRate_list := make([]float64, 10)
+
+	//List of models with different learning rates
+	lrate := 0.1
+	var ModelList []ModelUnit
+
+	for lrate > 0.0000000001 {
+		//ModelList = append(ModelList, ModelUnit{Weights: make([]float64, windowSize), Bias: 0, Lrate: lrate, WindowSize: windowSize})
+		ModelList = append(ModelList, ModelUnit{Weights: make([]float64, 10), Bias: 0, Lrate: lrate, WindowSize: 10})
+		ModelList = append(ModelList, ModelUnit{Weights: make([]float64, 50), Bias: 0, Lrate: lrate, WindowSize: 50})
+		ModelList = append(ModelList, ModelUnit{Weights: make([]float64, 100), Bias: 0, Lrate: lrate, WindowSize: 100})
+		ModelList = append(ModelList, ModelUnit{Weights: make([]float64, 500), Bias: 0, Lrate: lrate, WindowSize: 500})
+		ModelList = append(ModelList, ModelUnit{Weights: make([]float64, 1000), Bias: 0, Lrate: lrate, WindowSize: 1000})
+		lrate *= 0.1
+	}
+
 	return &autoscaler{
 		functionState: functionState,
 		revision:      revision,
@@ -102,6 +146,11 @@ func newAutoscaler(
 		predictionsCh:    predictionsCh,
 		shiftedScalingCh: shiftedScalingCh,
 		startCh:          startCh,
+
+		servingRate_list:       servingRate_list,
+		servingRate_list_index: 0,
+		modelList:              ModelList,
+		pattern:                Pattern{Features: make([]float64, 1000), SingleExpectation: 0},
 	}
 }
 
@@ -117,14 +166,154 @@ func (a *autoscaler) Scale(now time.Time) ScaleResult {
 
 	var dspc float64
 
-	dspc = a.predictiveAutoscaling(readyPodsCount, now)
-	if dspc == -1 {
-		return invalidSR
+	metricName := spec.ScalingMetric
+	var observedStableValue, observedPanicValue float64
+	var dspc, dppc float64
+
+	switch spec.ScalingMetric {
+	case utils.PREDICTIVE_AUTOSCALER:
+		dspc = a.predictiveAutoscaling(readyPodsCount, now)
+		if dspc == -1 {
+			return invalidSR
+		}
+		var excessBCF float64 = -1
+		return ScaleResult{
+			DesiredPodCount:     int32(dspc),
+			ExcessBurstCapacity: int32(excessBCF),
+			ScaleValid:          true,
+		}
+	case utils.MU_POLICY:
+		dspc = float64(a.muAutoscaling(readyPodsCount, metricKey, now))
+		if dspc == -1 {
+			return invalidSR
+		}
+	case utils.ORACLE_AUTOSCALER:
+		dspc = a.oracleScaling(readyPodsCount, metricKey, now)
+	default:
+		panic("We don't a valid scaling metric")
 	}
 
-	var excessBCF float64 = -1
+	// Make sure we don't get stuck with the same number of pods, if the scale up rate
+	// is too conservative and MaxScaleUp*RPC==RPC, so this permits us to grow at least by a single
+	// pod if we need to scale up.
+	// E.g. MSUR=1.1, OCC=3, RPC=2, TV=1 => OCC/TV=3, MSU=2.2 => DSPC=2, while we definitely, need
+	// 3 pods. See the unit test for this scenario in action.
+	maxScaleUp := math.Ceil(spec.MaxScaleUpRate * readyPodsCount)
+	// Same logic, opposite math applies here.
+	maxScaleDown := 0.
+	if spec.Reachable {
+		maxScaleDown = math.Floor(readyPodsCount / spec.MaxScaleDownRate)
+	}
+
+	if spec.ScalingMetric == utils.CONCURRENCY_SCALING {
+		dspc = math.Ceil(observedStableValue / spec.TargetValue)
+		dppc = math.Ceil(observedPanicValue / spec.TargetValue)
+		if debugEnabled {
+			logrus.Debug(
+				fmt.Sprintf("For metric %s observed values: stable = %0.3f; panic = %0.3f; target = %0.3f "+
+					"Desired StablePodCount = %0.0f, PanicPodCount = %0.0f, ReadyEndpointCount = %d, MaxScaleUp = %0.0f, MaxScaleDown = %0.0f",
+					metricName, observedStableValue, observedPanicValue, spec.TargetValue,
+					dspc, dppc, originalReadyPodsCount, maxScaleUp, maxScaleDown))
+		}
+	}
+
+	// We want to keep desired pod count in the  [maxScaleDown, maxScaleUp] range.
+	desiredStablePodCount := int32(math.Min(math.Max(dspc, maxScaleDown), maxScaleUp))
+	desiredPanicPodCount := int32(math.Min(math.Max(dppc, maxScaleDown), maxScaleUp))
+
+	var excessBCF float64
+	desiredPodCount := desiredStablePodCount
+	//	If ActivationScale > 1, then adjust the desired pod counts
+	if spec.ScalingMetric == utils.CONCURRENCY_SCALING {
+		if a.deciderSpec.ActivationScale > 1 {
+			if dspc > 0 && a.deciderSpec.ActivationScale > desiredStablePodCount {
+				desiredStablePodCount = a.deciderSpec.ActivationScale
+			}
+			if dppc > 0 && a.deciderSpec.ActivationScale > desiredPanicPodCount {
+				desiredPanicPodCount = a.deciderSpec.ActivationScale
+			}
+		}
+
+		isOverPanicThreshold := dppc/readyPodsCount >= spec.PanicThreshold
+
+		if a.panicTime.IsZero() && isOverPanicThreshold {
+			// Begin panicking when we cross the threshold in the panic window.
+			logrus.Info("PANICKING.")
+			a.panicTime = now
+		} else if isOverPanicThreshold {
+			// If we're still over panic threshold right now — extend the panic window.
+			a.panicTime = now
+		} else if !a.panicTime.IsZero() && !isOverPanicThreshold && a.panicTime.Add(spec.StableWindow).Before(now) {
+			// Stop panicking after the surge has made its way into the stable metric.
+			logrus.Info("Un-panicking.")
+			a.panicTime = time.Time{}
+			a.maxPanicPods = 0
+		}
+
+		if !a.panicTime.IsZero() {
+			// In some edgecases stable window metric might be larger
+			// than panic one. And we should provision for stable as for panic,
+			// so pick the larger of the two.
+			if desiredPodCount < desiredPanicPodCount {
+				desiredPodCount = desiredPanicPodCount
+			}
+			logrus.Debug("Operating in panic mode.")
+			// We do not scale down while in panic mode. Only increases will be applied.
+			if desiredPodCount > a.maxPanicPods {
+				logrus.Infof("Increasing pods count from %d to %d.", originalReadyPodsCount, desiredPodCount)
+				a.maxPanicPods = desiredPodCount
+			} else if desiredPodCount < a.maxPanicPods {
+				logrus.Infof("Skipping pod count decrease from %d to %d.", a.maxPanicPods, desiredPodCount)
+			}
+			desiredPodCount = a.maxPanicPods
+		} else {
+			logrus.Debug("Operating in stable mode.")
+		}
+
+		// Delay scale down decisions, if a ScaleDownDelay was specified.
+		// We only do this if there's a non-nil delayWindow because although a
+		// one-element delay window is _almost_ the same as no delay at all, it is
+		// not the same in the case where two Scale()s happen in the same time
+		// interval (because the largest will be picked rather than the most recent
+		// in that case).
+		if a.delayWindow != nil {
+			a.delayWindow.Record(now, desiredPodCount)
+			delayedPodCount := a.delayWindow.Current()
+			if delayedPodCount != desiredPodCount {
+				if debugEnabled {
+					logrus.Debug(
+						fmt.Sprintf("Delaying scale to %d, staying at %d",
+							desiredPodCount, delayedPodCount))
+				}
+				desiredPodCount = delayedPodCount
+			}
+		}
+
+		// Compute excess burst capacity
+		//
+		// the excess burst capacity is based on panic value, since we don't want to
+		// be making knee-jerk decisions about Activator in the request path.
+		// Negative EBC means that the deployment does not have enough capacity to serve
+		// the desired burst off hand.
+		// EBC = TotCapacity - Cur#ReqInFlight - TargetBurstCapacity
+		excessBCF = -1.
+		switch {
+		case spec.TargetBurstCapacity == 0:
+			excessBCF = 0
+		case spec.TargetBurstCapacity > 0:
+			totCap := float64(originalReadyPodsCount) * spec.TotalValue
+			excessBCF = math.Floor(totCap - spec.TargetBurstCapacity - observedPanicValue)
+		}
+	}
+
+	if debugEnabled {
+		logrus.Debug(fmt.Sprintf("PodCount=%d Total1PodCapacity=%0.3f ObsStableValue=%0.3f ObsPanicValue=%0.3f TargetBC=%0.3f ExcessBC=%0.3f",
+			originalReadyPodsCount, spec.TotalValue, observedStableValue,
+			observedPanicValue, spec.TargetBurstCapacity, excessBCF))
+	}
+
 	return ScaleResult{
-		DesiredPodCount:     int32(dspc),
+		DesiredPodCount:     desiredPodCount,
 		ExcessBurstCapacity: int32(excessBCF),
 		ScaleValid:          true,
 	}
@@ -326,4 +515,143 @@ func maxint32(a, b int32) int32 {
 		return a
 	}
 	return b
+}
+
+func (a *autoscaler) oracleScaling(readyPodsCount float64, metricKey types.NamespacedName,
+	now time.Time) float64 {
+	var val float64
+	if len(a.scale) == 0 {
+		fName := a.revision
+		jsonFile, err := os.Open("./var/scale_per_function/" + fName + "/scale.json")
+		if err != nil {
+			logrus.Infof("Couldn't open file: %s", err)
+		} else {
+			jsonStr, _ := ioutil.ReadAll(jsonFile)
+			json.Unmarshal([]byte(jsonStr), &a.scale)
+		}
+		file, err := os.ReadFile("./var/time.txt")
+		if err != nil {
+			logrus.Infof("revision %s error when reading time.txt: %s", a.revision, err)
+		}
+		t := string(file)
+		tInt, err := strconv.ParseInt((strings.Split(t, "\n")[0]), 10, 64)
+		if err != nil {
+			logrus.Infof("error when converting time.txt to integer: %s", err)
+		}
+		logrus.Infof("oracle revision: %s parsed time as %d", a.revision, tInt)
+		a.timeToWait = tInt
+	}
+	if now.Unix() < a.timeToWait {
+		logrus.Infof("oracle revision: %s current time: %d waiting until: %d", a.revision, now.Unix(), a.timeToWait)
+		val = 0.0
+	} else if a.epochCounter == len(a.scale) {
+		logrus.Infof("oracle revision: %s current time: %d length equal to epoch counter", a.revision, now.Unix())
+		val = 0.0
+	} else {
+		logrus.Infof("oracle revision: %s current time: %d waiting until: %d is over, epoch counter: %d",
+			a.revision, now.Unix(), a.timeToWait, a.epochCounter)
+		val = float64(a.scale[a.epochCounter])
+		a.epochCounter++
+	}
+
+	logrus.Infof("oracle revision: %s, oracle time: %d, oracle desired scale: %f, oracle epoch counter: %d, oracle array length: %d",
+		a.revision, now.Unix(), val, a.epochCounter, len(a.scale))
+	return val
+}
+
+func (a *autoscaler) DecrementEpoch() {
+	a.currentEpoch--
+}
+
+func (a *autoscaler) muAutoscaling(readyPodsCount float64, metricKey types.NamespacedName,
+	now time.Time) int32 {
+	if !a.startPredictiveScaling {
+		logrus.Infof("Autoscaler %s checking if it can start", a.revision)
+		select {
+		case _ = <-a.startCh:
+			a.startPredictiveScaling = true
+			logrus.Infof("Autoscaler %s starting", a.revision)
+		default:
+			a.startPredictiveScaling = false
+			// TODO: Port stuff from Drigent
+			observedConcurrency, observedPanic := a.metricClient.StableAndPanicConcurrency()
+			logrus.Infof("Autoscaler %s not started returning %f, panic %f", a.revision, observedConcurrency, observedPanic)
+			return int32(math.Ceil(observedConcurrency))
+		}
+	}
+
+	a.currentMinute = int(now.Sub(a.startTime).Minutes())
+
+	// TODO: Port this function
+	observedConcurrency, _ := a.metricClient.StableAndPanicConcurrency()
+
+	// Dirigent takes care of it
+	/*if prevMinute < a.currentMinute {
+		a.computeInvocationsPerMinute(metricKey, now, logger)
+		a.estimateCapacity(a.invocationsPerMinute[prevMinute], total, logger)
+	}*/
+
+	var servingRate float64 = 1
+	var executionTimeInSec float64 = 1
+
+	if a.averageCapacity > 0 {
+		servingRate = a.averageCapacity
+		executionTimeInSec = 1 / a.averageCapacity
+	}
+
+	// TODO: Replace this interface with Dirigent code
+	observedRps := a.StableAndPanicRPS()
+	incomingRequestPerSec := observedRps
+
+	queueLength := observedConcurrency - readyPodsCount
+
+	var desiredPodCountSLO float64
+
+	//SLO := spec.UserConfig.SLO
+	// TODO: set SLO based on execution time
+	var SLO float64 = 5
+	if executionTimeInSec > 0 {
+		SLO = executionTimeInSec * 10
+	}
+
+	if math.IsNaN(executionTimeInSec) {
+		executionTimeInSec = 0
+		fmt.Printf("error\n")
+		return int32(a.prevDesiredPodCount)
+	}
+
+	if math.IsNaN(servingRate) {
+		servingRate = 0
+		fmt.Printf("error\n")
+		return int32(a.prevDesiredPodCount)
+	}
+
+	if incomingRequestPerSec > a.MaxIRSeen {
+		a.MaxIRSeen = incomingRequestPerSec
+	}
+	a.pattern.SingleExpectation = incomingRequestPerSec
+	UpdateWeightsAll(a.modelList, &a.pattern)
+	UpdatePatternInput(&a.pattern, incomingRequestPerSec)
+	bestIndex := GetBestIndex(a.modelList)
+	prediction := Predict(&a.modelList[bestIndex], &a.pattern)
+	prediction = math.Max(prediction, 0)
+	prediction = math.Min(prediction, a.MaxIRSeen)
+
+	desiredPodCountSLO = math.Ceil(incomingRequestPerSec/servingRate) + math.Ceil(queueLength/(servingRate*(SLO-executionTimeInSec)))
+	dpc := math.Max(1, desiredPodCountSLO)
+	if math.IsNaN(dpc) {
+		dpc = a.prevDesiredPodCount
+	}
+	a.prevDesiredPodCount = dpc
+	return int32(dpc)
+}
+
+func (a *autoscaler) StableAndPanicRPS() float64 {
+	var averageValue float64 = 0
+
+	for _, value := range a.invocationsPerMinute {
+		value += averageValue
+	}
+
+	return averageValue / float64(len(a.invocationsPerMinute))
 }
