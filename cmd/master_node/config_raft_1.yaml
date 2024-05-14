@@ -7,6 +7,7 @@ traceOutputFolder: "data"
 placementPolicy: "random"
 persistence: true
 reconstruct: true
+autoscaler: "default"
 
 # to use HAProxy load balancer put 127.0.0.1:8079, otherwise leave blank
 loadBalancerAddress: "127.0.0.1:8079"

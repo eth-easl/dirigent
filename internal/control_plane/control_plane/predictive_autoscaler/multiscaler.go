@@ -274,7 +274,7 @@ func (m *MultiScaler) ForwardDataplaneMetrics(dataplaneMetrics *proto.MetricsPre
 }
 
 // Delete stops and removes a Decider.
-func (m *MultiScaler) Delete(_ context.Context, namespace, name string) {
+func (m *MultiScaler) Stop(name string) {
 	m.scalersMutex.Lock()
 	defer m.scalersMutex.Unlock()
 	if scaler, exists := m.scalers[name]; exists {
@@ -385,17 +385,21 @@ func (m *MultiScaler) receivePredictions(runner *scalerRunner) {
 	}
 }
 
-func (m *MultiScaler) Poke(key string) {
-	m.scalersMutex.RLock()
-	defer m.scalersMutex.RUnlock()
+func (m *MultiScaler) Poke(key string, previousValue int32) {
+	// If previous value was null, then we tick immediately the autoscaler
+	if previousValue == 0 {
 
-	scaler, exists := m.scalers[key]
-	if !exists {
-		return
+		m.scalersMutex.RLock()
+		defer m.scalersMutex.RUnlock()
+
+		scaler, exists := m.scalers[key]
+		if !exists {
+			return
+		}
+
+		// Tick here
+		scaler.pokeCh <- struct{}{}
 	}
-
-	// Tick here
-	scaler.pokeCh <- struct{}{}
 }
 
 func (m *MultiScaler) checkIfGlobalScalingLimitsCanBeComputed() {

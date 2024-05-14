@@ -299,26 +299,6 @@ func (c *ControlPlane) registerService(ctx context.Context, serviceInfo *proto.S
 		return &proto.ActionStatus{Success: false}, err
 	}
 
-	// Create autoscaler object
-	/*c.multiscaler.Create(context.Background(),
-	c.SIStorage.GetNoCheck(serviceInfo.Name).PerFunctionState,
-	&predictive_autoscaler.Decider{
-		// TODO: Update those fields to match with Dirigent at the moment
-		ObjectMeta: metav1.ObjectMeta{
-			Name: serviceInfo.Name,
-		},
-		Spec: predictive_autoscaler.DeciderSpec{
-			MaxScaleUpRate:   1000,
-			MaxScaleDownRate: 2,
-			ScalingMetric:    utils.PREDICTIVE_AUTOSCALER,
-			TotalValue:       10000,
-			PanicThreshold:   200,
-			StableWindow:     60,
-			ScaleDownDelay:   2,
-		},
-		Status: predictive_autoscaler.DeciderStatus{},
-	})*/
-
 	if c.Config.PrecreateSnapshots {
 		c.precreateSnapshots(serviceInfo)
 	}
@@ -349,7 +329,7 @@ func (c *ControlPlane) deregisterService(ctx context.Context, serviceInfo *proto
 		close(service.PerFunctionState.DesiredStateChannel)
 		c.SIStorage.Remove(serviceInfo.Name)
 
-		// TODO: Stop autoscaler here
+		service.Autoscaler.Stop(serviceInfo.Name)
 
 		return &proto.ActionStatus{Success: true}, nil
 	}
@@ -371,19 +351,13 @@ func (c *ControlPlane) onMetricsReceive(_ context.Context, metric *proto.Autosca
 		return &proto.ActionStatus{Success: false}, nil
 	}
 
+	previousValue := storage.PerFunctionState.CachedScalingMetrics
+
 	storage.PerFunctionState.SetCachedScalingMetrics(metric)
 	logrus.Debug("Scaling metric for '", storage.ServiceInfo.Name, "' is ", metric.InflightRequests)
 
 	// Notify autoscaler we received metrics
-	storage.Autoscaler.Poke(metric.ServiceName)
-
-	// TODO: Implement it in the poke function from Autoscaler
-	/*
-		prev := storage.PerFunctionState.CachedScalingMetrics
-			if prev == 0 {
-				// First invocation, we trigger the autoscaler immediatly
-				c.multiscaler.Poke(storage.ServiceInfo.Name)
-			}*/
+	storage.Autoscaler.Poke(metric.ServiceName, previousValue)
 
 	return &proto.ActionStatus{Success: true}, nil
 }
@@ -539,10 +513,9 @@ func (c *ControlPlane) stopAllScalingLoops() {
 	c.SIStorage.Lock()
 	defer c.SIStorage.Unlock()
 
-	// TODO: Create generic Poke / Stop function for predictive per_function_state
-	/*for _, function := range c.SIStorage.GetMap() {
-		function.PerFunctionState.Stop()
-	}*/
+	for name, function := range c.SIStorage.GetMap() {
+		function.Autoscaler.Stop(name)
+	}
 }
 
 func (c *ControlPlane) reviseDataplanesInLB(callback func([]string) bool) bool {

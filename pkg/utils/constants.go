@@ -27,7 +27,7 @@ const (
 	GRPCConnectionTimeout = 5 * time.Second
 	GRPCFunctionTimeout   = 15 * time.Minute // AWS Lambda
 
-	PREDICTIVE_AUTOSCALER = "predictive_autoscaler"
-	ORACLE_AUTOSCALER     = "oracle_autoscaler"
-	CONCURRENCY_SCALING   = "concurrency"
+	DEFAULT_AUTOSCALER    = "default"
+	PREDICTIVE_AUTOSCALER = "predictive"
+	MU_AUTOSCALER         = "oracle_autoscaler"
 )

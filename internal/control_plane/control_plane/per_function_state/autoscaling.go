@@ -55,7 +55,7 @@ func NewDefaultAutoscalingMetadata() *proto.AutoscalingConfiguration {
 	}
 }
 
-func (s *DefaultAutoscaler) Poke(_ string) {
+func (s *DefaultAutoscaler) Poke(_ string, _ int32) {
 	if atomic.CompareAndSwapInt32(&s.AutoscalingRunning, 0, 1) {
 		logrus.Warn(s.perFunctionState)
 		s.perFunctionState.StopCh = make(chan struct{})

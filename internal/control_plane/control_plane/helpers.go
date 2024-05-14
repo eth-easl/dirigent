@@ -4,7 +4,9 @@ import (
 	"cluster_manager/internal/control_plane/control_plane/core"
 	"cluster_manager/internal/control_plane/control_plane/per_function_state"
 	"cluster_manager/internal/control_plane/control_plane/placement_policy"
+	"cluster_manager/internal/control_plane/control_plane/predictive_autoscaler"
 	"cluster_manager/pkg/config"
+	"cluster_manager/pkg/utils"
 	"cluster_manager/proto"
 	"context"
 	"github.com/sirupsen/logrus"
@@ -35,7 +37,31 @@ func (c *ControlPlane) notifyDataplanesAndStartScalingLoop(ctx context.Context, 
 
 	pfState := per_function_state.NewPerFunctionState(serviceInfo)
 
-	autoscaler := per_function_state.NewDefaultAutoscaler(pfState)
+	var autoscaler core.AutoscalingInterface
+
+	if c.Config.Autoscaler == utils.DEFAULT_AUTOSCALER {
+		autoscaler = per_function_state.NewDefaultAutoscaler(pfState)
+	} else if c.Config.Autoscaler == utils.PREDICTIVE_AUTOSCALER {
+		logrus.Warn(c.SIStorage.GetNoCheck(serviceInfo.Name))
+		c.multiscaler.Create(context.Background(),
+			pfState,
+			&predictive_autoscaler.Decider{
+				Name: serviceInfo.Name,
+				Spec: predictive_autoscaler.DeciderSpec{
+					MaxScaleUpRate:   1000,
+					MaxScaleDownRate: 2,
+					ScalingMetric:    utils.PREDICTIVE_AUTOSCALER,
+					TotalValue:       10000,
+					PanicThreshold:   200,
+					StableWindow:     60,
+					ScaleDownDelay:   2,
+				},
+				Status: predictive_autoscaler.DeciderStatus{},
+			})
+		autoscaler = c.multiscaler
+	} else if c.Config.Autoscaler == utils.MU_AUTOSCALER {
+		logrus.Fatal("Mu autoscaler is not implemented yet")
+	}
 
 	c.SIStorage.Set(serviceInfo.Name, &ServiceInfoStorage{
 		Autoscaler:              autoscaler,
