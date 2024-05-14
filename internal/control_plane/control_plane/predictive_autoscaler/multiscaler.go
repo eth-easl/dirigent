@@ -130,6 +130,8 @@ type UniScaler interface {
 	ComputeInvocationsPerMinute(invocationsPerMinuteFromDataplane []float64)
 
 	EstimateCapacity(averageDurationFromDataplane int32)
+
+	DecrementEpoch()
 }
 
 // UniScalerFactory creates a UniScaler for a given PA using the given dynamic configuration.
@@ -403,6 +405,7 @@ func (m *MultiScaler) Poke(key string, previousValue int32) {
 		}
 
 		// Tick here
+		scaler.scaler.DecrementEpoch()
 		scaler.pokeCh <- struct{}{}
 	}
 }

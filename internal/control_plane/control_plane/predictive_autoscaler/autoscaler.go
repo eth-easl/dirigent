@@ -420,10 +420,6 @@ func maxint32(a, b int32) int32 {
 	return b
 }
 
-func (a *autoscaler) DecrementEpoch() {
-	a.currentEpoch--
-}
-
 func (a *autoscaler) muAutoscaling(readyPodsCount float64, now time.Time) int32 {
 	if !a.startPredictiveScaling {
 		logrus.Infof("Autoscaler %s checking if it can start", a.revision)
@@ -442,14 +438,7 @@ func (a *autoscaler) muAutoscaling(readyPodsCount float64, now time.Time) int32 
 
 	a.currentMinute = int(now.Sub(a.startTime).Minutes())
 
-	// TODO: Port this function
 	observedConcurrency, _ := a.metricClient.StableAndPanicConcurrency()
-
-	// Dirigent takes care of it
-	/*if prevMinute < a.currentMinute {
-		a.computeInvocationsPerMinute(metricKey, now, logger)
-		a.estimateCapacity(a.invocationsPerMinute[prevMinute], total, logger)
-	}*/
 
 	var servingRate float64 = 1
 	var executionTimeInSec float64 = 1
@@ -505,4 +494,8 @@ func (a *autoscaler) muAutoscaling(readyPodsCount float64, now time.Time) int32 
 	a.prevDesiredPodCount = dpc
 	logrus.Errorf("1 %s %f %d", a.revision, dpc, a.currentEpoch)
 	return int32(dpc)
+}
+
+func (a *autoscaler) DecrementEpoch() {
+	a.currentEpoch--
 }
