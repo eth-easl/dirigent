@@ -75,6 +75,9 @@ type autoscaler struct {
 	modelList []ModelUnit
 	pattern   Pattern
 	MaxIRSeen float64
+
+	// For Dirigent only and mu
+	rps float64
 }
 
 // New creates a new instance of default autoscaler implementation.
@@ -600,7 +603,7 @@ func (a *autoscaler) muAutoscaling(readyPodsCount float64, metricKey types.Names
 	}
 
 	// TODO: Replace this interface with Dirigent code
-	observedRps := a.StableAndPanicRPS()
+	observedRps := a.metricClient.StableAndPanicRPS()
 	incomingRequestPerSec := observedRps
 
 	queueLength := observedConcurrency - readyPodsCount
@@ -644,14 +647,4 @@ func (a *autoscaler) muAutoscaling(readyPodsCount float64, metricKey types.Names
 	}
 	a.prevDesiredPodCount = dpc
 	return int32(dpc)
-}
-
-func (a *autoscaler) StableAndPanicRPS() float64 {
-	var averageValue float64 = 0
-
-	for _, value := range a.invocationsPerMinute {
-		value += averageValue
-	}
-
-	return averageValue / float64(len(a.invocationsPerMinute))
 }

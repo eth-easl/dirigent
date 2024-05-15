@@ -354,6 +354,8 @@ func (c *ControlPlane) onMetricsReceive(_ context.Context, metric *proto.Autosca
 	previousValue := storage.PerFunctionState.CachedScalingMetrics
 
 	storage.PerFunctionState.SetCachedScalingMetrics(metric)
+	storage.PerFunctionState.SetRPSMetric(metric)
+
 	logrus.Debug("Scaling metric for '", storage.ServiceInfo.Name, "' is ", metric.InflightRequests)
 
 	// Notify autoscaler we received metrics

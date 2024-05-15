@@ -26,6 +26,7 @@ message AutoscalingMetric {
   string ServiceName = 1;
   string DataplaneName = 2;
   int32 InflightRequests = 3;
+  float RpsValue = 4;
 }
 
 message DataplaneInfo {

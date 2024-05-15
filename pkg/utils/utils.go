@@ -37,3 +37,13 @@ func ExponentialMovingAverage(today uint32, yesterday uint32) uint32 {
 
 	return uint32(float32(today)*frac + float32(yesterday)*(1-frac))
 }
+
+// TODO: Make it generic
+func ExponentialMovingAverageFloat(today float32, yesterday float32) float32 {
+	const smoothing float32 = 2
+	const days float32 = 5
+
+	frac := smoothing / (1 + days)
+
+	return float32(float32(today)*frac + float32(yesterday)*(1-frac))
+}

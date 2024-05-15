@@ -25,6 +25,8 @@ type DefaultAutoscaler struct {
 	ScalingMetrics []float64
 	WindowHead     int64
 
+	RpsValue float64
+
 	AutoscalingRunning int32
 
 	Period time.Duration
@@ -113,6 +115,10 @@ func (s *DefaultAutoscaler) scalingLoop() {
 			return
 		}
 	}
+}
+
+func (s *DefaultAutoscaler) SetRPSMetric(metrics *proto.AutoscalingMetric) {
+	s.RpsValue = float64(metrics.RpsValue)
 }
 
 func (s *DefaultAutoscaler) KnativeScaling(isScaleFromZero bool) int {
@@ -250,7 +256,7 @@ func (s *DefaultAutoscaler) windowAverage(observedStableValue float64) (float64,
 		}
 	}
 
-	if s.perFunctionState.AutoscalingConfig.ScalingMethod == Arithmetic {
+	if s.AutoscalingConfig.ScalingMethod == Arithmetic {
 		// divide by the number of buckets we summed over to get the average
 		avgStable = avgStable / float64(windowLength)
 	}

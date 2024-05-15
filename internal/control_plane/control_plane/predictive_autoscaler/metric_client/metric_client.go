@@ -106,3 +106,7 @@ func (c *MetricClient) StableAndPanicConcurrency() (float64, float64) {
 
 	return avgStable, avgPanic
 }
+
+func (c *MetricClient) StableAndPanicRPS() float64 {
+	return c.autoscalingMetadata.RpsValue
+}

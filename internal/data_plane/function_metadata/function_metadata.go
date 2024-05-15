@@ -3,6 +3,7 @@ package function_metadata
 import (
 	"cluster_manager/pkg/atomic_map_counter"
 	_map "cluster_manager/pkg/map"
+	"cluster_manager/pkg/utils"
 	"cluster_manager/proto"
 	"container/list"
 	"context"
@@ -346,10 +347,14 @@ func (m *FunctionMetadata) sendMetricsToAutoscaler(cp proto.CpiInterfaceClient) 
 
 	logrus.Debug("Started metrics loop")
 
+	var RPSValue float32 = 0
+
 	for ; true; <-timer.C {
 		m.Lock()
 
 		inflightRequests := atomic.LoadInt64(&m.scalingMetric.statistics.Inflight)
+
+		RPSValue = utils.ExponentialMovingAverageFloat(RPSValue, float32(inflightRequests))
 
 		go func() {
 			// TODO: NEED TO IMPLEMENT - the data plane shouldn't stop send metrics until the control plane at least once confirms
@@ -357,6 +362,7 @@ func (m *FunctionMetadata) sendMetricsToAutoscaler(cp proto.CpiInterfaceClient) 
 				ServiceName:      m.identifier,
 				DataplaneName:    m.dataPlaneID,
 				InflightRequests: int32(inflightRequests),
+				RpsValue:         RPSValue,
 			})
 			if err != nil || !status.Success {
 				logrus.Warn("Failed to forward scaling metric to the control plane for service '", m.identifier, "'")
