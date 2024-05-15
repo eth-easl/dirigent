@@ -55,6 +55,9 @@ type FunctionMetadata struct {
 
 	// autoscalingTriggered - 0 = not running; other = running
 	autoscalingTriggered int32
+
+	// MU policy
+	rpsAccumulator float32
 }
 
 type ScalingMetric struct {
@@ -91,6 +94,7 @@ func NewFunctionMetadata(name string, dataplaneID string) *FunctionMetadata {
 			KubernetesRoundRobinCounter: 0,
 			RequestCountPerInstance:     atomic_map_counter.NewAtomicMapCounter[*UpstreamEndpoint](),
 		},
+		rpsAccumulator: 0,
 	}
 }
 
@@ -306,6 +310,7 @@ func (m *FunctionMetadata) TryWarmStart(cp proto.CpiInterfaceClient) (chan ColdS
 
 	// per_function_state metric
 	atomic.AddInt64(&m.scalingMetric.statistics.Inflight, 1)
+	m.rpsAccumulator++
 
 	m.triggerAutoscaling(cp)
 
@@ -354,7 +359,8 @@ func (m *FunctionMetadata) sendMetricsToAutoscaler(cp proto.CpiInterfaceClient) 
 
 		inflightRequests := atomic.LoadInt64(&m.scalingMetric.statistics.Inflight)
 
-		RPSValue = utils.ExponentialMovingAverageFloat(RPSValue, float32(inflightRequests))
+		RPSValue = utils.ExponentialMovingAverageFloat(RPSValue, m.rpsAccumulator/float32(m.scalingMetric.timeWindowSize))
+		m.rpsAccumulator = 0
 
 		go func() {
 			// TODO: NEED TO IMPLEMENT - the data plane shouldn't stop send metrics until the control plane at least once confirms
@@ -373,6 +379,7 @@ func (m *FunctionMetadata) sendMetricsToAutoscaler(cp proto.CpiInterfaceClient) 
 
 		toBreak := inflightRequests == 0
 		if toBreak {
+			RPSValue = 0
 			atomic.StoreInt32(&m.autoscalingTriggered, 0)
 		}
 

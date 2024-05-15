@@ -3,9 +3,9 @@
 DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" > /dev/null 2>&1 && pwd)"
 source $DIR/common.sh
 
-./start_resource_monitoring.sh $(python3 string.py)
+#./start_resource_monitoring.sh $(python3 string.py)
 function Run() {
-  RemoteExec $INVITRO "cd ~/invitro;git reset --hard origin/rps_mode_predictive; sudo /usr/local/go/bin/go run cmd/loader.go  --config ~/invitro/invitro_traces/samples/$1/config.json --verbosity trace"
+  #RemoteExec $INVITRO "cd ~/invitro;git reset --hard origin/rps_mode_predictive; sudo /usr/local/go/bin/go run cmd/loader.go  --config ~/invitro/invitro_traces/samples/$1/config.json --verbosity info"
 
   scp $INVITRO:~/invitro/data/out/experiment_duration_5.csv plotting/azure_$1_5.csv
   scp $INVITRO:~/invitro/data/out/experiment_duration_180.csv plotting/azure_$1_180.csv

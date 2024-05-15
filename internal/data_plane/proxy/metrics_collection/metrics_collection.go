@@ -76,8 +76,9 @@ func (c *MetricsCollector) metricGatheringLoop() {
 		case duration := <-c.doneRequestChannel:
 			logrus.Tracef("Received data from doneRequestChannel : %s", duration.ServiceName)
 			// TODO: Clean this
-			tmp := c.metadata[duration.ServiceName]
-			tmp.averageDuration = utils.ExponentialMovingAverage(duration.Duration, tmp.averageDuration)
+			if tmp, ok := c.metadata[duration.ServiceName]; ok {
+				tmp.averageDuration = utils.ExponentialMovingAverage(duration.Duration, tmp.averageDuration)
+			}
 		}
 	}
 }
