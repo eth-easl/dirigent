@@ -123,8 +123,25 @@ func ScoreBalancedAllocation(installed ResourceMap, requested ResourceMap) uint6
 	return uint64((1 - std) * float64(100))
 }
 
+func minimumNumberOfNodesToFilter(storage synchronization.SyncStructure[string, core.WorkerNodeInterface]) int {
+	count := storage.Len()
+	minimum := 100
+
+	if count < minimum {
+		return count
+	}
+
+	pct := math.Max(5, float64(50-count/125)) // count is integer in K8s original implementation
+	res := int(math.Max(100, float64(count)*pct/100))
+
+	logrus.Tracef("Filtered machines to %d/%d", res, count)
+	return res
+}
+
 func filterMachines(storage synchronization.SyncStructure[string, core.WorkerNodeInterface], resourceMap *ResourceMap) []string {
 	var resultingNodes []string
+	count := 0
+	minCount := minimumNumberOfNodesToFilter(storage)
 
 	// Model implementation - kubernetes/pkg/scheduler/framework/plugins/noderesources/fit.go:fitsRequest:256
 	for key, value := range storage.GetMap() {
@@ -136,6 +153,11 @@ func filterMachines(storage synchronization.SyncStructure[string, core.WorkerNod
 		}
 
 		resultingNodes = append(resultingNodes, key)
+		count++
+
+		if count >= minCount {
+			break
+		}
 	}
 
 	return resultingNodes

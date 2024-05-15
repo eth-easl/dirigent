@@ -63,24 +63,83 @@ func TestRoundRobin(t *testing.T) {
 	}
 }
 
-func TestPlacementOnXKNodes(t *testing.T) {
-	logrus.SetLevel(logrus.DebugLevel)
+func TestMinimumNumberOfNodesToFilter(t *testing.T) {
+	tests := []struct {
+		name     string
+		storage  synchronization.SyncStructure[string, core.WorkerNodeInterface]
+		expected int
+	}{
+		{
+			name:     "filter_50",
+			storage:  createStorageWithXNodes(50),
+			expected: 50,
+		},
+		{
+			name:     "filter_100",
+			storage:  createStorageWithXNodes(100),
+			expected: 100,
+		},
+		{
+			name:     "filter_150",
+			storage:  createStorageWithXNodes(150),
+			expected: 100,
+		},
+		{
+			name:     "filter_250",
+			storage:  createStorageWithXNodes(250),
+			expected: 120,
+		},
+		{
+			name:     "filter_1000",
+			storage:  createStorageWithXNodes(1000),
+			expected: 420,
+		},
+		{
+			name:     "filter_2500",
+			storage:  createStorageWithXNodes(2500),
+			expected: 750,
+		},
+		{
+			name:     "filter_10000",
+			storage:  createStorageWithXNodes(10000),
+			expected: 500,
+		},
+	}
 
-	policy := NewKubernetesPolicy()
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			got := minimumNumberOfNodesToFilter(test.storage)
+			if got != test.expected {
+				t.Error("Got:", got, "Expected:", test.expected)
+			}
+		})
+	}
+}
+
+func createStorageWithXNodes(n int) synchronization.SyncStructure[string, core.WorkerNodeInterface] {
 	storage := synchronization.NewControlPlaneSyncStructure[string, core.WorkerNodeInterface]()
 
-	NODES := 1000
-	ITERATIONS := 10
-	PARALLELISM := 1
-
-	// create cluster
-	for i := 0; i < NODES; i++ {
+	for i := 0; i < n; i++ {
 		storage.Set(fmt.Sprintf("w%d", i), &workers.WorkerNode{
 			Schedulable: true,
 			CpuCores:    10_000,
 			Memory:      65536,
 		})
 	}
+
+	return storage
+}
+
+func TestPlacementOnXKNodes(t *testing.T) {
+	logrus.SetLevel(logrus.DebugLevel)
+
+	NODES := 1000
+	ITERATIONS := 10
+	PARALLELISM := 1
+
+	// create cluster
+	storage := createStorageWithXNodes(NODES)
+	policy := NewKubernetesPolicy()
 
 	var data []float64
 	wg := sync.WaitGroup{}
@@ -101,7 +160,7 @@ func TestPlacementOnXKNodes(t *testing.T) {
 				data = append(data, float64(dt))
 				mutex.Unlock()
 
-				logrus.Tracef("Scheduling on a 5K-node cluster took %d ms", dt)
+				logrus.Tracef("Scheduling on a %d-node cluster took %d ms", NODES, dt)
 			}()
 		}
 
