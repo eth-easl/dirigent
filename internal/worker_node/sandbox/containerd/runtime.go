@@ -6,6 +6,8 @@ import (
 	"cluster_manager/pkg/config"
 	"cluster_manager/proto"
 	"context"
+	"errors"
+	"fmt"
 	"github.com/containerd/containerd"
 	"github.com/containerd/containerd/namespaces"
 	"github.com/containerd/go-cni"
@@ -137,23 +139,32 @@ func (cr *ContainerdRuntime) CreateSandbox(grpcCtx context.Context, in *proto.Se
 		return metadata.RuntimeMetadata.(ContainerdMetadata).Container.ID()
 	})
 
-	return &proto.SandboxCreationStatus{
-		Success:      true,
-		ID:           container.ID(),
-		PortMappings: in.PortForwarding,
-		LatencyBreakdown: &proto.SandboxCreationBreakdown{
-			Total:               durationpb.New(time.Since(start)),
-			ImageFetch:          durationpb.New(durationFetch),
-			SandboxCreate:       durationpb.New(durationContainerCreation),
-			NetworkSetup:        durationpb.New(durationCNI),
-			SandboxStart:        durationpb.New(durationContainerStart),
-			Iptables:            durationpb.New(durationIptables),
-			ReadinessProbing:    durationpb.New(0),
-			SnapshotCreation:    durationpb.New(0),
-			ConfigureMonitoring: durationpb.New(configureMonitoringDuration),
-			FindSnapshot:        durationpb.New(0),
-		},
-	}, nil
+	// blocking call
+	timeToPass, passed := managers.SendReadinessProbe(fmt.Sprintf("localhost:%d", metadata.HostPort))
+
+	if passed {
+		return &proto.SandboxCreationStatus{
+			Success:      true,
+			ID:           container.ID(),
+			PortMappings: in.PortForwarding,
+			LatencyBreakdown: &proto.SandboxCreationBreakdown{
+				Total:               durationpb.New(time.Since(start)),
+				ImageFetch:          durationpb.New(durationFetch),
+				SandboxCreate:       durationpb.New(durationContainerCreation),
+				NetworkSetup:        durationpb.New(durationCNI),
+				SandboxStart:        durationpb.New(durationContainerStart),
+				Iptables:            durationpb.New(durationIptables),
+				ReadinessProbing:    durationpb.New(timeToPass),
+				SnapshotCreation:    durationpb.New(0),
+				ConfigureMonitoring: durationpb.New(configureMonitoringDuration),
+				FindSnapshot:        durationpb.New(0),
+			},
+		}, nil
+	} else {
+		return &proto.SandboxCreationStatus{
+			Success: false,
+		}, errors.New(fmt.Sprintf("readiness probe failed for %s", container.ID()))
+	}
 }
 
 func (cr *ContainerdRuntime) DeleteSandbox(grpcCtx context.Context, in *proto.SandboxID) (*proto.ActionStatus, error) {

@@ -107,17 +107,17 @@ func registrationHandler(cpApi *control_plane.CpApiServer) func(w http.ResponseW
 		if ok {
 			iterationMultiplier, err = strconv.Atoi(iterMul[0])
 			if err != nil {
-				http.Error(w, "Invalid iteration multiplier", http.StatusBadRequest)
+				http.Error(w, "Invalid iteration multiplier.", http.StatusBadRequest)
 				return
 			}
 		}
 
-		coldStartBusyLoopMs := 1
+		coldStartBusyLoopMs := 0
 		busyLoopMs, ok := r.Form["cold_start_busy_loop_ms"]
 		if ok {
 			coldStartBusyLoopMs, err = strconv.Atoi(busyLoopMs[0])
 			if err != nil {
-				http.Error(w, "Invalid sandbox memory size", http.StatusBadRequest)
+				http.Error(w, "Invalid cold start busy loop duration.", http.StatusBadRequest)
 				return
 			}
 		}

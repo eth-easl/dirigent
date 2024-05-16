@@ -151,10 +151,10 @@ func (mux *Multiplexer) HandleFunc(path string, f func(w http.ResponseWriter, r 
 }
 
 func busyLoopOnStartup() {
-	dt := 0
-	dtString, ok := os.LookupEnv("COLD_START_BUSY_LOOP_MS")
+	loopForMs := 0
+	loopForMsString, ok := os.LookupEnv("COLD_START_BUSY_LOOP_MS")
 	if ok {
-		dt, _ = strconv.Atoi(dtString)
+		loopForMs, _ = strconv.Atoi(loopForMsString)
 	}
 
 	multiplier := 102
@@ -164,7 +164,7 @@ func busyLoopOnStartup() {
 	}
 
 	start := time.Now()
-	busyLoopFor(uint32(dt), start, multiplier)
+	busyLoopFor(uint32(loopForMs), start, multiplier)
 	log.Debugf("Spent %d ms on startup", time.Since(start).Milliseconds())
 }
 
