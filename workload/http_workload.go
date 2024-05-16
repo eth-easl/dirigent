@@ -38,6 +38,16 @@ func busySpin(multiplier, runtimeMilli uint32) {
 	}
 }
 
+func busyLoopFor(timeLeftMilliseconds uint32, start time.Time, mpl int) {
+	timeConsumedMilliseconds := uint32(time.Since(start).Milliseconds())
+	if timeConsumedMilliseconds < timeLeftMilliseconds {
+		timeLeftMilliseconds -= timeConsumedMilliseconds
+		if timeLeftMilliseconds > 0 {
+			busySpin(uint32(mpl), timeLeftMilliseconds)
+		}
+	}
+}
+
 func rootHandler(w http.ResponseWriter, req *http.Request) {
 	workload := req.Header.Get("workload")
 	function := req.Header.Get("function")
@@ -69,15 +79,7 @@ func rootHandler(w http.ResponseWriter, req *http.Request) {
 		}
 
 		start := time.Now()
-		timeLeftMilliseconds := uint32(tlm)
-
-		timeConsumedMilliseconds := uint32(time.Since(start).Milliseconds())
-		if timeConsumedMilliseconds < timeLeftMilliseconds {
-			timeLeftMilliseconds -= timeConsumedMilliseconds
-			if timeLeftMilliseconds > 0 {
-				busySpin(uint32(mpl), timeLeftMilliseconds)
-			}
-		}
+		busyLoopFor(uint32(tlm), start, mpl)
 
 		responseBytes, _ := json.Marshal(FunctionResponse{
 			Status:        "OK",
@@ -148,12 +150,32 @@ func (mux *Multiplexer) HandleFunc(path string, f func(w http.ResponseWriter, r 
 	mux.handlers[path] = f
 }
 
+func busyLoopOnStartup() {
+	dt := 0
+	dtString, ok := os.LookupEnv("COLD_START_BUSY_LOOP_MS")
+	if ok {
+		dt, _ = strconv.Atoi(dtString)
+	}
+
+	multiplier := 102
+	multiplierString, ok := os.LookupEnv("ITER_MULTIPLIER")
+	if ok {
+		multiplier, _ = strconv.Atoi(multiplierString)
+	}
+
+	start := time.Now()
+	busyLoopFor(uint32(dt), start, multiplier)
+	log.Debugf("Spent %d ms on startup", time.Since(start).Milliseconds())
+}
+
 func StartHTTPServer() {
 	var err error
 	machineName, err = os.Hostname()
 	if err != nil {
 		log.Fatal("Failed to get HOSTNAME environmental variable.")
 	}
+
+	busyLoopOnStartup()
 
 	mux := NewMultiplexer()
 	mux.HandleFunc("/", rootHandler)
