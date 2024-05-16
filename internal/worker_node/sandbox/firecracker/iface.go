@@ -20,7 +20,7 @@ func makeSocketPath(vmmID string) string {
 	return filepath.Join(os.TempDir(), vmmID)
 }
 
-func makeFirecrackerConfig(vmcs *VMControlStructure, vmDebugMode bool, metadata *SnapshotMetadata) {
+func makeFirecrackerConfig(vmcs *VMControlStructure, vmDebugMode bool) {
 	if vmcs.NetworkConfiguration == nil {
 		logrus.Error("Network must be created before creating a Firecracker config.")
 		return

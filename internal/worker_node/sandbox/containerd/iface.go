@@ -48,7 +48,18 @@ func FetchImage(ctx context.Context, client *containerd.Client, imageURL string)
 	return image, nil
 }
 
-func CreateContainer(ctx context.Context, client *containerd.Client, image containerd.Image) (containerd.Container, error, time.Duration) {
+func composeEnvironmentSetting(cfg *proto.SandboxConfiguration) []string {
+	if cfg == nil {
+		return []string{}
+	}
+
+	return []string{
+		fmt.Sprintf("ITER_MULTIPLIER=%d", cfg.IterationMultiplier),
+		fmt.Sprintf("COLD_START_BUSY_LOOP_MS=%d", cfg.ColdStartBusyLoopMs),
+	}
+}
+
+func CreateContainer(ctx context.Context, client *containerd.Client, image containerd.Image, configuration *proto.SandboxConfiguration) (containerd.Container, error, time.Duration) {
 	start := time.Now()
 
 	containerName := fmt.Sprintf("workload-%d", rand.Int())
@@ -56,7 +67,10 @@ func CreateContainer(ctx context.Context, client *containerd.Client, image conta
 	container, err := client.NewContainer(ctx, containerName,
 		containerd.WithImage(image),
 		containerd.WithNewSnapshot(containerName, image),
-		containerd.WithNewSpec(oci.WithImageConfig(image)),
+		containerd.WithNewSpec(
+			oci.WithImageConfig(image),
+			oci.WithEnv(composeEnvironmentSetting(configuration)),
+		),
 	)
 
 	if err != nil {

@@ -102,6 +102,26 @@ func registrationHandler(cpApi *control_plane.CpApiServer) func(w http.ResponseW
 			autoscalingConfig.ScalingLowerBound = int32(lowerBound)
 		}
 
+		iterationMultiplier := 102
+		iterMul, ok := r.Form["iteration_multiplier"]
+		if ok {
+			iterationMultiplier, err = strconv.Atoi(iterMul[0])
+			if err != nil {
+				http.Error(w, "Invalid iteration multiplier", http.StatusBadRequest)
+				return
+			}
+		}
+
+		coldStartBusyLoopMs := 1
+		busyLoopMs, ok := r.Form["cold_start_busy_loop_ms"]
+		if ok {
+			coldStartBusyLoopMs, err = strconv.Atoi(busyLoopMs[0])
+			if err != nil {
+				http.Error(w, "Invalid sandbox memory size", http.StatusBadRequest)
+				return
+			}
+		}
+
 		var service *proto.ActionStatus
 		if cpApi.LeaderElectionServer.IsLeader() {
 			service, err = cpApi.RegisterService(r.Context(), &proto.ServiceInfo{
@@ -111,6 +131,10 @@ func registrationHandler(cpApi *control_plane.CpApiServer) func(w http.ResponseW
 				AutoscalingConfig: autoscalingConfig,
 				RequestedCpu:      uint64(cpu),
 				RequestedMemory:   uint64(memory),
+				SandboxConfiguration: &proto.SandboxConfiguration{
+					IterationMultiplier: int32(iterationMultiplier),
+					ColdStartBusyLoopMs: int32(coldStartBusyLoopMs),
+				},
 			})
 		} else {
 			service, err = cpApi.LeaderElectionServer.GetLeader().RegisterService(r.Context(), &proto.ServiceInfo{
@@ -120,6 +144,10 @@ func registrationHandler(cpApi *control_plane.CpApiServer) func(w http.ResponseW
 				AutoscalingConfig: autoscalingConfig,
 				RequestedCpu:      uint64(cpu),
 				RequestedMemory:   uint64(memory),
+				SandboxConfiguration: &proto.SandboxConfiguration{
+					IterationMultiplier: int32(iterationMultiplier),
+					ColdStartBusyLoopMs: int32(coldStartBusyLoopMs),
+				},
 			})
 		}
 		if err != nil {

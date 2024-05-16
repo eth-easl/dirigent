@@ -5,8 +5,8 @@ PROTOC_ARGS_TESTS=--go_out=. --go_opt=paths=source_relative --go-grpc_out=. --go
 ROOT_DIR=$(shell dirname $(realpath $(firstword $(MAKEFILE_LIST))))
 
 install_golang_proto_compiler:
-	go get google.golang.org/protobuf/cmd/protoc-gen-go@v1.26
-	go get google.golang.org/grpc/cmd/protoc-gen-go-grpc@v1.1
+	go install google.golang.org/protobuf/cmd/protoc-gen-go@v1.28
+	go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@v1.2
 
 proto:
 	protoc $(PROTOC_ARGS_API) --proto_path=proto proto/*.proto

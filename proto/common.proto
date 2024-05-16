@@ -28,6 +28,11 @@ message AutoscalingConfiguration {
   int32 ScalingMethod = 11;
 }
 
+message SandboxConfiguration {
+  int32 IterationMultiplier = 1;
+  int32 ColdStartBusyLoopMs = 2;
+}
+
 message ServiceInfo {
   string Name = 1;
   string Image = 2;
@@ -35,6 +40,7 @@ message ServiceInfo {
   uint64 RequestedMemory = 4;
   PortMapping PortForwarding = 5;
   AutoscalingConfiguration AutoscalingConfig = 6;
+  SandboxConfiguration SandboxConfiguration = 7;
 }
 
 message ServiceList {

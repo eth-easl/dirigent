@@ -88,7 +88,7 @@ func (cr *ContainerdRuntime) CreateSandbox(grpcCtx context.Context, in *proto.Se
 		return &proto.SandboxCreationStatus{Success: false}, err
 	}
 
-	container, err, durationContainerCreation := CreateContainer(ctx, cr.ContainerdClient, image)
+	container, err, durationContainerCreation := CreateContainer(ctx, cr.ContainerdClient, image, in.SandboxConfiguration)
 	if err != nil {
 		logrus.Warn("Failed creating a container - ", err)
 		return &proto.SandboxCreationStatus{Success: false}, err
