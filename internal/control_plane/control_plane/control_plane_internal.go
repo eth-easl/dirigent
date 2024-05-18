@@ -18,7 +18,6 @@ import (
 	"github.com/sirupsen/logrus"
 	"google.golang.org/grpc"
 	"google.golang.org/protobuf/types/known/emptypb"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"strconv"
 	"sync"
 	"time"
@@ -152,7 +151,7 @@ func (c *ControlPlane) deregisterDataplane(ctx context.Context, in *proto.Datapl
 		}
 
 		for _, value := range c.SIStorage.GetMap() {
-			value.Controller.ScalingMetadata.RemoveDataplane(in.IP)
+			value.PerFunctionState.RemoveDataplane(in.IP)
 		}
 
 		c.DataPlaneConnections.Remove(dataplaneInfo.Address)
@@ -292,7 +291,11 @@ func (c *ControlPlane) registerService(ctx context.Context, serviceInfo *proto.S
 		return &proto.ActionStatus{Success: false}, err
 	}
 
-	err = c.notifyDataplanesAndStartScalingLoop(ctx, serviceInfo, false)
+	perFunctionState := per_function_state.NewPerFunctionState(serviceInfo)
+
+	// TODO: Inject autoscaler here
+	// TODO: Squash this function with creation of the autoscaler object
+	err = c.notifyDataplanesAndStartScalingLoop(ctx, serviceInfo, perFunctionState, false)
 	if err != nil {
 		logrus.Warnf("Failed to connect registered service (error : %s)", err.Error())
 		c.SIStorage.AtomicRemove(serviceInfo.Name)
@@ -301,24 +304,24 @@ func (c *ControlPlane) registerService(ctx context.Context, serviceInfo *proto.S
 	}
 
 	// Create autoscaler object
-	c.multiscaler.Create(context.Background(),
-		c.SIStorage.GetNoCheck(serviceInfo.Name).Controller,
-		&predictive_autoscaler.Decider{
-			// TODO: Update those fields to match with Dirigent at the moment
-			ObjectMeta: metav1.ObjectMeta{
-				Name: serviceInfo.Name,
-			},
-			Spec: predictive_autoscaler.DeciderSpec{
-				MaxScaleUpRate:   1000,
-				MaxScaleDownRate: 2,
-				ScalingMetric:    utils.PREDICTIVE_AUTOSCALER,
-				TotalValue:       10000,
-				PanicThreshold:   200,
-				StableWindow:     60,
-				ScaleDownDelay:   2,
-			},
-			Status: predictive_autoscaler.DeciderStatus{},
-		})
+	/*c.multiscaler.Create(context.Background(),
+	c.SIStorage.GetNoCheck(serviceInfo.Name).PerFunctionState,
+	&predictive_autoscaler.Decider{
+		// TODO: Update those fields to match with Dirigent at the moment
+		ObjectMeta: metav1.ObjectMeta{
+			Name: serviceInfo.Name,
+		},
+		Spec: predictive_autoscaler.DeciderSpec{
+			MaxScaleUpRate:   1000,
+			MaxScaleDownRate: 2,
+			ScalingMetric:    utils.PREDICTIVE_AUTOSCALER,
+			TotalValue:       10000,
+			PanicThreshold:   200,
+			StableWindow:     60,
+			ScaleDownDelay:   2,
+		},
+		Status: predictive_autoscaler.DeciderStatus{},
+	})*/
 
 	if c.Config.PrecreateSnapshots {
 		c.precreateSnapshots(serviceInfo)
@@ -347,7 +350,7 @@ func (c *ControlPlane) deregisterService(ctx context.Context, serviceInfo *proto
 			return &proto.ActionStatus{Success: false}, err
 		}
 
-		close(service.Controller.DesiredStateChannel)
+		close(service.PerFunctionState.DesiredStateChannel)
 		c.SIStorage.Remove(serviceInfo.Name)
 
 		return &proto.ActionStatus{Success: true}, nil
@@ -370,18 +373,22 @@ func (c *ControlPlane) onMetricsReceive(_ context.Context, metric *proto.Autosca
 		return &proto.ActionStatus{Success: false}, nil
 	}
 
-	prev := storage.Controller.ScalingMetadata.CachedScalingMetrics
-
-	storage.Controller.ScalingMetadata.SetCachedScalingMetric(metric)
+	storage.PerFunctionState.SetCachedScalingMetrics(metric)
 	logrus.Debug("Scaling metric for '", storage.ServiceInfo.Name, "' is ", metric.InflightRequests)
 
-	if prev == 0 {
-		// First invocation, we trigger the autoscaler immediatly
-		c.multiscaler.Poke(storage.ServiceInfo.Name)
-	}
+	// Notify autoscaler we received metrics
+	storage.Autoscaler.Poke(metric.ServiceName)
+
+	// TODO: Implement it in the poke function from Autoscaler
+	/*
+		prev := storage.PerFunctionState.CachedScalingMetrics
+			if prev == 0 {
+				// First invocation, we trigger the autoscaler immediatly
+				c.multiscaler.Poke(storage.ServiceInfo.Name)
+			}*/
 
 	// TODO: Make it modular with base autoscaler
-	// storage.Controller.Start()
+	// storage.PerFunctionState.Start()
 
 	return &proto.ActionStatus{Success: true}, nil
 }
@@ -539,7 +546,7 @@ func (c *ControlPlane) stopAllScalingLoops() {
 
 	// TODO: Create generic Start / Stop function for predictive per_function_state
 	/*for _, function := range c.SIStorage.GetMap() {
-		function.Controller.Stop()
+		function.PerFunctionState.Stop()
 	}*/
 }
 

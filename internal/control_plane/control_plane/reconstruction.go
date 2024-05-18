@@ -2,6 +2,7 @@ package control_plane
 
 import (
 	"cluster_manager/internal/control_plane/control_plane/core"
+	"cluster_manager/internal/control_plane/control_plane/per_function_state"
 	"cluster_manager/internal/data_plane/haproxy"
 	config2 "cluster_manager/pkg/config"
 	"cluster_manager/proto"
@@ -10,7 +11,6 @@ import (
 	"github.com/sirupsen/logrus"
 	"google.golang.org/protobuf/types/known/emptypb"
 	"sync"
-	"sync/atomic"
 	"time"
 )
 
@@ -134,7 +134,9 @@ func (c *ControlPlane) reconstructServiceState(ctx context.Context) error {
 			c.SIStorage.Lock()
 			defer c.SIStorage.Unlock()
 
-			err = c.notifyDataplanesAndStartScalingLoop(ctx, service, true)
+			perFunctionState := per_function_state.NewPerFunctionState(service)
+
+			err = c.notifyDataplanesAndStartScalingLoop(ctx, service, perFunctionState, true)
 			if err != nil {
 				logrus.Warnf("Failed to reconstruct service state for %s - %v", service.Name, err)
 			}
@@ -200,20 +202,22 @@ func (c *ControlPlane) reconstructEndpointsState(ctx context.Context) error {
 
 			ss.NIStorage.AtomicGetNoCheck(node.GetName()).GetEndpointMap().AtomicSet(controlPlaneEndpoint, ss.ServiceInfo.Name)
 
-			ss.Controller.EndpointLock.Lock()
-			ss.Controller.Endpoints = append(ss.Controller.Endpoints, controlPlaneEndpoint)
-			urls := ss.prepareEndpointInfo(ss.Controller.Endpoints)
-			ss.Controller.EndpointLock.Unlock()
+			ss.PerFunctionState.EndpointLock.Lock()
+			ss.PerFunctionState.Endpoints = append(ss.PerFunctionState.Endpoints, controlPlaneEndpoint)
+			urls := ss.prepareEndpointInfo(ss.PerFunctionState.Endpoints)
+			ss.PerFunctionState.EndpointLock.Unlock()
 
 			ss.updateEndpoints(urls)
 
 			// do not allow downscaling until the system stabilizes
-			ss.Controller.ScalingMetadata.InPanicMode = true
-			ss.Controller.ScalingMetadata.StartPanickingTimestamp = time.Now()
-			atomic.AddInt64(&ss.Controller.ScalingMetadata.ActualScale, 1)
+			// TODO: Do we really need that, I don't think there is the same feature in the scaling loop and this should not be part of the autoscaler
+			// TODO: This is better in the scaling loop as it is uniform accross all autoscaler
+			/*ss.PerFunctionState.ScalingMetadata.InPanicMode = true
+			ss.PerFunctionState.ScalingMetadata.StartPanickingTimestamp = time.Now()
+			atomic.AddInt64(&ss.PerFunctionState.ActualScale, 1)*/
 
 			// TODO: Create Start / Stop functions
-			// ss.Controller.Start()
+			// ss.PerFunctionState.Start()
 		}(e)
 	}
 

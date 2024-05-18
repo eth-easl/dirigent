@@ -17,7 +17,10 @@ Helpers for control_plane.go
 */
 
 // Only one goroutine will execute the function per service
-func (c *ControlPlane) notifyDataplanesAndStartScalingLoop(ctx context.Context, serviceInfo *proto.ServiceInfo, reconstructFromPersistence bool) error {
+func (c *ControlPlane) notifyDataplanesAndStartScalingLoop(ctx context.Context, serviceInfo *proto.ServiceInfo, perFunctionState *per_function_state.PFState, reconstructFromPersistence bool) error {
+
+	// TODO: Create the per function state object here
+
 	c.DataPlaneConnections.Lock()
 	for _, conn := range c.DataPlaneConnections.GetMap() {
 		_, err := conn.AddDeployment(ctx, serviceInfo)
@@ -35,7 +38,7 @@ func (c *ControlPlane) notifyDataplanesAndStartScalingLoop(ctx context.Context, 
 	c.SIStorage.Set(serviceInfo.Name, &ServiceInfoStorage{
 		ServiceInfo:             serviceInfo,
 		ControlPlane:            c,
-		Controller:              per_function_state.NewPerFunctionState(make(chan int), serviceInfo, 2*time.Second), // TODO: Hardcoded per_function_state for now
+		PerFunctionState:        per_function_state.NewPerFunctionState(serviceInfo), // TODO: Hardcoded per_function_state for now
 		ColdStartTracingChannel: c.ColdStartTracing.InputChannel,
 		PlacementPolicy:         c.PlacementPolicy,
 		PersistenceLayer:        c.PersistenceLayer,
@@ -66,17 +69,17 @@ func (c *ControlPlane) removeEndointsAssociatedWithNode(nodeID string) {
 	c.SIStorage.Lock()
 	for _, value := range c.SIStorage.GetMap() {
 		toExclude := make(map[*core.Endpoint]struct{})
-		value.Controller.EndpointLock.Lock()
-		for _, endpoint := range value.Controller.Endpoints {
+		value.PerFunctionState.EndpointLock.Lock()
+		for _, endpoint := range value.PerFunctionState.Endpoints {
 			if endpoint.Node.GetName() == nodeID {
 				toExclude[endpoint] = struct{}{}
 			}
 		}
 
 		value.excludeEndpoints(toExclude)
-		value.Controller.EndpointLock.Unlock()
+		value.PerFunctionState.EndpointLock.Unlock()
 
-		atomic.AddInt64(&value.Controller.ScalingMetadata.ActualScale, int64(-len(toExclude)))
+		atomic.AddInt64(&value.PerFunctionState.ActualScale, int64(-len(toExclude)))
 	}
 	c.SIStorage.Unlock()
 }

@@ -44,3 +44,12 @@ type WorkerNodeInterface interface {
 	SetSchedulability(bool)
 	GetSchedulability() bool
 }
+
+type AutoscalingInterface interface {
+	Poke(functionName string)
+	// TODO: I should set this in per functions state -> this goes in per function state
+	// ForwardDataplaneMetrics(*proto.MetricsPredictiveAutoscaler)
+	// TODO: Same for this function
+	// ForwardRPSMetrics()
+	Stop(functionName string)
+}

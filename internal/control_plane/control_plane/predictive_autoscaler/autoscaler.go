@@ -115,7 +115,7 @@ func newAutoscaler(
 		namespace:     namespace,
 		revision:      revision,
 
-		metricClient:         metric_client.NewMetricClient(functionState.ScalingMetadata),
+		metricClient:         metric_client.NewMetricClient(functionState),
 		invocationsPerMinute: make([]float64, 60),
 
 		deciderSpec: deciderSpec,

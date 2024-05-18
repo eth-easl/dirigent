@@ -1213,7 +1213,7 @@ func TestEndpointsWithDeregistration(t *testing.T) {
 
 	sum := 0
 	for _, value := range controlPlane.SIStorage.GetMap() {
-		sum += len(value.Controller.Endpoints)
+		sum += len(value.PerFunctionState.Endpoints)
 	}
 
 	assert.Zero(t, sum)

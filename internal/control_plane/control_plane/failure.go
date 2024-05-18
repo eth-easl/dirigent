@@ -27,12 +27,12 @@ func (c *ControlPlane) HandleFailure(failures []*proto.Failure) bool {
 }
 
 func (c *ControlPlane) removeEndpoints(ss *ServiceInfoStorage, dpConns synchronization.SyncStructure[string, core.DataPlaneInterface], endpoints []string) {
-	ss.Controller.EndpointLock.Lock()
-	defer ss.Controller.EndpointLock.Unlock()
+	ss.PerFunctionState.EndpointLock.Lock()
+	defer ss.PerFunctionState.EndpointLock.Unlock()
 
 	toRemove := make(map[*core.Endpoint]struct{})
 	for _, cid := range endpoints {
-		endpoint := searchEndpointByContainerName(ss.Controller.Endpoints, cid)
+		endpoint := searchEndpointByContainerName(ss.PerFunctionState.Endpoints, cid)
 		if endpoint == nil {
 			logrus.Warn("Endpoint ", cid, " not found for removal.")
 			continue
@@ -44,8 +44,8 @@ func (c *ControlPlane) removeEndpoints(ss *ServiceInfoStorage, dpConns synchroni
 		logrus.Warn("Control plane notified of failure of '", endpoint.SandboxID, "'. Decrementing actual scale and removing the endpoint.")
 	}
 
-	atomic.AddInt64(&ss.Controller.ScalingMetadata.ActualScale, -int64(len(toRemove)))
+	atomic.AddInt64(&ss.PerFunctionState.ActualScale, -int64(len(toRemove)))
 	ss.excludeEndpoints(toRemove)
 
-	ss.updateEndpoints(ss.prepareEndpointInfo(ss.Controller.Endpoints))
+	ss.updateEndpoints(ss.prepareEndpointInfo(ss.PerFunctionState.Endpoints))
 }

@@ -23,8 +23,10 @@ type ServiceInfoStorage struct {
 	ServiceInfo  *proto.ServiceInfo
 	ControlPlane *ControlPlane
 
-	Controller              *per_function_state.PFState
+	PerFunctionState        *per_function_state.PFState
 	ColdStartTracingChannel chan tracing.ColdStartLogEntry
+
+	Autoscaler core.AutoscalingInterface
 
 	PlacementPolicy  placement_policy.PlacementPolicy
 	PersistenceLayer persistence.PersistenceLayer
@@ -38,8 +40,8 @@ type ServiceInfoStorage struct {
 func (ss *ServiceInfoStorage) GetAllURLs() []string {
 	var res []string
 
-	for i := 0; i < len(ss.Controller.Endpoints); i++ {
-		res = append(res, ss.Controller.Endpoints[i].URL)
+	for i := 0; i < len(ss.PerFunctionState.Endpoints); i++ {
+		res = append(res, ss.PerFunctionState.Endpoints[i].URL)
 	}
 
 	return res
@@ -50,13 +52,13 @@ func (ss *ServiceInfoStorage) ScalingControllerLoop() {
 	desiredCount := 0
 
 	for isLoopRunning {
-		desiredCount, isLoopRunning = <-ss.Controller.DesiredStateChannel
+		desiredCount, isLoopRunning = <-ss.PerFunctionState.DesiredStateChannel
 		loopStarted := time.Now()
 
 		lastValue := false
 		for !lastValue {
 			select {
-			case desiredCount, isLoopRunning = <-ss.Controller.DesiredStateChannel:
+			case desiredCount, isLoopRunning = <-ss.PerFunctionState.DesiredStateChannel:
 				lastValue = false
 			default:
 				lastValue = true
@@ -67,21 +69,21 @@ func (ss *ServiceInfoStorage) ScalingControllerLoop() {
 
 		swapped := false
 		for !swapped {
-			actualScale = int(ss.Controller.ScalingMetadata.ActualScale)
-			swapped = atomic.CompareAndSwapInt64(&ss.Controller.ScalingMetadata.ActualScale, int64(actualScale), int64(desiredCount))
+			actualScale = int(ss.PerFunctionState.ActualScale)
+			swapped = atomic.CompareAndSwapInt64(&ss.PerFunctionState.ActualScale, int64(actualScale), int64(desiredCount))
 		}
 
 		// Channel closed ==> We send the instruction to remove all endpoints
 		if !isLoopRunning {
 			desiredCount = 0
 
-			ss.Controller.EndpointLock.Lock()
+			ss.PerFunctionState.EndpointLock.Lock()
 			ss.doDownscaling(actualScale, desiredCount)
-			ss.Controller.EndpointLock.Unlock()
+			ss.PerFunctionState.EndpointLock.Unlock()
 			break
 		}
 
-		ss.Controller.EndpointLock.Lock()
+		ss.PerFunctionState.EndpointLock.Lock()
 
 		if actualScale < desiredCount {
 			ss.doUpscaling(desiredCount-actualScale, loopStarted)
@@ -89,7 +91,7 @@ func (ss *ServiceInfoStorage) ScalingControllerLoop() {
 			ss.doDownscaling(actualScale, desiredCount)
 		}
 
-		ss.Controller.EndpointLock.Unlock() // for all cases (>, ==, <)
+		ss.PerFunctionState.EndpointLock.Unlock() // for all cases (>, ==, <)
 	}
 }
 
@@ -109,7 +111,7 @@ func (ss *ServiceInfoStorage) doUpscaling(toCreateCount int, loopStarted time.Ti
 			if node == nil {
 				logrus.Warn("Failed to do placement. No nodes are schedulable.")
 
-				atomic.AddInt64(&ss.Controller.ScalingMetadata.ActualScale, -1)
+				atomic.AddInt64(&ss.PerFunctionState.ActualScale, -1)
 				return
 			}
 
@@ -124,7 +126,7 @@ func (ss *ServiceInfoStorage) doUpscaling(toCreateCount int, loopStarted time.Ti
 				}
 				logrus.Warnf("Failed to start a sandbox on worker node %s (error %s)", node.GetName(), text)
 
-				atomic.AddInt64(&ss.Controller.ScalingMetadata.ActualScale, -1)
+				atomic.AddInt64(&ss.PerFunctionState.ActualScale, -1)
 				return
 			}
 
@@ -162,7 +164,7 @@ func (ss *ServiceInfoStorage) doUpscaling(toCreateCount int, loopStarted time.Ti
 			// Update worker node structure
 			ss.NIStorage.AtomicGetNoCheck(node.GetName()).GetEndpointMap().AtomicSet(newEndpoint, ss.ServiceInfo.Name)
 
-			ss.Controller.Endpoints = append(ss.Controller.Endpoints, newEndpoint)
+			ss.PerFunctionState.Endpoints = append(ss.PerFunctionState.Endpoints, newEndpoint)
 			urls := ss.prepareEndpointInfo([]*core.Endpoint{newEndpoint}) // prepare delta for sending
 
 			ss.updateEndpoints(urls)
@@ -194,7 +196,7 @@ func (ss *ServiceInfoStorage) removeEndpointFromWNStruct(e *core.Endpoint) {
 }
 
 func (ss *ServiceInfoStorage) doDownscaling(actualScale, desiredCount int) {
-	currentState := ss.Controller.Endpoints
+	currentState := ss.PerFunctionState.Endpoints
 	toEvict := make(map[*core.Endpoint]struct{})
 
 	for i := 0; i < actualScale-desiredCount; i++ {
@@ -334,13 +336,13 @@ func (ss *ServiceInfoStorage) singlethreadUpdateEndpoints(endpoints []*proto.End
 func (ss *ServiceInfoStorage) excludeEndpoints(toExclude map[*core.Endpoint]struct{}) {
 	var result []*core.Endpoint
 
-	for _, endpoint := range ss.Controller.Endpoints {
+	for _, endpoint := range ss.PerFunctionState.Endpoints {
 		if _, ok := toExclude[endpoint]; !ok {
 			result = append(result, endpoint)
 		}
 	}
 
-	ss.Controller.Endpoints = result
+	ss.PerFunctionState.Endpoints = result
 }
 
 // TODO: Refactor two following function - design can be improved
@@ -360,10 +362,10 @@ func (ss *ServiceInfoStorage) prepareEndpointInfo(endpoints []*core.Endpoint) []
 func (ss *ServiceInfoStorage) prepareCurrentEndpointInfoList() []*proto.EndpointInfo {
 	var res []*proto.EndpointInfo
 
-	for i := 0; i < len(ss.Controller.Endpoints); i++ {
+	for i := 0; i < len(ss.PerFunctionState.Endpoints); i++ {
 		res = append(res, &proto.EndpointInfo{
-			ID:  ss.Controller.Endpoints[i].SandboxID,
-			URL: ss.Controller.Endpoints[i].URL,
+			ID:  ss.PerFunctionState.Endpoints[i].SandboxID,
+			URL: ss.PerFunctionState.Endpoints[i].URL,
 		})
 	}
 
@@ -371,5 +373,5 @@ func (ss *ServiceInfoStorage) prepareCurrentEndpointInfoList() []*proto.Endpoint
 }
 
 func (ss *ServiceInfoStorage) isDownScalingDisabled() bool {
-	return time.Since(ss.StartTime) < time.Duration(ss.Controller.ScalingMetadata.AutoscalingConfig.StableWindowWidthSeconds)*time.Second // TODO: Remove hardcoded part
+	return time.Since(ss.StartTime) < time.Duration(ss.PerFunctionState.AutoscalingConfig.StableWindowWidthSeconds)*time.Second // TODO: Remove hardcoded part
 }
