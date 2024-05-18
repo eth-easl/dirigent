@@ -25,8 +25,6 @@ import (
 	"math"
 	"sync"
 	"time"
-
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 // tickInterval is how often the Autoscaler evaluates the metrics
@@ -41,7 +39,7 @@ type ScalingDecisions struct {
 // recommends a number of replicas to run.
 // +k8s:deepcopy-gen=true
 type Decider struct {
-	metav1.ObjectMeta
+	Name   string
 	Spec   DeciderSpec
 	Status DeciderStatus
 }
@@ -120,9 +118,6 @@ var invalidSR = ScaleResult{
 type UniScaler interface {
 	// Scale computes a scaling suggestion for a revision.
 	Scale(time.Time) ScaleResult
-
-	// Update reconfigures the UniScaler according to the DeciderSpec.
-	Update(*DeciderSpec)
 
 	SharePredictions()
 
@@ -249,22 +244,6 @@ func (m *MultiScaler) Create(_ context.Context, functionState *per_function_stat
 	return scaler.safeDecider(), nil
 }
 
-// Update applies the desired DeciderSpec to a currently running Decider.
-func (m *MultiScaler) Update(_ context.Context, decider *Decider) (*Decider, error) {
-	m.scalersMutex.Lock()
-	defer m.scalersMutex.Unlock()
-	if scaler, exists := m.scalers[decider.Name]; exists {
-		scaler.mux.Lock()
-		defer scaler.mux.Unlock()
-		// Make sure we store the copy.
-		scaler.decider = decider.DeepCopy()
-		scaler.scaler.Update(&decider.Spec)
-		return decider, nil
-	}
-	// This GroupResource is a lie, but unfortunately this interface requires one.
-	return nil, errors.New("Scaler isn't present")
-}
-
 // TODO: This is really hugly, at some point remove
 func (m *MultiScaler) intToFloat(data []uint32) []float64 {
 	output := make([]float64, len(data))
@@ -274,7 +253,6 @@ func (m *MultiScaler) intToFloat(data []uint32) []float64 {
 	return output
 }
 
-// Unique to Dirigent
 func (m *MultiScaler) ForwardDataplaneMetrics(dataplaneMetrics *proto.MetricsPredictiveAutoscaler) error {
 	m.scalersMutex.Lock()
 	defer m.scalersMutex.Unlock()
@@ -303,18 +281,6 @@ func (m *MultiScaler) Delete(_ context.Context, namespace, name string) {
 		close(scaler.stopCh)
 		delete(m.scalers, name)
 	}
-}
-
-// Inform sends an update to the registered watcher function, if it is set.
-func (m *MultiScaler) Inform(event string) bool {
-	m.watcherMutex.RLock()
-	defer m.watcherMutex.RUnlock()
-
-	if m.watcher != nil {
-		m.watcher(event)
-		return true
-	}
-	return false
 }
 
 func (m *MultiScaler) runScalerTicker(runner *scalerRunner, metricKey string) {
@@ -394,10 +360,7 @@ func (m *MultiScaler) tickScaler(scaler UniScaler, runner *scalerRunner, metricK
 		}
 	}
 
-	if runner.updateLatestScale(sr) {
-		m.Inform(metricKey)
-	}
-
+	runner.updateLatestScale(sr)
 }
 
 func (m *MultiScaler) receivePredictions(runner *scalerRunner) {

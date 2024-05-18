@@ -45,7 +45,7 @@ func uniscalerFactoryCreator(functionState *per_function_state.PFState, decider 
 	shiftedScalingCh chan predictive_autoscaler.ScalingDecisions, startCh chan bool) (predictive_autoscaler.UniScaler, error) {
 
 	// TODO: Replace metricClient calls with Dirigent gRPC calls
-	return predictive_autoscaler.New(functionState, decider.Namespace, decider.Name,
+	return predictive_autoscaler.New(functionState, decider.Name,
 		&decider.Spec, predictionsCh, shiftedScalingCh, startCh), nil
 }
 
