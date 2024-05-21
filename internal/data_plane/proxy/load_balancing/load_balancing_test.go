@@ -2,42 +2,24 @@ package load_balancing
 
 import (
 	"cluster_manager/internal/data_plane/function_metadata"
+	"fmt"
+	"github.com/montanaflynn/stats"
+	"github.com/sirupsen/logrus"
 	"math/rand"
+	"sync"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 )
 
-func getTestEndpoints() (*function_metadata.FunctionMetadata, int) {
-	endpoints := []*function_metadata.UpstreamEndpoint{
-		{
-			ID:       "1",
+func getTestEndpoints(numberOfEndpoints int) (*function_metadata.FunctionMetadata, int) {
+	var endpoints []*function_metadata.UpstreamEndpoint
+	for i := 0; i < numberOfEndpoints; i++ {
+		endpoints = append(endpoints, &function_metadata.UpstreamEndpoint{
+			ID:       fmt.Sprintf("%d", i+1),
 			Capacity: make(chan struct{}, 10),
-		},
-		{
-			ID:       "2",
-			Capacity: make(chan struct{}, 10),
-		},
-		{
-			ID:       "3",
-			Capacity: make(chan struct{}, 10),
-		},
-		{
-			ID:       "4",
-			Capacity: make(chan struct{}, 10),
-		},
-		{
-			ID:       "5",
-			Capacity: make(chan struct{}, 10),
-		},
-		{
-			ID:       "6",
-			Capacity: make(chan struct{}, 10),
-		},
-		{
-			ID:       "7",
-			Capacity: make(chan struct{}, 10),
-		},
+		})
 	}
 
 	metadata := function_metadata.NewFunctionMetadata("mockName", "test")
@@ -46,8 +28,19 @@ func getTestEndpoints() (*function_metadata.FunctionMetadata, int) {
 	return metadata, len(endpoints)
 }
 
+func getTestEndpointWithCapacityAdditions(numberOfEndpoints int, giveTokens int) (*function_metadata.FunctionMetadata, int) {
+	metadata, size := getTestEndpoints(numberOfEndpoints)
+	for i := 0; i < size; i++ {
+		for t := 0; t < giveTokens; t++ {
+			metadata.GetUpstreamEndpoints()[i].Capacity <- struct{}{}
+		}
+	}
+
+	return metadata, size
+}
+
 func TestRandomLoadBalancing(t *testing.T) {
-	metadata, _ := getTestEndpoints()
+	metadata, _ := getTestEndpoints(7)
 
 	endpointsMap := make(map[*function_metadata.UpstreamEndpoint]interface{})
 	for _, elem := range metadata.GetUpstreamEndpoints() {
@@ -63,7 +56,7 @@ func TestRandomLoadBalancing(t *testing.T) {
 }
 
 func TestRoundRobinLoadBalancing(t *testing.T) {
-	metadata, sizeEndpoints := getTestEndpoints()
+	metadata, sizeEndpoints := getTestEndpoints(7)
 	endpoints := metadata.GetUpstreamEndpoints()
 
 	for i := 0; i < 100; i++ {
@@ -75,7 +68,7 @@ func TestRoundRobinLoadBalancing(t *testing.T) {
 }
 
 func TestLeastProcessedLoadBalancing(t *testing.T) {
-	metadata, endpointsSize := getTestEndpoints()
+	metadata, endpointsSize := getTestEndpoints(7)
 	endpoints := metadata.GetUpstreamEndpoints()
 
 	countPerInstance := metadata.GetRequestCountPerInstance()
@@ -96,7 +89,7 @@ func TestLeastProcessedLoadBalancing(t *testing.T) {
 }
 
 func TestGenerateTwoUniformRandomEndpoints(t *testing.T) {
-	metadata, _ := getTestEndpoints()
+	metadata, _ := getTestEndpoints(7)
 	for i := 0; i < 10000; i++ {
 		endpoint1, endpoint2 := generateTwoUniformRandomEndpoints(metadata.GetUpstreamEndpoints())
 		assert.NotSamef(t, endpoint1, endpoint2, "Endpoints should not be the same")
@@ -104,7 +97,7 @@ func TestGenerateTwoUniformRandomEndpoints(t *testing.T) {
 }
 
 func TestBestOfTwoRandoms(t *testing.T) {
-	metadata, _ := getTestEndpoints()
+	metadata, _ := getTestEndpoints(7)
 
 	endpointsMap := make(map[*function_metadata.UpstreamEndpoint]interface{})
 	for _, elem := range metadata.GetUpstreamEndpoints() {
@@ -120,7 +113,7 @@ func TestBestOfTwoRandoms(t *testing.T) {
 }
 
 func TestKubernetesRoundRobinLoadBalancingSimple(t *testing.T) {
-	metadata, size := getTestEndpoints()
+	metadata, size := getTestEndpoints(7)
 	endpoints := metadata.GetUpstreamEndpoints()
 
 	for j := 0; j < 200; j++ {
@@ -136,7 +129,7 @@ func TestKubernetesRoundRobinLoadBalancingSimple(t *testing.T) {
 }
 
 func TestKubernetesRoundRobinLoadBalancingRandomFree(t *testing.T) {
-	metadata, size := getTestEndpoints()
+	metadata, size := getTestEndpoints(7)
 	endpoints := metadata.GetUpstreamEndpoints()
 
 	for i := 0; i < 200; i++ {
@@ -152,7 +145,7 @@ func TestKubernetesRoundRobinLoadBalancingRandomFree(t *testing.T) {
 }
 
 func TestKubernetesFirstAvailableLoadBalancingSimple(t *testing.T) {
-	metadata, size := getTestEndpoints()
+	metadata, size := getTestEndpoints(7)
 	endpoints := metadata.GetUpstreamEndpoints()
 
 	for j := 0; j < 200; j++ {
@@ -168,7 +161,7 @@ func TestKubernetesFirstAvailableLoadBalancingSimple(t *testing.T) {
 }
 
 func TestKubernetesFirstAvailableLoadBalancingRandom(t *testing.T) {
-	metadata, size := getTestEndpoints()
+	metadata, size := getTestEndpoints(7)
 	endpoints := metadata.GetUpstreamEndpoints()
 
 	endpoints[size-1].Capacity <- struct{}{}
@@ -182,5 +175,73 @@ func TestKubernetesFirstAvailableLoadBalancingRandom(t *testing.T) {
 		assert.Equal(t, endpoints[index], endpoint, "Endpoints aren't the same")
 
 		<-endpoint.Capacity
+	}
+}
+
+func TestLoadBalancingOnXKEndpoints(t *testing.T) {
+	tests := []struct {
+		Name        string
+		Endpoints   int
+		Iterations  int
+		Parallelism int
+	}{
+		{
+			Name:        "endpoints_1000",
+			Endpoints:   1000,
+			Iterations:  1,
+			Parallelism: 1000,
+		},
+		{
+			Name:        "endpoints_5000",
+			Endpoints:   5000,
+			Iterations:  1,
+			Parallelism: 5000,
+		},
+	}
+
+	logrus.SetFormatter(&logrus.TextFormatter{TimestampFormat: time.StampMilli, FullTimestamp: true})
+
+	for _, test := range tests {
+		t.Run(test.Name, func(t *testing.T) {
+			var data []float64
+			wg := sync.WaitGroup{}
+			mutex := sync.Mutex{}
+
+			for i := 0; i < test.Iterations; i++ {
+				metadata, _ := getTestEndpointWithCapacityAdditions(test.Endpoints, 1)
+
+				wg.Add(test.Parallelism)
+				for p := 0; p < test.Parallelism; p++ {
+					go func() {
+						defer wg.Done()
+
+						start := time.Now()
+						var m *function_metadata.UpstreamEndpoint
+						for m == nil {
+							m = runLoadBalancingAlgorithm(metadata, LOAD_BALANCING_KNATIVE)
+						}
+						dt := time.Since(start).Milliseconds()
+
+						go func() {
+							time.Sleep(time.Duration(rand.Intn(1000)) * time.Millisecond)
+							m.Capacity <- struct{}{}
+						}()
+						<-m.Capacity
+
+						mutex.Lock()
+						data = append(data, float64(dt))
+						mutex.Unlock()
+
+						logrus.Tracef("Load balancing across %d endpoint set took %d ms", test.Endpoints, dt)
+					}()
+				}
+
+				wg.Wait()
+			}
+
+			p50, _ := stats.Percentile(data, 50)
+			p99, _ := stats.Percentile(data, 99)
+			logrus.Infof("p50: %.2f; p99: %.2f", p50, p99)
+		})
 	}
 }

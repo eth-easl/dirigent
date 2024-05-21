@@ -132,6 +132,7 @@ func createStorageWithXNodes(n int) synchronization.SyncStructure[string, core.W
 
 func TestPlacementOnXKNodes(t *testing.T) {
 	logrus.SetLevel(logrus.DebugLevel)
+	logrus.SetFormatter(&logrus.TextFormatter{TimestampFormat: time.StampMilli, FullTimestamp: true})
 
 	NODES := 1000
 	ITERATIONS := 10
