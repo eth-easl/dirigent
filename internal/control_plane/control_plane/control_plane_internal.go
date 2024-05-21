@@ -247,7 +247,7 @@ func (c *ControlPlane) deregisterNode(_ context.Context, in *proto.NodeInfo) (*p
 			return &proto.ActionStatus{Success: false}, err
 		}
 
-		c.removeEndointsAssociatedWithNode(in.NodeID)
+		c.removeEndpointsAssociatedWithNode(in.NodeID)
 		c.NIStorage.Remove(in.NodeID)
 
 		logrus.Info("Node '", in.NodeID, "' has been successfully deregistered with the control plane")

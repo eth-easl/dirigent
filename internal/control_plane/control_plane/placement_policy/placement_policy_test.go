@@ -170,5 +170,5 @@ func TestPlacementOnXKNodes(t *testing.T) {
 
 	p50, _ := stats.Percentile(data, 50)
 	p99, _ := stats.Percentile(data, 99)
-	logrus.Debugf("p50: %.2f; p99: %.2f", p50, p99)
+	logrus.Infof("p50: %.2f; p99: %.2f", p50, p99)
 }

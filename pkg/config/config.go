@@ -5,27 +5,29 @@ import (
 	"github.com/sirupsen/logrus"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"github.com/spf13/viper"
 )
 
 type ControlPlaneConfig struct {
-	Port                       string    `mapstructure:"port"`
-	Replicas                   []string  `mapstructure:"replicas"`
-	RegistrationServer         string    `mapstructure:"registrationServer"`
-	RegistrationServerReplicas []string  `mapstructure:"registrationServerReplicas"`
-	Verbosity                  string    `mapstructure:"verbosity"`
-	TraceOutputFolder          string    `mapstructure:"traceOutputFolder"`
-	PlacementPolicy            string    `mapstructure:"placementPolicy"`
-	Persistence                bool      `mapstructure:"persistence"`
-	RedisConf                  RedisConf `mapstructure:"redis"`
-	Reconstruct                bool      `mapstructure:"reconstruct"`
-	LoadBalancerAddress        string    `mapstructure:"loadBalancerAddress"`
-	RemoveWorkerNode           bool      `mapstructure:"removeWorkerNode"`
-	RemoveDataplane            bool      `mapstructure:"removeDataplane"`
-	PrecreateSnapshots         bool      `mapstructure:"precreateSnapshots"`
-	EndpointPersistence        bool      `mapstructure:"endpointPersistence"`
-	Autoscaler                 string    `mapstructure:"autoscaler"`
+	Port                       string        `mapstructure:"port"`
+	Replicas                   []string      `mapstructure:"replicas"`
+	RegistrationServer         string        `mapstructure:"registrationServer"`
+	RegistrationServerReplicas []string      `mapstructure:"registrationServerReplicas"`
+	Verbosity                  string        `mapstructure:"verbosity"`
+	TraceOutputFolder          string        `mapstructure:"traceOutputFolder"`
+	PlacementPolicy            string        `mapstructure:"placementPolicy"`
+	Persistence                bool          `mapstructure:"persistence"`
+	RedisConf                  RedisConf     `mapstructure:"redis"`
+	Reconstruct                bool          `mapstructure:"reconstruct"`
+	LoadBalancerAddress        string        `mapstructure:"loadBalancerAddress"`
+	RemoveWorkerNode           bool          `mapstructure:"removeWorkerNode"`
+	RemoveDataplane            bool          `mapstructure:"removeDataplane"`
+	PrecreateSnapshots         bool          `mapstructure:"precreateSnapshots"`
+	EndpointPersistence        bool          `mapstructure:"endpointPersistence"`
+	Autoscaler                 string        `mapstructure:"autoscaler"`
+	AutoscalingPeriod          time.Duration `mapstructure:"autoscalingPeriod"`
 }
 
 type DataPlaneConfig struct {

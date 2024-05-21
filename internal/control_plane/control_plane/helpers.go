@@ -91,7 +91,7 @@ func (c *ControlPlane) removeServiceFromDataplane(ctx context.Context, serviceIn
 	return nil
 }
 
-func (c *ControlPlane) removeEndointsAssociatedWithNode(nodeID string) {
+func (c *ControlPlane) removeEndpointsAssociatedWithNode(nodeID string) {
 	c.SIStorage.Lock()
 	for _, value := range c.SIStorage.GetMap() {
 		toExclude := make(map[*core.Endpoint]struct{})
