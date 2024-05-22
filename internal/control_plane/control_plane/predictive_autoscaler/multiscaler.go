@@ -97,8 +97,8 @@ type UniScaler interface {
 
 type UniScalerFactory func(*per_function_state.PFState, *Decider, chan ScalingDecisions, chan ScalingDecisions, chan bool, bool) (UniScaler, error)
 
-// scalerRunner wraps a UniScaler and a channel for implementing shutdown behavior.
-type scalerRunner struct {
+// ScalerRunner wraps a UniScaler and a channel for implementing shutdown behavior.
+type ScalerRunner struct {
 	scaler           UniScaler
 	stopCh           chan struct{}
 	pokeCh           chan struct{}
@@ -119,15 +119,19 @@ func sameSign(a, b int32) bool {
 	return (a&math.MinInt32)^(b&math.MinInt32) == 0
 }
 
+func (sr *ScalerRunner) GetUniScaler() UniScaler {
+	return sr.scaler
+}
+
 // decider returns a thread safe deep copy of the owned decider.
-func (sr *scalerRunner) safeDecider() *Decider {
+func (sr *ScalerRunner) safeDecider() *Decider {
 	sr.mux.RLock()
 	defer sr.mux.RUnlock()
 	// TODO: What to do here?
 	return sr.decider.DeepCopy()
 }
 
-func (sr *scalerRunner) updateLatestScale(sRes ScaleResult) bool {
+func (sr *ScalerRunner) updateLatestScale(sRes ScaleResult) bool {
 	ret := false
 	sr.mux.Lock()
 	defer sr.mux.Unlock()
@@ -147,7 +151,7 @@ func (sr *scalerRunner) updateLatestScale(sRes ScaleResult) bool {
 // MultiScaler maintains a collection of UniScalers.
 type MultiScaler struct {
 	scalersMutex sync.RWMutex
-	scalers      map[string]*scalerRunner
+	scalers      map[string]*ScalerRunner
 
 	uniScalerFactory UniScalerFactory
 
@@ -168,7 +172,7 @@ func NewMultiScaler(
 	uniScalerFactory UniScalerFactory) *MultiScaler {
 	return &MultiScaler{
 		scalersMutex:     sync.RWMutex{},
-		scalers:          make(map[string]*scalerRunner),
+		scalers:          make(map[string]*ScalerRunner),
 		uniScalerFactory: uniScalerFactory,
 		tickProvider:     time.NewTicker,
 		isMu:             cfg.Autoscaler == utils.MU_AUTOSCALER,
@@ -186,6 +190,18 @@ func (m *MultiScaler) Get(_ context.Context, namespace, name string) (*Decider, 
 		return nil, errors.New("Scaler isn't present")
 	}
 	return scaler.safeDecider(), nil
+}
+
+func (m *MultiScaler) GetRawScaler(name string) *ScalerRunner {
+	m.scalersMutex.RLock()
+	defer m.scalersMutex.RUnlock()
+
+	scaler, exists := m.scalers[name]
+	if !exists {
+		return nil
+	}
+
+	return scaler
 }
 
 // Create instantiates the desired Decider.
@@ -233,7 +249,7 @@ func (m *MultiScaler) ForwardDataplaneMetrics(dataplaneMetrics *proto.MetricsPre
 	return nil
 }
 
-func (m *MultiScaler) runScalerTicker(runner *scalerRunner, metricKey string) {
+func (m *MultiScaler) runScalerTicker(runner *ScalerRunner, metricKey string) {
 	ticker := m.tickProvider(tickInterval)
 	go func() {
 		defer ticker.Stop()
@@ -250,7 +266,7 @@ func (m *MultiScaler) runScalerTicker(runner *scalerRunner, metricKey string) {
 	}()
 }
 
-func (m *MultiScaler) createScaler(functionState *per_function_state.PFState, decider *Decider, key string) (*scalerRunner, error) {
+func (m *MultiScaler) createScaler(functionState *per_function_state.PFState, decider *Decider, key string) (*ScalerRunner, error) {
 	d := decider.DeepCopy()
 	predictionsCh := make(chan ScalingDecisions, 5)
 	shiftedScalingCh := make(chan ScalingDecisions, 5)
@@ -260,7 +276,7 @@ func (m *MultiScaler) createScaler(functionState *per_function_state.PFState, de
 		return nil, err
 	}
 
-	runner := &scalerRunner{
+	runner := &ScalerRunner{
 		scaler:           scaler,
 		stopCh:           make(chan struct{}),
 		decider:          d,
@@ -283,7 +299,7 @@ func (m *MultiScaler) createScaler(functionState *per_function_state.PFState, de
 	return runner, nil
 }
 
-func (m *MultiScaler) tickScaler(scaler UniScaler, runner *scalerRunner, metricKey string) {
+func (m *MultiScaler) tickScaler(scaler UniScaler, runner *ScalerRunner, metricKey string) {
 	go m.receivePredictions(runner)
 	sr := scaler.Scale(time.Now())
 
@@ -308,7 +324,7 @@ func (m *MultiScaler) tickScaler(scaler UniScaler, runner *scalerRunner, metricK
 	runner.updateLatestScale(sr)
 }
 
-func (m *MultiScaler) receivePredictions(runner *scalerRunner) {
+func (m *MultiScaler) receivePredictions(runner *ScalerRunner) {
 	if m.startAutoscalers {
 		var pred []int32
 		select {
@@ -333,7 +349,6 @@ func (m *MultiScaler) receivePredictions(runner *scalerRunner) {
 func (m *MultiScaler) Poke(key string, previousValue int32) {
 	// If previous value was null, then we tick immediately the autoscaler
 	if previousValue == 0 {
-
 		m.scalersMutex.RLock()
 		defer m.scalersMutex.RUnlock()
 
@@ -401,7 +416,7 @@ func (m *MultiScaler) computeGlobalScalingLimits() {
 	logrus.Infof("totalUpscaling length %d, totalDownscaling length %d",
 		len(totalUpscaling), len(totalDownscaling))
 
-	var threshold int32 = m.getGlobalThreshold()
+	var threshold = m.getGlobalThreshold()
 	m.shiftUpscaling(threshold, totalUpscaling, scalePerFunctionBinned)
 
 	totalUpscaling, totalDownscaling = m.computeTotalScalingDecisions(scalePerFunctionBinned)

@@ -68,9 +68,10 @@ func patchHandler(api *control_plane.CpApiServer) func(w http.ResponseWriter, r 
 		if err = parseAndApplyArg("max_scale_down_rate", r, &config.MaxScaleDownRate, ensurePositive[float32]); err != nil {
 			http.Error(w, fmt.Sprintf("Cannot cast max_scale_down_rate to float32 - %v", err), http.StatusBadRequest)
 		}
-		if err = parseAndApplyArg("container_concurrency", r, &config.ContainerConcurrency, ensurePositive[int32]); err != nil {
+		// TODO: propagate container concurrency change to data plane(s) or ignore changes to this parameter
+		/*if err = parseAndApplyArg("container_concurrency", r, &config.ContainerConcurrency, ensurePositive[int32]); err != nil {
 			http.Error(w, fmt.Sprintf("Cannot cast container_concurrency to integer - %v", err), http.StatusBadRequest)
-		}
+		}*/
 		if err = parseAndApplyArg("container_concurrency_target_percentage", r, &config.ContainerConcurrencyTargetPercentage, ensurePositive[int32]); err != nil {
 			http.Error(w, fmt.Sprintf("Cannot cast container_concurrency_target_percentage to integer - %v", err), http.StatusBadRequest)
 		}

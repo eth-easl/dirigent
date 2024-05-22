@@ -34,7 +34,7 @@ type DefaultAutoscaler struct {
 
 func NewDefaultAutoscaler(pfState *PFState) *DefaultAutoscaler {
 	return &DefaultAutoscaler{
-		Period:           time.Duration(2 * time.Second), // TODO: Make it parametrizable
+		Period:           2 * time.Second, // TODO: Make it parametrizable
 		perFunctionState: pfState,
 	}
 }

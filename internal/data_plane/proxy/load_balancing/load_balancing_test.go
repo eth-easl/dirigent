@@ -13,7 +13,7 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func getTestEndpoints(numberOfEndpoints int) (*function_metadata.FunctionMetadata, int) {
+func getTestEndpoints(numberOfEndpoints int, containerConcurrency uint) (*function_metadata.FunctionMetadata, int) {
 	var endpoints []*function_metadata.UpstreamEndpoint
 	for i := 0; i < numberOfEndpoints; i++ {
 		endpoints = append(endpoints, &function_metadata.UpstreamEndpoint{
@@ -22,16 +22,16 @@ func getTestEndpoints(numberOfEndpoints int) (*function_metadata.FunctionMetadat
 		})
 	}
 
-	metadata := function_metadata.NewFunctionMetadata("mockName", "test")
+	metadata := function_metadata.NewFunctionMetadata("mockName", "test", containerConcurrency)
 	metadata.SetEndpoints(endpoints)
 
 	return metadata, len(endpoints)
 }
 
-func getTestEndpointWithCapacityAdditions(numberOfEndpoints int, giveTokens int) (*function_metadata.FunctionMetadata, int) {
-	metadata, size := getTestEndpoints(numberOfEndpoints)
+func getTestEndpointWithCapacityAdditions(numberOfEndpoints int, containerConcurrency int) (*function_metadata.FunctionMetadata, int) {
+	metadata, size := getTestEndpoints(numberOfEndpoints, uint(containerConcurrency))
 	for i := 0; i < size; i++ {
-		for t := 0; t < giveTokens; t++ {
+		for t := 0; t < containerConcurrency; t++ {
 			metadata.GetUpstreamEndpoints()[i].Capacity <- struct{}{}
 		}
 	}
@@ -40,7 +40,7 @@ func getTestEndpointWithCapacityAdditions(numberOfEndpoints int, giveTokens int)
 }
 
 func TestRandomLoadBalancing(t *testing.T) {
-	metadata, _ := getTestEndpoints(7)
+	metadata, _ := getTestEndpoints(7, 1)
 
 	endpointsMap := make(map[*function_metadata.UpstreamEndpoint]interface{})
 	for _, elem := range metadata.GetUpstreamEndpoints() {
@@ -56,7 +56,7 @@ func TestRandomLoadBalancing(t *testing.T) {
 }
 
 func TestRoundRobinLoadBalancing(t *testing.T) {
-	metadata, sizeEndpoints := getTestEndpoints(7)
+	metadata, sizeEndpoints := getTestEndpoints(7, 1)
 	endpoints := metadata.GetUpstreamEndpoints()
 
 	for i := 0; i < 100; i++ {
@@ -68,7 +68,7 @@ func TestRoundRobinLoadBalancing(t *testing.T) {
 }
 
 func TestLeastProcessedLoadBalancing(t *testing.T) {
-	metadata, endpointsSize := getTestEndpoints(7)
+	metadata, endpointsSize := getTestEndpoints(7, 1)
 	endpoints := metadata.GetUpstreamEndpoints()
 
 	countPerInstance := metadata.GetRequestCountPerInstance()
@@ -89,7 +89,7 @@ func TestLeastProcessedLoadBalancing(t *testing.T) {
 }
 
 func TestGenerateTwoUniformRandomEndpoints(t *testing.T) {
-	metadata, _ := getTestEndpoints(7)
+	metadata, _ := getTestEndpoints(7, 1)
 	for i := 0; i < 10000; i++ {
 		endpoint1, endpoint2 := generateTwoUniformRandomEndpoints(metadata.GetUpstreamEndpoints())
 		assert.NotSamef(t, endpoint1, endpoint2, "Endpoints should not be the same")
@@ -97,7 +97,7 @@ func TestGenerateTwoUniformRandomEndpoints(t *testing.T) {
 }
 
 func TestBestOfTwoRandoms(t *testing.T) {
-	metadata, _ := getTestEndpoints(7)
+	metadata, _ := getTestEndpoints(7, 1)
 
 	endpointsMap := make(map[*function_metadata.UpstreamEndpoint]interface{})
 	for _, elem := range metadata.GetUpstreamEndpoints() {
@@ -113,7 +113,7 @@ func TestBestOfTwoRandoms(t *testing.T) {
 }
 
 func TestKubernetesRoundRobinLoadBalancingSimple(t *testing.T) {
-	metadata, size := getTestEndpoints(7)
+	metadata, size := getTestEndpoints(7, 1)
 	endpoints := metadata.GetUpstreamEndpoints()
 
 	for j := 0; j < 200; j++ {
@@ -129,7 +129,7 @@ func TestKubernetesRoundRobinLoadBalancingSimple(t *testing.T) {
 }
 
 func TestKubernetesRoundRobinLoadBalancingRandomFree(t *testing.T) {
-	metadata, size := getTestEndpoints(7)
+	metadata, size := getTestEndpoints(7, 1)
 	endpoints := metadata.GetUpstreamEndpoints()
 
 	for i := 0; i < 200; i++ {
@@ -145,7 +145,7 @@ func TestKubernetesRoundRobinLoadBalancingRandomFree(t *testing.T) {
 }
 
 func TestKubernetesFirstAvailableLoadBalancingSimple(t *testing.T) {
-	metadata, size := getTestEndpoints(7)
+	metadata, size := getTestEndpoints(7, 1)
 	endpoints := metadata.GetUpstreamEndpoints()
 
 	for j := 0; j < 200; j++ {
@@ -161,7 +161,7 @@ func TestKubernetesFirstAvailableLoadBalancingSimple(t *testing.T) {
 }
 
 func TestKubernetesFirstAvailableLoadBalancingRandom(t *testing.T) {
-	metadata, size := getTestEndpoints(7)
+	metadata, size := getTestEndpoints(7, 1)
 	endpoints := metadata.GetUpstreamEndpoints()
 
 	endpoints[size-1].Capacity <- struct{}{}
@@ -241,7 +241,7 @@ func TestLoadBalancingOnXKEndpoints(t *testing.T) {
 
 			p50, _ := stats.Percentile(data, 50)
 			p99, _ := stats.Percentile(data, 99)
-			logrus.Infof("p50: %.2f; p99: %.2f", p50, p99)
+			logrus.Infof("p50: %.2f ms; p99: %.2f ms", p50, p99)
 		})
 	}
 }

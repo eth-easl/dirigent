@@ -18,6 +18,7 @@ require (
 	github.com/haproxytech/client-native v1.2.7
 	github.com/haproxytech/models v1.2.5-0.20191122125615-30d0235b81ec
 	github.com/mjibson/go-dsp v0.0.0-20180508042940-11479a337f12
+	github.com/montanaflynn/stats v0.0.0-20171201202039-1bf9dbcd8cbe
 	github.com/openacid/slimarray v0.1.3
 	github.com/pbnjay/memory v0.0.0-20210728143218-7b4eea64cf58
 	github.com/redis/go-redis/v9 v9.0.5

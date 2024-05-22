@@ -34,6 +34,7 @@ var mockConfig = config.ControlPlaneConfig{
 	RedisConf:         config.RedisConf{},
 	Reconstruct:       true,
 	Autoscaler:        utils.DEFAULT_AUTOSCALER,
+	AutoscalingPeriod: 2 * time.Second,
 }
 
 var wrongConfig = config.ControlPlaneConfig{

@@ -27,7 +27,8 @@ func (d *Deployments) AddDeployment(name string, dataplaneID string) bool {
 		return false
 	}
 
-	d.data[name] = NewFunctionMetadata(name, dataplaneID)
+	// TODO: make container concurrency configurable
+	d.data[name] = NewFunctionMetadata(name, dataplaneID, 1)
 
 	logrus.Debugf("Service with name %s has been registered.", name)
 	return true

@@ -79,11 +79,11 @@ type ColdStartChannelStruct struct {
 	AddEndpointDuration time.Duration
 }
 
-func NewFunctionMetadata(name string, dataplaneID string) *FunctionMetadata {
+func NewFunctionMetadata(name string, dataplaneID string, containerConcurrency uint) *FunctionMetadata {
 	return &FunctionMetadata{
 		dataPlaneID:        dataplaneID,
 		identifier:         name,
-		sandboxParallelism: 1, // TODO: make dynamic
+		sandboxParallelism: containerConcurrency,
 		queue:              list.New(),
 		scalingMetric: ScalingMetric{
 			timeWindowSize: 2 * time.Second,
