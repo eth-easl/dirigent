@@ -15,6 +15,7 @@ import (
 	"github.com/sirupsen/logrus"
 	"io"
 	"net/http"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -87,13 +88,8 @@ func NewAsyncProxyingService(cfg config.DataPlaneConfig, cache *common.Deploymen
 }
 
 func (ps *AsyncProxyingService) StartProxyServer() {
-	go func() {
-		startProxy(ps.createAsyncInvocationHandler(), ps.Context, ps.Host, ps.Port)
-	}()
-
-	go func() {
-		startProxy(ps.createAsyncReadHandler(), ps.Context, ps.Host, ps.PortRead)
-	}()
+	go startProxy(ps.createAsyncInvocationHandler(), ps.Context, ps.Host, ps.Port)
+	go startProxy(ps.createAsyncResponseHandler(), ps.Context, ps.Host, ps.PortRead)
 
 	// Load responses and requests and resend requests without response
 	responses, err := ps.Persistence.ScanBufferedResponses(context.Background())
@@ -136,7 +132,7 @@ func (ps *AsyncProxyingService) createAsyncInvocationHandler() http.HandlerFunc 
 		err, bufferedRequest.SerializationDuration, bufferedRequest.PersistenceDuration = ps.Persistence.PersistBufferedRequest(context.Background(), bufferedRequest)
 		if err != nil {
 			w.WriteHeader(http.StatusInternalServerError)
-			io.Copy(w, strings.NewReader(err.Error()))
+			_, _ = io.Copy(w, strings.NewReader(err.Error()))
 			return
 		}
 
@@ -145,13 +141,14 @@ func (ps *AsyncProxyingService) createAsyncInvocationHandler() http.HandlerFunc 
 		logrus.Tracef("[reverse proxy server] received request and generated code :%s\n", code)
 
 		w.WriteHeader(http.StatusOK)
-		io.Copy(w, strings.NewReader(code))
+		_, _ = io.Copy(w, strings.NewReader(code))
 	}
 }
 
 func (ps *AsyncProxyingService) asyncRequestHandler() {
 	for {
 		bufferedRequest := <-ps.RequestChannel
+
 		go func(bufferedRequest *requests.BufferedRequest) {
 			logrus.Tracef("[reverse proxy server] firing a request")
 
@@ -163,7 +160,7 @@ func (ps *AsyncProxyingService) asyncRequestHandler() {
 				}
 				ps.ResponsesLock.Unlock()
 			} else {
-				response := ps.fireRequest(bufferedRequest)
+				response := ps.triggerRequest(bufferedRequest)
 				if response.StatusCode == http.StatusOK || response.StatusCode == http.StatusBadRequest {
 					response.Timestamp = time.Now()
 					response.UniqueCodeIdentifier = bufferedRequest.Code
@@ -187,43 +184,56 @@ func (ps *AsyncProxyingService) asyncRequestHandler() {
 	}
 }
 
-func (ps *AsyncProxyingService) fireRequest(bufferedRequest *requests.BufferedRequest) *requests.BufferedResponse {
-	request := requests.RequestFromBufferedRequest(bufferedRequest)
-	return proxyHandler(request, requestMetadata{
-		start:            bufferedRequest.Start,
-		serialization:    bufferedRequest.SerializationDuration,
-		persistenceLayer: bufferedRequest.PersistenceDuration,
-	}, ps.Context)
+func (ps *AsyncProxyingService) triggerRequest(bufferedRequest *requests.BufferedRequest) *requests.BufferedResponse {
+	return proxyHandler(
+		&bufferedRequest.Request,
+		requestMetadata{
+			start:            bufferedRequest.Start,
+			serialization:    bufferedRequest.SerializationDuration,
+			persistenceLayer: bufferedRequest.PersistenceDuration,
+		},
+		ps.Context,
+	)
 }
 
-func (ps *AsyncProxyingService) createAsyncReadHandler() http.HandlerFunc {
+func (ps *AsyncProxyingService) createAsyncResponseHandler() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		buf := new(bytes.Buffer)
-		buf.ReadFrom(r.Body)
 
-		logrus.Tracef("[reverse proxy server] received code request with code : %s\n", buf.String())
+		_, err := buf.ReadFrom(r.Body)
+		if err != nil {
+			logrus.Errorf("[reverse proxy server] failed to read response body, error : %s", err.Error())
+		}
+
+		logrus.Tracef("[reverse proxy server] received code request with code : %s", buf.String())
 
 		ps.ResponsesLock.RLock()
+		defer ps.ResponsesLock.RUnlock()
+
 		if val, ok := ps.Responses[buf.String()]; ok {
-			w.WriteHeader(http.StatusOK)
-			requests.FillResponseWithBufferedResponse(w, val)
+			w.Header().Set("Duration-Microseconds", strconv.FormatInt(val.E2ELatency.Microseconds(), 10))
+			_ = requests.FillResponseWithBufferedResponse(w, val)
 		} else {
-			w.WriteHeader(http.StatusNoContent)
+			_, _ = w.Write([]byte("Response with the provided ID was not found."))
+			w.WriteHeader(http.StatusBadRequest)
 		}
-		ps.ResponsesLock.RUnlock()
 	}
 }
 
 func (ps *AsyncProxyingService) startGarbageCollector() {
 	for {
 		time.Sleep(15 * time.Minute)
+		ps.garbageCollectorCycle()
+	}
+}
 
-		ps.ResponsesLock.Lock()
-		for key, response := range ps.Responses {
-			if time.Now().Unix()-response.Timestamp.Unix() > time.Minute.Nanoseconds() {
-				delete(ps.Responses, key)
-			}
+func (ps *AsyncProxyingService) garbageCollectorCycle() {
+	ps.ResponsesLock.Lock()
+	defer ps.ResponsesLock.Unlock()
+
+	for key, response := range ps.Responses {
+		if time.Now().Sub(response.Timestamp) > time.Minute {
+			delete(ps.Responses, key)
 		}
-		ps.ResponsesLock.Unlock()
 	}
 }

@@ -27,8 +27,11 @@ done
 for (( c=1; c<=$DATA_PLANE_REPLICAS; c++ ))
 do
     CP_PREFIX=""
+    if [ "$ASYNC_DP_MODE" -eq 1 ]; then
+        CP_PREFIX="${CP_PREFIX}_async"
+    fi
     if [ "$CONTROL_PLANE_REPLICAS" -ne 1 ]; then
-        CP_PREFIX="_raft"
+        CP_PREFIX="${CP_PREFIX}_raft"
     fi
 
     SetupDataPlane $1 $CP_PREFIX

@@ -7,7 +7,7 @@ verbosity: "trace"
 traceOutputFolder: "data"
 loadBalancingPolicy: "random"
 async: true
-persistRequests: true
+persistRequests: false
 numberRetries: 3
 
 redis:

@@ -58,7 +58,6 @@ func startProxy(handler http.HandlerFunc, context proxyContext, host string, por
 }
 
 func proxyHandler(request *http.Request, requestMetadata requestMetadata, proxyContext proxyContext) *requests.BufferedResponse {
-
 	///////////////////////////////////////////////
 	// METADATA FETCHING
 	///////////////////////////////////////////////
@@ -69,6 +68,7 @@ func proxyHandler(request *http.Request, requestMetadata requestMetadata, proxyC
 		return &requests.BufferedResponse{
 			StatusCode: http.StatusBadRequest,
 			Body:       "Invocation for non-existing service " + serviceName + " has been dumped.",
+			E2ELatency: time.Since(requestMetadata.start),
 		}
 	}
 
@@ -103,6 +103,7 @@ func proxyHandler(request *http.Request, requestMetadata requestMetadata, proxyC
 			return &requests.BufferedResponse{
 				StatusCode: http.StatusGatewayTimeout,
 				Body:       fmt.Sprintf("Invocation context canceled for %s.", serviceName),
+				E2ELatency: time.Since(requestMetadata.start),
 			}
 		}
 	}
@@ -112,10 +113,10 @@ func proxyHandler(request *http.Request, requestMetadata requestMetadata, proxyC
 	///////////////////////////////////////////////
 	endpoint, durationLB, durationCC := load_balancing.DoLoadBalancing(request, metadata, proxyContext.loadBalancingPolicy)
 	if endpoint == nil {
-
 		return &requests.BufferedResponse{
 			StatusCode: http.StatusGone,
 			Body:       fmt.Sprintf("Cold start passed, but no sandbox available for %s.", serviceName),
+			E2ELatency: time.Since(requestMetadata.start),
 		}
 	}
 
@@ -133,6 +134,7 @@ func proxyHandler(request *http.Request, requestMetadata requestMetadata, proxyC
 		return &requests.BufferedResponse{
 			StatusCode: http.StatusInternalServerError,
 			Body:       err.Error(),
+			E2ELatency: time.Since(requestMetadata.start),
 		}
 	}
 
@@ -141,6 +143,7 @@ func proxyHandler(request *http.Request, requestMetadata requestMetadata, proxyC
 		return &requests.BufferedResponse{
 			StatusCode: http.StatusInternalServerError,
 			Body:       err.Error(),
+			E2ELatency: time.Since(requestMetadata.start),
 		}
 	}
 
@@ -172,5 +175,6 @@ func proxyHandler(request *http.Request, requestMetadata requestMetadata, proxyC
 	return &requests.BufferedResponse{
 		StatusCode: http.StatusOK,
 		Body:       buf.String(),
+		E2ELatency: time.Since(requestMetadata.start),
 	}
 }
