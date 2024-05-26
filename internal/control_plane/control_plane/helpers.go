@@ -17,9 +17,7 @@ Helpers for control_plane.go
 */
 
 // Only one goroutine will execute the function per service
-func (c *ControlPlane) notifyDataplanesAndStartScalingLoop(ctx context.Context, serviceInfo *proto.ServiceInfo, perFunctionState *per_function_state.PFState, reconstructFromPersistence bool) error {
-
-	// TODO: Create the per function state object here
+func (c *ControlPlane) notifyDataplanesAndStartScalingLoop(ctx context.Context, serviceInfo *proto.ServiceInfo, reconstructFromPersistence bool) error {
 
 	c.DataPlaneConnections.Lock()
 	for _, conn := range c.DataPlaneConnections.GetMap() {
@@ -35,10 +33,15 @@ func (c *ControlPlane) notifyDataplanesAndStartScalingLoop(ctx context.Context, 
 		startTime = time.Now()
 	}
 
+	pfState := per_function_state.NewPerFunctionState(serviceInfo)
+
+	autoscaler := per_function_state.NewDefaultAutoscaler(pfState)
+
 	c.SIStorage.Set(serviceInfo.Name, &ServiceInfoStorage{
+		Autoscaler:              autoscaler,
 		ServiceInfo:             serviceInfo,
 		ControlPlane:            c,
-		PerFunctionState:        per_function_state.NewPerFunctionState(serviceInfo), // TODO: Hardcoded per_function_state for now
+		PerFunctionState:        pfState, // TODO: Hardcoded per_function_state for now
 		ColdStartTracingChannel: c.ColdStartTracing.InputChannel,
 		PlacementPolicy:         c.PlacementPolicy,
 		PersistenceLayer:        c.PersistenceLayer,

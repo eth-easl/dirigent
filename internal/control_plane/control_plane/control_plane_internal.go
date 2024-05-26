@@ -291,11 +291,7 @@ func (c *ControlPlane) registerService(ctx context.Context, serviceInfo *proto.S
 		return &proto.ActionStatus{Success: false}, err
 	}
 
-	perFunctionState := per_function_state.NewPerFunctionState(serviceInfo)
-
-	// TODO: Inject autoscaler here
-	// TODO: Squash this function with creation of the autoscaler object
-	err = c.notifyDataplanesAndStartScalingLoop(ctx, serviceInfo, perFunctionState, false)
+	err = c.notifyDataplanesAndStartScalingLoop(ctx, serviceInfo, false)
 	if err != nil {
 		logrus.Warnf("Failed to connect registered service (error : %s)", err.Error())
 		c.SIStorage.AtomicRemove(serviceInfo.Name)
@@ -353,6 +349,8 @@ func (c *ControlPlane) deregisterService(ctx context.Context, serviceInfo *proto
 		close(service.PerFunctionState.DesiredStateChannel)
 		c.SIStorage.Remove(serviceInfo.Name)
 
+		// TODO: Stop autoscaler here
+
 		return &proto.ActionStatus{Success: true}, nil
 	}
 
@@ -386,9 +384,6 @@ func (c *ControlPlane) onMetricsReceive(_ context.Context, metric *proto.Autosca
 				// First invocation, we trigger the autoscaler immediatly
 				c.multiscaler.Poke(storage.ServiceInfo.Name)
 			}*/
-
-	// TODO: Make it modular with base autoscaler
-	// storage.PerFunctionState.Start()
 
 	return &proto.ActionStatus{Success: true}, nil
 }
@@ -544,7 +539,7 @@ func (c *ControlPlane) stopAllScalingLoops() {
 	c.SIStorage.Lock()
 	defer c.SIStorage.Unlock()
 
-	// TODO: Create generic Start / Stop function for predictive per_function_state
+	// TODO: Create generic Poke / Stop function for predictive per_function_state
 	/*for _, function := range c.SIStorage.GetMap() {
 		function.PerFunctionState.Stop()
 	}*/

@@ -32,9 +32,10 @@ type DefaultAutoscaler struct {
 	perFunctionState *PFState
 }
 
-func NewDefaultAutoscaler() *DefaultAutoscaler {
+func NewDefaultAutoscaler(pfState *PFState) *DefaultAutoscaler {
 	return &DefaultAutoscaler{
-		Period: time.Duration(2 * time.Second), // TODO: Make it parametrizable
+		Period:           time.Duration(2 * time.Second), // TODO: Make it parametrizable
+		perFunctionState: pfState,
 	}
 }
 
@@ -54,14 +55,15 @@ func NewDefaultAutoscalingMetadata() *proto.AutoscalingConfiguration {
 	}
 }
 
-func (s *DefaultAutoscaler) Start(_ string) {
+func (s *DefaultAutoscaler) Poke(_ string) {
 	if atomic.CompareAndSwapInt32(&s.AutoscalingRunning, 0, 1) {
+		logrus.Warn(s.perFunctionState)
 		s.perFunctionState.StopCh = make(chan struct{})
 		go s.scalingLoop()
 	}
 }
 
-func (s *DefaultAutoscaler) Stop() {
+func (s *DefaultAutoscaler) Stop(_ string) {
 	if atomic.LoadInt32(&s.AutoscalingRunning) == 1 {
 		s.perFunctionState.StopCh <- struct{}{}
 	}

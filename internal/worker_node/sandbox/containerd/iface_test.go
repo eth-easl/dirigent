@@ -46,7 +46,7 @@ func TestCreateAContainer(t *testing.T) {
 	start = time.Now()
 	task, _, ip, netns, err, _, _ := StartContainer(ctx, container, network)
 	assert.NoError(t, err, "Failed to start container")
-	logrus.Info("Start container - ", time.Since(start).Microseconds(), "μs")
+	logrus.Info("Poke container - ", time.Since(start).Microseconds(), "μs")
 
 	sm := &managers.Metadata{
 		RuntimeMetadata: ContainerdMetadata{
@@ -148,7 +148,7 @@ func TestContainerFailureHandlerTriggering(t *testing.T) {
 	start = time.Now()
 	task, _, ip, netns, err, _, _ := StartContainer(ctx, container, network)
 	assert.NoError(t, err, "Failed to start container")
-	logrus.Info("Start container - ", time.Since(start).Microseconds(), "μs")
+	logrus.Info("Poke container - ", time.Since(start).Microseconds(), "μs")
 
 	sm := &managers.Metadata{
 		RuntimeMetadata: ContainerdMetadata{

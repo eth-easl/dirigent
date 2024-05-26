@@ -2,7 +2,6 @@ package control_plane
 
 import (
 	"cluster_manager/internal/control_plane/control_plane/core"
-	"cluster_manager/internal/control_plane/control_plane/per_function_state"
 	"cluster_manager/internal/data_plane/haproxy"
 	config2 "cluster_manager/pkg/config"
 	"cluster_manager/proto"
@@ -134,9 +133,7 @@ func (c *ControlPlane) reconstructServiceState(ctx context.Context) error {
 			c.SIStorage.Lock()
 			defer c.SIStorage.Unlock()
 
-			perFunctionState := per_function_state.NewPerFunctionState(service)
-
-			err = c.notifyDataplanesAndStartScalingLoop(ctx, service, perFunctionState, true)
+			err = c.notifyDataplanesAndStartScalingLoop(ctx, service, true)
 			if err != nil {
 				logrus.Warnf("Failed to reconstruct service state for %s - %v", service.Name, err)
 			}
@@ -216,8 +213,8 @@ func (c *ControlPlane) reconstructEndpointsState(ctx context.Context) error {
 			ss.PerFunctionState.ScalingMetadata.StartPanickingTimestamp = time.Now()
 			atomic.AddInt64(&ss.PerFunctionState.ActualScale, 1)*/
 
-			// TODO: Create Start / Stop functions
-			// ss.PerFunctionState.Start()
+			// TODO: Create Poke / Stop functions
+			// ss.PerFunctionState.Poke()
 		}(e)
 	}
 

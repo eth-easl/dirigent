@@ -219,7 +219,7 @@ func (cm *ConsensusModule) runElectionTimer() {
 			return
 		}
 
-		// Start an election if we haven't heard from a leader or haven't voted for
+		// Poke an election if we haven't heard from a leader or haven't voted for
 		// someone for the duration of the timeout.
 		if elapsed := time.Since(cm.electionResetEvent); elapsed >= timeoutDuration {
 			cm.startElection()
