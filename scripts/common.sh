@@ -135,6 +135,10 @@ function WipeContainerdCNI() {
     sudo pkill -9 server || true
     ctr --namespace cm container ls -q | xargs ctr --namespace cm container delete || true
 
+    # Remove artefacts of failed image downloads
+    ctr --namespace cm content ls | grep sha256 | cut -d$'\t' -f1 | xargs ctr --namespace cm content rm || true
+    ctr --namespace cm leases ls | grep gc.expire | cut -d' ' -f1 | xargs ctr --namespace cm leases rm || true
+
     # Remove all unused images
     ctr --namespace cm image prune --all
 
