@@ -28,7 +28,8 @@ func CreateRequestRedisClient(ctx context.Context, redisLogin config.RedisConf) 
 
 func (driver *requestRedisClient) PersistBufferedRequest(ctx context.Context, bufferedRequest *requests.BufferedRequest) (error, time.Duration, time.Duration) {
 	startSerialization := time.Now()
-	data, err := json.Marshal(bufferedRequest)
+	// wrapper is necessary because Body field of http.Request cannot be directly serialized
+	data, err := json.Marshal(CreateWrapper(bufferedRequest))
 	if err != nil {
 		return err, 0, 0
 	}
@@ -69,12 +70,9 @@ func (driver *requestRedisClient) ScanBufferedRequests(ctx context.Context) ([]*
 			return nil, err
 		}
 
-		request := &requests.BufferedRequest{}
-
-		err = json.Unmarshal([]byte(fields["data"]), request)
-
-		if err != nil {
-			panic(err)
+		request := ExtractRequest([]byte(fields["data"]))
+		if request == nil {
+			logrus.Fatalf("Error unmarshalling buffered request - %v", err)
 		}
 
 		req = append(req, request)
@@ -105,9 +103,8 @@ func (driver *requestRedisClient) ScanBufferedResponses(ctx context.Context) ([]
 		response := &requests.BufferedResponse{}
 
 		err = json.Unmarshal([]byte(fields["data"]), response)
-
 		if err != nil {
-			panic(err)
+			logrus.Fatalf("Failed unmarshalling buffered response - %v", err)
 		}
 
 		responses = append(responses, response)
