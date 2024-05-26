@@ -24,6 +24,8 @@ type PFState struct {
 	CachedScalingMetrics int32
 
 	StopCh chan struct{}
+
+	RpsValue float64
 }
 
 func NewPerFunctionState(serviceInfo *proto.ServiceInfo) *PFState {
@@ -57,4 +59,6 @@ func (s *PFState) SetCachedScalingMetrics(metrics *proto.AutoscalingMetric) {
 
 	atomic.AddInt32(&s.CachedScalingMetrics, metrics.InflightRequests-s.inflightRequestsPerDataPlane[metrics.DataplaneName])
 	s.inflightRequestsPerDataPlane[metrics.DataplaneName] = metrics.InflightRequests
+
+	s.RpsValue = float64(metrics.RpsValue)
 }

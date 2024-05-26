@@ -108,5 +108,5 @@ func (c *MetricClient) StableAndPanicConcurrency() (float64, float64) {
 }
 
 func (c *MetricClient) StableAndPanicRPS() float64 {
-	return c.autoscalingMetadata.RpsValue
+	return c.perFunctionState.RpsValue
 }
