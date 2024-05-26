@@ -77,9 +77,6 @@ type autoscaler struct {
 	pattern   Pattern
 	MaxIRSeen float64
 
-	// For Dirigent only and mu
-	rps float64
-
 	isMu bool
 }
 
@@ -90,14 +87,15 @@ func New(
 	deciderSpec *DeciderSpec,
 	predictionsCh chan ScalingDecisions,
 	shiftedScalingCh chan ScalingDecisions,
-	startCh chan bool) UniScaler {
+	startCh chan bool,
+	isMu bool) UniScaler {
 
 	var delayer *max.TimeWindow
 	if deciderSpec.ScaleDownDelay > 0 {
 		delayer = max.NewTimeWindow(deciderSpec.ScaleDownDelay, tickInterval)
 	}
 
-	return newAutoscaler(functionState, revision, delayer, predictionsCh, shiftedScalingCh, startCh)
+	return newAutoscaler(functionState, revision, delayer, predictionsCh, shiftedScalingCh, startCh, isMu)
 }
 
 func newAutoscaler(
@@ -106,7 +104,8 @@ func newAutoscaler(
 	delayWindow *max.TimeWindow,
 	predictionsCh chan ScalingDecisions,
 	shiftedScalingCh chan ScalingDecisions,
-	startCh chan bool) *autoscaler {
+	startCh chan bool,
+	isMu bool) *autoscaler {
 
 	// We always start in the panic mode, if the deployment is scaled up over 1 pod.
 	// If the scale is 0 or 1, normal Autoscaler behavior is fine.
@@ -157,6 +156,8 @@ func newAutoscaler(
 		servingRate_list_index: 0,
 		modelList:              ModelList,
 		pattern:                Pattern{Features: make([]float64, 1000), SingleExpectation: 0},
+
+		isMu: isMu,
 	}
 }
 

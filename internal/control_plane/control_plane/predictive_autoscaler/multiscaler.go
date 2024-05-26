@@ -18,6 +18,8 @@ package predictive_autoscaler
 
 import (
 	"cluster_manager/internal/control_plane/control_plane/per_function_state"
+	"cluster_manager/pkg/config"
+	"cluster_manager/pkg/utils"
 	"cluster_manager/proto"
 	"context"
 	"errors"
@@ -132,7 +134,7 @@ type UniScaler interface {
 
 // UniScalerFactory creates a UniScaler for a given PA using the given dynamic configuration.
 // Unique to Dirigent, we add the desired state channel
-type UniScalerFactory func(*per_function_state.PFState, *Decider, chan ScalingDecisions, chan ScalingDecisions, chan bool) (UniScaler, error)
+type UniScalerFactory func(*per_function_state.PFState, *Decider, chan ScalingDecisions, chan ScalingDecisions, chan bool, bool) (UniScaler, error)
 
 // scalerRunner wraps a UniScaler and a channel for implementing shutdown behavior.
 type scalerRunner struct {
@@ -198,10 +200,12 @@ type MultiScaler struct {
 	limitsComputed time.Time
 
 	startAutoscalers bool
+	isMu             bool
 }
 
 // NewMultiScaler constructs a MultiScaler.
 func NewMultiScaler(
+	cfg *config.ControlPlaneConfig,
 	stopCh <-chan struct{},
 	uniScalerFactory UniScalerFactory) *MultiScaler {
 	return &MultiScaler{
@@ -210,6 +214,7 @@ func NewMultiScaler(
 		scalersStopCh:    stopCh,
 		uniScalerFactory: uniScalerFactory,
 		tickProvider:     time.NewTicker,
+		isMu:             cfg.Autoscaler == utils.MU_AUTOSCALER,
 	}
 }
 
@@ -307,7 +312,7 @@ func (m *MultiScaler) createScaler(functionState *per_function_state.PFState, de
 	predictionsCh := make(chan ScalingDecisions, 5)
 	shiftedScalingCh := make(chan ScalingDecisions, 5)
 	startCh := make(chan bool, 5)
-	scaler, err := m.uniScalerFactory(functionState, d, predictionsCh, shiftedScalingCh, startCh)
+	scaler, err := m.uniScalerFactory(functionState, d, predictionsCh, shiftedScalingCh, startCh, m.isMu)
 	if err != nil {
 		return nil, err
 	}

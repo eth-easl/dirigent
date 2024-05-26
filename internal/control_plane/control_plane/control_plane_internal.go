@@ -42,11 +42,11 @@ type ControlPlane struct {
 }
 
 func uniscalerFactoryCreator(functionState *per_function_state.PFState, decider *predictive_autoscaler.Decider, predictionsCh chan predictive_autoscaler.ScalingDecisions,
-	shiftedScalingCh chan predictive_autoscaler.ScalingDecisions, startCh chan bool) (predictive_autoscaler.UniScaler, error) {
+	shiftedScalingCh chan predictive_autoscaler.ScalingDecisions, startCh chan bool, isMu bool) (predictive_autoscaler.UniScaler, error) {
 
 	// TODO: Replace metricClient calls with Dirigent gRPC calls
 	return predictive_autoscaler.New(functionState, decider.Name,
-		&decider.Spec, predictionsCh, shiftedScalingCh, startCh), nil
+		&decider.Spec, predictionsCh, shiftedScalingCh, startCh, isMu), nil
 }
 
 func NewControlPlane(client persistence.PersistenceLayer, outputFile string, placementPolicy placement_policy.PlacementPolicy,
@@ -67,7 +67,7 @@ func NewControlPlane(client persistence.PersistenceLayer, outputFile string, pla
 		Config: cfg,
 
 		// Seems like the stop channel is useless
-		multiscaler: predictive_autoscaler.NewMultiScaler(make(chan struct{}), uniscalerFactoryCreator),
+		multiscaler: predictive_autoscaler.NewMultiScaler(cfg, make(chan struct{}), uniscalerFactoryCreator),
 	}
 }
 
