@@ -41,7 +41,7 @@ func (c *ControlPlane) notifyDataplanesAndStartScalingLoop(ctx context.Context, 
 
 	if c.Config.Autoscaler == utils.DEFAULT_AUTOSCALER {
 		autoscaler = per_function_state.NewDefaultAutoscaler(pfState)
-	} else {
+	} else if c.Config.Autoscaler == utils.PREDICTIVE_AUTOSCALER || c.Config.Autoscaler == utils.MU_AUTOSCALER {
 		// Predictive & mu autoscaling
 		c.multiscaler.Create(context.Background(),
 			pfState,
@@ -59,6 +59,8 @@ func (c *ControlPlane) notifyDataplanesAndStartScalingLoop(ctx context.Context, 
 				Status: predictive_autoscaler.DeciderStatus{},
 			})
 		autoscaler = c.multiscaler
+	} else {
+		logrus.Fatalf("Unknown autoscaler : %s", c.Config.Autoscaler)
 	}
 
 	c.SIStorage.Set(serviceInfo.Name, &ServiceInfoStorage{

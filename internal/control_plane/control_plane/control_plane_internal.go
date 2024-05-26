@@ -52,6 +52,11 @@ func uniscalerFactoryCreator(functionState *per_function_state.PFState, decider 
 func NewControlPlane(client persistence.PersistenceLayer, outputFile string, placementPolicy placement_policy.PlacementPolicy,
 	dataplaneCreator core.DataplaneFactory, workerNodeCreator core.WorkerNodeFactory, cfg *config.ControlPlaneConfig) *ControlPlane {
 
+	validAutoscaler := cfg.Autoscaler == utils.DEFAULT_AUTOSCALER || cfg.Autoscaler == utils.PREDICTIVE_AUTOSCALER || cfg.Autoscaler == utils.MU_AUTOSCALER
+	if !validAutoscaler {
+		logrus.Fatalf("Invalid autoscaler type %s", cfg.Autoscaler)
+	}
+
 	return &ControlPlane{
 		DataPlaneConnections: synchronization.NewControlPlaneSyncStructure[string, core.DataPlaneInterface](),
 		NIStorage:            synchronization.NewControlPlaneSyncStructure[string, core.WorkerNodeInterface](),

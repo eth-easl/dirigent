@@ -5,6 +5,7 @@
 //
 //	mockgen -source proto/control_plane_interface_grpc.pb.go -package mock_cp_api
 //
+
 // Package mock_cp_api is a generated GoMock package.
 package mock_cp_api
 
@@ -321,6 +322,26 @@ func (mr *MockCpiInterfaceClientMockRecorder) ReviseHAProxyConfiguration(ctx, in
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ReviseHAProxyConfiguration", reflect.TypeOf((*MockCpiInterfaceClient)(nil).ReviseHAProxyConfiguration), varargs...)
 }
 
+// SendMetricsToPredictiveAutoscaler mocks base method.
+func (m *MockCpiInterfaceClient) SendMetricsToPredictiveAutoscaler(ctx context.Context, in *proto.MetricsPredictiveAutoscaler, opts ...grpc.CallOption) (*proto.ActionStatus, error) {
+	m.ctrl.T.Helper()
+	varargs := []any{ctx, in}
+	for _, a := range opts {
+		varargs = append(varargs, a)
+	}
+	ret := m.ctrl.Call(m, "SendMetricsToPredictiveAutoscaler", varargs...)
+	ret0, _ := ret[0].(*proto.ActionStatus)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// SendMetricsToPredictiveAutoscaler indicates an expected call of SendMetricsToPredictiveAutoscaler.
+func (mr *MockCpiInterfaceClientMockRecorder) SendMetricsToPredictiveAutoscaler(ctx, in any, opts ...any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	varargs := append([]any{ctx, in}, opts...)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SendMetricsToPredictiveAutoscaler", reflect.TypeOf((*MockCpiInterfaceClient)(nil).SendMetricsToPredictiveAutoscaler), varargs...)
+}
+
 // MockCpiInterfaceServer is a mock of CpiInterfaceServer interface.
 type MockCpiInterfaceServer struct {
 	ctrl     *gomock.Controller
@@ -552,6 +573,21 @@ func (m *MockCpiInterfaceServer) ReviseHAProxyConfiguration(arg0 context.Context
 func (mr *MockCpiInterfaceServerMockRecorder) ReviseHAProxyConfiguration(arg0, arg1 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ReviseHAProxyConfiguration", reflect.TypeOf((*MockCpiInterfaceServer)(nil).ReviseHAProxyConfiguration), arg0, arg1)
+}
+
+// SendMetricsToPredictiveAutoscaler mocks base method.
+func (m *MockCpiInterfaceServer) SendMetricsToPredictiveAutoscaler(arg0 context.Context, arg1 *proto.MetricsPredictiveAutoscaler) (*proto.ActionStatus, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "SendMetricsToPredictiveAutoscaler", arg0, arg1)
+	ret0, _ := ret[0].(*proto.ActionStatus)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// SendMetricsToPredictiveAutoscaler indicates an expected call of SendMetricsToPredictiveAutoscaler.
+func (mr *MockCpiInterfaceServerMockRecorder) SendMetricsToPredictiveAutoscaler(arg0, arg1 any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SendMetricsToPredictiveAutoscaler", reflect.TypeOf((*MockCpiInterfaceServer)(nil).SendMetricsToPredictiveAutoscaler), arg0, arg1)
 }
 
 // mustEmbedUnimplementedCpiInterfaceServer mocks base method.

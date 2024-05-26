@@ -9,6 +9,7 @@ require (
 	github.com/cznic/mathutil v0.0.0-20181122101859-297441e03548
 	github.com/fearful-symmetry/garlic v0.3.0
 	github.com/firecracker-microvm/firecracker-go-sdk v1.0.0
+	github.com/golang/mock v1.6.0
 	github.com/golang/protobuf v1.5.4
 	github.com/google/uuid v1.6.0
 	github.com/haproxytech/client-native v1.2.7

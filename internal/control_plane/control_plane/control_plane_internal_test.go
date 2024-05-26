@@ -10,6 +10,7 @@ import (
 	"cluster_manager/mock/mock_core"
 	"cluster_manager/mock/mock_persistence"
 	"cluster_manager/pkg/config"
+	"cluster_manager/pkg/utils"
 	"cluster_manager/proto"
 	"context"
 	"fmt"
@@ -33,6 +34,11 @@ var mockConfig = config.ControlPlaneConfig{
 	Profiler:          config.ProfilerConfig{},
 	RedisConf:         config.RedisConf{},
 	Reconstruct:       true,
+	Autoscaler:        utils.DEFAULT_AUTOSCALER,
+}
+
+var wrongConfig = config.ControlPlaneConfig{
+	Autoscaler: "wrong-autoscaler",
 }
 
 // Smoke test
@@ -926,7 +932,7 @@ func TestStressRegisterDeregisterServices(t *testing.T) {
 				Name:              "mock" + fmt.Sprint(idx),
 				Image:             "",
 				PortForwarding:    nil,
-				AutoscalingConfig: nil,
+				AutoscalingConfig: per_function_state.NewDefaultAutoscalingMetadata(),
 			})
 
 			assert.NoError(t, err)
@@ -935,7 +941,7 @@ func TestStressRegisterDeregisterServices(t *testing.T) {
 				Name:              "mock" + fmt.Sprint(idx),
 				Image:             "",
 				PortForwarding:    nil,
-				AutoscalingConfig: nil,
+				AutoscalingConfig: per_function_state.NewDefaultAutoscalingMetadata(),
 			})
 
 			assert.NoError(t, err)

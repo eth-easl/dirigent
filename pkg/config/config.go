@@ -2,7 +2,6 @@ package config
 
 import (
 	"cluster_manager/pkg/network"
-	"cluster_manager/pkg/utils"
 	"github.com/sirupsen/logrus"
 	"path/filepath"
 	"strings"
@@ -117,11 +116,6 @@ func ReadControlPlaneConfiguration(configPath string) (ControlPlaneConfig, error
 
 	if len(controlPlaneConfig.Replicas)%2 == 1 {
 		logrus.Fatal("There must be odd number of control plane replicas participating in the leader election.")
-	}
-
-	validAutoscaler := controlPlaneConfig.Autoscaler == utils.DEFAULT_AUTOSCALER || controlPlaneConfig.Autoscaler == utils.PREDICTIVE_AUTOSCALER || controlPlaneConfig.Autoscaler == utils.MU_AUTOSCALER
-	if !validAutoscaler {
-		logrus.Fatalf("Invalid autoscaler type %s", controlPlaneConfig.Autoscaler)
 	}
 
 	return controlPlaneConfig, nil

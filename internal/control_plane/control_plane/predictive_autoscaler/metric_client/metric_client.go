@@ -29,6 +29,7 @@ func NewMetricClient(metadata *per_function_state.PFState) *MetricClient {
 func (c *MetricClient) StableAndPanicConcurrency() (float64, float64) {
 	// TODO: Change type here
 	observedStableValue := float64(c.perFunctionState.CachedScalingMetrics)
+
 	panicBucketCount := int64(c.perFunctionState.AutoscalingConfig.PanicWindowWidthSeconds / c.perFunctionState.AutoscalingConfig.ScalingPeriodSeconds)
 	stableBucketCount := int64(c.perFunctionState.AutoscalingConfig.StableWindowWidthSeconds / c.perFunctionState.AutoscalingConfig.ScalingPeriodSeconds)
 

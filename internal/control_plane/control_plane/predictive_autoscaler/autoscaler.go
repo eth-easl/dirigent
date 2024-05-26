@@ -503,6 +503,6 @@ func (a *autoscaler) muAutoscaling(readyPodsCount float64, now time.Time) int32 
 		dpc = a.prevDesiredPodCount
 	}
 	a.prevDesiredPodCount = dpc
-	logrus.Errorf("1 %s %d %d", a.revision, dpc, a.currentEpoch)
+	logrus.Errorf("1 %s %f %d", a.revision, dpc, a.currentEpoch)
 	return int32(dpc)
 }
