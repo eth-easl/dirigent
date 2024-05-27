@@ -5,7 +5,7 @@ import (
 	common "cluster_manager/internal/data_plane/function_metadata"
 	"cluster_manager/internal/data_plane/proxy/load_balancing"
 	"cluster_manager/internal/data_plane/proxy/metrics_collection"
-	request_persistence "cluster_manager/internal/data_plane/proxy/persistence"
+	rp "cluster_manager/internal/data_plane/proxy/persistence"
 	"cluster_manager/internal/data_plane/proxy/requests"
 	"cluster_manager/pkg/config"
 	"cluster_manager/pkg/tracing"
@@ -32,7 +32,7 @@ type AsyncProxyingService struct {
 	Responses      map[string]*requests.BufferedResponse
 	ResponsesLock  sync.RWMutex
 
-	Persistence    request_persistence.RequestPersistence
+	Persistence    rp.RequestPersistence
 	AllowedRetries int
 }
 
@@ -45,16 +45,16 @@ func (ps *AsyncProxyingService) SetCpApiServer(client proto.CpiInterfaceClient) 
 }
 
 func NewAsyncProxyingService(cfg config.DataPlaneConfig, cache *common.Deployments, cp proto.CpiInterfaceClient, outputFile string, loadBalancingPolicy load_balancing.LoadBalancingPolicy) *AsyncProxyingService {
-	var persistenceLayer request_persistence.RequestPersistence
+	var persistenceLayer rp.RequestPersistence
 	var err error
 
 	if cfg.PersistRequests {
-		persistenceLayer, err = request_persistence.CreateRequestRedisClient(context.Background(), cfg.RedisConf)
+		persistenceLayer, err = rp.CreateRequestRedisClient(context.Background(), cfg.RedisConf)
 		if err != nil {
 			logrus.Fatalf("Failed to connect to redis client %s", err.Error())
 		}
 	} else {
-		persistenceLayer = request_persistence.CreateEmptyRequestPersistence()
+		persistenceLayer = rp.CreateEmptyRequestPersistence()
 	}
 
 	incomingRequestChannel, doneRequestChannel := metrics_collection.NewMetricsCollector(cfg.ControlPlaneNotifyIntervalInMinutes, cp)
@@ -87,10 +87,7 @@ func NewAsyncProxyingService(cfg config.DataPlaneConfig, cache *common.Deploymen
 	return proxy
 }
 
-func (ps *AsyncProxyingService) StartProxyServer() {
-	go startProxy(ps.createAsyncInvocationHandler(), ps.Context, ps.Host, ps.Port)
-	go startProxy(ps.createAsyncResponseHandler(), ps.Context, ps.Host, ps.PortRead)
-
+func (ps *AsyncProxyingService) populateResponseStructures() {
 	// Load responses and requests and resend requests without response
 	responses, err := ps.Persistence.ScanBufferedResponses(context.Background())
 	if err != nil {
@@ -98,25 +95,36 @@ func (ps *AsyncProxyingService) StartProxyServer() {
 	}
 
 	ps.ResponsesLock.Lock()
+	defer ps.ResponsesLock.Unlock()
+
 	for _, response := range responses {
 		ps.Responses[response.UniqueCodeIdentifier] = response
 	}
-	ps.ResponsesLock.Unlock()
+}
 
-	go ps.asyncRequestHandler()
-
+func (ps *AsyncProxyingService) submitBufferedRequests() {
 	bufferedRequests, err := ps.Persistence.ScanBufferedRequests(context.Background())
 	if err != nil {
 		logrus.Fatalf("Failed to recover requests : error")
 	}
 
 	ps.ResponsesLock.RLock()
+	defer ps.ResponsesLock.RUnlock()
+
 	for _, request := range bufferedRequests {
 		if _, ok := ps.Responses[request.Code]; !ok {
 			ps.RequestChannel <- request
 		}
 	}
-	ps.ResponsesLock.RUnlock()
+}
+
+func (ps *AsyncProxyingService) StartProxyServer() {
+	go startProxy(ps.createAsyncInvocationHandler(), ps.Context, ps.Host, ps.Port)
+	go startProxy(ps.createAsyncResponseHandler(), ps.Context, ps.Host, ps.PortRead)
+
+	ps.populateResponseStructures()
+	go ps.asyncRequestHandler()
+	ps.submitBufferedRequests()
 }
 
 func (ps *AsyncProxyingService) StartTracingService() {
@@ -145,6 +153,38 @@ func (ps *AsyncProxyingService) createAsyncInvocationHandler() http.HandlerFunc 
 	}
 }
 
+func (ps *AsyncProxyingService) declareResponseAsFailed(bufferedRequest *requests.BufferedRequest) {
+	ps.ResponsesLock.Lock()
+	defer ps.ResponsesLock.Unlock()
+
+	ps.Responses[bufferedRequest.Code] = &requests.BufferedResponse{
+		StatusCode: http.StatusInternalServerError,
+		Body:       "Too many retries. Request failed.",
+	}
+}
+
+func (ps *AsyncProxyingService) declareResponseAsSuccessful(bufferedRequest *requests.BufferedRequest, response *requests.BufferedResponse) {
+	response.Timestamp = time.Now()
+	response.UniqueCodeIdentifier = bufferedRequest.Code
+
+	ps.ResponsesLock.Lock()
+	ps.Responses[bufferedRequest.Code] = response
+	ps.ResponsesLock.Unlock()
+
+	if err := ps.Persistence.PersistBufferedResponse(context.Background(), response); err != nil {
+		logrus.Warnf("Failed to buffer response, error : %s", err.Error())
+	}
+
+	if err := ps.Persistence.DeleteBufferedRequest(context.Background(), bufferedRequest.Code); err != nil {
+		logrus.Warnf("Failed to delete buffered request, error : %s", err.Error())
+	}
+}
+
+func (ps *AsyncProxyingService) retryRequest(bufferedRequest *requests.BufferedRequest) {
+	bufferedRequest.NumberTries++
+	ps.RequestChannel <- bufferedRequest
+}
+
 func (ps *AsyncProxyingService) asyncRequestHandler() {
 	for {
 		bufferedRequest := <-ps.RequestChannel
@@ -153,38 +193,22 @@ func (ps *AsyncProxyingService) asyncRequestHandler() {
 			logrus.Tracef("[reverse proxy server] firing a request")
 
 			if bufferedRequest.NumberTries >= ps.AllowedRetries {
-				ps.ResponsesLock.Lock()
-				ps.Responses[bufferedRequest.Code] = &requests.BufferedResponse{
-					StatusCode: http.StatusInternalServerError,
-					Body:       "Server failed many times",
-				}
-				ps.ResponsesLock.Unlock()
+				ps.declareResponseAsFailed(bufferedRequest)
 			} else {
-				response := ps.triggerRequest(bufferedRequest)
-				if response.StatusCode == http.StatusOK || response.StatusCode == http.StatusBadRequest {
-					response.Timestamp = time.Now()
-					response.UniqueCodeIdentifier = bufferedRequest.Code
-					ps.ResponsesLock.Lock()
-					ps.Responses[bufferedRequest.Code] = response
-					ps.ResponsesLock.Unlock()
+				response := ps.executeRequest(bufferedRequest)
 
-					if err := ps.Persistence.PersistBufferedResponse(context.Background(), response); err != nil {
-						logrus.Warnf("Failed to buffer response, error : %s", err.Error())
-					}
-
-					if err := ps.Persistence.DeleteBufferedRequest(context.Background(), bufferedRequest.Code); err != nil {
-						logrus.Warnf("Failed to delete buffered request, error : %s", err.Error())
-					}
-				} else {
-					bufferedRequest.NumberTries++
-					ps.RequestChannel <- bufferedRequest
+				switch response.StatusCode {
+				case http.StatusOK, http.StatusBadRequest:
+					ps.declareResponseAsSuccessful(bufferedRequest, response)
+				default:
+					ps.retryRequest(bufferedRequest)
 				}
 			}
 		}(bufferedRequest)
 	}
 }
 
-func (ps *AsyncProxyingService) triggerRequest(bufferedRequest *requests.BufferedRequest) *requests.BufferedResponse {
+func (ps *AsyncProxyingService) executeRequest(bufferedRequest *requests.BufferedRequest) *requests.BufferedResponse {
 	return proxyHandler(
 		&bufferedRequest.Request,
 		requestMetadata{
