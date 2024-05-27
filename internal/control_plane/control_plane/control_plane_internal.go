@@ -104,6 +104,13 @@ func (c *ControlPlane) registerDataplane(ctx context.Context, in *proto.Dataplan
 		return &proto.ActionStatus{Success: true}, nil, true
 	}
 
+	if c.DataPlaneConnections.Len() >= 1 && c.Config.Autoscaler != utils.DEFAULT_AUTOSCALER {
+		errorText := fmt.Sprintf("Current autscaling policy %s supports only one data plane", c.Config.Autoscaler)
+		logrus.Error(errorText)
+		return &proto.ActionStatus{Success: false}, errors.New(errorText), false
+
+	}
+
 	err := c.PersistenceLayer.StoreDataPlaneInformation(ctx, &dataplaneInfo)
 	if err != nil {
 		logrus.Errorf("Failed to store information to persistence layer (error : %s)", err.Error())

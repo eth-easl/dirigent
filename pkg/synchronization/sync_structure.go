@@ -25,7 +25,7 @@ type SyncStructure[K comparable, V any] interface {
 	AtomicGetNoCheck(key K) V
 	AtomicRemove(key K)
 
-	Len() int       // Atomic operation
+	Len() int
 	AtomicLen() int // Atomic operation
 }
 
