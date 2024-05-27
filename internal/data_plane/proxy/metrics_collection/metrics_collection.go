@@ -61,7 +61,7 @@ func (c *MetricsCollector) metricGatheringLoop() {
 		case <-c.sendChannel:
 			c.sendMetricsToControlPlane()
 		case <-c.updateChannel:
-			c.shitBins()
+			c.shiftBins()
 		case service := <-c.incomingRequestChannel:
 			logrus.Tracef("Received data from incomingRequestChannel : %s", service)
 			if _, ok := c.metadata[service]; !ok {
@@ -129,9 +129,10 @@ func (c *MetricsCollector) parseMetrics() *proto.MetricsPredictiveAutoscaler {
 	}
 }
 
-func (c *MetricsCollector) shitBins() {
-	logrus.Infof("Shifting bins")
+func (c *MetricsCollector) shiftBins() {
+	logrus.Tracef("Shifting bins")
 
+	// For debug
 	/*for service, functionName := range c.metadata {
 		logrus.Infof("Service : %s", service)
 		for _, val := range functionName.invocationPerSeconds {

@@ -206,6 +206,8 @@ func (c *ControlPlane) reconstructEndpointsState(ctx context.Context) error {
 
 			ss.updateEndpoints(urls)
 
+			// TODO: End this part....
+
 			// do not allow downscaling until the system stabilizes
 			// TODO: Do we really need that, I don't think there is the same feature in the scaling loop and this should not be part of the autoscaler
 			// TODO: This is better in the scaling loop as it is uniform accross all autoscaler

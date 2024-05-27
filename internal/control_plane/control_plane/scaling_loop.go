@@ -203,7 +203,6 @@ func (ss *ServiceInfoStorage) doDownscaling(actualScale, desiredCount int) {
 		endpoint, newState := eviction_policy.EvictionPolicy(currentState)
 		if len(currentState) == 0 || endpoint == nil {
 			logrus.Errorf("No endpoint to evict in the downscaling loop despite the actual scale is %d.", actualScale)
-			panic("End here")
 			continue
 		}
 

@@ -273,14 +273,14 @@ func (a *autoscaler) predictiveAutoscaling(readyPodsCount float64,
 	}
 	prevMinute := a.currentMinute
 	a.currentMinute = int(now.Sub(a.startTime).Minutes())
-	logrus.Infof("prevMinute: %d currentMinute: %d currentMinuteAsFloat: %f",
+	logrus.Tracef("prevMinute: %d currentMinute: %d currentMinuteAsFloat: %f",
 		prevMinute, a.currentMinute, now.Sub(a.startTime).Minutes())
 
 	observedConcurrency, _ := a.metricClient.StableAndPanicConcurrency()
 
 	if a.currentMinute < 60 {
 		// purely concurrency based scaling for first 60 minutes
-		logrus.Infof("Autoscaler %s using concurrency-based scaling at minute %d with concurrency %f",
+		logrus.Tracef("Autoscaler %s using concurrency-based scaling at minute %d with concurrency %f",
 			a.revision, a.currentMinute, observedConcurrency)
 		a.currentEpoch++
 		return math.Ceil(observedConcurrency)
@@ -297,9 +297,9 @@ func (a *autoscaler) predictiveAutoscaling(readyPodsCount float64,
 		pred := append([]int32{int32(readyPodsCount)}, scale...)
 		a.predictedScale = pred
 		a.SharePredictions()
-		logrus.Infof("Autoscaler %s sharing predictions of length %d at epoch %d",
+		logrus.Tracef("Autoscaler %s sharing predictions of length %d at epoch %d",
 			a.revision, len(pred), a.currentEpoch)
-		logrus.Info("Autoscaler "+a.revision+" sharing predictedScale as ", a.predictedScale)
+		logrus.Tracef("Autoscaler %s sharing predictedScale as %d", a.revision, a.predictedScale)
 		s := make([]int32, a.currentEpoch-1)
 		s = append(s, pred...)
 		a.predictedScale = s
@@ -311,32 +311,32 @@ func (a *autoscaler) predictiveAutoscaling(readyPodsCount float64,
 		scale := make([]int32, a.currentEpoch-1)
 		scale = append(scale, limit...)
 		a.shiftedScale = scale
-		logrus.Infof("Autoscaler %s received limits of length %d at current epoch %d",
+		logrus.Tracef("Autoscaler %s received limits of length %d at current epoch %d",
 			a.revision, len(limit), a.currentEpoch)
-		logrus.Info("Autoscaler "+a.revision+"set shiftedScale as ", a.shiftedScale)
+		logrus.Tracef("Autoscaler %s set shiftedScale as %d", a.revision, a.shiftedScale)
 	}
 
 	desiredScale := a.predictedScale[a.currentEpoch]
 
 	if a.limitsComputed {
 		desiredScale = a.shiftedScale[a.currentEpoch]
-		logrus.Infof("Autoscaler %s using shifted scale %d with current epoch %d",
+		logrus.Tracef("Autoscaler %s using shifted scale %d with current epoch %d",
 			a.revision, desiredScale, a.currentEpoch)
 	} else {
-		logrus.Infof("Autoscaler %s using predicted scale without limits %d with current epoch %d",
+		logrus.Tracef("Autoscaler %s using predicted scale without limits %d with current epoch %d",
 			a.revision, desiredScale, a.currentEpoch)
 	}
 
 	if desiredScale < 1 && observedConcurrency > 0 {
 		desiredScale = 1
-		logrus.Infof("Autoscaler %s scaling to 1 as concurrency is %f",
+		logrus.Tracef("Autoscaler %s scaling to 1 as concurrency is %f",
 			a.revision, observedConcurrency)
 	}
 
 	if observedConcurrency/readyPodsCount > 2 && float64(desiredScale) <= readyPodsCount {
 		prevDesired := desiredScale
 		desiredScale = int32(readyPodsCount) + 1
-		logrus.Infof("Autoscaler %s scaling to %d as concurrency is %f, predicted scale was %d, readyPodsCount is %f",
+		logrus.Tracef("Autoscaler %s scaling to %d as concurrency is %f, predicted scale was %d, readyPodsCount is %f",
 			a.revision, desiredScale, observedConcurrency, prevDesired, readyPodsCount)
 	}
 

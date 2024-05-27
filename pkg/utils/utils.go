@@ -30,12 +30,7 @@ func IsRoot() bool {
 }
 
 func ExponentialMovingAverage(today uint32, yesterday uint32) uint32 {
-	const smoothing float32 = 2
-	const days float32 = 5
-
-	frac := smoothing / (1 + days)
-
-	return uint32(float32(today)*frac + float32(yesterday)*(1-frac))
+	return uint32(float32(today)*0.8 + float32(yesterday)*0.2)
 }
 
 // TODO: Make it generic
