@@ -140,7 +140,13 @@ func (ps *AsyncProxyingService) createAsyncInvocationHandler() http.HandlerFunc 
 		err, bufferedRequest.SerializationDuration, bufferedRequest.PersistenceDuration = ps.Persistence.PersistBufferedRequest(context.Background(), bufferedRequest)
 		if err != nil {
 			w.WriteHeader(http.StatusInternalServerError)
-			_, _ = io.Copy(w, strings.NewReader(err.Error()))
+			logrus.Errorf("Error while persistint async request to a buffer - %v", err)
+
+			_, err = io.Copy(w, strings.NewReader(err.Error()))
+			if err != nil {
+				logrus.Errorf("Error composing response body while persisting async request - %v", err)
+			}
+
 			return
 		}
 
@@ -149,7 +155,10 @@ func (ps *AsyncProxyingService) createAsyncInvocationHandler() http.HandlerFunc 
 		logrus.Tracef("[reverse proxy server] received request and generated code :%s\n", code)
 
 		w.WriteHeader(http.StatusOK)
-		_, _ = io.Copy(w, strings.NewReader(code))
+		_, err = io.Copy(w, strings.NewReader(code))
+		if err != nil {
+			logrus.Errorf("Error composing response body with async request ID - %v", err)
+		}
 	}
 }
 
@@ -167,17 +176,19 @@ func (ps *AsyncProxyingService) declareResponseAsSuccessful(bufferedRequest *req
 	response.Timestamp = time.Now()
 	response.UniqueCodeIdentifier = bufferedRequest.Code
 
-	ps.ResponsesLock.Lock()
-	ps.Responses[bufferedRequest.Code] = response
-	ps.ResponsesLock.Unlock()
-
-	if err := ps.Persistence.PersistBufferedResponse(context.Background(), response); err != nil {
-		logrus.Warnf("Failed to buffer response, error : %s", err.Error())
-	}
-
 	if err := ps.Persistence.DeleteBufferedRequest(context.Background(), bufferedRequest.Code); err != nil {
-		logrus.Warnf("Failed to delete buffered request, error : %s", err.Error())
+		logrus.Errorf("Failed to delete buffered request, error : %s", err.Error())
 	}
+
+	response.E2ELatency = time.Since(bufferedRequest.Start)
+	if err := ps.Persistence.PersistBufferedResponse(context.Background(), response); err != nil {
+		logrus.Errorf("Failed to buffer response, error : %s", err.Error())
+	}
+
+	ps.ResponsesLock.Lock()
+	defer ps.ResponsesLock.Unlock()
+
+	ps.Responses[bufferedRequest.Code] = response
 }
 
 func (ps *AsyncProxyingService) retryRequest(bufferedRequest *requests.BufferedRequest) {
@@ -222,23 +233,25 @@ func (ps *AsyncProxyingService) executeRequest(bufferedRequest *requests.Buffere
 
 func (ps *AsyncProxyingService) createAsyncResponseHandler() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		buf := new(bytes.Buffer)
+		start := time.Now()
 
+		buf := new(bytes.Buffer)
 		_, err := buf.ReadFrom(r.Body)
 		if err != nil {
 			logrus.Errorf("[reverse proxy server] failed to read response body, error : %s", err.Error())
 		}
 
-		logrus.Tracef("[reverse proxy server] received code request with code : %s", buf.String())
+		responseKey := buf.String()
+		logrus.Tracef("[reverse proxy server] received code request with code : %s", responseKey)
 
 		ps.ResponsesLock.RLock()
 		defer ps.ResponsesLock.RUnlock()
 
-		if val, ok := ps.Responses[buf.String()]; ok {
-			w.Header().Set("Duration-Microseconds", strconv.FormatInt(val.E2ELatency.Microseconds(), 10))
+		if val, ok := ps.Responses[responseKey]; ok {
+			elapsed := time.Since(start) + val.E2ELatency
+			w.Header().Set("Duration-Microseconds", strconv.FormatInt(elapsed.Microseconds(), 10))
 			_ = requests.FillResponseWithBufferedResponse(w, val)
 		} else {
-			_, _ = w.Write([]byte("Response with the provided ID was not found."))
 			w.WriteHeader(http.StatusBadRequest)
 		}
 	}

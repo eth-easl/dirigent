@@ -7,7 +7,7 @@ verbosity: "trace"
 traceOutputFolder: "data"
 loadBalancingPolicy: "knative"
 async: true
-persistRequests: true
+persistRequests: false
 numberRetries: 3
 
 redis:
@@ -15,6 +15,6 @@ redis:
   replicas: ""
   password: ""
   db: 0
-  fullPersistence: false
+  fullPersistence: true
 
 controlPlaneNotifyIntervalMinutes: 15

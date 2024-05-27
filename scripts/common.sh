@@ -128,6 +128,9 @@ function KillSystemdServices() {
 }
 
 function WipeContainerdCNI() {
+    # Stop all containers
+    ctr --namespace cm tasks ls -q | xargs ctr --namespace cm task kill || true
+
     # Remove all containers
     sudo pkill -9 server || true
     ctr --namespace cm container ls -q | xargs ctr --namespace cm container delete || true
