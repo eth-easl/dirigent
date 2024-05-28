@@ -54,7 +54,7 @@ func composeEnvironmentSetting(cfg *proto.SandboxConfiguration) []string {
 	}
 
 	return []string{
-		fmt.Sprintf("ITER_MULTIPLIER=%d", cfg.IterationMultiplier),
+		fmt.Sprintf("ITERATIONS_MULTIPLIER=%d", cfg.IterationMultiplier),
 		fmt.Sprintf("COLD_START_BUSY_LOOP_MS=%d", cfg.ColdStartBusyLoopMs),
 	}
 }

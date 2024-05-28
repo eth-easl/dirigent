@@ -158,7 +158,7 @@ func busyLoopOnStartup() {
 	}
 
 	multiplier := 102
-	multiplierString, ok := os.LookupEnv("ITER_MULTIPLIER")
+	multiplierString, ok := os.LookupEnv("ITERATIONS_MULTIPLIER")
 	if ok {
 		multiplier, _ = strconv.Atoi(multiplierString)
 	}
