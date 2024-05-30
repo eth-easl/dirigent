@@ -245,3 +245,17 @@ make generate_mock_files
 ```bash
 sudo go test -v ./...
 ```
+
+
+### Citation 
+
+```
+@misc{cvetković2024dirigent,
+      title={Dirigent: Lightweight Serverless Orchestration}, 
+      author={Lazar Cvetković and François Costa and Mihajlo Djokic and Michal Friedman and Ana Klimovic},
+      year={2024},
+      eprint={2404.16393},
+      archivePrefix={arXiv},
+      primaryClass={cs.DC}
+}
+```
