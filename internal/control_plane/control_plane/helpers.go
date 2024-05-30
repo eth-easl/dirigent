@@ -39,27 +39,22 @@ func (c *ControlPlane) notifyDataplanesAndStartScalingLoop(ctx context.Context, 
 
 	var autoscaler core.AutoscalingInterface
 
-	if c.Config.Autoscaler == utils.DEFAULT_AUTOSCALER {
+	switch c.Config.Autoscaler {
+	case utils.DEFAULT_AUTOSCALER:
 		autoscaler = per_function_state.NewDefaultAutoscaler(pfState)
-	} else if c.Config.Autoscaler == utils.PREDICTIVE_AUTOSCALER || c.Config.Autoscaler == utils.MU_AUTOSCALER {
+	case utils.PREDICTIVE_AUTOSCALER:
+		fallthrough
+	case utils.MU_AUTOSCALER:
 		// Predictive & mu autoscaling
 		c.multiscaler.Create(context.Background(),
 			pfState,
 			&predictive_autoscaler.Decider{
-				Name: serviceInfo.Name,
-				Spec: predictive_autoscaler.DeciderSpec{
-					MaxScaleUpRate:   1000,
-					MaxScaleDownRate: 2,
-					ScalingMetric:    utils.PREDICTIVE_AUTOSCALER,
-					TotalValue:       10000,
-					PanicThreshold:   200,
-					StableWindow:     60,
-					ScaleDownDelay:   2,
-				},
-				Status: predictive_autoscaler.DeciderStatus{},
+				Name:                     serviceInfo.Name,
+				AutoscalingConfiguration: serviceInfo.AutoscalingConfig,
+				Status:                   predictive_autoscaler.DeciderStatus{},
 			})
 		autoscaler = c.multiscaler
-	} else {
+	default:
 		logrus.Fatalf("Unknown autoscaler : %s", c.Config.Autoscaler)
 	}
 
@@ -67,7 +62,7 @@ func (c *ControlPlane) notifyDataplanesAndStartScalingLoop(ctx context.Context, 
 		Autoscaler:              autoscaler,
 		ServiceInfo:             serviceInfo,
 		ControlPlane:            c,
-		PerFunctionState:        pfState, // TODO: Hardcoded per_function_state for now
+		PerFunctionState:        pfState,
 		ColdStartTracingChannel: c.ColdStartTracing.InputChannel,
 		PlacementPolicy:         c.PlacementPolicy,
 		PersistenceLayer:        c.PersistenceLayer,
@@ -153,4 +148,8 @@ func ParsePlacementPolicy(controlPlaneConfig config.ControlPlaneConfig) placemen
 		logrus.Error("Failed to parse placement, default policy is random")
 		return placement_policy.NewRandomPlacement()
 	}
+}
+
+func isValidAutoscaler(autoscaler string) bool {
+	return autoscaler == utils.DEFAULT_AUTOSCALER || autoscaler == utils.PREDICTIVE_AUTOSCALER || autoscaler == utils.MU_AUTOSCALER
 }

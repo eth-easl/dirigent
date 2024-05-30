@@ -26,6 +26,10 @@ message AutoscalingConfiguration {
   int32 PanicWindowWidthSeconds = 9;
   int32 ScalingPeriodSeconds = 10;
   int32 ScalingMethod = 11;
+  float TargetBurstCapacity = 12;
+  int32 InitialScale = 13;
+  float TotalValue = 14;
+  int32 ScaleDownDelay = 15;
 }
 
 message SandboxConfiguration {

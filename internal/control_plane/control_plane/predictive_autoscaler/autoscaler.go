@@ -3,6 +3,7 @@ package predictive_autoscaler
 import (
 	"cluster_manager/internal/control_plane/control_plane/per_function_state"
 	"cluster_manager/internal/control_plane/control_plane/predictive_autoscaler/metric_client"
+	"cluster_manager/proto"
 	"fmt"
 	"github.com/sirupsen/logrus"
 	"math"
@@ -84,15 +85,15 @@ type autoscaler struct {
 func New(
 	functionState *per_function_state.PFState,
 	revision string,
-	deciderSpec *DeciderSpec,
+	autoscalingConfiguration *proto.AutoscalingConfiguration,
 	predictionsCh chan ScalingDecisions,
 	shiftedScalingCh chan ScalingDecisions,
 	startCh chan bool,
 	isMu bool) UniScaler {
 
 	var delayer *max.TimeWindow
-	if deciderSpec.ScaleDownDelay > 0 {
-		delayer = max.NewTimeWindow(deciderSpec.ScaleDownDelay, tickInterval)
+	if autoscalingConfiguration.ScaleDownDelay > 0 {
+		delayer = max.NewTimeWindow(time.Duration(autoscalingConfiguration.ScaleDownDelay)*time.Second, tickInterval)
 	}
 
 	return newAutoscaler(functionState, revision, delayer, predictionsCh, shiftedScalingCh, startCh, isMu)

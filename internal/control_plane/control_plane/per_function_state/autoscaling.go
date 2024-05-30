@@ -52,6 +52,10 @@ func NewDefaultAutoscalingMetadata() *proto.AutoscalingConfiguration {
 		PanicWindowWidthSeconds:              6,
 		ScalingPeriodSeconds:                 2,
 		ScalingMethod:                        Arithmetic,
+		TargetBurstCapacity:                  0,
+		InitialScale:                         0,
+		TotalValue:                           10000,
+		ScaleDownDelay:                       2,
 	}
 }
 

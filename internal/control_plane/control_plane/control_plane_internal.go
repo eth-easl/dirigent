@@ -46,14 +46,13 @@ func uniscalerFactoryCreator(functionState *per_function_state.PFState, decider 
 
 	// TODO: Replace metricClient calls with Dirigent gRPC calls
 	return predictive_autoscaler.New(functionState, decider.Name,
-		&decider.Spec, predictionsCh, shiftedScalingCh, startCh, isMu), nil
+		decider.AutoscalingConfiguration, predictionsCh, shiftedScalingCh, startCh, isMu), nil
 }
 
 func NewControlPlane(client persistence.PersistenceLayer, outputFile string, placementPolicy placement_policy.PlacementPolicy,
 	dataplaneCreator core.DataplaneFactory, workerNodeCreator core.WorkerNodeFactory, cfg *config.ControlPlaneConfig) *ControlPlane {
 
-	validAutoscaler := cfg.Autoscaler == utils.DEFAULT_AUTOSCALER || cfg.Autoscaler == utils.PREDICTIVE_AUTOSCALER || cfg.Autoscaler == utils.MU_AUTOSCALER
-	if !validAutoscaler {
+	if !isValidAutoscaler(cfg.Autoscaler) {
 		logrus.Fatalf("Invalid autoscaler type %s", cfg.Autoscaler)
 	}
 
@@ -71,8 +70,7 @@ func NewControlPlane(client persistence.PersistenceLayer, outputFile string, pla
 
 		Config: cfg,
 
-		// Seems like the stop channel is useless
-		multiscaler: predictive_autoscaler.NewMultiScaler(cfg, make(chan struct{}), uniscalerFactoryCreator),
+		multiscaler: predictive_autoscaler.NewMultiScaler(cfg, uniscalerFactoryCreator),
 	}
 }
 
@@ -105,10 +103,9 @@ func (c *ControlPlane) registerDataplane(ctx context.Context, in *proto.Dataplan
 	}
 
 	if c.DataPlaneConnections.Len() >= 1 && c.Config.Autoscaler != utils.DEFAULT_AUTOSCALER {
-		errorText := fmt.Sprintf("Current autscaling policy %s supports only one data plane", c.Config.Autoscaler)
+		errorText := fmt.Sprintf("Current autoscaling policy %s supports only one data plane", c.Config.Autoscaler)
 		logrus.Error(errorText)
 		return &proto.ActionStatus{Success: false}, errors.New(errorText), false
-
 	}
 
 	err := c.PersistenceLayer.StoreDataPlaneInformation(ctx, &dataplaneInfo)

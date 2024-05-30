@@ -41,49 +41,9 @@ type ScalingDecisions struct {
 // recommends a number of replicas to run.
 // +k8s:deepcopy-gen=true
 type Decider struct {
-	Name   string
-	Spec   DeciderSpec
-	Status DeciderStatus
-}
-
-// DeciderSpec is the parameters by which the Revision should be scaled.
-type DeciderSpec struct {
-	MaxScaleUpRate   float64
-	MaxScaleDownRate float64
-	// The metric used for scaling, i.e. concurrency, rps.
-	ScalingMetric string
-	// The value of scaling metric per pod that we target to maintain.
-	// TargetValue <= TotalValue.
-	TargetValue float64
-	// The total value of scaling metric that a pod can maintain.
-	TotalValue float64
-	// The burst capacity that user wants to maintain without queuing at the POD level.
-	// Note, that queueing still might happen due to the non-ideal load balancing.
-	TargetBurstCapacity float64
-	// ActivatorCapacity is the single activator capacity, for subsetting.
-	ActivatorCapacity float64
-	// PanicThreshold is the threshold at which panic mode is entered. It represents
-	// a factor of the currently observed load over the panic window over the ready
-	// pods. I.e. if this is 2, panic mode will be entered if the observed metric
-	// is twice as high as the current population can handle.
-	PanicThreshold float64
-	// StableWindow is needed to determine when to exit panic mode.
-	StableWindow time.Duration
-	// ScaleDownDelay is the time that must pass at reduced concurrency before a
-	// scale-down decision is applied.
-	ScaleDownDelay time.Duration
-	// InitialScale is the calculated initial scale of the revision, taking both
-	// revision initial scale and cluster initial scale into account. Revision initial
-	// scale overrides cluster initial scale.
-	InitialScale int32
-	// Reachable describes whether the revision is referenced by any route.
-	Reachable bool
-	// ActivationScale is the minimum, non-zero value that a service should scale to.
-	// For example, if ActivationScale = 2, when a service scaled from zero it would
-	// scale up two replicas in this case. In essence, this allows one to set both a
-	// min-scale value while also preserving the ability to scale to zero.
-	// ActivationScale must be >= 2.
-	ActivationScale int32
+	Name                     string
+	AutoscalingConfiguration *proto.AutoscalingConfiguration
+	Status                   DeciderStatus
 }
 
 // DeciderStatus is the current scale recommendation.
@@ -134,8 +94,6 @@ type UniScaler interface {
 	DecrementEpoch()
 }
 
-// UniScalerFactory creates a UniScaler for a given PA using the given dynamic configuration.
-// Unique to Dirigent, we add the desired state channel
 type UniScalerFactory func(*per_function_state.PFState, *Decider, chan ScalingDecisions, chan ScalingDecisions, chan bool, bool) (UniScaler, error)
 
 // scalerRunner wraps a UniScaler and a channel for implementing shutdown behavior.
@@ -190,8 +148,6 @@ type MultiScaler struct {
 	scalersMutex sync.RWMutex
 	scalers      map[string]*scalerRunner
 
-	scalersStopCh <-chan struct{}
-
 	uniScalerFactory UniScalerFactory
 
 	watcherMutex sync.RWMutex
@@ -208,12 +164,10 @@ type MultiScaler struct {
 // NewMultiScaler constructs a MultiScaler.
 func NewMultiScaler(
 	cfg *config.ControlPlaneConfig,
-	stopCh <-chan struct{},
 	uniScalerFactory UniScalerFactory) *MultiScaler {
 	return &MultiScaler{
 		scalersMutex:     sync.RWMutex{},
 		scalers:          make(map[string]*scalerRunner),
-		scalersStopCh:    stopCh,
 		uniScalerFactory: uniScalerFactory,
 		tickProvider:     time.NewTicker,
 		isMu:             cfg.Autoscaler == utils.MU_AUTOSCALER,
@@ -296,8 +250,6 @@ func (m *MultiScaler) runScalerTicker(runner *scalerRunner, metricKey string) {
 		defer ticker.Stop()
 		for {
 			select {
-			case <-m.scalersStopCh:
-				return
 			case <-runner.stopCh:
 				return
 			case <-ticker.C:
@@ -329,13 +281,13 @@ func (m *MultiScaler) createScaler(functionState *per_function_state.PFState, de
 		startCh:          startCh,
 	}
 	d.Status.DesiredScale = -1
-	switch tbc := d.Spec.TargetBurstCapacity; tbc {
+	switch tbc := d.AutoscalingConfiguration.TargetBurstCapacity; tbc {
 	case -1, 0:
 		d.Status.ExcessBurstCapacity = int32(tbc)
 	default:
 		// If TBC > Target * InitialScale, then we know initial
 		// scale won't be enough to cover TBC and we'll be behind activator.
-		d.Status.ExcessBurstCapacity = int32(float64(d.Spec.InitialScale)*d.Spec.TotalValue - tbc)
+		d.Status.ExcessBurstCapacity = int32(float32(d.AutoscalingConfiguration.InitialScale)*d.AutoscalingConfiguration.TotalValue - tbc)
 	}
 	m.startAutoscalers = false
 	m.runScalerTicker(runner, key)
@@ -346,10 +298,7 @@ func (m *MultiScaler) tickScaler(scaler UniScaler, runner *scalerRunner, metricK
 	go m.receivePredictions(runner)
 	sr := scaler.Scale(time.Now())
 
-	// Unique to Dirigent
-	tunnelToScalingLoop := scaler.GetDesiredStateChannel()
-	// Forward values to scaling loop in Dirigent
-	tunnelToScalingLoop <- int(sr.DesiredPodCount)
+	scaler.GetDesiredStateChannel() <- int(sr.DesiredPodCount)
 
 	if !sr.ScaleValid {
 		logrus.Info("Multiscaler got invalid scale")

@@ -27,8 +27,8 @@ type MetricsCollector struct {
 
 	controlPlaneNotifyInterval int
 
-	sendChannel   chan struct{}
-	updateChannel chan struct{}
+	sendChannel   *time.Ticker
+	updateChannel *time.Ticker
 
 	incomingRequestChannel chan string
 	doneRequestChannel     chan DurationInvocation
@@ -42,15 +42,13 @@ func NewMetricsCollector(controlPlaneNotifyInterval int, cp proto.CpiInterfaceCl
 
 		controlPlaneNotifyInterval: controlPlaneNotifyInterval,
 
-		sendChannel:            make(chan struct{}, 1000),
-		updateChannel:          make(chan struct{}, 1000),
+		sendChannel:            time.NewTicker(time.Duration(controlPlaneNotifyInterval) * time.Minute),
+		updateChannel:          time.NewTicker(time.Minute),
 		incomingRequestChannel: make(chan string, 1000),
 		doneRequestChannel:     make(chan DurationInvocation, 1000),
 	}
 
 	go metricsCollector.metricGatheringLoop()
-	go metricsCollector.controlPlaneNotifierLoop()
-	go metricsCollector.minuteShiftLoop()
 
 	return metricsCollector.incomingRequestChannel, metricsCollector.doneRequestChannel
 }
@@ -58,9 +56,9 @@ func NewMetricsCollector(controlPlaneNotifyInterval int, cp proto.CpiInterfaceCl
 func (c *MetricsCollector) metricGatheringLoop() {
 	for {
 		select {
-		case <-c.sendChannel:
+		case <-c.sendChannel.C:
 			c.sendMetricsToControlPlane()
-		case <-c.updateChannel:
+		case <-c.updateChannel.C:
 			c.shiftBins()
 		case service := <-c.incomingRequestChannel:
 			logrus.Tracef("Received data from incomingRequestChannel : %s", service)
@@ -83,27 +81,6 @@ func (c *MetricsCollector) metricGatheringLoop() {
 	}
 }
 
-func (c *MetricsCollector) controlPlaneNotifierLoop() {
-	for {
-		// Send values to control plane
-		c.sendChannel <- struct{}{}
-
-		// Sleep
-		//time.Sleep(time.Minute)
-		time.Sleep(time.Duration(c.controlPlaneNotifyInterval) * time.Minute)
-	}
-}
-
-func (c *MetricsCollector) minuteShiftLoop() {
-	for {
-		// Trigger refresh
-		c.updateChannel <- struct{}{}
-
-		// Sleep
-		time.Sleep(time.Minute)
-	}
-}
-
 func (c *MetricsCollector) sendMetricsToControlPlane() {
 	logrus.Infof("Sending values in the control plane")
 
@@ -111,6 +88,7 @@ func (c *MetricsCollector) sendMetricsToControlPlane() {
 	c.controlPlane.SendMetricsToPredictiveAutoscaler(context.Background(), c.parseMetrics())
 }
 
+// TODO: What happen if we send values that aren't present in the control plane anymore?
 func (c *MetricsCollector) parseMetrics() *proto.MetricsPredictiveAutoscaler {
 	functionNames := make([]string, 0, len(c.metadata))
 	functionsDurations := make([]uint32, 0, len(c.metadata))
@@ -130,18 +108,6 @@ func (c *MetricsCollector) parseMetrics() *proto.MetricsPredictiveAutoscaler {
 }
 
 func (c *MetricsCollector) shiftBins() {
-	logrus.Tracef("Shifting bins")
-
-	// For debug
-	/*for service, functionName := range c.metadata {
-		logrus.Infof("Service : %s", service)
-		for _, val := range functionName.invocationPerSeconds {
-			fmt.Print(fmt.Sprintf("%d | ", val))
-		}
-		fmt.Println()
-		fmt.Println(functionName.averageDuration)
-	}*/
-
 	for _, value := range c.metadata {
 		for i := number_minutes - 1; i > 0; i-- {
 			value.invocationPerSeconds[i] = value.invocationPerSeconds[i-1]
