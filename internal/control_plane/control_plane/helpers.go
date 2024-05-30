@@ -42,7 +42,7 @@ func (c *ControlPlane) notifyDataplanesAndStartScalingLoop(ctx context.Context, 
 
 	switch c.Config.Autoscaler {
 	case utils.DEFAULT_AUTOSCALER:
-		autoscaler = per_function_state.NewDefaultAutoscaler(pfState)
+		autoscaler = per_function_state.NewDefaultAutoscaler(pfState, c.Config.AutoscalingPeriod)
 	case utils.PREDICTIVE_AUTOSCALER:
 		fallthrough
 	case utils.MU_AUTOSCALER:

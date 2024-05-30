@@ -4,6 +4,7 @@ import (
 	"cluster_manager/internal/control_plane/control_plane"
 	"cluster_manager/internal/control_plane/control_plane/per_function_state"
 	"cluster_manager/proto"
+	"errors"
 	"fmt"
 	"net/http"
 	"strconv"
@@ -229,7 +230,7 @@ func StartServiceRegistrationServer(cpApi *control_plane.CpApiServer, registrati
 				logrus.Infof("Starting service registration service - attempt #%d", attempt+1)
 
 				err := server.ListenAndServe()
-				if err != http.ErrServerClosed {
+				if !errors.Is(err, http.ErrServerClosed) {
 					logrus.Errorf("Failed to start service registration server (attempt: #%d, error: %s)", attempt+1, err.Error())
 					attempt++
 				} else {

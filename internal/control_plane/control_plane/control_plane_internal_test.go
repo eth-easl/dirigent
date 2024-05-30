@@ -37,10 +37,6 @@ var mockConfig = config.ControlPlaneConfig{
 	AutoscalingPeriod: 2 * time.Second,
 }
 
-var wrongConfig = config.ControlPlaneConfig{
-	Autoscaler: "wrong-autoscaler",
-}
-
 // Smoke test
 
 func simplePersistenceLayer(t *testing.T) (*mock_persistence.MockPersistenceLayer, *gomock.Controller) {

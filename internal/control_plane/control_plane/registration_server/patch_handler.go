@@ -2,7 +2,7 @@ package registration_server
 
 import (
 	"cluster_manager/internal/control_plane/control_plane"
-	"cluster_manager/internal/control_plane/control_plane/autoscaling"
+	"cluster_manager/internal/control_plane/control_plane/per_function_state"
 	"cluster_manager/proto"
 	"errors"
 	"fmt"
@@ -35,7 +35,7 @@ func patchHandler(api *control_plane.CpApiServer) func(w http.ResponseWriter, r 
 			return
 		}
 
-		oldConfig := sis.Controller.ScalingMetadata.AutoscalingConfig
+		oldConfig := sis.PerFunctionState.AutoscalingConfig
 		config := &proto.AutoscalingConfiguration{
 			ScalingUpperBound:                    oldConfig.ScalingUpperBound,
 			ScalingLowerBound:                    oldConfig.ScalingLowerBound,
@@ -88,7 +88,7 @@ func patchHandler(api *control_plane.CpApiServer) func(w http.ResponseWriter, r 
 			http.Error(w, "Unsupported scaling_method", http.StatusBadRequest)
 		}
 
-		sis.Controller.ScalingMetadata.AutoscalingConfig = config
+		sis.PerFunctionState.AutoscalingConfig = config
 		w.WriteHeader(http.StatusOK)
 	}
 }
@@ -124,13 +124,13 @@ func parseAndApplyArg[T int32 | float32](key string, r *http.Request, addr *T, v
 	return nil
 }
 
-func parseAndApplyScalingMethod(key string, r *http.Request, addr *autoscaling.AveragingMethod) error {
+func parseAndApplyScalingMethod(key string, r *http.Request, addr *per_function_state.AveragingMethod) error {
 	if val := r.FormValue(key); len(val) != 0 {
 		switch val {
 		case "arithmetic":
-			*addr = autoscaling.Arithmetic
+			*addr = per_function_state.Arithmetic
 		case "exponential":
-			*addr = autoscaling.Exponential
+			*addr = per_function_state.Exponential
 		default:
 			return errors.New("unknown scaling method")
 		}

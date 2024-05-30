@@ -32,9 +32,9 @@ type DefaultAutoscaler struct {
 	perFunctionState *PFState
 }
 
-func NewDefaultAutoscaler(pfState *PFState) *DefaultAutoscaler {
+func NewDefaultAutoscaler(pfState *PFState, autoscalingPeriod time.Duration) *DefaultAutoscaler {
 	return &DefaultAutoscaler{
-		Period:           2 * time.Second, // TODO: Make it parametrizable
+		Period:           autoscalingPeriod,
 		perFunctionState: pfState,
 	}
 }
