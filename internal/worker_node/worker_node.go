@@ -69,20 +69,14 @@ func NewWorkerNode(cpApi proto.CpiInterfaceClient, config config.WorkerNodeConfi
 	case "containerd":
 		runtimeInterface = containerd.NewContainerdRuntime(
 			cpApi,
-			config,
+			config.Containerd,
 			sandboxManager,
 		)
 	case "firecracker":
 		runtimeInterface = firecracker.NewFirecrackerRuntime(
 			cpApi,
 			sandboxManager,
-			config.FirecrackerKernel,
-			config.FirecrackerFileSystem,
-			config.FirecrackerInternalIPPrefix,
-			config.FirecrackerExposedIPPrefix,
-			config.FirecrackerVMDebugMode,
-			config.FirecrackerUseSnapshots,
-			config.FirecrackerNetworkPoolSize,
+			config.Firecracker,
 		)
 	case "scalability_test":
 		runtimeInterface = fake_snapshot.NewFakeSnapshotRuntime()

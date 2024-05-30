@@ -17,12 +17,14 @@ func TestCreationWorkerNode(t *testing.T) {
 		Port:                0,
 		Verbosity:           "",
 		CRIType:             "containerd",
-		CRIPath:             "/run/containerd/containerd.sock",
-		CNIConfigPath:       "../../configs/cni.conf",
-		PrefetchImage:       false,
+		Containerd: config.ContainerdConfig{
+			CRIPath:       "/run/containerd/containerd.sock",
+			CNIConfigPath: "../../configs/cni.conf",
+			PrefetchImage: false,
+		},
 	}
 
-	containerdClient := containerd.GetContainerdClient(mockConfig.CRIPath)
+	containerdClient := containerd.GetContainerdClient(mockConfig.Containerd.CRIPath)
 	defer containerdClient.Close()
 
 	assert.NotNil(t, NewWorkerNode(nil, mockConfig), "Created worker not should not be nil")

@@ -59,7 +59,7 @@ message MetricsPredictiveAutoscaler {
 message FunctionMetrics {
   string functionName = 1;
   uint32 functionDuration = 2;
-  repeated uint32 invocationsPerMinute = 3;
+  repeated double invocationsPerMinute = 3;
 }
 
 service CpiInterface {

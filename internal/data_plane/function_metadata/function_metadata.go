@@ -359,7 +359,7 @@ func (m *FunctionMetadata) sendMetricsToAutoscaler(cp proto.CpiInterfaceClient) 
 
 		inflightRequests := atomic.LoadInt64(&m.scalingMetric.statistics.Inflight)
 
-		RPSValue = utils.ExponentialMovingAverageFloat(RPSValue, m.rpsAccumulator/float32(m.scalingMetric.timeWindowSize))
+		RPSValue = utils.ExponentialMovingAverage[float32](RPSValue, m.rpsAccumulator/float32(m.scalingMetric.timeWindowSize))
 		m.rpsAccumulator = 0
 
 		go func() {

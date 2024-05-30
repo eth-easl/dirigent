@@ -17,10 +17,6 @@ removeDataplane: false
 
 precreateSnapshots: false
 
-profiler:
-  enable: false
-  mutex: false
-
 redis:
   address: "127.0.0.1:6381"
   addressFromDockerNetwork: "redis_2:6379"

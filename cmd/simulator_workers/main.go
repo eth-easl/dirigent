@@ -66,17 +66,16 @@ func main() {
 	// Simulate nodes
 	{
 		cfg := config.WorkerNodeConfig{
-			WorkerNodeIP:           "127.0.0.1",
-			ControlPlaneAddress:    []string{"localhost:9090"},
-			Port:                   10010,
-			Verbosity:              "trace",
-			CRIType:                "containerd",
-			CRIPath:                "/run/containerd/containerd.sock",
-			CNIConfigPath:          "configs/cni.conf",
-			PrefetchImage:          false,
-			FirecrackerKernel:      "",
-			FirecrackerFileSystem:  "",
-			FirecrackerVMDebugMode: false,
+			WorkerNodeIP:        "127.0.0.1",
+			ControlPlaneAddress: []string{"localhost:9090"},
+			Port:                10010,
+			Verbosity:           "trace",
+			CRIType:             "containerd",
+			Containerd: config.ContainerdConfig{
+				CRIPath:       "/run/containerd/containerd.sock",
+				CNIConfigPath: "configs/cni.conf",
+				PrefetchImage: false,
+			},
 		}
 
 		logger.SetupLogger(cfg.Verbosity)

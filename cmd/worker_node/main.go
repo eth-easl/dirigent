@@ -69,7 +69,7 @@ func main() {
 }
 
 func resetIPTables() {
-	err := exec.Command("sudo", "iptables", "-t", "nat", "-F").Run()
+	err := exec.Command("sudo", "iptables", "-t", "nat", "-FileSystem").Run()
 	if err != nil {
 		logrus.Errorf("Error reseting IP tables - %v", err.Error())
 	}

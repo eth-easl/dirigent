@@ -16,7 +16,7 @@ type DurationInvocation struct {
 }
 
 type MetadataPerFunction struct {
-	invocationPerSeconds []uint32
+	invocationPerSeconds []float64
 	averageDuration      uint32
 }
 
@@ -64,7 +64,7 @@ func (c *MetricsCollector) metricGatheringLoop() {
 			logrus.Tracef("Received data from incomingRequestChannel : %s", service)
 			if _, ok := c.metadata[service]; !ok {
 				c.metadata[service] = &MetadataPerFunction{
-					invocationPerSeconds: make([]uint32, 60),
+					invocationPerSeconds: make([]float64, 60),
 					averageDuration:      0,
 				}
 			}
@@ -75,7 +75,7 @@ func (c *MetricsCollector) metricGatheringLoop() {
 			logrus.Tracef("Received data from doneRequestChannel : %s", duration.ServiceName)
 			// TODO: Clean this
 			if tmp, ok := c.metadata[duration.ServiceName]; ok {
-				tmp.averageDuration = utils.ExponentialMovingAverage(duration.Duration, tmp.averageDuration)
+				tmp.averageDuration = utils.ExponentialMovingAverage[uint32](duration.Duration, tmp.averageDuration)
 			}
 		}
 	}

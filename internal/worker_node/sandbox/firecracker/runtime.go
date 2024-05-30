@@ -4,6 +4,7 @@ import (
 	"cluster_manager/internal/worker_node/managers"
 	"cluster_manager/internal/worker_node/sandbox"
 	"cluster_manager/internal/worker_node/sandbox/containerd"
+	"cluster_manager/pkg/config"
 	"cluster_manager/proto"
 	"context"
 	"fmt"
@@ -42,9 +43,7 @@ type FirecrackerMetadata struct {
 	VMCS *VMControlStructure
 }
 
-func NewFirecrackerRuntime(cpApi proto.CpiInterfaceClient, sandboxManager *managers.SandboxManager,
-	kernelPath string, fileSystemPath string, internalIPPrefix string, externalIPPrefix string,
-	vmDebugMode bool, useSnapshots bool, networkPoolSize int) *Runtime {
+func NewFirecrackerRuntime(cpApi proto.CpiInterfaceClient, sandboxManager *managers.SandboxManager, config config.FirecrackerConfig) *Runtime {
 
 	DeleteAllSnapshots()
 	err := DeleteUnusedNetworkDevices()
@@ -61,12 +60,12 @@ func NewFirecrackerRuntime(cpApi proto.CpiInterfaceClient, sandboxManager *manag
 		cpApi:       cpApi,
 		idGenerator: managers.NewThreadSafeRandomGenerator(),
 
-		VMDebugMode:  vmDebugMode,
-		UseSnapshots: useSnapshots,
+		VMDebugMode:  config.VMDebugMode,
+		UseSnapshots: config.UseSnapshots,
 
-		KernelPath:     kernelPath,
-		FileSystemPath: fileSystemPath,
-		NetworkManager: NewNetworkPoolManager(internalIPPrefix, externalIPPrefix, networkPoolSize),
+		KernelPath:     config.Kernel,
+		FileSystemPath: config.FileSystem,
+		NetworkManager: NewNetworkPoolManager(config.InternalIPPrefix, config.ExposedIPPrefix, config.NetworkPoolSize),
 
 		SandboxManager:  sandboxManager,
 		ProcessMonitor:  managers.NewProcessMonitor(),

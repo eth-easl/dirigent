@@ -3,14 +3,17 @@ controlPlaneAddress: "127.0.0.1:9090"
 port: "10010"
 verbosity: "trace"
 criType: "containerd"
-criPath: "/run/containerd/containerd.sock"
-cniConfigPath: "configs/cni.conf"
-prefetchImage: false
 
-firecrackerKernel: "configs/firecracker/vmlinux-4.14.bin"
-firecrackerFileSystem: "configs/firecracker/rootfs.ext4"
-firecrackerInternalIPPrefix: "100"
-firecrackerExposedIPPrefix: "192.254"
-firecrackerVMDebugMode: false
-firecrackerUseSnapshots: true
-firecrackerNetworkPoolSize: 128
+containerd:
+  criPath: "/run/containerd/containerd.sock"
+  cniConfigPath: "configs/cni.conf"
+  prefetchImage: false
+
+firecracker:
+  Kernel: "configs/firecracker/vmlinux-4.14.bin"
+  FileSystem: "configs/firecracker/rootfs.ext4"
+  InternalIPPrefix: "100"
+  ExposedIPPrefix: "192.254"
+  VMDebugMode: false
+  UseSnapshots: true
+  NetworkPoolSize: 128

@@ -3,11 +3,16 @@ package utils
 import (
 	"context"
 	"github.com/sirupsen/logrus"
+	"golang.org/x/exp/constraints"
 	"log"
 	"os/signal"
 	"os/user"
 	"syscall"
 )
+
+type Number interface {
+	constraints.Integer | constraints.Float
+}
 
 func WaitTerminationSignal(cleanFunction func()) {
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
@@ -29,16 +34,6 @@ func IsRoot() bool {
 	return currentUser.Username == "root"
 }
 
-func ExponentialMovingAverage(today uint32, yesterday uint32) uint32 {
-	return uint32(float32(today)*0.8 + float32(yesterday)*0.2)
-}
-
-// TODO: Make it generic
-func ExponentialMovingAverageFloat(today float32, yesterday float32) float32 {
-	const smoothing float32 = 2
-	const days float32 = 5
-
-	frac := smoothing / (1 + days)
-
-	return float32(float32(today)*frac + float32(yesterday)*(1-frac))
+func ExponentialMovingAverage[T Number](today T, yesterday T) T {
+	return T(float32(today)*0.8 + float32(yesterday)*0.2)
 }

@@ -31,7 +31,6 @@ var mockConfig = config.ControlPlaneConfig{
 	TraceOutputFolder: "",
 	PlacementPolicy:   "",
 	Persistence:       false,
-	Profiler:          config.ProfilerConfig{},
 	RedisConf:         config.RedisConf{},
 	Reconstruct:       true,
 	Autoscaler:        utils.DEFAULT_AUTOSCALER,

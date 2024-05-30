@@ -10,23 +10,22 @@ import (
 )
 
 type ControlPlaneConfig struct {
-	Port                       string         `mapstructure:"port"`
-	Replicas                   []string       `mapstructure:"replicas"`
-	RegistrationServer         string         `mapstructure:"registrationServer"`
-	RegistrationServerReplicas []string       `mapstructure:"registrationServerReplicas"`
-	Verbosity                  string         `mapstructure:"verbosity"`
-	TraceOutputFolder          string         `mapstructure:"traceOutputFolder"`
-	PlacementPolicy            string         `mapstructure:"placementPolicy"`
-	Persistence                bool           `mapstructure:"persistence"`
-	Profiler                   ProfilerConfig `mapstructure:"profiler"`
-	RedisConf                  RedisConf      `mapstructure:"redis"`
-	Reconstruct                bool           `mapstructure:"reconstruct"`
-	LoadBalancerAddress        string         `mapstructure:"loadBalancerAddress"`
-	RemoveWorkerNode           bool           `mapstructure:"removeWorkerNode"`
-	RemoveDataplane            bool           `mapstructure:"removeDataplane"`
-	PrecreateSnapshots         bool           `mapstructure:"precreateSnapshots"`
-	EndpointPersistence        bool           `mapstructure:"endpointPersistence"`
-	Autoscaler                 string         `mapstructure:"autoscaler"`
+	Port                       string    `mapstructure:"port"`
+	Replicas                   []string  `mapstructure:"replicas"`
+	RegistrationServer         string    `mapstructure:"registrationServer"`
+	RegistrationServerReplicas []string  `mapstructure:"registrationServerReplicas"`
+	Verbosity                  string    `mapstructure:"verbosity"`
+	TraceOutputFolder          string    `mapstructure:"traceOutputFolder"`
+	PlacementPolicy            string    `mapstructure:"placementPolicy"`
+	Persistence                bool      `mapstructure:"persistence"`
+	RedisConf                  RedisConf `mapstructure:"redis"`
+	Reconstruct                bool      `mapstructure:"reconstruct"`
+	LoadBalancerAddress        string    `mapstructure:"loadBalancerAddress"`
+	RemoveWorkerNode           bool      `mapstructure:"removeWorkerNode"`
+	RemoveDataplane            bool      `mapstructure:"removeDataplane"`
+	PrecreateSnapshots         bool      `mapstructure:"precreateSnapshots"`
+	EndpointPersistence        bool      `mapstructure:"endpointPersistence"`
+	Autoscaler                 string    `mapstructure:"autoscaler"`
 }
 
 type DataPlaneConfig struct {
@@ -46,27 +45,29 @@ type DataPlaneConfig struct {
 }
 
 type WorkerNodeConfig struct {
-	WorkerNodeIP        string   `mapstructure:"workerNodeIp"`
-	ControlPlaneAddress []string `mapstructure:"controlPlaneAddress"`
-	Port                int      `mapstructure:"port"`
-	Verbosity           string   `mapstructure:"verbosity"`
-	CRIType             string   `mapstructure:"criType"`
-	CRIPath             string   `mapstructure:"criPath"`
-	CNIConfigPath       string   `mapstructure:"cniConfigPath"`
-	PrefetchImage       bool     `mapstructure:"prefetchImage"`
-
-	FirecrackerKernel           string `mapstructure:"firecrackerKernel"`
-	FirecrackerFileSystem       string `mapstructure:"firecrackerFileSystem"`
-	FirecrackerInternalIPPrefix string `mapstructure:"firecrackerInternalIPPrefix"`
-	FirecrackerExposedIPPrefix  string `mapstructure:"firecrackerExposedIPPrefix"`
-	FirecrackerVMDebugMode      bool   `mapstructure:"firecrackerVMDebugMode"`
-	FirecrackerUseSnapshots     bool   `mapstructure:"firecrackerUseSnapshots"`
-	FirecrackerNetworkPoolSize  int    `mapstructure:"firecrackerNetworkPoolSize"`
+	WorkerNodeIP        string            `mapstructure:"workerNodeIp"`
+	ControlPlaneAddress []string          `mapstructure:"controlPlaneAddress"`
+	Port                int               `mapstructure:"port"`
+	Verbosity           string            `mapstructure:"verbosity"`
+	CRIType             string            `mapstructure:"criType"`
+	Containerd          ContainerdConfig  `mapstructure:"containerd"`
+	Firecracker         FirecrackerConfig `mapstructure:"firecracker"`
 }
 
-type ProfilerConfig struct {
-	Enable bool `mapstructure:"enable"`
-	Mutex  bool `mapstructure:"mutex"`
+type ContainerdConfig struct {
+	CRIPath       string `mapstructure:"criPath"`
+	CNIConfigPath string `mapstructure:"cniConfigPath"`
+	PrefetchImage bool   `mapstructure:"prefetchImage"`
+}
+
+type FirecrackerConfig struct {
+	Kernel           string `mapstructure:"Kernel"`
+	FileSystem       string `mapstructure:"FileSystem"`
+	InternalIPPrefix string `mapstructure:"InternalIPPrefix"`
+	ExposedIPPrefix  string `mapstructure:"ExposedIPPrefix"`
+	VMDebugMode      bool   `mapstructure:"VMDebugMode"`
+	UseSnapshots     bool   `mapstructure:"UseSnapshots"`
+	NetworkPoolSize  int    `mapstructure:"NetworkPoolSize"`
 }
 
 type RedisConf struct {

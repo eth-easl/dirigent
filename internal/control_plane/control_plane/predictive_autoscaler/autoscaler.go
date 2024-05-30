@@ -14,9 +14,8 @@ import (
 
 // autoscaler stores current state of an instance of an autoscaler.
 type autoscaler struct {
-	namespace string
-	revision  string
-	// TODO: Integrate it
+	namespace     string
+	revision      string
 	metricClient  *metric_client.MetricClient
 	functionState *per_function_state.PFState
 	// State in panic mode.
@@ -238,6 +237,7 @@ func (a *autoscaler) LimitScalingDecisions() ([]int32, bool) {
 	var l int32
 	newLimit := false
 	var limit []int32
+
 	for l != -1 {
 		select {
 		case s := <-a.shiftedScalingCh:
@@ -247,6 +247,7 @@ func (a *autoscaler) LimitScalingDecisions() ([]int32, bool) {
 			l = -1
 		}
 	}
+
 	return limit, newLimit
 }
 
@@ -254,10 +255,12 @@ func (a *autoscaler) predictiveAutoscaling(readyPodsCount float64,
 	now time.Time) float64 {
 	if !a.startPredictiveScaling {
 		logrus.Tracef("Autoscaler %s checking if it can start", a.revision)
+
 		select {
 		case _ = <-a.startCh:
 			a.startPredictiveScaling = true
 			logrus.Tracef("Autoscaler %s starting", a.revision)
+
 		default:
 			a.startPredictiveScaling = false
 			observedConcurrency, observedPanic := a.metricClient.StableAndPanicConcurrency()
@@ -292,26 +295,32 @@ func (a *autoscaler) predictiveAutoscaling(readyPodsCount float64,
 	if a.currentMinute > a.prevPredictionMinute+1 {
 		a.prevPredictionMinute = a.currentMinute
 		invocationsWindow := a.invocationsPerMinute[len(a.invocationsPerMinute)-60 : len(a.invocationsPerMinute)]
+
 		// we only use fft on a window of the past 60 invocations per minute
 		prediction = fourierExtrapolation(invocationsWindow, 10, 60)
 		scale := a.predictionToScale(prediction)
 		pred := append([]int32{int32(readyPodsCount)}, scale...)
+
 		a.predictedScale = pred
 		a.SharePredictions()
+
 		logrus.Tracef("Autoscaler %s sharing predictions of length %d at epoch %d",
 			a.revision, len(pred), a.currentEpoch)
 		logrus.Tracef("Autoscaler %s sharing predictedScale as %d", a.revision, a.predictedScale)
+
 		s := make([]int32, a.currentEpoch-1)
 		s = append(s, pred...)
 		a.predictedScale = s
 	}
 
 	limit, newLimit := a.LimitScalingDecisions()
+
 	if newLimit {
 		a.limitsComputed = true
 		scale := make([]int32, a.currentEpoch-1)
 		scale = append(scale, limit...)
 		a.shiftedScale = scale
+
 		logrus.Tracef("Autoscaler %s received limits of length %d at current epoch %d",
 			a.revision, len(limit), a.currentEpoch)
 		logrus.Tracef("Autoscaler %s set shiftedScale as %d", a.revision, a.shiftedScale)
@@ -355,10 +364,9 @@ func (a *autoscaler) ComputeInvocationsPerMinute(invocationsPerMinuteFromDatapla
 
 func (a *autoscaler) EstimateCapacity(averageDurationFromDataplane int32) {
 	if averageDurationFromDataplane == 0 {
-		// TODO: What to do here
-		// logrus.Fatal("AverageDurationFromDataplane is zero")
 		averageDurationFromDataplane = 1
 	}
+
 	a.averageCapacity = 1 / float64(averageDurationFromDataplane)
 }
 
@@ -366,31 +374,40 @@ func (a *autoscaler) predictionToScale(pred []float64) []int32 {
 	predictedScale := make([]int32, 0)
 	logrus.Infof("Autoscaler %s average capacity: %f at minute %d",
 		a.revision, a.averageCapacity, a.currentMinute)
+
 	for _, p := range pred {
 		if p < 0.1 {
 			p = 0
 		}
+
 		poissonMultiplier := 1.5
+
 		// should account for invocation iats not being equidistant
 		capacity := a.averageCapacity
 		if capacity <= 0 {
 			capacity = 1
 		}
+
 		s := poissonMultiplier * (1 / capacity) * p / 60
 		if s > p || s <= 0 {
+
 			s = p // scale to at most the number of invocations within that minute
 		}
 		if p > 0.1 && p <= 1 {
 			s = 1
 			// if there's only 1 invocation there's no need for more than 1 pod
 		}
+
 		scaleForMinute := make([]int32, 30) // 30 epochs within 1 minute
+
 		for i := range scaleForMinute {
 			scaleForMinute[i] = int32(math.Ceil(s))
 		}
+
 		predictedScale = append(predictedScale, scaleForMinute...)
 	}
 	binnedPredictedScale := binScale(3, predictedScale)
+
 	// TODO: may need to adjust bin size
 	return binnedPredictedScale
 }
@@ -398,6 +415,7 @@ func (a *autoscaler) predictionToScale(pred []float64) []int32 {
 func binScale(binSizeInEpochs int, scalePerEpoch []int32) []int32 {
 	predLength := len(scalePerEpoch)
 	scalePerEpochBinned := make([]int32, predLength+1)
+
 	for i := 0; i <= predLength-binSizeInEpochs+1; i++ {
 		maxVal := scalePerEpoch[i]
 		for j := 1; j < binSizeInEpochs; j++ {
@@ -405,6 +423,7 @@ func binScale(binSizeInEpochs int, scalePerEpoch []int32) []int32 {
 				maxVal = maxint32(maxVal, scalePerEpoch[i+j])
 			}
 		}
+
 		for j := 0; j < binSizeInEpochs; j++ {
 			if i+j < predLength+1 { // note that binned scale per epoch is longer by 1
 				scalePerEpochBinned[i+j] = maxVal
@@ -449,7 +468,6 @@ func (a *autoscaler) muAutoscaling(readyPodsCount float64, now time.Time) int32 
 		executionTimeInSec = 1 / a.averageCapacity
 	}
 
-	// TODO: Replace this interface with Dirigent code
 	observedRps := a.metricClient.StableAndPanicRPS()
 	incomingRequestPerSec := observedRps
 
@@ -479,9 +497,12 @@ func (a *autoscaler) muAutoscaling(readyPodsCount float64, now time.Time) int32 
 	if incomingRequestPerSec > a.MaxIRSeen {
 		a.MaxIRSeen = incomingRequestPerSec
 	}
+
 	a.pattern.SingleExpectation = incomingRequestPerSec
+
 	UpdateWeightsAll(a.modelList, &a.pattern)
 	UpdatePatternInput(&a.pattern, incomingRequestPerSec)
+
 	bestIndex := GetBestIndex(a.modelList)
 	prediction := Predict(&a.modelList[bestIndex], &a.pattern)
 	prediction = math.Max(prediction, 0)

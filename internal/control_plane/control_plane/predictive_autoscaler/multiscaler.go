@@ -19,6 +19,7 @@ package predictive_autoscaler
 import (
 	"cluster_manager/internal/control_plane/control_plane/per_function_state"
 	"cluster_manager/pkg/config"
+	_map "cluster_manager/pkg/map"
 	"cluster_manager/pkg/utils"
 	"cluster_manager/proto"
 	"context"
@@ -192,6 +193,7 @@ func (m *MultiScaler) Create(_ context.Context, functionState *per_function_stat
 	m.scalersMutex.Lock()
 	defer m.scalersMutex.Unlock()
 	scaler, exists := m.scalers[decider.Name]
+
 	if !exists {
 		var err error
 		logrus.Warnf("%s", decider.Name)
@@ -201,31 +203,8 @@ func (m *MultiScaler) Create(_ context.Context, functionState *per_function_stat
 		}
 		m.scalers[decider.Name] = scaler
 	}
+
 	return scaler.safeDecider(), nil
-}
-
-// TODO: This is really hugly, at some point remove
-func (m *MultiScaler) intToFloat(data []uint32) []float64 {
-	output := make([]float64, len(data))
-	for i, value := range data {
-		output[i] = float64(value)
-	}
-	return output
-}
-
-func (m *MultiScaler) ForwardDataplaneMetrics(dataplaneMetrics *proto.MetricsPredictiveAutoscaler) error {
-	m.scalersMutex.Lock()
-	defer m.scalersMutex.Unlock()
-
-	for _, metric := range dataplaneMetrics.Metric {
-		if scaler, exists := m.scalers[metric.FunctionName]; exists {
-			scaler.scaler.EstimateCapacity(int32(metric.FunctionDuration))
-			sliceToSend := metric.GetInvocationsPerMinute()
-			scaler.scaler.ComputeInvocationsPerMinute(m.intToFloat(sliceToSend))
-		}
-	}
-
-	return nil
 }
 
 // Delete stops and removes a Decider.
@@ -236,6 +215,22 @@ func (m *MultiScaler) Stop(name string) {
 		close(scaler.stopCh)
 		delete(m.scalers, name)
 	}
+}
+
+// ForwardDataplaneMetrics send the data to the autoscalers
+func (m *MultiScaler) ForwardDataplaneMetrics(dataplaneMetrics *proto.MetricsPredictiveAutoscaler) error {
+	m.scalersMutex.Lock()
+	defer m.scalersMutex.Unlock()
+
+	for _, metric := range dataplaneMetrics.Metric {
+		if scaler, exists := m.scalers[metric.FunctionName]; exists {
+			scaler.scaler.EstimateCapacity(int32(metric.FunctionDuration))
+			sliceToSend := metric.GetInvocationsPerMinute()
+			scaler.scaler.ComputeInvocationsPerMinute(sliceToSend)
+		}
+	}
+
+	return nil
 }
 
 func (m *MultiScaler) runScalerTicker(runner *scalerRunner, metricKey string) {
@@ -367,14 +362,19 @@ func (m *MultiScaler) checkIfGlobalScalingLimitsCanBeComputed() {
 			mostRecentPrediction = r.predictionUpdateTime
 		}
 	}
+
 	minutesDiffMostRecentLeastRecent := int(mostRecentPrediction.Sub(allPredictionsComputed).Minutes())
 	minutesSinceLimitsComputed := int(time.Now().Sub(m.limitsComputed).Minutes())
+
 	logrus.Infof("all pred computed %t, minutes since limits computed: %d, minutes diff: %d",
 		allPredictionsComputed.IsZero(), minutesSinceLimitsComputed, minutesDiffMostRecentLeastRecent)
+
 	if !allPredictionsComputed.IsZero() && minutesSinceLimitsComputed > 15 && minutesDiffMostRecentLeastRecent < 10 {
 		logrus.Info("Multiscaler computing global scaling limits")
+
 		m.computeGlobalScalingLimits()
 		m.limitsComputed = time.Now()
+
 		for _, r := range m.scalers {
 			r.shiftedScalingCh <- ScalingDecisions{scale: r.limitedScalePerMinute}
 			logrus.Infof("Multiscaler sending predictions of length %d", len(r.limitedScalePerMinute))
@@ -389,59 +389,77 @@ func (m *MultiScaler) getGlobalThreshold() int32 {
 func (m *MultiScaler) computeGlobalScalingLimits() {
 	limitComputationStartTime := time.Now()
 	scalePerFunctionBinned := make(map[string][]int32)
+
 	for f, r := range m.scalers {
 		scalePerFunctionBinned[f] = r.scalePerMinute
 		logrus.Infof("Adding key %s with length %d to scale per function",
 			f, len(r.scalePerMinute))
 	}
+
 	totalUpscaling, totalDownscaling := m.computeTotalScalingDecisions(scalePerFunctionBinned)
+
 	logrus.Infof("totalUpscaling length %d, totalDownscaling length %d",
 		len(totalUpscaling), len(totalDownscaling))
+
 	var threshold int32 = m.getGlobalThreshold()
 	m.shiftUpscaling(threshold, totalUpscaling, scalePerFunctionBinned)
+
 	totalUpscaling, totalDownscaling = m.computeTotalScalingDecisions(scalePerFunctionBinned)
+
 	logrus.Infof("totalUpscaling length %d, totalDownscaling length %d after shiting upscaling",
 		len(totalUpscaling), len(totalDownscaling))
+
 	m.shiftDownscaling(threshold, totalDownscaling, scalePerFunctionBinned)
+
 	for f, s := range scalePerFunctionBinned {
 		m.scalers[f].limitedScalePerMinute = s
 		logrus.Infof("Setting limited scale with length %d for %s", len(s), f)
 		logrus.Infof("Initial prediction was %d", m.scalers[f].scalePerMinute)
 		logrus.Infof("Result is %d", s)
 	}
+
 	limitComputationEndTime := time.Now().Sub(limitComputationStartTime)
 	logrus.Infof("Limit computation time %d nanoseconds", limitComputationEndTime.Nanoseconds())
 }
 
 func (m *MultiScaler) computeTotalScalingDecisions(scalePerFunction map[string][]int32) ([]int32, []int32) {
 	functions := make([]string, len(scalePerFunction))
+
 	i := 0
 	for f := range scalePerFunction {
 		functions[i] = f
 		i++
 	}
+
 	predictionWindow := len(scalePerFunction[functions[0]])
+
 	logrus.Infof("predictionWindow length %d", predictionWindow)
+
 	totalUpscaling := make([]int32, predictionWindow)
 	totalDownscaling := make([]int32, predictionWindow)
+
 	for _, f := range functions {
 		if len(scalePerFunction[f]) < predictionWindow {
 			scalePerFunction[f] = append(scalePerFunction[f], scalePerFunction[f][len(scalePerFunction[f])-1])
 			logrus.Infof("Increasing length of scale per function %s that has length %d, "+
 				"as prediction window has length %d", f, len(scalePerFunction[f]), predictionWindow)
 		}
+
 		totalUpscaling[0] += scalePerFunction[f][0]
+
 		for i := 0; i < predictionWindow-1; i++ {
 			totalUpscaling[i+1] += int32(math.Max(0, float64(scalePerFunction[f][i+1]-scalePerFunction[f][i])))
 			totalDownscaling[i+1] += int32(math.Max(0, float64(scalePerFunction[f][i]-scalePerFunction[f][i+1])))
 		}
 	}
+
 	return totalUpscaling, totalDownscaling
 }
 
 func (m *MultiScaler) shiftUpscaling(threshold int32, totalUpscaling []int32,
 	scalePerFunctionBinned map[string][]int32) {
 	functions := make([]string, len(scalePerFunctionBinned))
+
 	j := 0
 	for f := range scalePerFunctionBinned {
 		functions[j] = f
@@ -451,20 +469,26 @@ func (m *MultiScaler) shiftUpscaling(threshold int32, totalUpscaling []int32,
 	for i := len(totalUpscaling) - 1; i > 0; i-- {
 		if totalUpscaling[i] > threshold {
 			functionsToUpscale := make(map[string]int32)
+
 			for _, f := range functions {
 				if scalePerFunctionBinned[f][i] > scalePerFunctionBinned[f][i-1] {
 					functionsToUpscale[f] = scalePerFunctionBinned[f][i] - scalePerFunctionBinned[f][i-1]
 				}
 			}
-			sumFunctionsToUpscale := float64(sumValues(functionsToUpscale))
+
+			sumFunctionsToUpscale := _map.SumValues[float64](functionsToUpscale)
+
 			logrus.Infof("functionsToUpscale has length %d with sum %f",
 				len(functionsToUpscale), sumFunctionsToUpscale)
+
 			totalUpscalingAllocation := int(math.Floor(float64(threshold)))
 			totalUpscalingAllocation = int(math.Min(float64(totalUpscalingAllocation), sumFunctionsToUpscale))
+
 			// set upscaling for all functions to 0
 			for f := range functionsToUpscale {
 				scalePerFunctionBinned[f][i-1] = scalePerFunctionBinned[f][i]
 			}
+
 			// iterate over functions and increase their upscaling one by one
 			for totalUpscalingAllocation > 0 {
 				for f := range functionsToUpscale {
@@ -479,9 +503,11 @@ func (m *MultiScaler) shiftUpscaling(threshold int32, totalUpscaling []int32,
 					}
 				}
 			}
+
 			// recompute totalUpscaling
 			totalUpscaling[i-1] = 0
 			totalUpscaling[i] = 0
+
 			for _, f := range functions {
 				if i > 1 {
 					totalUpscaling[i-1] += int32(math.Max(0, float64(scalePerFunctionBinned[f][i-1]-scalePerFunctionBinned[f][i-2])))
@@ -495,6 +521,7 @@ func (m *MultiScaler) shiftUpscaling(threshold int32, totalUpscaling []int32,
 func (m *MultiScaler) shiftDownscaling(threshold int32, totalDownscaling []int32,
 	scalePerFunctionBinned map[string][]int32) {
 	functions := make([]string, len(scalePerFunctionBinned))
+
 	j := 0
 	for f := range scalePerFunctionBinned {
 		functions[j] = f
@@ -509,15 +536,20 @@ func (m *MultiScaler) shiftDownscaling(threshold int32, totalDownscaling []int32
 					functionsToDownscale[f] = scalePerFunctionBinned[f][i] - scalePerFunctionBinned[f][i+1]
 				}
 			}
-			sumFunctionsToDownscale := float64(sumValues(functionsToDownscale))
+
+			sumFunctionsToDownscale := _map.SumValues[float64](functionsToDownscale)
+
 			logrus.Infof("functionsToDownscale has length %d with sum %f",
 				len(functionsToDownscale), sumFunctionsToDownscale)
+
 			totalDownscalingAllocation := int(math.Floor(float64(threshold)))
 			totalDownscalingAllocation = int(math.Min(float64(totalDownscalingAllocation), sumFunctionsToDownscale))
+
 			// set downscaling for all functions to 0
 			for f := range functionsToDownscale {
 				scalePerFunctionBinned[f][i+1] = scalePerFunctionBinned[f][i]
 			}
+
 			// iterate over functions and increase their downscaling one by one
 			for totalDownscalingAllocation > 0 {
 				for f := range functionsToDownscale {
@@ -532,6 +564,7 @@ func (m *MultiScaler) shiftDownscaling(threshold int32, totalDownscaling []int32
 					}
 				}
 			}
+
 			// recompute totalDownscaling
 			totalDownscaling[i+1] = 0
 			totalDownscaling[i] = 0
@@ -543,12 +576,4 @@ func (m *MultiScaler) shiftDownscaling(threshold int32, totalDownscaling []int32
 			}
 		}
 	}
-}
-
-func sumValues(data map[string]int32) int32 {
-	var sum int32 = 0
-	for _, value := range data {
-		sum += value
-	}
-	return sum
 }

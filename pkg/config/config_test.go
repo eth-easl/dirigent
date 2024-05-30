@@ -12,14 +12,14 @@ const (
 )
 
 func TestReadControlPlaneConfiguration(t *testing.T) {
-	config, err := ReadWorkedNodeConfiguration("../../cmd/master_node/config.yaml")
+	config, err := ReadControlPlaneConfiguration("../../cmd/master_node/config.yaml")
 	assert.NoError(t, err, readConfigError)
 
 	assert.True(t, len(config.Verbosity) > 0, parseConfigError)
 }
 
 func TestReadDataPlaneConfiguration(t *testing.T) {
-	config, err := ReadWorkedNodeConfiguration("../../cmd/data_plane/config.yaml")
+	config, err := ReadDataPlaneConfiguration("../../cmd/data_plane/config.yaml")
 	assert.NoError(t, err, readConfigError)
 
 	assert.True(t, len(config.Verbosity) > 0, parseConfigError)

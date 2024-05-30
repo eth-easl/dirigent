@@ -1,5 +1,7 @@
 package _map
 
+import "cluster_manager/pkg/utils"
+
 func Keys[M ~map[K]V, K comparable, V any](m M) []K {
 	r := make([]K, 0, len(m))
 
@@ -18,6 +20,16 @@ func Values[M ~map[K]V, K comparable, V any](m M) []V {
 	}
 
 	return r
+}
+
+func SumValues[V utils.Number, V2 utils.Number, M ~map[K]V2, K comparable](m M) V {
+	var output V = 0
+
+	for _, v := range m {
+		output += V(v)
+	}
+
+	return output
 }
 
 func Difference[T comparable](a, b []T) []T {
