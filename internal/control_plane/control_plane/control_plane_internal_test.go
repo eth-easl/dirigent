@@ -1195,7 +1195,7 @@ func TestEndpointsWithDeregistration(t *testing.T) {
 	}
 
 	for i := 0; i < size; i++ {
-		status, err = controlPlane.onMetricsReceive(context.Background(), &proto.AutoscalingMetric{
+		status, err = controlPlane.setInvocationsMetrics(context.Background(), &proto.AutoscalingMetric{
 			ServiceName:      "mock" + fmt.Sprint(i),
 			DataplaneName:    "",
 			InflightRequests: 1,

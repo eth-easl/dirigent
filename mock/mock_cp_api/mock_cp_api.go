@@ -162,26 +162,6 @@ func (mr *MockCpiInterfaceClientMockRecorder) NodeHeartbeat(ctx, in any, opts ..
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "NodeHeartbeat", reflect.TypeOf((*MockCpiInterfaceClient)(nil).NodeHeartbeat), varargs...)
 }
 
-// OnMetricsReceive mocks base method.
-func (m *MockCpiInterfaceClient) OnMetricsReceive(ctx context.Context, in *proto.AutoscalingMetric, opts ...grpc.CallOption) (*proto.ActionStatus, error) {
-	m.ctrl.T.Helper()
-	varargs := []any{ctx, in}
-	for _, a := range opts {
-		varargs = append(varargs, a)
-	}
-	ret := m.ctrl.Call(m, "OnMetricsReceive", varargs...)
-	ret0, _ := ret[0].(*proto.ActionStatus)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// OnMetricsReceive indicates an expected call of OnMetricsReceive.
-func (mr *MockCpiInterfaceClientMockRecorder) OnMetricsReceive(ctx, in any, opts ...any) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	varargs := append([]any{ctx, in}, opts...)
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "OnMetricsReceive", reflect.TypeOf((*MockCpiInterfaceClient)(nil).OnMetricsReceive), varargs...)
-}
-
 // RegisterDataplane mocks base method.
 func (m *MockCpiInterfaceClient) RegisterDataplane(ctx context.Context, in *proto.DataplaneInfo, opts ...grpc.CallOption) (*proto.ActionStatus, error) {
 	m.ctrl.T.Helper()
@@ -322,24 +302,44 @@ func (mr *MockCpiInterfaceClientMockRecorder) ReviseHAProxyConfiguration(ctx, in
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ReviseHAProxyConfiguration", reflect.TypeOf((*MockCpiInterfaceClient)(nil).ReviseHAProxyConfiguration), varargs...)
 }
 
-// SendMetricsToPredictiveAutoscaler mocks base method.
-func (m *MockCpiInterfaceClient) SendMetricsToPredictiveAutoscaler(ctx context.Context, in *proto.MetricsPredictiveAutoscaler, opts ...grpc.CallOption) (*proto.ActionStatus, error) {
+// SetBackgroundMetrics mocks base method.
+func (m *MockCpiInterfaceClient) SetBackgroundMetrics(ctx context.Context, in *proto.MetricsPredictiveAutoscaler, opts ...grpc.CallOption) (*proto.ActionStatus, error) {
 	m.ctrl.T.Helper()
 	varargs := []any{ctx, in}
 	for _, a := range opts {
 		varargs = append(varargs, a)
 	}
-	ret := m.ctrl.Call(m, "SendMetricsToPredictiveAutoscaler", varargs...)
+	ret := m.ctrl.Call(m, "SetBackgroundMetrics", varargs...)
 	ret0, _ := ret[0].(*proto.ActionStatus)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
-// SendMetricsToPredictiveAutoscaler indicates an expected call of SendMetricsToPredictiveAutoscaler.
-func (mr *MockCpiInterfaceClientMockRecorder) SendMetricsToPredictiveAutoscaler(ctx, in any, opts ...any) *gomock.Call {
+// SetBackgroundMetrics indicates an expected call of SetBackgroundMetrics.
+func (mr *MockCpiInterfaceClientMockRecorder) SetBackgroundMetrics(ctx, in any, opts ...any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	varargs := append([]any{ctx, in}, opts...)
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SendMetricsToPredictiveAutoscaler", reflect.TypeOf((*MockCpiInterfaceClient)(nil).SendMetricsToPredictiveAutoscaler), varargs...)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetBackgroundMetrics", reflect.TypeOf((*MockCpiInterfaceClient)(nil).SetBackgroundMetrics), varargs...)
+}
+
+// SetInvocationsMetrics mocks base method.
+func (m *MockCpiInterfaceClient) SetInvocationsMetrics(ctx context.Context, in *proto.AutoscalingMetric, opts ...grpc.CallOption) (*proto.ActionStatus, error) {
+	m.ctrl.T.Helper()
+	varargs := []any{ctx, in}
+	for _, a := range opts {
+		varargs = append(varargs, a)
+	}
+	ret := m.ctrl.Call(m, "SetInvocationsMetrics", varargs...)
+	ret0, _ := ret[0].(*proto.ActionStatus)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// SetInvocationsMetrics indicates an expected call of SetInvocationsMetrics.
+func (mr *MockCpiInterfaceClientMockRecorder) SetInvocationsMetrics(ctx, in any, opts ...any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	varargs := append([]any{ctx, in}, opts...)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetInvocationsMetrics", reflect.TypeOf((*MockCpiInterfaceClient)(nil).SetInvocationsMetrics), varargs...)
 }
 
 // MockCpiInterfaceServer is a mock of CpiInterfaceServer interface.
@@ -455,21 +455,6 @@ func (mr *MockCpiInterfaceServerMockRecorder) NodeHeartbeat(arg0, arg1 any) *gom
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "NodeHeartbeat", reflect.TypeOf((*MockCpiInterfaceServer)(nil).NodeHeartbeat), arg0, arg1)
 }
 
-// OnMetricsReceive mocks base method.
-func (m *MockCpiInterfaceServer) OnMetricsReceive(arg0 context.Context, arg1 *proto.AutoscalingMetric) (*proto.ActionStatus, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "OnMetricsReceive", arg0, arg1)
-	ret0, _ := ret[0].(*proto.ActionStatus)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// OnMetricsReceive indicates an expected call of OnMetricsReceive.
-func (mr *MockCpiInterfaceServerMockRecorder) OnMetricsReceive(arg0, arg1 any) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "OnMetricsReceive", reflect.TypeOf((*MockCpiInterfaceServer)(nil).OnMetricsReceive), arg0, arg1)
-}
-
 // RegisterDataplane mocks base method.
 func (m *MockCpiInterfaceServer) RegisterDataplane(arg0 context.Context, arg1 *proto.DataplaneInfo) (*proto.ActionStatus, error) {
 	m.ctrl.T.Helper()
@@ -575,19 +560,34 @@ func (mr *MockCpiInterfaceServerMockRecorder) ReviseHAProxyConfiguration(arg0, a
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ReviseHAProxyConfiguration", reflect.TypeOf((*MockCpiInterfaceServer)(nil).ReviseHAProxyConfiguration), arg0, arg1)
 }
 
-// SendMetricsToPredictiveAutoscaler mocks base method.
-func (m *MockCpiInterfaceServer) SendMetricsToPredictiveAutoscaler(arg0 context.Context, arg1 *proto.MetricsPredictiveAutoscaler) (*proto.ActionStatus, error) {
+// SetBackgroundMetrics mocks base method.
+func (m *MockCpiInterfaceServer) SetBackgroundMetrics(arg0 context.Context, arg1 *proto.MetricsPredictiveAutoscaler) (*proto.ActionStatus, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "SendMetricsToPredictiveAutoscaler", arg0, arg1)
+	ret := m.ctrl.Call(m, "SetBackgroundMetrics", arg0, arg1)
 	ret0, _ := ret[0].(*proto.ActionStatus)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
-// SendMetricsToPredictiveAutoscaler indicates an expected call of SendMetricsToPredictiveAutoscaler.
-func (mr *MockCpiInterfaceServerMockRecorder) SendMetricsToPredictiveAutoscaler(arg0, arg1 any) *gomock.Call {
+// SetBackgroundMetrics indicates an expected call of SetBackgroundMetrics.
+func (mr *MockCpiInterfaceServerMockRecorder) SetBackgroundMetrics(arg0, arg1 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SendMetricsToPredictiveAutoscaler", reflect.TypeOf((*MockCpiInterfaceServer)(nil).SendMetricsToPredictiveAutoscaler), arg0, arg1)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetBackgroundMetrics", reflect.TypeOf((*MockCpiInterfaceServer)(nil).SetBackgroundMetrics), arg0, arg1)
+}
+
+// SetInvocationsMetrics mocks base method.
+func (m *MockCpiInterfaceServer) SetInvocationsMetrics(arg0 context.Context, arg1 *proto.AutoscalingMetric) (*proto.ActionStatus, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "SetInvocationsMetrics", arg0, arg1)
+	ret0, _ := ret[0].(*proto.ActionStatus)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// SetInvocationsMetrics indicates an expected call of SetInvocationsMetrics.
+func (mr *MockCpiInterfaceServerMockRecorder) SetInvocationsMetrics(arg0, arg1 any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetInvocationsMetrics", reflect.TypeOf((*MockCpiInterfaceServer)(nil).SetInvocationsMetrics), arg0, arg1)
 }
 
 // mustEmbedUnimplementedCpiInterfaceServer mocks base method.

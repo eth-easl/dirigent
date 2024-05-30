@@ -364,7 +364,7 @@ func (m *FunctionMetadata) sendMetricsToAutoscaler(cp proto.CpiInterfaceClient) 
 
 		go func() {
 			// TODO: NEED TO IMPLEMENT - the data plane shouldn't stop send metrics until the control plane at least once confirms
-			status, err := cp.OnMetricsReceive(context.Background(), &proto.AutoscalingMetric{
+			status, err := cp.SetInvocationsMetrics(context.Background(), &proto.AutoscalingMetric{
 				ServiceName:      m.identifier,
 				DataplaneName:    m.dataPlaneID,
 				InflightRequests: int32(inflightRequests),

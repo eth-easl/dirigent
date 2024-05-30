@@ -99,34 +99,34 @@ func (c *CpApiServer) StartNodeMonitoringLoop() chan struct{} {
 	return c.ControlPlane.startNodeMonitoring()
 }
 
-func (c *CpApiServer) OnMetricsReceive(ctx context.Context, metric *proto.AutoscalingMetric) (*proto.ActionStatus, error) {
+func (c *CpApiServer) SetInvocationsMetrics(ctx context.Context, metric *proto.AutoscalingMetric) (*proto.ActionStatus, error) {
 	if !c.LeaderElectionServer.IsLeader() {
 		leader := c.LeaderElectionServer.GetLeader()
 
 		if leader != nil {
-			logrus.Warn("Received onMetricsReceive call although not the leader. Forwarding the call...")
-			return leader.OnMetricsReceive(ctx, metric)
+			logrus.Warn("Received setInvocationsMetrics call although not the leader. Forwarding the call...")
+			return leader.SetInvocationsMetrics(ctx, metric)
 		} else {
 			return &proto.ActionStatus{Success: false}, nil
 		}
 	}
 
-	return c.ControlPlane.onMetricsReceive(ctx, metric)
+	return c.ControlPlane.setInvocationsMetrics(ctx, metric)
 }
 
-func (c *CpApiServer) SendMetricsToPredictiveAutoscaler(ctx context.Context, in *proto.MetricsPredictiveAutoscaler) (*proto.ActionStatus, error) {
+func (c *CpApiServer) SetBackgroundMetrics(ctx context.Context, in *proto.MetricsPredictiveAutoscaler) (*proto.ActionStatus, error) {
 	if !c.LeaderElectionServer.IsLeader() {
 		leader := c.LeaderElectionServer.GetLeader()
 
 		if leader != nil {
-			logrus.Warn("Received sendMetricsToPredictiveAutoscaler call although not the leader. Forwarding the call...")
-			return leader.SendMetricsToPredictiveAutoscaler(ctx, in)
+			logrus.Warn("Received setBackgroundMetrics call although not the leader. Forwarding the call...")
+			return leader.SetBackgroundMetrics(ctx, in)
 		} else {
 			return &proto.ActionStatus{Success: false}, nil
 		}
 	}
 
-	return c.ControlPlane.sendMetricsToPredictiveAutoscaler(ctx, in)
+	return c.ControlPlane.setBackgroundMetrics(ctx, in)
 }
 
 func (c *CpApiServer) ListServices(ctx context.Context, empty *emptypb.Empty) (*proto.ServiceList, error) {

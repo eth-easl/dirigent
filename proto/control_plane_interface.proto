@@ -53,15 +53,18 @@ message HAProxyConfig {
 }
 
 message MetricsPredictiveAutoscaler {
-  repeated string functionNames = 1;
-  repeated uint32 functionDuration = 2;
-  // 60 first entries corresponds to the first function, 60 next ones to the second,...
+  repeated FunctionMetrics metric = 1;
+}
+
+message FunctionMetrics {
+  string functionName = 1;
+  uint32 functionDuration = 2;
   repeated uint32 invocationsPerMinute = 3;
 }
 
 service CpiInterface {
-  rpc OnMetricsReceive(AutoscalingMetric) returns (ActionStatus);
-  rpc SendMetricsToPredictiveAutoscaler(MetricsPredictiveAutoscaler) returns (ActionStatus);
+  rpc SetInvocationsMetrics(AutoscalingMetric) returns (ActionStatus);
+  rpc SetBackgroundMetrics(MetricsPredictiveAutoscaler) returns (ActionStatus);
 
   rpc ListServices(google.protobuf.Empty) returns (ServiceList);
 

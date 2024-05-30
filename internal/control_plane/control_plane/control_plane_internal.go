@@ -353,7 +353,7 @@ func (c *ControlPlane) listServices(_ context.Context, _ *emptypb.Empty) (*proto
 	return &proto.ServiceList{Service: _map.Keys(c.SIStorage.GetMap())}, nil
 }
 
-func (c *ControlPlane) onMetricsReceive(_ context.Context, metric *proto.AutoscalingMetric) (*proto.ActionStatus, error) {
+func (c *ControlPlane) setInvocationsMetrics(_ context.Context, metric *proto.AutoscalingMetric) (*proto.ActionStatus, error) {
 	storage, ok := c.SIStorage.AtomicGet(metric.ServiceName)
 	if !ok {
 		logrus.Warn("SIStorage does not exist for '", metric.ServiceName, "'")
@@ -372,7 +372,7 @@ func (c *ControlPlane) onMetricsReceive(_ context.Context, metric *proto.Autosca
 	return &proto.ActionStatus{Success: true}, nil
 }
 
-func (c *ControlPlane) sendMetricsToPredictiveAutoscaler(ctx context.Context, in *proto.MetricsPredictiveAutoscaler, opts ...grpc.CallOption) (*proto.ActionStatus, error) {
+func (c *ControlPlane) setBackgroundMetrics(ctx context.Context, in *proto.MetricsPredictiveAutoscaler, opts ...grpc.CallOption) (*proto.ActionStatus, error) {
 	if err := c.multiscaler.ForwardDataplaneMetrics(in); err != nil {
 		logrus.Errorf("Failed to forward dataplane metrics (error : %s)", err.Error())
 		return &proto.ActionStatus{Success: false}, err

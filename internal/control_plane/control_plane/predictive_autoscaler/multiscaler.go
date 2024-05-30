@@ -218,15 +218,10 @@ func (m *MultiScaler) ForwardDataplaneMetrics(dataplaneMetrics *proto.MetricsPre
 	m.scalersMutex.Lock()
 	defer m.scalersMutex.Unlock()
 
-	for i := 0; i < len(dataplaneMetrics.GetFunctionDuration()); i++ {
-		// TODO: Fix this type error
-		if scaler, exists := m.scalers[dataplaneMetrics.GetFunctionNames()[i]]; exists {
-			// TODO: Call somehow the two functions here
-			// TODO: Change type in data plane
-			// TODO: Change data types in the autoscaler
-			scaler.scaler.EstimateCapacity(int32(dataplaneMetrics.GetFunctionDuration()[i]))
-			// TODO: Change type in the autoscaler
-			sliceToSend := dataplaneMetrics.GetInvocationsPerMinute()[60*i : 60*(i+1)]
+	for _, metric := range dataplaneMetrics.Metric {
+		if scaler, exists := m.scalers[metric.FunctionName]; exists {
+			scaler.scaler.EstimateCapacity(int32(metric.FunctionDuration))
+			sliceToSend := metric.GetInvocationsPerMinute()
 			scaler.scaler.ComputeInvocationsPerMinute(m.intToFloat(sliceToSend))
 		}
 	}

@@ -84,26 +84,22 @@ func (c *MetricsCollector) metricGatheringLoop() {
 func (c *MetricsCollector) sendMetricsToControlPlane() {
 	logrus.Infof("Sending values in the control plane")
 
-	// TODO: Change the context
-	c.controlPlane.SendMetricsToPredictiveAutoscaler(context.Background(), c.parseMetrics())
+	c.controlPlane.SetBackgroundMetrics(context.Background(), c.parseMetrics())
 }
 
-// TODO: What happen if we send values that aren't present in the control plane anymore?
 func (c *MetricsCollector) parseMetrics() *proto.MetricsPredictiveAutoscaler {
-	functionNames := make([]string, 0, len(c.metadata))
-	functionsDurations := make([]uint32, 0, len(c.metadata))
-	invocationsPerMinute := make([]uint32, 0, 60*len(c.metadata))
+	metricsPerFunctions := make([]*proto.FunctionMetrics, 0, len(c.metadata))
 
 	for functionName, values := range c.metadata {
-		functionNames = append(functionNames, functionName)
-		functionsDurations = append(functionsDurations, values.averageDuration)
-		invocationsPerMinute = append(invocationsPerMinute, values.invocationPerSeconds...)
+		metricsPerFunctions = append(metricsPerFunctions, &proto.FunctionMetrics{
+			FunctionName:         functionName,
+			FunctionDuration:     values.averageDuration,
+			InvocationsPerMinute: values.invocationPerSeconds,
+		})
 	}
 
 	return &proto.MetricsPredictiveAutoscaler{
-		FunctionNames:        functionNames,
-		FunctionDuration:     functionsDurations,
-		InvocationsPerMinute: invocationsPerMinute,
+		Metric: metricsPerFunctions,
 	}
 }
 

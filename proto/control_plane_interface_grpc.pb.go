@@ -20,29 +20,29 @@ import (
 const _ = grpc.SupportPackageIsVersion7
 
 const (
-	CpiInterface_OnMetricsReceive_FullMethodName                  = "/data_plane.CpiInterface/OnMetricsReceive"
-	CpiInterface_SendMetricsToPredictiveAutoscaler_FullMethodName = "/data_plane.CpiInterface/SendMetricsToPredictiveAutoscaler"
-	CpiInterface_ListServices_FullMethodName                      = "/data_plane.CpiInterface/ListServices"
-	CpiInterface_RegisterDataplane_FullMethodName                 = "/data_plane.CpiInterface/RegisterDataplane"
-	CpiInterface_RegisterService_FullMethodName                   = "/data_plane.CpiInterface/RegisterService"
-	CpiInterface_RegisterNode_FullMethodName                      = "/data_plane.CpiInterface/RegisterNode"
-	CpiInterface_NodeHeartbeat_FullMethodName                     = "/data_plane.CpiInterface/NodeHeartbeat"
-	CpiInterface_ReportFailure_FullMethodName                     = "/data_plane.CpiInterface/ReportFailure"
-	CpiInterface_DeregisterDataplane_FullMethodName               = "/data_plane.CpiInterface/DeregisterDataplane"
-	CpiInterface_DeregisterNode_FullMethodName                    = "/data_plane.CpiInterface/DeregisterNode"
-	CpiInterface_DeregisterService_FullMethodName                 = "/data_plane.CpiInterface/DeregisterService"
-	CpiInterface_ResetMeasurements_FullMethodName                 = "/data_plane.CpiInterface/ResetMeasurements"
-	CpiInterface_RequestVote_FullMethodName                       = "/data_plane.CpiInterface/RequestVote"
-	CpiInterface_AppendEntries_FullMethodName                     = "/data_plane.CpiInterface/AppendEntries"
-	CpiInterface_ReviseHAProxyConfiguration_FullMethodName        = "/data_plane.CpiInterface/ReviseHAProxyConfiguration"
+	CpiInterface_SetInvocationsMetrics_FullMethodName      = "/data_plane.CpiInterface/SetInvocationsMetrics"
+	CpiInterface_SetBackgroundMetrics_FullMethodName       = "/data_plane.CpiInterface/SetBackgroundMetrics"
+	CpiInterface_ListServices_FullMethodName               = "/data_plane.CpiInterface/ListServices"
+	CpiInterface_RegisterDataplane_FullMethodName          = "/data_plane.CpiInterface/RegisterDataplane"
+	CpiInterface_RegisterService_FullMethodName            = "/data_plane.CpiInterface/RegisterService"
+	CpiInterface_RegisterNode_FullMethodName               = "/data_plane.CpiInterface/RegisterNode"
+	CpiInterface_NodeHeartbeat_FullMethodName              = "/data_plane.CpiInterface/NodeHeartbeat"
+	CpiInterface_ReportFailure_FullMethodName              = "/data_plane.CpiInterface/ReportFailure"
+	CpiInterface_DeregisterDataplane_FullMethodName        = "/data_plane.CpiInterface/DeregisterDataplane"
+	CpiInterface_DeregisterNode_FullMethodName             = "/data_plane.CpiInterface/DeregisterNode"
+	CpiInterface_DeregisterService_FullMethodName          = "/data_plane.CpiInterface/DeregisterService"
+	CpiInterface_ResetMeasurements_FullMethodName          = "/data_plane.CpiInterface/ResetMeasurements"
+	CpiInterface_RequestVote_FullMethodName                = "/data_plane.CpiInterface/RequestVote"
+	CpiInterface_AppendEntries_FullMethodName              = "/data_plane.CpiInterface/AppendEntries"
+	CpiInterface_ReviseHAProxyConfiguration_FullMethodName = "/data_plane.CpiInterface/ReviseHAProxyConfiguration"
 )
 
 // CpiInterfaceClient is the client API for CpiInterface service.
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 type CpiInterfaceClient interface {
-	OnMetricsReceive(ctx context.Context, in *AutoscalingMetric, opts ...grpc.CallOption) (*ActionStatus, error)
-	SendMetricsToPredictiveAutoscaler(ctx context.Context, in *MetricsPredictiveAutoscaler, opts ...grpc.CallOption) (*ActionStatus, error)
+	SetInvocationsMetrics(ctx context.Context, in *AutoscalingMetric, opts ...grpc.CallOption) (*ActionStatus, error)
+	SetBackgroundMetrics(ctx context.Context, in *MetricsPredictiveAutoscaler, opts ...grpc.CallOption) (*ActionStatus, error)
 	ListServices(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*ServiceList, error)
 	RegisterDataplane(ctx context.Context, in *DataplaneInfo, opts ...grpc.CallOption) (*ActionStatus, error)
 	RegisterService(ctx context.Context, in *ServiceInfo, opts ...grpc.CallOption) (*ActionStatus, error)
@@ -68,18 +68,18 @@ func NewCpiInterfaceClient(cc grpc.ClientConnInterface) CpiInterfaceClient {
 	return &cpiInterfaceClient{cc}
 }
 
-func (c *cpiInterfaceClient) OnMetricsReceive(ctx context.Context, in *AutoscalingMetric, opts ...grpc.CallOption) (*ActionStatus, error) {
+func (c *cpiInterfaceClient) SetInvocationsMetrics(ctx context.Context, in *AutoscalingMetric, opts ...grpc.CallOption) (*ActionStatus, error) {
 	out := new(ActionStatus)
-	err := c.cc.Invoke(ctx, CpiInterface_OnMetricsReceive_FullMethodName, in, out, opts...)
+	err := c.cc.Invoke(ctx, CpiInterface_SetInvocationsMetrics_FullMethodName, in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
 	return out, nil
 }
 
-func (c *cpiInterfaceClient) SendMetricsToPredictiveAutoscaler(ctx context.Context, in *MetricsPredictiveAutoscaler, opts ...grpc.CallOption) (*ActionStatus, error) {
+func (c *cpiInterfaceClient) SetBackgroundMetrics(ctx context.Context, in *MetricsPredictiveAutoscaler, opts ...grpc.CallOption) (*ActionStatus, error) {
 	out := new(ActionStatus)
-	err := c.cc.Invoke(ctx, CpiInterface_SendMetricsToPredictiveAutoscaler_FullMethodName, in, out, opts...)
+	err := c.cc.Invoke(ctx, CpiInterface_SetBackgroundMetrics_FullMethodName, in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -207,8 +207,8 @@ func (c *cpiInterfaceClient) ReviseHAProxyConfiguration(ctx context.Context, in 
 // All implementations must embed UnimplementedCpiInterfaceServer
 // for forward compatibility
 type CpiInterfaceServer interface {
-	OnMetricsReceive(context.Context, *AutoscalingMetric) (*ActionStatus, error)
-	SendMetricsToPredictiveAutoscaler(context.Context, *MetricsPredictiveAutoscaler) (*ActionStatus, error)
+	SetInvocationsMetrics(context.Context, *AutoscalingMetric) (*ActionStatus, error)
+	SetBackgroundMetrics(context.Context, *MetricsPredictiveAutoscaler) (*ActionStatus, error)
 	ListServices(context.Context, *emptypb.Empty) (*ServiceList, error)
 	RegisterDataplane(context.Context, *DataplaneInfo) (*ActionStatus, error)
 	RegisterService(context.Context, *ServiceInfo) (*ActionStatus, error)
@@ -231,11 +231,11 @@ type CpiInterfaceServer interface {
 type UnimplementedCpiInterfaceServer struct {
 }
 
-func (UnimplementedCpiInterfaceServer) OnMetricsReceive(context.Context, *AutoscalingMetric) (*ActionStatus, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method OnMetricsReceive not implemented")
+func (UnimplementedCpiInterfaceServer) SetInvocationsMetrics(context.Context, *AutoscalingMetric) (*ActionStatus, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method SetInvocationsMetrics not implemented")
 }
-func (UnimplementedCpiInterfaceServer) SendMetricsToPredictiveAutoscaler(context.Context, *MetricsPredictiveAutoscaler) (*ActionStatus, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method SendMetricsToPredictiveAutoscaler not implemented")
+func (UnimplementedCpiInterfaceServer) SetBackgroundMetrics(context.Context, *MetricsPredictiveAutoscaler) (*ActionStatus, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method SetBackgroundMetrics not implemented")
 }
 func (UnimplementedCpiInterfaceServer) ListServices(context.Context, *emptypb.Empty) (*ServiceList, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method ListServices not implemented")
@@ -289,38 +289,38 @@ func RegisterCpiInterfaceServer(s grpc.ServiceRegistrar, srv CpiInterfaceServer)
 	s.RegisterService(&CpiInterface_ServiceDesc, srv)
 }
 
-func _CpiInterface_OnMetricsReceive_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+func _CpiInterface_SetInvocationsMetrics_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(AutoscalingMetric)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(CpiInterfaceServer).OnMetricsReceive(ctx, in)
+		return srv.(CpiInterfaceServer).SetInvocationsMetrics(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: CpiInterface_OnMetricsReceive_FullMethodName,
+		FullMethod: CpiInterface_SetInvocationsMetrics_FullMethodName,
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(CpiInterfaceServer).OnMetricsReceive(ctx, req.(*AutoscalingMetric))
+		return srv.(CpiInterfaceServer).SetInvocationsMetrics(ctx, req.(*AutoscalingMetric))
 	}
 	return interceptor(ctx, in, info, handler)
 }
 
-func _CpiInterface_SendMetricsToPredictiveAutoscaler_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+func _CpiInterface_SetBackgroundMetrics_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(MetricsPredictiveAutoscaler)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(CpiInterfaceServer).SendMetricsToPredictiveAutoscaler(ctx, in)
+		return srv.(CpiInterfaceServer).SetBackgroundMetrics(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: CpiInterface_SendMetricsToPredictiveAutoscaler_FullMethodName,
+		FullMethod: CpiInterface_SetBackgroundMetrics_FullMethodName,
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(CpiInterfaceServer).SendMetricsToPredictiveAutoscaler(ctx, req.(*MetricsPredictiveAutoscaler))
+		return srv.(CpiInterfaceServer).SetBackgroundMetrics(ctx, req.(*MetricsPredictiveAutoscaler))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -567,12 +567,12 @@ var CpiInterface_ServiceDesc = grpc.ServiceDesc{
 	HandlerType: (*CpiInterfaceServer)(nil),
 	Methods: []grpc.MethodDesc{
 		{
-			MethodName: "OnMetricsReceive",
-			Handler:    _CpiInterface_OnMetricsReceive_Handler,
+			MethodName: "SetInvocationsMetrics",
+			Handler:    _CpiInterface_SetInvocationsMetrics_Handler,
 		},
 		{
-			MethodName: "SendMetricsToPredictiveAutoscaler",
-			Handler:    _CpiInterface_SendMetricsToPredictiveAutoscaler_Handler,
+			MethodName: "SetBackgroundMetrics",
+			Handler:    _CpiInterface_SetBackgroundMetrics_Handler,
 		},
 		{
 			MethodName: "ListServices",
