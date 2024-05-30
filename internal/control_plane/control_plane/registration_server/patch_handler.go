@@ -29,7 +29,10 @@ func patchHandler(api *control_plane.CpApiServer) func(w http.ResponseWriter, r 
 			return
 		}
 
-		sis, ok := api.ControlPlane.SIStorage.AtomicGet(function)
+		api.ControlPlane.SIStorage.Lock()
+		defer api.ControlPlane.SIStorage.Unlock()
+
+		sis, ok := api.ControlPlane.SIStorage.Get(function)
 		if !ok {
 			http.Error(w, "Function name does not exist.", http.StatusBadRequest)
 			return
@@ -89,6 +92,7 @@ func patchHandler(api *control_plane.CpApiServer) func(w http.ResponseWriter, r 
 		}
 
 		sis.PerFunctionState.AutoscalingConfig = config
+
 		w.WriteHeader(http.StatusOK)
 	}
 }

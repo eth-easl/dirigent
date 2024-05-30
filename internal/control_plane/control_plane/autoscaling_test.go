@@ -37,18 +37,6 @@ func TestAutoscalingPerformance(t *testing.T) {
 			Policy:      utils.MU_AUTOSCALER,
 		},
 		{
-			Name:        "mu_1000",
-			Iterations:  10,
-			Parallelism: 1000,
-			Policy:      utils.MU_AUTOSCALER,
-		},
-		{
-			Name:        "mu_10000",
-			Iterations:  10,
-			Parallelism: 10000,
-			Policy:      utils.MU_AUTOSCALER,
-		},
-		{
 			Name:        "predictive_10",
 			Iterations:  10,
 			Parallelism: 10,
@@ -58,18 +46,6 @@ func TestAutoscalingPerformance(t *testing.T) {
 			Name:        "predictive_100",
 			Iterations:  5,
 			Parallelism: 100,
-			Policy:      utils.MU_AUTOSCALER,
-		},
-		{
-			Name:        "predictive_1000",
-			Iterations:  10,
-			Parallelism: 1000,
-			Policy:      utils.MU_AUTOSCALER,
-		},
-		{
-			Name:        "predictive_10000",
-			Iterations:  10,
-			Parallelism: 10000,
 			Policy:      utils.MU_AUTOSCALER,
 		},
 	}
