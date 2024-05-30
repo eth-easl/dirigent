@@ -10,7 +10,7 @@ import (
 func TestEvictionPolicyEmpty(t *testing.T) {
 	emptyList := make([]*core.Endpoint, 0)
 
-	toEvict, currentState := EvictionPolicy(emptyList)
+	toEvict, currentState := NewDefaultevictionPolicy().Evict(emptyList)
 
 	assert.Nil(t, toEvict, "Evicted point should be nil")
 	assert.Len(t, currentState, 0, "No object should ne present in the list")
@@ -43,7 +43,7 @@ func TestEvictionPolicy(t *testing.T) {
 		CreationHistory: tracing.ColdStartLogEntry{},
 	})
 
-	toEvict, currentState := EvictionPolicy(list)
+	toEvict, currentState := NewDefaultevictionPolicy().Evict(list)
 
 	assert.NotNil(t, toEvict, "Evicted point should not be nil")
 	assert.Len(t, currentState, 2, "Two objects should be present in the list")

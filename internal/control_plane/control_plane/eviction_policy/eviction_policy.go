@@ -5,7 +5,18 @@ import (
 	"math/rand"
 )
 
-func EvictionPolicy(endpoint []*core.Endpoint) (*core.Endpoint, []*core.Endpoint) {
+type EvictionPolicy interface {
+	Evict(endpoint []*core.Endpoint) (*core.Endpoint, []*core.Endpoint)
+}
+
+type defaultEvictionPolicy struct {
+}
+
+func NewDefaultevictionPolicy() EvictionPolicy {
+	return &defaultEvictionPolicy{}
+}
+
+func (d *defaultEvictionPolicy) Evict(endpoint []*core.Endpoint) (*core.Endpoint, []*core.Endpoint) {
 	if len(endpoint) == 0 {
 		return nil, []*core.Endpoint{}
 	}

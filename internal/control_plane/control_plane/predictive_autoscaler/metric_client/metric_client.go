@@ -25,9 +25,7 @@ func NewMetricClient(metadata *per_function_state.PFState) *MetricClient {
 	}
 }
 
-// WE can simply ask like that as we call every two seconds
 func (c *MetricClient) StableAndPanicConcurrency() (float64, float64) {
-	// TODO: Change type here
 	observedStableValue := float64(c.perFunctionState.CachedScalingMetrics)
 
 	panicBucketCount := int64(c.perFunctionState.AutoscalingConfig.PanicWindowWidthSeconds / c.perFunctionState.AutoscalingConfig.ScalingPeriodSeconds)

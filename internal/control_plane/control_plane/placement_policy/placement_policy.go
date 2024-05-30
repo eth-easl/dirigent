@@ -2,9 +2,7 @@ package placement_policy
 
 import (
 	"cluster_manager/internal/control_plane/control_plane/core"
-	_map "cluster_manager/pkg/map"
 	"cluster_manager/pkg/synchronization"
-	"sort"
 )
 
 type PlacementPolicy interface {
@@ -22,26 +20,15 @@ func getSchedulableNodes(allNodes []core.WorkerNodeInterface) []core.WorkerNodeI
 	return result
 }
 
-func NewKubernetesPolicy() *KubernetesPolicy {
-	return &KubernetesPolicy{
-		// TODO: Make it dynamic in the future
-		resourceMap: CreateResourceMap(1, 1),
-	}
-}
+func ApplyPlacementPolicy(placementPolicy PlacementPolicy, NIStorage synchronization.SyncStructure[string, core.WorkerNodeInterface], requested *ResourceMap) core.WorkerNodeInterface {
+	NIStorage.RLock()
+	defer NIStorage.RUnlock()
 
-type KubernetesPolicy struct {
-	resourceMap *ResourceMap
-}
-
-func ApplyPlacementPolicy(placementPolicy PlacementPolicy, storage synchronization.SyncStructure[string, core.WorkerNodeInterface], requested *ResourceMap) core.WorkerNodeInterface {
-	storage.RLock()
-	defer storage.RUnlock()
-
-	if noNodesInCluster(storage) {
+	if noNodesInCluster(NIStorage) {
 		return nil
 	}
 
-	return placementPolicy.Place(storage, requested)
+	return placementPolicy.Place(NIStorage, requested)
 }
 
 func getNumberNodes(storage synchronization.SyncStructure[string, core.WorkerNodeInterface]) int {
@@ -50,13 +37,4 @@ func getNumberNodes(storage synchronization.SyncStructure[string, core.WorkerNod
 
 func noNodesInCluster(storage synchronization.SyncStructure[string, core.WorkerNodeInterface]) bool {
 	return getNumberNodes(storage) == 0
-}
-
-func nodeFromIndex(storage synchronization.SyncStructure[string, core.WorkerNodeInterface], index int) core.WorkerNodeInterface {
-	nodes := sort.StringSlice(_map.Keys(storage.GetMap()))
-	nodes.Sort()
-	nodeName := nodes[index]
-
-	value, _ := storage.Get(nodeName)
-	return value
 }

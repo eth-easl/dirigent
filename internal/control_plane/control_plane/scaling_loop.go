@@ -28,7 +28,9 @@ type ServiceInfoStorage struct {
 
 	Autoscaler core.AutoscalingInterface
 
-	PlacementPolicy  placement_policy.PlacementPolicy
+	PlacementPolicy placement_policy.PlacementPolicy
+	EvictionPolicy  eviction_policy.EvictionPolicy
+
 	PersistenceLayer persistence.PersistenceLayer
 
 	DataPlaneConnections synchronization.SyncStructure[string, core.DataPlaneInterface]
@@ -200,7 +202,7 @@ func (ss *ServiceInfoStorage) doDownscaling(actualScale, desiredCount int) {
 	toEvict := make(map[*core.Endpoint]struct{})
 
 	for i := 0; i < actualScale-desiredCount; i++ {
-		endpoint, newState := eviction_policy.EvictionPolicy(currentState)
+		endpoint, newState := ss.EvictionPolicy.Evict(currentState)
 		if len(currentState) == 0 || endpoint == nil {
 			logrus.Errorf("No endpoint to evict in the downscaling loop despite the actual scale is %d.", actualScale)
 			continue

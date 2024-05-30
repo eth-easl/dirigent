@@ -188,7 +188,6 @@ func (m *MultiScaler) Get(_ context.Context, namespace, name string) (*Decider, 
 }
 
 // Create instantiates the desired Decider.
-// Last parameter is unique to Dirigent
 func (m *MultiScaler) Create(_ context.Context, functionState *per_function_state.PFState, decider *Decider) (*Decider, error) {
 	m.scalersMutex.Lock()
 	defer m.scalersMutex.Unlock()

@@ -2,6 +2,7 @@ package control_plane
 
 import (
 	"cluster_manager/internal/control_plane/control_plane/core"
+	"cluster_manager/internal/control_plane/control_plane/eviction_policy"
 	"cluster_manager/internal/control_plane/control_plane/per_function_state"
 	"cluster_manager/internal/control_plane/control_plane/placement_policy"
 	"cluster_manager/internal/control_plane/control_plane/predictive_autoscaler"
@@ -65,6 +66,7 @@ func (c *ControlPlane) notifyDataplanesAndStartScalingLoop(ctx context.Context, 
 		PerFunctionState:        pfState,
 		ColdStartTracingChannel: c.ColdStartTracing.InputChannel,
 		PlacementPolicy:         c.PlacementPolicy,
+		EvictionPolicy:          eviction_policy.NewDefaultevictionPolicy(),
 		PersistenceLayer:        c.PersistenceLayer,
 		NIStorage:               c.NIStorage,
 		DataPlaneConnections:    c.DataPlaneConnections,

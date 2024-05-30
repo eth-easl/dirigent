@@ -8,6 +8,24 @@ import (
 	"math/rand"
 )
 
+func NewKubernetesPolicy() *KubernetesPolicy {
+	return &KubernetesPolicy{
+		// TODO: Make it dynamic in the future
+		resourceMap: CreateResourceMap(1, 1),
+	}
+}
+
+type KubernetesPolicy struct {
+	resourceMap *ResourceMap
+}
+
+func (policy *KubernetesPolicy) Place(storage synchronization.SyncStructure[string, core.WorkerNodeInterface], requested *ResourceMap) core.WorkerNodeInterface {
+	filteredStorage := filterMachines(storage, policy.resourceMap)
+	scores := prioritizeNodes(filteredStorage, requested)
+
+	return selectOneMachine(filteredStorage, scores)
+}
+
 type ScoringAlgorithmType func(ResourceMap, ResourceMap) uint64
 
 type ScoringAlgorithm struct {
@@ -178,11 +196,4 @@ func selectOneMachine(storage synchronization.SyncStructure[string, core.WorkerN
 	}
 
 	return selected
-}
-
-func (policy *KubernetesPolicy) Place(storage synchronization.SyncStructure[string, core.WorkerNodeInterface], requested *ResourceMap) core.WorkerNodeInterface {
-	filteredStorage := filterMachines(storage, policy.resourceMap)
-	scores := prioritizeNodes(filteredStorage, requested)
-
-	return selectOneMachine(filteredStorage, scores)
 }
