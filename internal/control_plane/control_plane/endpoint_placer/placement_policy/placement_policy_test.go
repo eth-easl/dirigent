@@ -2,7 +2,7 @@ package placement_policy
 
 import (
 	"cluster_manager/internal/control_plane/control_plane/core"
-	"cluster_manager/internal/control_plane/control_plane/workers"
+	"cluster_manager/internal/control_plane/control_plane/endpoint_placer/workers"
 	_map "cluster_manager/pkg/map"
 	"cluster_manager/pkg/synchronization"
 	"fmt"

@@ -199,12 +199,8 @@ func (c *ControlPlane) reconstructEndpointsState(ctx context.Context) error {
 
 			ss.NIStorage.AtomicGetNoCheck(node.GetName()).GetEndpointMap().AtomicSet(controlPlaneEndpoint, ss.ServiceInfo.Name)
 
-			ss.PerFunctionState.EndpointLock.Lock()
-			ss.PerFunctionState.Endpoints = append(ss.PerFunctionState.Endpoints, controlPlaneEndpoint)
-			urls := ss.prepareEndpointInfo(ss.PerFunctionState.Endpoints)
-			ss.PerFunctionState.EndpointLock.Unlock()
-
-			ss.updateEndpoints(urls)
+			// Add endpoint to the node endpoint_placer
+			ss.AddEndpoint(controlPlaneEndpoint)
 
 			// This functions sets the vanilla autoscaler in panic mode - disallow downscaling during a certain period of time
 			ss.Autoscaler.PanicPoke(endpoint.ServiceName, ss.PerFunctionState.CachedScalingMetrics)

@@ -2,9 +2,10 @@ package control_plane
 
 import (
 	"cluster_manager/internal/control_plane/control_plane/core"
+	"cluster_manager/internal/control_plane/control_plane/endpoint_placer"
+	"cluster_manager/internal/control_plane/control_plane/endpoint_placer/placement_policy"
 	"cluster_manager/internal/control_plane/control_plane/per_function_state"
 	"cluster_manager/internal/control_plane/control_plane/persistence"
-	"cluster_manager/internal/control_plane/control_plane/placement_policy"
 	"cluster_manager/internal/control_plane/control_plane/predictive_autoscaler"
 	"cluster_manager/pkg/config"
 	_map "cluster_manager/pkg/map"
@@ -25,7 +26,7 @@ import (
 type ControlPlane struct {
 	DataPlaneConnections synchronization.SyncStructure[string, core.DataPlaneInterface]
 	NIStorage            synchronization.SyncStructure[string, core.WorkerNodeInterface]
-	SIStorage            synchronization.SyncStructure[string, *ServiceInfoStorage]
+	SIStorage            synchronization.SyncStructure[string, *endpoint_placer.EndpointPlacer]
 
 	ColdStartTracing *tracing.TracingService[tracing.ColdStartLogEntry] `json:"-"`
 	PlacementPolicy  placement_policy.PlacementPolicy
@@ -58,7 +59,7 @@ func NewControlPlane(client persistence.PersistenceLayer, outputFile string, pla
 	return &ControlPlane{
 		DataPlaneConnections: synchronization.NewControlPlaneSyncStructure[string, core.DataPlaneInterface](),
 		NIStorage:            synchronization.NewControlPlaneSyncStructure[string, core.WorkerNodeInterface](),
-		SIStorage:            synchronization.NewControlPlaneSyncStructure[string, *ServiceInfoStorage](),
+		SIStorage:            synchronization.NewControlPlaneSyncStructure[string, *endpoint_placer.EndpointPlacer](),
 
 		ColdStartTracing: tracing.NewColdStartTracingService(outputFile),
 		PlacementPolicy:  placementPolicy,
@@ -130,7 +131,7 @@ func (c *ControlPlane) registerDataplane(ctx context.Context, in *proto.Dataplan
 			return &proto.ActionStatus{Success: false}, err, false
 		}
 
-		service.singlethreadUpdateEndpoints(service.prepareCurrentEndpointInfoList())
+		service.SingleThreadUpdateEndpoints(service.PrepareCurrentEndpointInfoList())
 	}
 
 	return &proto.ActionStatus{Success: true}, nil, false
@@ -466,7 +467,7 @@ func (c *ControlPlane) createWorkerNodeFailureEvents(wn core.WorkerNodeInterface
 	return failures
 }
 
-func (c *ControlPlane) getServicesOnWorkerNode(_ *ServiceInfoStorage, wn core.WorkerNodeInterface) []string {
+func (c *ControlPlane) getServicesOnWorkerNode(_ *endpoint_placer.EndpointPlacer, wn core.WorkerNodeInterface) []string {
 	toRemove, ok := c.NIStorage.AtomicGet(wn.GetName())
 	if !ok {
 		return []string{}

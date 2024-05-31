@@ -2,11 +2,11 @@ package control_plane
 
 import (
 	"cluster_manager/internal/control_plane/control_plane/core"
-	"cluster_manager/internal/control_plane/control_plane/data_plane"
-	"cluster_manager/internal/control_plane/control_plane/data_plane/empty_dataplane"
+	"cluster_manager/internal/control_plane/control_plane/endpoint_placer/data_plane"
+	"cluster_manager/internal/control_plane/control_plane/endpoint_placer/data_plane/empty_dataplane"
+	"cluster_manager/internal/control_plane/control_plane/endpoint_placer/placement_policy"
+	"cluster_manager/internal/control_plane/control_plane/endpoint_placer/workers/empty_worker"
 	"cluster_manager/internal/control_plane/control_plane/per_function_state"
-	"cluster_manager/internal/control_plane/control_plane/placement_policy"
-	"cluster_manager/internal/control_plane/control_plane/workers/empty_worker"
 	"cluster_manager/mock/mock_core"
 	"cluster_manager/mock/mock_persistence"
 	"cluster_manager/pkg/config"

@@ -1,7 +1,7 @@
 package workers
 
 import (
-	"cluster_manager/internal/control_plane/control_plane/data_plane"
+	"cluster_manager/internal/control_plane/control_plane/endpoint_placer/data_plane"
 	"github.com/stretchr/testify/assert"
 	"testing"
 )

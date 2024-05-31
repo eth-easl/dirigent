@@ -2,7 +2,7 @@ package data_plane
 
 import (
 	"cluster_manager/internal/control_plane/control_plane/core"
-	"cluster_manager/internal/control_plane/control_plane/workers"
+	"cluster_manager/internal/control_plane/control_plane/endpoint_placer/workers"
 	"github.com/stretchr/testify/assert"
 	"testing"
 	"time"

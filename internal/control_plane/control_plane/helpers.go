@@ -2,9 +2,10 @@ package control_plane
 
 import (
 	"cluster_manager/internal/control_plane/control_plane/core"
-	"cluster_manager/internal/control_plane/control_plane/eviction_policy"
+	"cluster_manager/internal/control_plane/control_plane/endpoint_placer"
+	"cluster_manager/internal/control_plane/control_plane/endpoint_placer/eviction_policy"
+	placement_policy2 "cluster_manager/internal/control_plane/control_plane/endpoint_placer/placement_policy"
 	"cluster_manager/internal/control_plane/control_plane/per_function_state"
-	"cluster_manager/internal/control_plane/control_plane/placement_policy"
 	"cluster_manager/internal/control_plane/control_plane/predictive_autoscaler"
 	"cluster_manager/pkg/config"
 	"cluster_manager/pkg/utils"
@@ -53,7 +54,7 @@ func (c *ControlPlane) notifyDataplanesAndStartScalingLoop(ctx context.Context, 
 		logrus.Fatalf("Unknown autoscaler : %s", c.Config.Autoscaler)
 	}
 
-	c.SIStorage.Set(serviceInfo.Name, &ServiceInfoStorage{
+	c.SIStorage.Set(serviceInfo.Name, &endpoint_placer.EndpointPlacer{
 		Autoscaler:              autoscaler,
 		ServiceInfo:             serviceInfo,
 		PerFunctionState:        pfState,
@@ -94,7 +95,7 @@ func (c *ControlPlane) removeEndpointsAssociatedWithNode(nodeID string) {
 			}
 		}
 
-		value.excludeEndpoints(toExclude)
+		value.ExcludeEndpoints(toExclude)
 		value.PerFunctionState.EndpointLock.Unlock()
 
 		atomic.AddInt64(&value.PerFunctionState.ActualScale, int64(-len(toExclude)))
@@ -130,17 +131,17 @@ func (c *ControlPlane) GetNumberServices() int {
 
 // Parse placement policy
 
-func ParsePlacementPolicy(controlPlaneConfig config.ControlPlaneConfig) placement_policy.PlacementPolicy {
+func ParsePlacementPolicy(controlPlaneConfig config.ControlPlaneConfig) placement_policy2.PlacementPolicy {
 	switch controlPlaneConfig.PlacementPolicy {
 	case "random":
-		return placement_policy.NewRandomPlacement()
+		return placement_policy2.NewRandomPlacement()
 	case "round-robin":
-		return placement_policy.NewRoundRobinPlacement()
+		return placement_policy2.NewRoundRobinPlacement()
 	case "kubernetes":
-		return placement_policy.NewKubernetesPolicy()
+		return placement_policy2.NewKubernetesPolicy()
 	default:
 		logrus.Error("Failed to parse placement, default policy is random")
-		return placement_policy.NewRandomPlacement()
+		return placement_policy2.NewRandomPlacement()
 	}
 }
 

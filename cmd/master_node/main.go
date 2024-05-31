@@ -2,12 +2,12 @@ package main
 
 import (
 	"cluster_manager/internal/control_plane/control_plane"
-	"cluster_manager/internal/control_plane/control_plane/data_plane"
-	"cluster_manager/internal/control_plane/control_plane/data_plane/empty_dataplane"
+	"cluster_manager/internal/control_plane/control_plane/endpoint_placer/data_plane"
+	"cluster_manager/internal/control_plane/control_plane/endpoint_placer/data_plane/empty_dataplane"
+	"cluster_manager/internal/control_plane/control_plane/endpoint_placer/workers"
+	"cluster_manager/internal/control_plane/control_plane/endpoint_placer/workers/empty_worker"
 	"cluster_manager/internal/control_plane/control_plane/persistence"
 	"cluster_manager/internal/control_plane/control_plane/registration_server"
-	"cluster_manager/internal/control_plane/control_plane/workers"
-	"cluster_manager/internal/control_plane/control_plane/workers/empty_worker"
 	"cluster_manager/internal/control_plane/election_management"
 	"cluster_manager/pkg/config"
 	"cluster_manager/pkg/logger"

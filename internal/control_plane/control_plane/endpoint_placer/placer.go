@@ -1,11 +1,11 @@
-package control_plane
+package endpoint_placer
 
 import (
 	"cluster_manager/internal/control_plane/control_plane/core"
-	"cluster_manager/internal/control_plane/control_plane/eviction_policy"
+	"cluster_manager/internal/control_plane/control_plane/endpoint_placer/eviction_policy"
+	placement_policy2 "cluster_manager/internal/control_plane/control_plane/endpoint_placer/placement_policy"
 	"cluster_manager/internal/control_plane/control_plane/per_function_state"
 	"cluster_manager/internal/control_plane/control_plane/persistence"
-	"cluster_manager/internal/control_plane/control_plane/placement_policy"
 	"cluster_manager/pkg/synchronization"
 	"cluster_manager/pkg/tracing"
 	"cluster_manager/pkg/utils"
@@ -20,7 +20,7 @@ import (
 	"google.golang.org/protobuf/types/known/durationpb"
 )
 
-type ServiceInfoStorage struct {
+type EndpointPlacer struct {
 	ServiceInfo *proto.ServiceInfo
 
 	PerFunctionState        *per_function_state.PFState
@@ -28,7 +28,7 @@ type ServiceInfoStorage struct {
 
 	Autoscaler core.AutoscalingInterface
 
-	PlacementPolicy placement_policy.PlacementPolicy
+	PlacementPolicy placement_policy2.PlacementPolicy
 	EvictionPolicy  eviction_policy.EvictionPolicy
 
 	PersistenceLayer persistence.PersistenceLayer
@@ -37,17 +37,7 @@ type ServiceInfoStorage struct {
 	NIStorage            synchronization.SyncStructure[string, core.WorkerNodeInterface]
 }
 
-func (ss *ServiceInfoStorage) GetAllURLs() []string {
-	var res []string
-
-	for i := 0; i < len(ss.PerFunctionState.Endpoints); i++ {
-		res = append(res, ss.PerFunctionState.Endpoints[i].URL)
-	}
-
-	return res
-}
-
-func (ss *ServiceInfoStorage) ScalingControllerLoop() {
+func (ss *EndpointPlacer) ScalingControllerLoop() {
 	isLoopRunning := true
 	desiredCount := 0
 
@@ -95,7 +85,102 @@ func (ss *ServiceInfoStorage) ScalingControllerLoop() {
 	}
 }
 
-func (ss *ServiceInfoStorage) doUpscaling(toCreateCount int, loopStarted time.Time) {
+func (ss *EndpointPlacer) AddEndpoint(endpoint *core.Endpoint) {
+	ss.PerFunctionState.EndpointLock.Lock()
+	ss.PerFunctionState.Endpoints = append(ss.PerFunctionState.Endpoints, endpoint)
+	urls := ss.PrepareEndpointInfo(ss.PerFunctionState.Endpoints)
+	ss.PerFunctionState.EndpointLock.Unlock()
+
+	ss.UpdateEndpoints(urls)
+}
+
+func (ss *EndpointPlacer) RemoveEndpointFromWNStruct(e *core.Endpoint) {
+	if e.Node == nil {
+		return
+	}
+
+	// Update worker node structure
+	ss.NIStorage.GetNoCheck(e.Node.GetName()).GetEndpointMap().Lock()
+	defer ss.NIStorage.GetNoCheck(e.Node.GetName()).GetEndpointMap().Unlock()
+
+	if e.Node.GetEndpointMap() == nil {
+		return
+	}
+
+	ss.NIStorage.GetNoCheck(e.Node.GetName()).GetEndpointMap().Remove(e)
+}
+
+func (ss *EndpointPlacer) UpdateEndpoints(endpoints []*proto.EndpointInfo) {
+	ss.DataPlaneConnections.Lock()
+	defer ss.DataPlaneConnections.Unlock()
+
+	ss.SingleThreadUpdateEndpoints(endpoints)
+}
+
+func (ss *EndpointPlacer) SingleThreadUpdateEndpoints(endpoints []*proto.EndpointInfo) {
+	wg := &sync.WaitGroup{}
+	wg.Add(ss.DataPlaneConnections.Len())
+
+	for _, dp := range ss.DataPlaneConnections.GetMap() {
+		go func(dataPlane core.DataPlaneInterface) {
+			defer wg.Done()
+
+			ctx, cancel := context.WithTimeout(context.Background(), utils.WorkerNodeTrafficTimeout)
+			defer cancel()
+
+			_, err := dataPlane.UpdateEndpointList(ctx, &proto.DeploymentEndpointPatch{
+				Service:   ss.ServiceInfo,
+				Endpoints: endpoints,
+			})
+			if err != nil {
+				logrus.Warnf("Failed to update endpoint list in the data plane - %v", err)
+			}
+		}(dp)
+	}
+
+	wg.Wait()
+}
+
+func (ss *EndpointPlacer) ExcludeEndpoints(toExclude map[*core.Endpoint]struct{}) {
+	var result []*core.Endpoint
+
+	for _, endpoint := range ss.PerFunctionState.Endpoints {
+		if _, ok := toExclude[endpoint]; !ok {
+			result = append(result, endpoint)
+		}
+	}
+
+	ss.PerFunctionState.Endpoints = result
+}
+
+// TODO: Refactor two following function - design can be improved
+func (ss *EndpointPlacer) PrepareEndpointInfo(endpoints []*core.Endpoint) []*proto.EndpointInfo {
+	var res []*proto.EndpointInfo
+
+	for i := 0; i < len(endpoints); i++ {
+		res = append(res, &proto.EndpointInfo{
+			ID:  endpoints[i].SandboxID,
+			URL: endpoints[i].URL,
+		})
+	}
+
+	return res
+}
+
+func (ss *EndpointPlacer) PrepareCurrentEndpointInfoList() []*proto.EndpointInfo {
+	var res []*proto.EndpointInfo
+
+	for i := 0; i < len(ss.PerFunctionState.Endpoints); i++ {
+		res = append(res, &proto.EndpointInfo{
+			ID:  ss.PerFunctionState.Endpoints[i].SandboxID,
+			URL: ss.PerFunctionState.Endpoints[i].URL,
+		})
+	}
+
+	return res
+}
+
+func (ss *EndpointPlacer) doUpscaling(toCreateCount int, loopStarted time.Time) {
 	wg := sync.WaitGroup{}
 
 	logrus.Debug("Need to create: ", toCreateCount, " sandboxes")
@@ -106,8 +191,8 @@ func (ss *ServiceInfoStorage) doUpscaling(toCreateCount int, loopStarted time.Ti
 		go func() {
 			defer wg.Done()
 
-			requested := placement_policy.CreateResourceMap(ss.ServiceInfo.GetRequestedCpu(), ss.ServiceInfo.GetRequestedMemory())
-			node := placement_policy.ApplyPlacementPolicy(ss.PlacementPolicy, ss.NIStorage, requested)
+			requested := placement_policy2.CreateResourceMap(ss.ServiceInfo.GetRequestedCpu(), ss.ServiceInfo.GetRequestedMemory())
+			node := placement_policy2.ApplyPlacementPolicy(ss.PlacementPolicy, ss.NIStorage, requested)
 			if node == nil {
 				logrus.Warn("Failed to do placement. No nodes are schedulable.")
 
@@ -172,9 +257,9 @@ func (ss *ServiceInfoStorage) doUpscaling(toCreateCount int, loopStarted time.Ti
 			ss.NIStorage.AtomicGetNoCheck(node.GetName()).GetEndpointMap().AtomicSet(newEndpoint, ss.ServiceInfo.Name)
 
 			ss.PerFunctionState.Endpoints = append(ss.PerFunctionState.Endpoints, newEndpoint)
-			urls := ss.prepareEndpointInfo([]*core.Endpoint{newEndpoint}) // prepare delta for sending
+			urls := ss.PrepareEndpointInfo([]*core.Endpoint{newEndpoint}) // prepare delta for sending
 
-			ss.updateEndpoints(urls)
+			ss.UpdateEndpoints(urls)
 			logrus.Debugf("Endpoint has been propagated - %s", resp.ID)
 
 			newEndpoint.CreationHistory.LatencyBreakdown.DataplanePropagation = durationpb.New(time.Since(startEndpointPropagation))
@@ -186,23 +271,7 @@ func (ss *ServiceInfoStorage) doUpscaling(toCreateCount int, loopStarted time.Ti
 	wg.Wait()
 }
 
-func (ss *ServiceInfoStorage) removeEndpointFromWNStruct(e *core.Endpoint) {
-	if e.Node == nil {
-		return
-	}
-
-	// Update worker node structure
-	ss.NIStorage.GetNoCheck(e.Node.GetName()).GetEndpointMap().Lock()
-	defer ss.NIStorage.GetNoCheck(e.Node.GetName()).GetEndpointMap().Unlock()
-
-	if e.Node.GetEndpointMap() == nil {
-		return
-	}
-
-	ss.NIStorage.GetNoCheck(e.Node.GetName()).GetEndpointMap().Remove(e)
-}
-
-func (ss *ServiceInfoStorage) doDownscaling(actualScale, desiredCount int) {
+func (ss *EndpointPlacer) doDownscaling(actualScale, desiredCount int) {
 	currentState := ss.PerFunctionState.Endpoints
 	toEvict := make(map[*core.Endpoint]struct{})
 
@@ -224,7 +293,7 @@ func (ss *ServiceInfoStorage) doDownscaling(actualScale, desiredCount int) {
 		logrus.Errorf("downscaling reference error")
 	}
 
-	ss.excludeEndpoints(toEvict)
+	ss.ExcludeEndpoints(toEvict)
 
 	go func() {
 		///////////////////////////////////////////////////////////////////////////
@@ -247,8 +316,8 @@ func (ss *ServiceInfoStorage) doDownscaling(actualScale, desiredCount int) {
 			go func(victim *core.Endpoint) {
 				defer wg.Done()
 
-				deleteSandbox(victim)
-				ss.removeEndpointFromWNStruct(victim)
+				ss.deleteSandbox(victim)
+				ss.RemoveEndpointFromWNStruct(victim)
 			}(key)
 		}
 
@@ -257,7 +326,25 @@ func (ss *ServiceInfoStorage) doDownscaling(actualScale, desiredCount int) {
 	}()
 }
 
-func (ss *ServiceInfoStorage) drainSandbox(toEvict map[*core.Endpoint]struct{}) {
+func (ss *EndpointPlacer) deleteSandbox(key *core.Endpoint) {
+	if key.Node == nil {
+		logrus.Warnf("Reference to a node on sandbox deletion not found. Ignoring request.")
+		return
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), utils.WorkerNodeTrafficTimeout)
+	defer cancel()
+
+	_, err := key.Node.DeleteSandbox(ctx, &proto.SandboxID{
+		ID:       key.SandboxID,
+		HostPort: key.HostPort,
+	})
+	if err != nil {
+		logrus.Warnf("Failed to delete a sandbox with ID %s on worker node %s. (error : %v)", key.SandboxID, key.Node.GetName(), err)
+	}
+}
+
+func (ss *EndpointPlacer) drainSandbox(toEvict map[*core.Endpoint]struct{}) {
 	////////////////////////////////////////////////////////
 	var toDrain []*core.Endpoint
 	for elem := range toEvict {
@@ -278,7 +365,7 @@ func (ss *ServiceInfoStorage) drainSandbox(toEvict map[*core.Endpoint]struct{}) 
 
 			_, err := dataPlane.DrainSandbox(ctx, &proto.DeploymentEndpointPatch{
 				Service:   ss.ServiceInfo,
-				Endpoints: ss.prepareEndpointInfo(toDrain),
+				Endpoints: ss.PrepareEndpointInfo(toDrain),
 			})
 			if err != nil {
 				logrus.Errorf("Error draining endpoints for service %s.", ss.ServiceInfo.Name)
@@ -288,92 +375,4 @@ func (ss *ServiceInfoStorage) drainSandbox(toEvict map[*core.Endpoint]struct{}) 
 
 	ss.DataPlaneConnections.Unlock()
 	wg.Wait()
-}
-
-func deleteSandbox(key *core.Endpoint) {
-	if key.Node == nil {
-		logrus.Warnf("Reference to a node on sandbox deletion not found. Ignoring request.")
-		return
-	}
-
-	ctx, cancel := context.WithTimeout(context.Background(), utils.WorkerNodeTrafficTimeout)
-	defer cancel()
-
-	_, err := key.Node.DeleteSandbox(ctx, &proto.SandboxID{
-		ID:       key.SandboxID,
-		HostPort: key.HostPort,
-	})
-	if err != nil {
-		logrus.Warnf("Failed to delete a sandbox with ID %s on worker node %s. (error : %v)", key.SandboxID, key.Node.GetName(), err)
-	}
-}
-
-func (ss *ServiceInfoStorage) updateEndpoints(endpoints []*proto.EndpointInfo) {
-	ss.DataPlaneConnections.Lock()
-	defer ss.DataPlaneConnections.Unlock()
-
-	ss.singlethreadUpdateEndpoints(endpoints)
-}
-
-func (ss *ServiceInfoStorage) singlethreadUpdateEndpoints(endpoints []*proto.EndpointInfo) {
-	wg := &sync.WaitGroup{}
-	wg.Add(ss.DataPlaneConnections.Len())
-
-	for _, dp := range ss.DataPlaneConnections.GetMap() {
-		go func(dataPlane core.DataPlaneInterface) {
-			defer wg.Done()
-
-			ctx, cancel := context.WithTimeout(context.Background(), utils.WorkerNodeTrafficTimeout)
-			defer cancel()
-
-			_, err := dataPlane.UpdateEndpointList(ctx, &proto.DeploymentEndpointPatch{
-				Service:   ss.ServiceInfo,
-				Endpoints: endpoints,
-			})
-			if err != nil {
-				logrus.Warnf("Failed to update endpoint list in the data plane - %v", err)
-			}
-		}(dp)
-	}
-
-	wg.Wait()
-}
-
-func (ss *ServiceInfoStorage) excludeEndpoints(toExclude map[*core.Endpoint]struct{}) {
-	var result []*core.Endpoint
-
-	for _, endpoint := range ss.PerFunctionState.Endpoints {
-		if _, ok := toExclude[endpoint]; !ok {
-			result = append(result, endpoint)
-		}
-	}
-
-	ss.PerFunctionState.Endpoints = result
-}
-
-// TODO: Refactor two following function - design can be improved
-func (ss *ServiceInfoStorage) prepareEndpointInfo(endpoints []*core.Endpoint) []*proto.EndpointInfo {
-	var res []*proto.EndpointInfo
-
-	for i := 0; i < len(endpoints); i++ {
-		res = append(res, &proto.EndpointInfo{
-			ID:  endpoints[i].SandboxID,
-			URL: endpoints[i].URL,
-		})
-	}
-
-	return res
-}
-
-func (ss *ServiceInfoStorage) prepareCurrentEndpointInfoList() []*proto.EndpointInfo {
-	var res []*proto.EndpointInfo
-
-	for i := 0; i < len(ss.PerFunctionState.Endpoints); i++ {
-		res = append(res, &proto.EndpointInfo{
-			ID:  ss.PerFunctionState.Endpoints[i].SandboxID,
-			URL: ss.PerFunctionState.Endpoints[i].URL,
-		})
-	}
-
-	return res
 }

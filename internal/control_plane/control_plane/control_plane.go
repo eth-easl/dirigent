@@ -2,9 +2,9 @@ package control_plane
 
 import (
 	"cluster_manager/internal/control_plane/control_plane/core"
+	"cluster_manager/internal/control_plane/control_plane/endpoint_placer/placement_policy"
 	"cluster_manager/internal/control_plane/control_plane/leader_election"
 	"cluster_manager/internal/control_plane/control_plane/persistence"
-	"cluster_manager/internal/control_plane/control_plane/placement_policy"
 	"cluster_manager/internal/data_plane/haproxy"
 	config2 "cluster_manager/pkg/config"
 	"cluster_manager/pkg/grpc_helpers"

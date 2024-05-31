@@ -2,7 +2,7 @@ package control_plane
 
 import (
 	"cluster_manager/internal/control_plane/control_plane/core"
-	"cluster_manager/pkg/synchronization"
+	"cluster_manager/internal/control_plane/control_plane/endpoint_placer"
 	"cluster_manager/proto"
 	"github.com/sirupsen/logrus"
 	"sync/atomic"
@@ -18,7 +18,7 @@ func (c *ControlPlane) HandleFailure(failures []*proto.Failure) bool {
 
 			// TODO: all endpoints removals can be batched into a single call
 			if ss, ok := c.SIStorage.Get(serviceName); ok {
-				c.removeEndpoints(ss, c.DataPlaneConnections, sandboxIDs)
+				c.removeEndpoints(ss, sandboxIDs)
 			}
 		}
 	}
@@ -26,7 +26,7 @@ func (c *ControlPlane) HandleFailure(failures []*proto.Failure) bool {
 	return true
 }
 
-func (c *ControlPlane) removeEndpoints(ss *ServiceInfoStorage, dpConns synchronization.SyncStructure[string, core.DataPlaneInterface], endpoints []string) {
+func (c *ControlPlane) removeEndpoints(ss *endpoint_placer.EndpointPlacer, endpoints []string) {
 	ss.PerFunctionState.EndpointLock.Lock()
 	defer ss.PerFunctionState.EndpointLock.Unlock()
 
@@ -39,13 +39,13 @@ func (c *ControlPlane) removeEndpoints(ss *ServiceInfoStorage, dpConns synchroni
 		}
 
 		toRemove[endpoint] = struct{}{}
-		ss.removeEndpointFromWNStruct(endpoint)
+		ss.RemoveEndpointFromWNStruct(endpoint)
 
 		logrus.Warn("Control plane notified of failure of '", endpoint.SandboxID, "'. Decrementing actual scale and removing the endpoint.")
 	}
 
 	atomic.AddInt64(&ss.PerFunctionState.ActualScale, -int64(len(toRemove)))
-	ss.excludeEndpoints(toRemove)
+	ss.ExcludeEndpoints(toRemove)
 
-	ss.updateEndpoints(ss.prepareEndpointInfo(ss.PerFunctionState.Endpoints))
+	ss.UpdateEndpoints(ss.PrepareEndpointInfo(ss.PerFunctionState.Endpoints))
 }
