@@ -1,12 +1,13 @@
 package control_plane
 
 import (
+	"cluster_manager/internal/control_plane/control_plane/autoscalers/autoscaling"
+	"cluster_manager/internal/control_plane/control_plane/autoscalers/predictive_autoscaler"
 	"cluster_manager/internal/control_plane/control_plane/core"
 	"cluster_manager/internal/control_plane/control_plane/endpoint_placer"
 	"cluster_manager/internal/control_plane/control_plane/endpoint_placer/eviction_policy"
 	placement_policy2 "cluster_manager/internal/control_plane/control_plane/endpoint_placer/placement_policy"
 	"cluster_manager/internal/control_plane/control_plane/per_function_state"
-	"cluster_manager/internal/control_plane/control_plane/predictive_autoscaler"
 	"cluster_manager/pkg/config"
 	"cluster_manager/pkg/utils"
 	"cluster_manager/proto"
@@ -37,7 +38,7 @@ func (c *ControlPlane) notifyDataplanesAndStartScalingLoop(ctx context.Context, 
 
 	switch c.Config.Autoscaler {
 	case utils.DEFAULT_AUTOSCALER:
-		autoscaler = per_function_state.NewDefaultAutoscaler(pfState, c.Config.AutoscalingPeriod)
+		autoscaler = autoscaling.NewDefaultAutoscaler(pfState, c.Config.AutoscalingPeriod)
 	case utils.PREDICTIVE_AUTOSCALER:
 		fallthrough
 	case utils.MU_AUTOSCALER:

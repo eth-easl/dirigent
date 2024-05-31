@@ -1,12 +1,12 @@
 package control_plane
 
 import (
+	predictive_autoscaler2 "cluster_manager/internal/control_plane/control_plane/autoscalers/predictive_autoscaler"
 	"cluster_manager/internal/control_plane/control_plane/core"
 	"cluster_manager/internal/control_plane/control_plane/endpoint_placer"
 	"cluster_manager/internal/control_plane/control_plane/endpoint_placer/placement_policy"
 	"cluster_manager/internal/control_plane/control_plane/per_function_state"
 	"cluster_manager/internal/control_plane/control_plane/persistence"
-	"cluster_manager/internal/control_plane/control_plane/predictive_autoscaler"
 	"cluster_manager/pkg/config"
 	_map "cluster_manager/pkg/map"
 	"cluster_manager/pkg/synchronization"
@@ -38,14 +38,14 @@ type ControlPlane struct {
 	Config *config.ControlPlaneConfig
 
 	// TODO: Refactor this in better code
-	multiscaler *predictive_autoscaler.MultiScaler
+	multiscaler *predictive_autoscaler2.MultiScaler
 }
 
-func uniscalerFactoryCreator(functionState *per_function_state.PFState, decider *predictive_autoscaler.Decider, predictionsCh chan predictive_autoscaler.ScalingDecisions,
-	shiftedScalingCh chan predictive_autoscaler.ScalingDecisions, startCh chan bool, isMu bool) (predictive_autoscaler.UniScaler, error) {
+func uniscalerFactoryCreator(functionState *per_function_state.PFState, decider *predictive_autoscaler2.Decider, predictionsCh chan predictive_autoscaler2.ScalingDecisions,
+	shiftedScalingCh chan predictive_autoscaler2.ScalingDecisions, startCh chan bool, isMu bool) (predictive_autoscaler2.UniScaler, error) {
 
 	// TODO: Replace metricClient calls with Dirigent gRPC calls
-	return predictive_autoscaler.New(functionState, decider.Name,
+	return predictive_autoscaler2.New(functionState, decider.Name,
 		decider.AutoscalingConfiguration, predictionsCh, shiftedScalingCh, startCh, isMu), nil
 }
 
@@ -70,7 +70,7 @@ func NewControlPlane(client persistence.PersistenceLayer, outputFile string, pla
 
 		Config: cfg,
 
-		multiscaler: predictive_autoscaler.NewMultiScaler(cfg, uniscalerFactoryCreator),
+		multiscaler: predictive_autoscaler2.NewMultiScaler(cfg, uniscalerFactoryCreator),
 	}
 }
 

@@ -2,7 +2,7 @@ package registration_server
 
 import (
 	"cluster_manager/internal/control_plane/control_plane"
-	"cluster_manager/internal/control_plane/control_plane/per_function_state"
+	"cluster_manager/internal/control_plane/control_plane/autoscalers/autoscaling"
 	"cluster_manager/proto"
 	"errors"
 	"fmt"
@@ -128,13 +128,13 @@ func parseAndApplyArg[T int32 | float32](key string, r *http.Request, addr *T, v
 	return nil
 }
 
-func parseAndApplyScalingMethod(key string, r *http.Request, addr *per_function_state.AveragingMethod) error {
+func parseAndApplyScalingMethod(key string, r *http.Request, addr *autoscaling.AveragingMethod) error {
 	if val := r.FormValue(key); len(val) != 0 {
 		switch val {
 		case "arithmetic":
-			*addr = per_function_state.Arithmetic
+			*addr = autoscaling.Arithmetic
 		case "exponential":
-			*addr = per_function_state.Exponential
+			*addr = autoscaling.Exponential
 		default:
 			return errors.New("unknown scaling method")
 		}

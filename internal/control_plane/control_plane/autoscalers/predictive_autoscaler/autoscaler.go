@@ -1,8 +1,8 @@
 package predictive_autoscaler
 
 import (
+	"cluster_manager/internal/control_plane/control_plane/autoscalers/predictive_autoscaler/metric_client"
 	"cluster_manager/internal/control_plane/control_plane/per_function_state"
-	"cluster_manager/internal/control_plane/control_plane/predictive_autoscaler/metric_client"
 	"cluster_manager/proto"
 	"fmt"
 	"github.com/sirupsen/logrus"

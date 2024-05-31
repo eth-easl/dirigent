@@ -1,6 +1,7 @@
-package per_function_state
+package autoscaling
 
 import (
+	"cluster_manager/internal/control_plane/control_plane/per_function_state"
 	"cluster_manager/proto"
 	"github.com/sirupsen/logrus"
 	"math"
@@ -29,10 +30,10 @@ type DefaultAutoscaler struct {
 
 	Period time.Duration
 
-	perFunctionState *PFState
+	perFunctionState *per_function_state.PFState
 }
 
-func NewDefaultAutoscaler(pfState *PFState, autoscalingPeriod time.Duration) *DefaultAutoscaler {
+func NewDefaultAutoscaler(pfState *per_function_state.PFState, autoscalingPeriod time.Duration) *DefaultAutoscaler {
 	return &DefaultAutoscaler{
 		Period:           autoscalingPeriod,
 		perFunctionState: pfState,
