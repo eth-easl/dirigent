@@ -223,6 +223,27 @@ func (m *MultiScaler) Create(_ context.Context, functionState *per_function_stat
 	return scaler.safeDecider(), nil
 }
 
+func (m *MultiScaler) PanicPoke(key string, previousValue int32) {
+	m.Poke(key, previousValue)
+}
+
+func (m *MultiScaler) Poke(key string, previousValue int32) {
+	// If previous value was null, then we tick immediately the autoscaler
+	if previousValue == 0 {
+		m.scalersMutex.RLock()
+		defer m.scalersMutex.RUnlock()
+
+		scaler, exists := m.scalers[key]
+		if !exists {
+			return
+		}
+
+		// Tick here
+		scaler.scaler.DecrementEpoch()
+		scaler.pokeCh <- struct{}{}
+	}
+}
+
 // Delete stops and removes a Decider.
 func (m *MultiScaler) Stop(name string) {
 	m.scalersMutex.Lock()
@@ -343,23 +364,6 @@ func (m *MultiScaler) receivePredictions(runner *ScalerRunner) {
 		if ok := m.scalersMutex.TryLock(); ok {
 			m.checkIfGlobalScalingLimitsCanBeComputed()
 		}
-	}
-}
-
-func (m *MultiScaler) Poke(key string, previousValue int32) {
-	// If previous value was null, then we tick immediately the autoscaler
-	if previousValue == 0 {
-		m.scalersMutex.RLock()
-		defer m.scalersMutex.RUnlock()
-
-		scaler, exists := m.scalers[key]
-		if !exists {
-			return
-		}
-
-		// Tick here
-		scaler.scaler.DecrementEpoch()
-		scaler.pokeCh <- struct{}{}
 	}
 }
 

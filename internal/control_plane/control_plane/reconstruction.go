@@ -133,7 +133,7 @@ func (c *ControlPlane) reconstructServiceState(ctx context.Context) error {
 			c.SIStorage.Lock()
 			defer c.SIStorage.Unlock()
 
-			err = c.notifyDataplanesAndStartScalingLoop(ctx, service, true)
+			err = c.notifyDataplanesAndStartScalingLoop(ctx, service)
 			if err != nil {
 				logrus.Warnf("Failed to reconstruct service state for %s - %v", service.Name, err)
 			}
@@ -206,17 +206,8 @@ func (c *ControlPlane) reconstructEndpointsState(ctx context.Context) error {
 
 			ss.updateEndpoints(urls)
 
-			// TODO: End this part....
-
-			// do not allow downscaling until the system stabilizes
-			// TODO: Do we really need that, I don't think there is the same feature in the scaling loop and this should not be part of the autoscaler
-			// TODO: This is better in the scaling loop as it is uniform accross all autoscaler
-			/*ss.PerFunctionState.ScalingMetadata.InPanicMode = true
-			ss.PerFunctionState.ScalingMetadata.StartPanickingTimestamp = time.Now()
-			atomic.AddInt64(&ss.PerFunctionState.ActualScale, 1)*/
-
-			// TODO: Create Poke / Stop functions
-			// ss.PerFunctionState.Poke()
+			// This functions sets the vanilla autoscaler in panic mode - disallow downscaling during a certain period of time
+			ss.Autoscaler.PanicPoke(endpoint.ServiceName, ss.PerFunctionState.CachedScalingMetrics)
 		}(e)
 	}
 

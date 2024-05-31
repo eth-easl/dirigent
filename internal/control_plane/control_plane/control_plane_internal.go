@@ -16,7 +16,6 @@ import (
 	"errors"
 	"fmt"
 	"github.com/sirupsen/logrus"
-	"google.golang.org/grpc"
 	"google.golang.org/protobuf/types/known/emptypb"
 	"strconv"
 	"sync"
@@ -300,7 +299,7 @@ func (c *ControlPlane) registerService(ctx context.Context, serviceInfo *proto.S
 		return &proto.ActionStatus{Success: false}, err
 	}
 
-	err = c.notifyDataplanesAndStartScalingLoop(ctx, serviceInfo, false)
+	err = c.notifyDataplanesAndStartScalingLoop(ctx, serviceInfo)
 	if err != nil {
 		logrus.Warnf("Failed to connect registered service (error : %s)", err.Error())
 		c.SIStorage.AtomicRemove(serviceInfo.Name)
@@ -372,7 +371,7 @@ func (c *ControlPlane) setInvocationsMetrics(_ context.Context, metric *proto.Au
 	return &proto.ActionStatus{Success: true}, nil
 }
 
-func (c *ControlPlane) setBackgroundMetrics(ctx context.Context, in *proto.MetricsPredictiveAutoscaler, opts ...grpc.CallOption) (*proto.ActionStatus, error) {
+func (c *ControlPlane) setBackgroundMetrics(_ context.Context, in *proto.MetricsPredictiveAutoscaler) (*proto.ActionStatus, error) {
 	if err := c.multiscaler.ForwardDataplaneMetrics(in); err != nil {
 		logrus.Errorf("Failed to forward dataplane metrics (error : %s)", err.Error())
 		return &proto.ActionStatus{Success: false}, err

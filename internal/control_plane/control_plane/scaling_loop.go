@@ -36,8 +36,6 @@ type ServiceInfoStorage struct {
 
 	DataPlaneConnections synchronization.SyncStructure[string, core.DataPlaneInterface]
 	NIStorage            synchronization.SyncStructure[string, core.WorkerNodeInterface]
-
-	StartTime time.Time
 }
 
 func (ss *ServiceInfoStorage) GetAllURLs() []string {
@@ -90,7 +88,7 @@ func (ss *ServiceInfoStorage) ScalingControllerLoop() {
 
 		if actualScale < desiredCount {
 			ss.doUpscaling(desiredCount-actualScale, loopStarted)
-		} else if !ss.isDownScalingDisabled() && actualScale > desiredCount {
+		} else if actualScale > desiredCount {
 			ss.doDownscaling(actualScale, desiredCount)
 		}
 
@@ -388,8 +386,4 @@ func (ss *ServiceInfoStorage) prepareCurrentEndpointInfoList() []*proto.Endpoint
 	}
 
 	return res
-}
-
-func (ss *ServiceInfoStorage) isDownScalingDisabled() bool {
-	return time.Since(ss.StartTime) < time.Duration(ss.PerFunctionState.AutoscalingConfig.StableWindowWidthSeconds)*time.Second // TODO: Remove hardcoded part
 }

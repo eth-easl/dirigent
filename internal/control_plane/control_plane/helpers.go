@@ -12,7 +12,6 @@ import (
 	"context"
 	"github.com/sirupsen/logrus"
 	"sync/atomic"
-	"time"
 )
 
 /*
@@ -20,7 +19,7 @@ Helpers for control_plane.go
 */
 
 // Only one goroutine will execute the function per service
-func (c *ControlPlane) notifyDataplanesAndStartScalingLoop(ctx context.Context, serviceInfo *proto.ServiceInfo, reconstructFromPersistence bool) error {
+func (c *ControlPlane) notifyDataplanesAndStartScalingLoop(ctx context.Context, serviceInfo *proto.ServiceInfo) error {
 
 	c.DataPlaneConnections.Lock()
 	for _, conn := range c.DataPlaneConnections.GetMap() {
@@ -30,11 +29,6 @@ func (c *ControlPlane) notifyDataplanesAndStartScalingLoop(ctx context.Context, 
 		}
 	}
 	c.DataPlaneConnections.Unlock()
-
-	startTime := time.Time{}
-	if reconstructFromPersistence {
-		startTime = time.Now()
-	}
 
 	pfState := per_function_state.NewPerFunctionState(serviceInfo)
 
@@ -70,7 +64,6 @@ func (c *ControlPlane) notifyDataplanesAndStartScalingLoop(ctx context.Context, 
 		PersistenceLayer:        c.PersistenceLayer,
 		NIStorage:               c.NIStorage,
 		DataPlaneConnections:    c.DataPlaneConnections,
-		StartTime:               startTime,
 	})
 
 	go c.SIStorage.GetNoCheck(serviceInfo.Name).ScalingControllerLoop()

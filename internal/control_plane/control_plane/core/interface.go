@@ -46,6 +46,7 @@ type WorkerNodeInterface interface {
 }
 
 type AutoscalingInterface interface {
+	PanicPoke(functionName string, previousValue int32)
 	Poke(functionName string, previousValue int32)
 	Stop(functionName string)
 }

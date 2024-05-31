@@ -59,6 +59,14 @@ func NewDefaultAutoscalingMetadata() *proto.AutoscalingConfiguration {
 	}
 }
 
+func (s *DefaultAutoscaler) PanicPoke(functionName string, previousValue int32) {
+	s.InPanicMode = true
+	s.StartPanickingTimestamp = time.Now()
+	atomic.AddInt64(&s.perFunctionState.ActualScale, 1)
+
+	s.Poke(functionName, previousValue)
+}
+
 func (s *DefaultAutoscaler) Poke(_ string, _ int32) {
 	if atomic.CompareAndSwapInt32(&s.AutoscalingRunning, 0, 1) {
 		logrus.Warn(s.perFunctionState)
