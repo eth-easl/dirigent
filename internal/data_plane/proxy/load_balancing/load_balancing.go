@@ -49,7 +49,7 @@ func DoLoadBalancing(req *http.Request, metadata *function_metadata.FunctionMeta
 	lbDuration, ccDuration := time.Duration(0), time.Duration(0)
 
 	var endpoint *function_metadata.UpstreamEndpoint
-	loadBalancingRetries := 60
+	loadBalancingRetries := 15000
 
 	metadata.GetStatistics().IncrementQueueDepth()
 	defer metadata.GetStatistics().DecrementQueueDepth()
