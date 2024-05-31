@@ -1,12 +1,10 @@
 package persistence
 
 import (
-	"cluster_manager/internal/control_plane/control_plane/core"
 	"cluster_manager/pkg/config"
 	"cluster_manager/pkg/redis_helpers"
 	"cluster_manager/proto"
 	"context"
-	"encoding/json"
 	"fmt"
 	proto2 "github.com/golang/protobuf/proto"
 	"github.com/redis/go-redis/v9"
@@ -259,22 +257,4 @@ func (driver *RedisClient) SetLeader(ctx context.Context) error {
 	logrus.Info("Set local Redis instance as the new Redis master")
 
 	return nil
-}
-
-func (driver *RedisClient) StoreEndpoint(ctx context.Context, endpoint core.Endpoint) error {
-	logrus.Trace("store worker node information in the database")
-
-	data, err := json.Marshal(endpoint)
-	if err != nil {
-		return err
-	}
-
-	key := fmt.Sprintf("%s:%s", workerPrefix, endpoint.SandboxID)
-
-	err = driver.RedisClient.HSet(ctx, key, "data", data).Err()
-	if err != nil {
-		return err
-	}
-
-	return driver.WaitForQuorumWrite(ctx).Err()
 }

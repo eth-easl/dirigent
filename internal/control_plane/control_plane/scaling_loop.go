@@ -21,8 +21,7 @@ import (
 )
 
 type ServiceInfoStorage struct {
-	ServiceInfo  *proto.ServiceInfo
-	ControlPlane *ControlPlane
+	ServiceInfo *proto.ServiceInfo
 
 	PerFunctionState        *per_function_state.PFState
 	ColdStartTracingChannel chan tracing.ColdStartLogEntry
@@ -152,15 +151,6 @@ func (ss *ServiceInfoStorage) doUpscaling(toCreateCount int, loopStarted time.Ti
 			logrus.Debug("Sandbox creation took: ", sandboxCreationTook.Milliseconds(), " ms")
 
 			costPersistStart := time.Now()
-
-			if ss.ControlPlane.Config.EndpointPersistence {
-				ss.ControlPlane.PersistenceLayer.StoreEndpoint(context.Background(), core.Endpoint{
-					SandboxID: resp.ID,
-					URL:       fmt.Sprintf("%s:%d", node.GetIP(), resp.PortMappings.HostPort),
-					Node:      node,
-					HostPort:  resp.PortMappings.HostPort,
-				})
-			}
 
 			newEndpoint := &core.Endpoint{
 				SandboxID: resp.ID,

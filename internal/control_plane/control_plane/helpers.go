@@ -56,7 +56,6 @@ func (c *ControlPlane) notifyDataplanesAndStartScalingLoop(ctx context.Context, 
 	c.SIStorage.Set(serviceInfo.Name, &ServiceInfoStorage{
 		Autoscaler:              autoscaler,
 		ServiceInfo:             serviceInfo,
-		ControlPlane:            c,
 		PerFunctionState:        pfState,
 		ColdStartTracingChannel: c.ColdStartTracing.InputChannel,
 		PlacementPolicy:         c.PlacementPolicy,

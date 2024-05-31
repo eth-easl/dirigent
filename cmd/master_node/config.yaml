@@ -24,5 +24,3 @@ redis:
   password: ""
   db: 0
   fullPersistence: true
-
-endpointPersistence: false
