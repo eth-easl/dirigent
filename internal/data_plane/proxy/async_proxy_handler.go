@@ -21,6 +21,8 @@ import (
 	"time"
 )
 
+const AsyncRequestBufferSize = 1000
+
 type AsyncProxyingService struct {
 	Host     string
 	Port     string
@@ -29,8 +31,7 @@ type AsyncProxyingService struct {
 	Context proxyContext
 
 	RequestChannel chan *requests.BufferedRequest
-	Responses      map[string]*requests.BufferedResponse
-	ResponsesLock  sync.RWMutex
+	Responses      *sync.Map
 
 	Persistence    rp.RequestPersistence
 	AllowedRetries int
@@ -75,8 +76,8 @@ func NewAsyncProxyingService(cfg config.DataPlaneConfig, cache *common.Deploymen
 			doneRequestChannel:     doneRequestChannel,
 		},
 
-		RequestChannel: make(chan *requests.BufferedRequest),
-		Responses:      make(map[string]*requests.BufferedResponse),
+		RequestChannel: make(chan *requests.BufferedRequest, AsyncRequestBufferSize),
+		Responses:      &sync.Map{},
 
 		Persistence:    persistenceLayer,
 		AllowedRetries: cfg.NumberRetries,
@@ -94,36 +95,32 @@ func (ps *AsyncProxyingService) populateResponseStructures() {
 		logrus.Fatalf("Failed to recover responses : error %s", err.Error())
 	}
 
-	ps.ResponsesLock.Lock()
-	defer ps.ResponsesLock.Unlock()
-
 	for _, response := range responses {
-		ps.Responses[response.UniqueCodeIdentifier] = response
+		// thread-safe as it executed before all handlers are started
+		ps.Responses.Store(response.UniqueCodeIdentifier, response)
 	}
 }
 
 func (ps *AsyncProxyingService) submitBufferedRequests() {
 	bufferedRequests, err := ps.Persistence.ScanBufferedRequests(context.Background())
 	if err != nil {
-		logrus.Fatalf("Failed to recover requests : error")
+		logrus.Fatalf("Failed to recover requests : error - %s", err.Error())
 	}
 
-	ps.ResponsesLock.RLock()
-	defer ps.ResponsesLock.RUnlock()
-
 	for _, request := range bufferedRequests {
-		if _, ok := ps.Responses[request.Code]; !ok {
+		if _, ok := ps.Responses.Load(request.Code); !ok {
 			ps.RequestChannel <- request
 		}
 	}
 }
 
 func (ps *AsyncProxyingService) StartProxyServer() {
+	ps.populateResponseStructures()
+
 	go startProxy(ps.createAsyncInvocationHandler(), ps.Context, ps.Host, ps.Port)
 	go startProxy(ps.createAsyncResponseHandler(), ps.Context, ps.Host, ps.PortRead)
-
-	ps.populateResponseStructures()
 	go ps.asyncRequestHandler()
+
 	ps.submitBufferedRequests()
 }
 
@@ -163,13 +160,10 @@ func (ps *AsyncProxyingService) createAsyncInvocationHandler() http.HandlerFunc 
 }
 
 func (ps *AsyncProxyingService) declareResponseAsFailed(bufferedRequest *requests.BufferedRequest) {
-	ps.ResponsesLock.Lock()
-	defer ps.ResponsesLock.Unlock()
-
-	ps.Responses[bufferedRequest.Code] = &requests.BufferedResponse{
+	ps.Responses.Store(bufferedRequest.Code, &requests.BufferedResponse{
 		StatusCode: http.StatusInternalServerError,
 		Body:       "Too many retries. Request failed.",
-	}
+	})
 }
 
 func (ps *AsyncProxyingService) declareResponseAsSuccessful(bufferedRequest *requests.BufferedRequest, response *requests.BufferedResponse) {
@@ -185,10 +179,7 @@ func (ps *AsyncProxyingService) declareResponseAsSuccessful(bufferedRequest *req
 		logrus.Errorf("Failed to buffer response, error : %s", err.Error())
 	}
 
-	ps.ResponsesLock.Lock()
-	defer ps.ResponsesLock.Unlock()
-
-	ps.Responses[bufferedRequest.Code] = response
+	ps.Responses.Store(bufferedRequest.Code, response)
 }
 
 func (ps *AsyncProxyingService) retryRequest(bufferedRequest *requests.BufferedRequest) {
@@ -244,10 +235,9 @@ func (ps *AsyncProxyingService) createAsyncResponseHandler() http.HandlerFunc {
 		responseKey := buf.String()
 		logrus.Tracef("[reverse proxy server] received code request with code : %s", responseKey)
 
-		ps.ResponsesLock.RLock()
-		defer ps.ResponsesLock.RUnlock()
+		if v, ok := ps.Responses.Load(responseKey); ok {
+			val := v.(*requests.BufferedResponse)
 
-		if val, ok := ps.Responses[responseKey]; ok {
 			elapsed := time.Since(start) + val.E2ELatency
 			w.Header().Set("Duration-Microseconds", strconv.FormatInt(elapsed.Microseconds(), 10))
 			_ = requests.FillResponseWithBufferedResponse(w, val)
@@ -265,12 +255,11 @@ func (ps *AsyncProxyingService) startGarbageCollector() {
 }
 
 func (ps *AsyncProxyingService) garbageCollectorCycle() {
-	ps.ResponsesLock.Lock()
-	defer ps.ResponsesLock.Unlock()
-
-	for key, response := range ps.Responses {
-		if time.Now().Sub(response.Timestamp) > time.Minute {
-			delete(ps.Responses, key)
+	ps.Responses.Range(func(key, value any) bool {
+		if time.Now().Sub(value.(*requests.BufferedResponse).Timestamp) > time.Minute {
+			ps.Responses.Delete(key)
 		}
-	}
+
+		return true
+	})
 }
