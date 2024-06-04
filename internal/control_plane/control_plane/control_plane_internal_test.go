@@ -1405,7 +1405,7 @@ func TestAutoscalingPerformance(t *testing.T) {
 			mutex := sync.Mutex{}
 
 			for iter := 0; iter < tt.Iterations; iter++ {
-				multiscaler := predictive_autoscaler.NewMultiScaler(cfg, uniscalerFactoryCreator)
+				multiscaler := predictive_autoscaler.NewMultiScaler(cfg)
 
 				services := make([]*proto.ServiceInfo, tt.Parallelism)
 				states := make([]*per_function_state.PFState, tt.Parallelism)

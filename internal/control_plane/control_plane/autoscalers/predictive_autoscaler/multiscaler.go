@@ -6,8 +6,6 @@ import (
 	_map "cluster_manager/pkg/map"
 	"cluster_manager/pkg/utils"
 	"cluster_manager/proto"
-	"context"
-	"errors"
 	"github.com/sirupsen/logrus"
 	"math"
 	"sync"
@@ -79,8 +77,6 @@ type UniScaler interface {
 	DecrementEpoch()
 }
 
-type UniScalerFactory func(*per_function_state.PFState, *Decider, chan ScalingDecisions, chan ScalingDecisions, chan bool, bool) (UniScaler, error)
-
 // ScalerRunner wraps a UniScaler and a channel for implementing shutdown behavior.
 type ScalerRunner struct {
 	scaler           UniScaler
@@ -107,14 +103,6 @@ func (sr *ScalerRunner) GetUniScaler() UniScaler {
 	return sr.scaler
 }
 
-// decider returns a thread safe deep copy of the owned decider.
-func (sr *ScalerRunner) safeDecider() *Decider {
-	sr.mux.RLock()
-	defer sr.mux.RUnlock()
-	// TODO: What to do here?
-	return sr.decider.DeepCopy()
-}
-
 func (sr *ScalerRunner) updateLatestScale(sRes ScaleResult) bool {
 	ret := false
 	sr.mux.Lock()
@@ -137,8 +125,6 @@ type MultiScaler struct {
 	scalersMutex sync.RWMutex
 	scalers      map[string]*ScalerRunner
 
-	uniScalerFactory UniScalerFactory
-
 	watcherMutex sync.RWMutex
 	watcher      func(string)
 
@@ -152,14 +138,12 @@ type MultiScaler struct {
 
 // NewMultiScaler constructs a MultiScaler.
 func NewMultiScaler(
-	cfg *config.ControlPlaneConfig,
-	uniScalerFactory UniScalerFactory) *MultiScaler {
+	cfg *config.ControlPlaneConfig) *MultiScaler {
 	return &MultiScaler{
-		scalersMutex:     sync.RWMutex{},
-		scalers:          make(map[string]*ScalerRunner),
-		uniScalerFactory: uniScalerFactory,
-		tickProvider:     time.NewTicker,
-		isMu:             cfg.Autoscaler == utils.MU_AUTOSCALER,
+		scalersMutex: sync.RWMutex{},
+		scalers:      make(map[string]*ScalerRunner),
+		tickProvider: time.NewTicker,
+		isMu:         cfg.Autoscaler == utils.MU_AUTOSCALER,
 	}
 }
 
@@ -189,19 +173,6 @@ func (m *MultiScaler) create(functionState *per_function_state.PFState, decider 
 	}
 
 	return nil
-}
-
-// Get returns the copy of the current Decider.
-func (m *MultiScaler) Get(_ context.Context, namespace, name string) (*Decider, error) {
-	m.scalersMutex.RLock()
-	defer m.scalersMutex.RUnlock()
-	scaler, exists := m.scalers[name]
-	if !exists {
-		// This GroupResource is a lie, but unfortunately this interface requires one.
-		// TODO: What to do here
-		return nil, errors.New("Scaler isn't present")
-	}
-	return scaler.safeDecider(), nil
 }
 
 func (m *MultiScaler) GetRawScaler(name string) *ScalerRunner {
@@ -285,10 +256,9 @@ func (m *MultiScaler) createScaler(functionState *per_function_state.PFState, de
 	predictionsCh := make(chan ScalingDecisions, 5)
 	shiftedScalingCh := make(chan ScalingDecisions, 5)
 	startCh := make(chan bool, 5)
-	scaler, err := m.uniScalerFactory(functionState, d, predictionsCh, shiftedScalingCh, startCh, m.isMu)
-	if err != nil {
-		return nil, err
-	}
+
+	scaler := New(functionState, decider.Name,
+		decider.AutoscalingConfiguration, predictionsCh, shiftedScalingCh, startCh, m.isMu)
 
 	runner := &ScalerRunner{
 		scaler:           scaler,

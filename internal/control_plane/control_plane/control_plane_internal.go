@@ -49,14 +49,6 @@ type ControlPlane struct {
 	autoscalingManager AutoscalingInterface
 }
 
-func uniscalerFactoryCreator(functionState *per_function_state.PFState, decider *predictive_autoscaler2.Decider, predictionsCh chan predictive_autoscaler2.ScalingDecisions,
-	shiftedScalingCh chan predictive_autoscaler2.ScalingDecisions, startCh chan bool, isMu bool) (predictive_autoscaler2.UniScaler, error) {
-
-	// TODO: Replace metricClient calls with Dirigent gRPC calls
-	return predictive_autoscaler2.New(functionState, decider.Name,
-		decider.AutoscalingConfiguration, predictionsCh, shiftedScalingCh, startCh, isMu), nil
-}
-
 func NewControlPlane(client persistence.PersistenceLayer, outputFile string, placementPolicy placement_policy.PlacementPolicy,
 	dataplaneCreator core.DataplaneFactory, workerNodeCreator core.WorkerNodeFactory, cfg *config.ControlPlaneConfig) *ControlPlane {
 
@@ -69,7 +61,7 @@ func NewControlPlane(client persistence.PersistenceLayer, outputFile string, pla
 	if cfg.Autoscaler == "default" {
 		autoscalingManager = default_autoscaler.NewMultiscaler(cfg.AutoscalingPeriod)
 	} else {
-		autoscalingManager = predictive_autoscaler2.NewMultiScaler(cfg, uniscalerFactoryCreator)
+		autoscalingManager = predictive_autoscaler2.NewMultiScaler(cfg)
 	}
 
 	return &ControlPlane{
