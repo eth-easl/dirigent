@@ -202,8 +202,8 @@ func (c *ControlPlane) reconstructEndpointsState(ctx context.Context) error {
 			// Add endpoint to the node endpoint_placer
 			ss.AddEndpoint(controlPlaneEndpoint)
 
-			// This functions sets the vanilla autoscaler in panic mode - disallow downscaling during a certain period of time
-			ss.Autoscaler.PanicPoke(endpoint.ServiceName, ss.PerFunctionState.CachedScalingMetrics)
+			// Inform the autoscaler we are in a reconstruction phase
+			c.autoscalingManager.PanicPoke(endpoint.ServiceName, ss.PerFunctionState.CachedScalingMetrics)
 		}(e)
 	}
 

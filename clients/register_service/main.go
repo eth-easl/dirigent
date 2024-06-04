@@ -1,7 +1,7 @@
 package register_service
 
 import (
-	"cluster_manager/internal/control_plane/control_plane/autoscalers/autoscaling"
+	"cluster_manager/internal/control_plane/control_plane/autoscalers"
 	common "cluster_manager/pkg/grpc_helpers"
 	"cluster_manager/pkg/utils"
 	"cluster_manager/proto"
@@ -18,7 +18,7 @@ func Deployservice() {
 	ctx, cancel := context.WithTimeout(context.Background(), utils.GRPCFunctionTimeout)
 	defer cancel()
 
-	autoscalingConfig := autoscaling.NewDefaultAutoscalingMetadata()
+	autoscalingConfig := autoscalers.NewDefaultAutoscalingConfiguration()
 	autoscalingConfig.ScalingUpperBound = 1
 
 	resp, err := cpApi.RegisterService(ctx, &proto.ServiceInfo{

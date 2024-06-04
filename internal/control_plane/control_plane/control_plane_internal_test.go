@@ -1,7 +1,7 @@
 package control_plane
 
 import (
-	"cluster_manager/internal/control_plane/control_plane/autoscalers/autoscaling"
+	"cluster_manager/internal/control_plane/control_plane/autoscalers"
 	"cluster_manager/internal/control_plane/control_plane/autoscalers/predictive_autoscaler"
 	"cluster_manager/internal/control_plane/control_plane/core"
 	"cluster_manager/internal/control_plane/control_plane/endpoint_placer/data_plane"
@@ -932,7 +932,7 @@ func TestStressRegisterDeregisterServices(t *testing.T) {
 				Name:              "mock" + fmt.Sprint(idx),
 				Image:             "",
 				PortForwarding:    nil,
-				AutoscalingConfig: autoscaling.NewDefaultAutoscalingMetadata(),
+				AutoscalingConfig: autoscalers.NewDefaultAutoscalingConfiguration(),
 			})
 
 			assert.NoError(t, err)
@@ -941,7 +941,7 @@ func TestStressRegisterDeregisterServices(t *testing.T) {
 				Name:              "mock" + fmt.Sprint(idx),
 				Image:             "",
 				PortForwarding:    nil,
-				AutoscalingConfig: autoscaling.NewDefaultAutoscalingMetadata(),
+				AutoscalingConfig: autoscalers.NewDefaultAutoscalingConfiguration(),
 			})
 
 			assert.NoError(t, err)
@@ -1179,7 +1179,7 @@ func TestEndpointsWithDeregistration(t *testing.T) {
 	assert.NoError(t, err)
 
 	for i := 0; i < size; i++ {
-		autoscalingConfig := autoscaling.NewDefaultAutoscalingMetadata()
+		autoscalingConfig := autoscalers.NewDefaultAutoscalingConfiguration()
 		autoscalingConfig.ScalingUpperBound = 1
 		//autoscalingConfig.ScalingLowerBound = 1
 
@@ -1393,20 +1393,11 @@ func TestAutoscalingPerformance(t *testing.T) {
 	}
 
 	for _, tt := range tests {
+
 		t.Run(tt.Name, func(t *testing.T) {
-			ctx := context.Background()
 
 			cfg := &config.ControlPlaneConfig{
 				Autoscaler: tt.Policy,
-			}
-
-			autoscalingConfig := &proto.AutoscalingConfiguration{
-				MaxScaleUpRate:           1000,
-				MaxScaleDownRate:         2,
-				TotalValue:               10000,
-				PanicThresholdPercentage: 200,
-				StableWindowWidthSeconds: 60,
-				ScaleDownDelay:           2,
 			}
 
 			var data []float64
@@ -1423,17 +1414,11 @@ func TestAutoscalingPerformance(t *testing.T) {
 				for i := 0; i < tt.Parallelism; i++ {
 					services[i] = &proto.ServiceInfo{
 						Name:              "service_" + strconv.Itoa(i),
-						AutoscalingConfig: autoscaling.NewDefaultAutoscalingMetadata(),
+						AutoscalingConfig: autoscalers.NewDefaultAutoscalingConfiguration(),
 					}
 					states[i] = per_function_state.NewPerFunctionState(services[i])
 
-					_, _ = multiscaler.Create(ctx, states[i],
-						&predictive_autoscaler.Decider{
-							Name:                     services[i].Name,
-							AutoscalingConfiguration: autoscalingConfig,
-							Status:                   predictive_autoscaler.DeciderStatus{},
-						},
-					)
+					multiscaler.Create(states[i])
 
 					go func(idx int) {
 						defer wg.Done()

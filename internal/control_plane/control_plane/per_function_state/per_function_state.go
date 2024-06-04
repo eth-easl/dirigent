@@ -45,20 +45,20 @@ func (pfState *PFState) GetNumberEndpoint() int {
 	return len(pfState.Endpoints)
 }
 
-func (s *PFState) RemoveDataplane(dataplaneName string) {
-	s.inflightRequestsLock.Lock()
-	defer s.inflightRequestsLock.Unlock()
+func (pfState *PFState) RemoveDataplane(dataplaneName string) {
+	pfState.inflightRequestsLock.Lock()
+	defer pfState.inflightRequestsLock.Unlock()
 
-	atomic.AddInt32(&s.CachedScalingMetrics, -s.inflightRequestsPerDataPlane[dataplaneName])
-	delete(s.inflightRequestsPerDataPlane, dataplaneName)
+	atomic.AddInt32(&pfState.CachedScalingMetrics, -pfState.inflightRequestsPerDataPlane[dataplaneName])
+	delete(pfState.inflightRequestsPerDataPlane, dataplaneName)
 }
 
-func (s *PFState) SetCachedScalingMetrics(metrics *proto.AutoscalingMetric) {
-	s.inflightRequestsLock.Lock()
-	defer s.inflightRequestsLock.Unlock()
+func (pfState *PFState) SetCachedScalingMetrics(metrics *proto.AutoscalingMetric) {
+	pfState.inflightRequestsLock.Lock()
+	defer pfState.inflightRequestsLock.Unlock()
 
-	atomic.AddInt32(&s.CachedScalingMetrics, metrics.InflightRequests-s.inflightRequestsPerDataPlane[metrics.DataplaneName])
-	s.inflightRequestsPerDataPlane[metrics.DataplaneName] = metrics.InflightRequests
+	atomic.AddInt32(&pfState.CachedScalingMetrics, metrics.InflightRequests-pfState.inflightRequestsPerDataPlane[metrics.DataplaneName])
+	pfState.inflightRequestsPerDataPlane[metrics.DataplaneName] = metrics.InflightRequests
 
-	s.RpsValue = float64(metrics.RpsValue)
+	pfState.RpsValue = float64(metrics.RpsValue)
 }

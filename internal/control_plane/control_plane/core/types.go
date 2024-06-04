@@ -21,3 +21,10 @@ type Endpoint struct {
 	HostPort        int32
 	CreationHistory tracing.ColdStartLogEntry
 }
+
+type AveragingMethod = int32
+
+const (
+	Arithmetic AveragingMethod = iota
+	Exponential
+)

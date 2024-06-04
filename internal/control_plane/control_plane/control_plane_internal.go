@@ -1,6 +1,7 @@
 package control_plane
 
 import (
+	"cluster_manager/internal/control_plane/control_plane/autoscalers/default_autoscaler"
 	predictive_autoscaler2 "cluster_manager/internal/control_plane/control_plane/autoscalers/predictive_autoscaler"
 	"cluster_manager/internal/control_plane/control_plane/core"
 	"cluster_manager/internal/control_plane/control_plane/endpoint_placer"
@@ -23,6 +24,14 @@ import (
 	"time"
 )
 
+type AutoscalingInterface interface {
+	Create(perFunctionState *per_function_state.PFState)
+	PanicPoke(functionName string, previousValue int32)
+	Poke(functionName string, previousValue int32)
+	ForwardDataplaneMetrics(dataplaneMetrics *proto.MetricsPredictiveAutoscaler) error
+	Stop(functionName string)
+}
+
 type ControlPlane struct {
 	DataPlaneConnections synchronization.SyncStructure[string, core.DataPlaneInterface]
 	NIStorage            synchronization.SyncStructure[string, core.WorkerNodeInterface]
@@ -37,8 +46,7 @@ type ControlPlane struct {
 
 	Config *config.ControlPlaneConfig
 
-	// TODO: Refactor this in better code
-	multiscaler *predictive_autoscaler2.MultiScaler
+	autoscalingManager AutoscalingInterface
 }
 
 func uniscalerFactoryCreator(functionState *per_function_state.PFState, decider *predictive_autoscaler2.Decider, predictionsCh chan predictive_autoscaler2.ScalingDecisions,
@@ -56,6 +64,14 @@ func NewControlPlane(client persistence.PersistenceLayer, outputFile string, pla
 		logrus.Fatalf("Invalid autoscaler type %s", cfg.Autoscaler)
 	}
 
+	var autoscalingManager AutoscalingInterface
+
+	if cfg.Autoscaler == "default" {
+		autoscalingManager = default_autoscaler.NewMultiscaler(cfg.AutoscalingPeriod)
+	} else {
+		autoscalingManager = predictive_autoscaler2.NewMultiScaler(cfg, uniscalerFactoryCreator)
+	}
+
 	return &ControlPlane{
 		DataPlaneConnections: synchronization.NewControlPlaneSyncStructure[string, core.DataPlaneInterface](),
 		NIStorage:            synchronization.NewControlPlaneSyncStructure[string, core.WorkerNodeInterface](),
@@ -70,7 +86,7 @@ func NewControlPlane(client persistence.PersistenceLayer, outputFile string, pla
 
 		Config: cfg,
 
-		multiscaler: predictive_autoscaler2.NewMultiScaler(cfg, uniscalerFactoryCreator),
+		autoscalingManager: autoscalingManager,
 	}
 }
 
@@ -338,7 +354,7 @@ func (c *ControlPlane) deregisterService(ctx context.Context, serviceInfo *proto
 		close(service.PerFunctionState.DesiredStateChannel)
 		c.SIStorage.Remove(serviceInfo.Name)
 
-		service.Autoscaler.Stop(serviceInfo.Name)
+		c.autoscalingManager.Stop(serviceInfo.Name)
 
 		return &proto.ActionStatus{Success: true}, nil
 	}
@@ -367,13 +383,13 @@ func (c *ControlPlane) setInvocationsMetrics(_ context.Context, metric *proto.Au
 	logrus.Debug("Scaling metric for '", storage.ServiceInfo.Name, "' is ", metric.InflightRequests)
 
 	// Notify autoscaler we received metrics
-	storage.Autoscaler.Poke(metric.ServiceName, previousValue)
+	c.autoscalingManager.Poke(metric.ServiceName, previousValue)
 
 	return &proto.ActionStatus{Success: true}, nil
 }
 
 func (c *ControlPlane) setBackgroundMetrics(_ context.Context, in *proto.MetricsPredictiveAutoscaler) (*proto.ActionStatus, error) {
-	if err := c.multiscaler.ForwardDataplaneMetrics(in); err != nil {
+	if err := c.autoscalingManager.ForwardDataplaneMetrics(in); err != nil {
 		logrus.Errorf("Failed to forward dataplane metrics (error : %s)", err.Error())
 		return &proto.ActionStatus{Success: false}, err
 	}
@@ -523,8 +539,8 @@ func (c *ControlPlane) stopAllScalingLoops() {
 	c.SIStorage.Lock()
 	defer c.SIStorage.Unlock()
 
-	for name, function := range c.SIStorage.GetMap() {
-		function.Autoscaler.Stop(name)
+	for name, _ := range c.SIStorage.GetMap() {
+		c.autoscalingManager.Stop(name)
 	}
 }
 

@@ -26,8 +26,6 @@ type EndpointPlacer struct {
 	PerFunctionState        *per_function_state.PFState
 	ColdStartTracingChannel chan tracing.ColdStartLogEntry
 
-	Autoscaler core.AutoscalingInterface
-
 	PlacementPolicy placement_policy2.PlacementPolicy
 	EvictionPolicy  eviction_policy.EvictionPolicy
 

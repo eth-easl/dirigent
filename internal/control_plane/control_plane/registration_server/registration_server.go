@@ -2,7 +2,7 @@ package registration_server
 
 import (
 	"cluster_manager/internal/control_plane/control_plane"
-	"cluster_manager/internal/control_plane/control_plane/autoscalers/autoscaling"
+	"cluster_manager/internal/control_plane/control_plane/autoscalers"
 	"cluster_manager/proto"
 	"errors"
 	"fmt"
@@ -82,7 +82,7 @@ func registrationHandler(cpApi *control_plane.CpApiServer) func(w http.ResponseW
 			}
 		}
 
-		autoscalingConfig := autoscaling.NewDefaultAutoscalingMetadata()
+		autoscalingConfig := autoscalers.NewDefaultAutoscalingConfiguration()
 
 		if len(r.FormValue("scaling_upper_bound")) != 0 {
 			upperBound, err := strconv.Atoi(r.FormValue("scaling_upper_bound"))

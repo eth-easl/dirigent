@@ -163,6 +163,34 @@ func NewMultiScaler(
 	}
 }
 
+func (m *MultiScaler) Create(perFunctionState *per_function_state.PFState) {
+	// TODO: Fix error handling
+	m.create(perFunctionState, &Decider{
+		Name:                     perFunctionState.ServiceName,
+		AutoscalingConfiguration: perFunctionState.AutoscalingConfig,
+		Status:                   DeciderStatus{},
+	})
+}
+
+// Create instantiates the desired Decider.
+func (m *MultiScaler) create(functionState *per_function_state.PFState, decider *Decider) error {
+	m.scalersMutex.Lock()
+	defer m.scalersMutex.Unlock()
+	scaler, exists := m.scalers[decider.Name]
+
+	if !exists {
+		var err error
+		logrus.Warnf("%s", decider.Name)
+		scaler, err = m.createScaler(functionState, decider, decider.Name)
+		if err != nil {
+			logrus.Errorf("Failed create scaler : %s", err.Error())
+		}
+		m.scalers[decider.Name] = scaler
+	}
+
+	return nil
+}
+
 // Get returns the copy of the current Decider.
 func (m *MultiScaler) Get(_ context.Context, namespace, name string) (*Decider, error) {
 	m.scalersMutex.RLock()
@@ -186,25 +214,6 @@ func (m *MultiScaler) GetRawScaler(name string) *ScalerRunner {
 	}
 
 	return scaler
-}
-
-// Create instantiates the desired Decider.
-func (m *MultiScaler) Create(_ context.Context, functionState *per_function_state.PFState, decider *Decider) (*Decider, error) {
-	m.scalersMutex.Lock()
-	defer m.scalersMutex.Unlock()
-	scaler, exists := m.scalers[decider.Name]
-
-	if !exists {
-		var err error
-		logrus.Warnf("%s", decider.Name)
-		scaler, err = m.createScaler(functionState, decider, decider.Name)
-		if err != nil {
-			return nil, err
-		}
-		m.scalers[decider.Name] = scaler
-	}
-
-	return scaler.safeDecider(), nil
 }
 
 func (m *MultiScaler) PanicPoke(key string, previousValue int32) {

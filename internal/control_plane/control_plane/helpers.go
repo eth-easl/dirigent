@@ -1,8 +1,6 @@
 package control_plane
 
 import (
-	"cluster_manager/internal/control_plane/control_plane/autoscalers/autoscaling"
-	"cluster_manager/internal/control_plane/control_plane/autoscalers/predictive_autoscaler"
 	"cluster_manager/internal/control_plane/control_plane/core"
 	"cluster_manager/internal/control_plane/control_plane/endpoint_placer"
 	"cluster_manager/internal/control_plane/control_plane/endpoint_placer/eviction_policy"
@@ -34,29 +32,9 @@ func (c *ControlPlane) notifyDataplanesAndStartScalingLoop(ctx context.Context, 
 
 	pfState := per_function_state.NewPerFunctionState(serviceInfo)
 
-	var autoscaler core.AutoscalingInterface
-
-	switch c.Config.Autoscaler {
-	case utils.DEFAULT_AUTOSCALER:
-		autoscaler = autoscaling.NewDefaultAutoscaler(pfState, c.Config.AutoscalingPeriod)
-	case utils.PREDICTIVE_AUTOSCALER:
-		fallthrough
-	case utils.MU_AUTOSCALER:
-		// Predictive & mu autoscaling
-		c.multiscaler.Create(context.Background(),
-			pfState,
-			&predictive_autoscaler.Decider{
-				Name:                     serviceInfo.Name,
-				AutoscalingConfiguration: serviceInfo.AutoscalingConfig,
-				Status:                   predictive_autoscaler.DeciderStatus{},
-			})
-		autoscaler = c.multiscaler
-	default:
-		logrus.Fatalf("Unknown autoscaler : %s", c.Config.Autoscaler)
-	}
+	c.autoscalingManager.Create(pfState)
 
 	c.SIStorage.Set(serviceInfo.Name, &endpoint_placer.EndpointPlacer{
-		Autoscaler:              autoscaler,
 		ServiceInfo:             serviceInfo,
 		PerFunctionState:        pfState,
 		ColdStartTracingChannel: c.ColdStartTracing.InputChannel,

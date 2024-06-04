@@ -1,8 +1,8 @@
-package autoscaling
+package default_autoscaler
 
 import (
+	"cluster_manager/internal/control_plane/control_plane/core"
 	"cluster_manager/internal/control_plane/control_plane/per_function_state"
-	"cluster_manager/proto"
 	"github.com/sirupsen/logrus"
 	"math"
 	"sync/atomic"
@@ -11,14 +11,7 @@ import (
 	"github.com/cznic/mathutil"
 )
 
-type AveragingMethod = int32
-
-const (
-	Arithmetic AveragingMethod = iota
-	Exponential
-)
-
-type DefaultAutoscaler struct {
+type defaultAutoscaler struct {
 	InPanicMode             bool
 	StartPanickingTimestamp time.Time
 	MaxPanicPods            int
@@ -33,42 +26,22 @@ type DefaultAutoscaler struct {
 	perFunctionState *per_function_state.PFState
 }
 
-func NewDefaultAutoscaler(pfState *per_function_state.PFState, autoscalingPeriod time.Duration) *DefaultAutoscaler {
-	return &DefaultAutoscaler{
+func newDefaultAutoscaler(pfState *per_function_state.PFState, autoscalingPeriod time.Duration) *defaultAutoscaler {
+	return &defaultAutoscaler{
 		Period:           autoscalingPeriod,
 		perFunctionState: pfState,
 	}
 }
 
-func NewDefaultAutoscalingMetadata() *proto.AutoscalingConfiguration {
-	return &proto.AutoscalingConfiguration{
-		ScalingUpperBound:                    math.MaxInt32,
-		ScalingLowerBound:                    0,
-		PanicThresholdPercentage:             200,
-		MaxScaleUpRate:                       1000.0,
-		MaxScaleDownRate:                     2.0,
-		ContainerConcurrency:                 1,
-		ContainerConcurrencyTargetPercentage: 100,
-		StableWindowWidthSeconds:             60,
-		PanicWindowWidthSeconds:              6,
-		ScalingPeriodSeconds:                 2,
-		ScalingMethod:                        Arithmetic,
-		TargetBurstCapacity:                  0,
-		InitialScale:                         0,
-		TotalValue:                           10000,
-		ScaleDownDelay:                       2,
-	}
-}
-
-func (s *DefaultAutoscaler) PanicPoke(functionName string, previousValue int32) {
+func (s *defaultAutoscaler) panicPoke() {
 	s.InPanicMode = true
 	s.StartPanickingTimestamp = time.Now()
 	atomic.AddInt64(&s.perFunctionState.ActualScale, 1)
 
-	s.Poke(functionName, previousValue)
+	s.poke()
 }
 
-func (s *DefaultAutoscaler) Poke(_ string, _ int32) {
+func (s *defaultAutoscaler) poke() {
 	if atomic.CompareAndSwapInt32(&s.AutoscalingRunning, 0, 1) {
 		logrus.Warn(s.perFunctionState)
 		s.perFunctionState.StopCh = make(chan struct{})
@@ -76,13 +49,13 @@ func (s *DefaultAutoscaler) Poke(_ string, _ int32) {
 	}
 }
 
-func (s *DefaultAutoscaler) Stop(_ string) {
+func (s *defaultAutoscaler) stop() {
 	if atomic.LoadInt32(&s.AutoscalingRunning) == 1 {
 		s.perFunctionState.StopCh <- struct{}{}
 	}
 }
 
-func (s *DefaultAutoscaler) scalingCycle(isScaleFromZero bool) (stopped bool) {
+func (s *defaultAutoscaler) scalingCycle(isScaleFromZero bool) (stopped bool) {
 	desiredScale := s.KnativeScaling(isScaleFromZero)
 	logrus.Debugf("Desired scale for %s is %d", s.perFunctionState.ServiceName, desiredScale)
 
@@ -96,7 +69,7 @@ func (s *DefaultAutoscaler) scalingCycle(isScaleFromZero bool) (stopped bool) {
 	return false
 }
 
-func (s *DefaultAutoscaler) stopAutoscalingLoop() {
+func (s *defaultAutoscaler) stopAutoscalingLoop() {
 	logrus.Debugf("Exited scaling loop for %s.", s.perFunctionState.ServiceName)
 
 	atomic.StoreInt32(&s.AutoscalingRunning, 0)
@@ -104,7 +77,7 @@ func (s *DefaultAutoscaler) stopAutoscalingLoop() {
 	s.perFunctionState.StopCh = nil
 }
 
-func (s *DefaultAutoscaler) scalingLoop() {
+func (s *defaultAutoscaler) scalingLoop() {
 	logrus.Debugf("Starting scaling loop for %s.", s.perFunctionState.ServiceName)
 
 	// need to make the first tick happen right away
@@ -128,7 +101,7 @@ func (s *DefaultAutoscaler) scalingLoop() {
 	}
 }
 
-func (s *DefaultAutoscaler) KnativeScaling(isScaleFromZero bool) int {
+func (s *defaultAutoscaler) KnativeScaling(isScaleFromZero bool) int {
 	if isScaleFromZero {
 		return 1
 	}
@@ -138,7 +111,7 @@ func (s *DefaultAutoscaler) KnativeScaling(isScaleFromZero bool) int {
 	return mathutil.Clamp(desiredScale, int(s.perFunctionState.AutoscalingConfig.ScalingLowerBound), int(s.perFunctionState.AutoscalingConfig.ScalingUpperBound))
 }
 
-func (s *DefaultAutoscaler) internalScaleAlgorithm(scalingMetric float64) (int, float64) {
+func (s *defaultAutoscaler) internalScaleAlgorithm(scalingMetric float64) (int, float64) {
 	originalReadyPodsCount := s.perFunctionState.ActualScale
 
 	// Use 1 if there are zero current pods.
@@ -188,7 +161,7 @@ func (s *DefaultAutoscaler) internalScaleAlgorithm(scalingMetric float64) (int, 
 		logrus.Debug("Extended panic mode")
 	} else if s.InPanicMode && !isOverPanicThreshold &&
 		s.StartPanickingTimestamp.Add(time.Duration(s.perFunctionState.AutoscalingConfig.StableWindowWidthSeconds)*time.Second).Before(time.Now()) {
-		// Stop panicking after the surge has made its way into the stable metric.
+		// stop panicking after the surge has made its way into the stable metric.
 		s.InPanicMode = false
 		s.StartPanickingTimestamp = time.Time{}
 		s.MaxPanicPods = 0
@@ -222,13 +195,13 @@ func (s *DefaultAutoscaler) internalScaleAlgorithm(scalingMetric float64) (int, 
 	return desiredPodCount, avgStable
 }
 
-func (s *DefaultAutoscaler) windowAverage(observedStableValue float64) (float64, float64) {
+func (s *defaultAutoscaler) windowAverage(observedStableValue float64) (float64, float64) {
 	panicBucketCount := int64(s.perFunctionState.AutoscalingConfig.PanicWindowWidthSeconds / s.perFunctionState.AutoscalingConfig.ScalingPeriodSeconds)
 	stableBucketCount := int64(s.perFunctionState.AutoscalingConfig.StableWindowWidthSeconds / s.perFunctionState.AutoscalingConfig.ScalingPeriodSeconds)
 
 	var smoothingCoefficientStable, smoothingCoefficientPanic, multiplierStable, multiplierPanic float64
 
-	if s.perFunctionState.AutoscalingConfig.ScalingMethod == Exponential {
+	if s.perFunctionState.AutoscalingConfig.ScalingMethod == core.Exponential {
 		multiplierStable = smoothingCoefficientStable
 		multiplierPanic = smoothingCoefficientPanic
 	}
@@ -250,7 +223,7 @@ func (s *DefaultAutoscaler) windowAverage(observedStableValue float64) (float64,
 		// sum values of buckets, starting at most recent measurement
 		// most recent one has the highest weight
 		value := s.ScalingMetrics[currentWindowIndex]
-		if s.perFunctionState.AutoscalingConfig.ScalingMethod == Exponential {
+		if s.perFunctionState.AutoscalingConfig.ScalingMethod == core.Exponential {
 			value = value * multiplierStable
 			multiplierStable = (1 - smoothingCoefficientStable) * multiplierStable
 		}
@@ -263,7 +236,7 @@ func (s *DefaultAutoscaler) windowAverage(observedStableValue float64) (float64,
 		}
 	}
 
-	if s.perFunctionState.AutoscalingConfig.ScalingMethod == Arithmetic {
+	if s.perFunctionState.AutoscalingConfig.ScalingMethod == core.Arithmetic {
 		// divide by the number of buckets we summed over to get the average
 		avgStable = avgStable / float64(windowLength)
 	}
@@ -275,7 +248,7 @@ func (s *DefaultAutoscaler) windowAverage(observedStableValue float64) (float64,
 	for i := 0; i < windowLength; i++ {
 		// sum values of buckets, starting at most recent measurement
 		value := s.ScalingMetrics[currentWindowIndex]
-		if s.perFunctionState.AutoscalingConfig.ScalingMethod == Exponential {
+		if s.perFunctionState.AutoscalingConfig.ScalingMethod == core.Exponential {
 			value = value * multiplierPanic
 			multiplierPanic = (1 - smoothingCoefficientPanic) * multiplierPanic
 		}
@@ -293,7 +266,7 @@ func (s *DefaultAutoscaler) windowAverage(observedStableValue float64) (float64,
 		s.WindowHead = 0 // move WindowHead back to 0 if it exceeds the maximum number of buckets
 	}
 
-	if s.perFunctionState.AutoscalingConfig.ScalingMethod == Arithmetic {
+	if s.perFunctionState.AutoscalingConfig.ScalingMethod == core.Arithmetic {
 		// divide by the number of buckets we summed over to get the average
 		avgPanic = avgPanic / float64(windowLength)
 	}
