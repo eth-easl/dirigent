@@ -91,16 +91,8 @@ func (cr *ContainerdRuntime) CreateSandbox(grpcCtx context.Context, in *proto.Se
 		return &proto.SandboxCreationStatus{
 			Success: false,
 			LatencyBreakdown: &proto.SandboxCreationBreakdown{
-				Total:               durationpb.New(time.Since(start)),
-				ImageFetch:          durationpb.New(durationFetch),
-				SandboxCreate:       durationpb.New(0),
-				NetworkSetup:        durationpb.New(0),
-				SandboxStart:        durationpb.New(0),
-				Iptables:            durationpb.New(0),
-				ReadinessProbing:    durationpb.New(0),
-				SnapshotCreation:    durationpb.New(0),
-				ConfigureMonitoring: durationpb.New(0),
-				FindSnapshot:        durationpb.New(0),
+				Total:      durationpb.New(time.Since(start)),
+				ImageFetch: durationpb.New(durationFetch),
 			},
 		}, err
 	}
@@ -111,16 +103,9 @@ func (cr *ContainerdRuntime) CreateSandbox(grpcCtx context.Context, in *proto.Se
 		return &proto.SandboxCreationStatus{
 			Success: false,
 			LatencyBreakdown: &proto.SandboxCreationBreakdown{
-				Total:               durationpb.New(time.Since(start)),
-				ImageFetch:          durationpb.New(durationFetch),
-				SandboxCreate:       durationpb.New(durationContainerCreation),
-				NetworkSetup:        durationpb.New(0),
-				SandboxStart:        durationpb.New(0),
-				Iptables:            durationpb.New(0),
-				ReadinessProbing:    durationpb.New(0),
-				SnapshotCreation:    durationpb.New(0),
-				ConfigureMonitoring: durationpb.New(0),
-				FindSnapshot:        durationpb.New(0),
+				Total:         durationpb.New(time.Since(start)),
+				ImageFetch:    durationpb.New(durationFetch),
+				SandboxCreate: durationpb.New(durationContainerCreation),
 			},
 		}, err
 	}
@@ -131,16 +116,11 @@ func (cr *ContainerdRuntime) CreateSandbox(grpcCtx context.Context, in *proto.Se
 		return &proto.SandboxCreationStatus{
 			Success: false,
 			LatencyBreakdown: &proto.SandboxCreationBreakdown{
-				Total:               durationpb.New(time.Since(start)),
-				ImageFetch:          durationpb.New(durationFetch),
-				SandboxCreate:       durationpb.New(durationContainerCreation),
-				NetworkSetup:        durationpb.New(durationCNI),
-				SandboxStart:        durationpb.New(durationContainerStart),
-				Iptables:            durationpb.New(0),
-				ReadinessProbing:    durationpb.New(0),
-				SnapshotCreation:    durationpb.New(0),
-				ConfigureMonitoring: durationpb.New(0),
-				FindSnapshot:        durationpb.New(0),
+				Total:         durationpb.New(time.Since(start)),
+				ImageFetch:    durationpb.New(durationFetch),
+				SandboxCreate: durationpb.New(durationContainerCreation),
+				NetworkSetup:  durationpb.New(durationCNI),
+				SandboxStart:  durationpb.New(durationContainerStart),
 			},
 		}, err
 	}
@@ -198,9 +178,7 @@ func (cr *ContainerdRuntime) CreateSandbox(grpcCtx context.Context, in *proto.Se
 				SandboxStart:        durationpb.New(durationContainerStart),
 				Iptables:            durationpb.New(durationIptables),
 				ReadinessProbing:    durationpb.New(timeToPass),
-				SnapshotCreation:    durationpb.New(0),
 				ConfigureMonitoring: durationpb.New(configureMonitoringDuration),
-				FindSnapshot:        durationpb.New(0),
 			},
 		}, nil
 	} else {

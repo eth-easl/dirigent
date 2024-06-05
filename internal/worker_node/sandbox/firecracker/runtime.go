@@ -8,14 +8,15 @@ import (
 	"cluster_manager/proto"
 	"context"
 	"fmt"
+	"os"
+	"path/filepath"
+	"time"
+
 	"github.com/coreos/go-iptables/iptables"
 	"github.com/sirupsen/logrus"
 	"golang.org/x/sys/unix"
 	"google.golang.org/protobuf/types/known/durationpb"
 	"google.golang.org/protobuf/types/known/emptypb"
-	"os"
-	"path/filepath"
-	"time"
 )
 
 type Runtime struct {
@@ -181,7 +182,6 @@ func (fcr *Runtime) CreateSandbox(ctx context.Context, in *proto.ServiceInfo) (*
 			PortMappings: in.PortForwarding,
 			LatencyBreakdown: &proto.SandboxCreationBreakdown{
 				Total:               durationpb.New(time.Since(start)),
-				ImageFetch:          durationpb.New(0),
 				SandboxCreate:       durationpb.New(vmCreateDuration),
 				NetworkSetup:        durationpb.New(netCreateDuration),
 				SandboxStart:        durationpb.New(vmStartDuration),

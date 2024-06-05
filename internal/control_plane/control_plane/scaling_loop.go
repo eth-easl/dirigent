@@ -136,16 +136,7 @@ func (ss *ServiceInfoStorage) doUpscaling(toCreateCount int, loopStarted time.Ti
 					latencyBreakdown = resp.LatencyBreakdown
 				} else {
 					latencyBreakdown = &proto.SandboxCreationBreakdown{
-						Total:               durationpb.New(utils.WorkerNodeTrafficTimeout),
-						ImageFetch:          durationpb.New(0),
-						SandboxCreate:       durationpb.New(0),
-						NetworkSetup:        durationpb.New(0),
-						SandboxStart:        durationpb.New(0),
-						Iptables:            durationpb.New(0),
-						ReadinessProbing:    durationpb.New(0),
-						SnapshotCreation:    durationpb.New(0),
-						ConfigureMonitoring: durationpb.New(0),
-						FindSnapshot:        durationpb.New(0),
+						Total: durationpb.New(utils.WorkerNodeTrafficTimeout),
 					}
 				}
 				ss.ColdStartTracingChannel <- tracing.ColdStartLogEntry{
