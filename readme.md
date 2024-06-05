@@ -240,6 +240,36 @@ Then you can create the files with the following command
 make generate_mock_files
 ```
 
+### Docker registry
+
+If you are experimenting with enough images for Docker Hub to start ratelimiting you, you might want to set up a Docker registry on one of your cluster's nodes. The script `deploy_registry.sh` does that: its first argument is the node which you want to set up the registry on, and the other arguments are other nodes in your cluster:
+
+```bash
+./deploy_registry.sh username@registrynode username@node1 username@node2 ...
+```
+
+### Sized images
+
+For image pulling related experiments, it might be useful to create images which are of a specified size when compressed, and push them to a registry. Given that you already published a base function image to a registry, you can create identical copies of that function image but with different sizes and republish them using the `create_image.sh` script:
+
+```bash
+./create_image.sh registry.address/base_image:tag registry.address/new_image image_size
+```
+
+For example, to create a 50MiB image based on Dirigent's empty function and push it back on Docker Hub, you can use:
+
+```bash
+./create_image.sh docker.io/cvetkovic/dirigent_empty_function:latest docker.io/username/empty-50 50
+```
+
+If you've already set up a Docker registry as explained previously, you can use the `populate_registry.sh` script in a similar manner to populate the registry with various images of various sizes based on the same image. If you want to create 5 images of 50MiB, and 3 images of 100MiB, all based on the empty function, you can use:
+
+```bash
+./populate_registry username@registrynode docker.io/cvetkovic/dirigent_empty_function:latest empty 5 50 3 100
+```
+
+If you just want to generate images of a specific size without any specific content, you can use `scratch` for the base image.
+
 ### Run the tests
 
 ```bash
