@@ -4,69 +4,62 @@ import (
 	common "cluster_manager/internal/data_plane/function_metadata"
 	"cluster_manager/internal/data_plane/proxy/load_balancing"
 	"cluster_manager/internal/data_plane/proxy/metrics_collection"
+	"cluster_manager/internal/data_plane/proxy/reverse_proxy"
 	"cluster_manager/pkg/config"
 	"cluster_manager/pkg/tracing"
 	"cluster_manager/pkg/utils"
 	"cluster_manager/proto"
-	"github.com/sirupsen/logrus"
 	"net/http"
 	"time"
 )
 
-type ProxyingService struct {
-	Host    string
-	Port    string
-	Context proxyContext
+type SyncProxyingService struct {
+	ProxyingService
 }
 
-func (ps *ProxyingService) GetCpApiServer() proto.CpiInterfaceClient {
-	return ps.Context.cpInterface
-}
-
-func (ps *ProxyingService) SetCpApiServer(client proto.CpiInterfaceClient) {
-	ps.Context.cpInterface = client
-}
-
-func NewProxyingService(cfg config.DataPlaneConfig, cache *common.Deployments, cp proto.CpiInterfaceClient, outputFile string, loadBalancingPolicy load_balancing.LoadBalancingPolicy) *ProxyingService {
+func NewProxyingService(cfg config.DataPlaneConfig, cache *common.Deployments, cp proto.CpiInterfaceClient, outputFile string, loadBalancingPolicy load_balancing.LoadBalancingPolicy) *SyncProxyingService {
 	incomingRequestChannel, doneRequestChannel := metrics_collection.NewMetricsCollector(cfg.ControlPlaneNotifyIntervalInMinutes, cp)
 
-	return &ProxyingService{
-		Host: utils.Localhost,
-		Port: cfg.PortProxy,
-		Context: proxyContext{
-			cache:               cache,
-			cpInterface:         cp,
-			loadBalancingPolicy: loadBalancingPolicy,
+	return &SyncProxyingService{
+		ProxyingService: ProxyingService{
+			Host: utils.Localhost,
+			Port: cfg.PortProxy,
+			Context: proxyContext{
+				cache:               cache,
+				cpInterface:         cp,
+				loadBalancingPolicy: loadBalancingPolicy,
 
-			tracing:                tracing.NewProxyTracingService(outputFile),
-			incomingRequestChannel: incomingRequestChannel,
-			doneRequestChannel:     doneRequestChannel,
+				tracing:                tracing.NewProxyTracingService(outputFile),
+				incomingRequestChannel: incomingRequestChannel,
+				doneRequestChannel:     doneRequestChannel,
+			},
+			reverseProxy: reverse_proxy.CreateReverseProxy(),
 		},
 	}
 }
 
-func (ps *ProxyingService) StartProxyServer() {
-	startProxy(ps.createInvocationHandler(), ps.Context, ps.Host, ps.Port)
+func (sps *SyncProxyingService) GetCpApiServer() proto.CpiInterfaceClient {
+	return sps.Context.cpInterface
 }
 
-func (ps *ProxyingService) StartTracingService() {
-	ps.Context.tracing.StartTracingService()
+func (sps *SyncProxyingService) SetCpApiServer(client proto.CpiInterfaceClient) {
+	sps.Context.cpInterface = client
 }
 
-func (ps *ProxyingService) createInvocationHandler() http.HandlerFunc {
+func (sps *SyncProxyingService) StartProxyServer() {
+	startProxy(sps.createInvocationHandler(), sps.Context, sps.Host, sps.Port)
+}
+
+func (sps *SyncProxyingService) StartTracingService() {
+	sps.Context.tracing.StartTracingService()
+}
+
+func (sps *SyncProxyingService) createInvocationHandler() http.HandlerFunc {
 	return func(w http.ResponseWriter, request *http.Request) {
-		bufferedResponse := proxyHandler(request, requestMetadata{
+		proxyHandler(sps.reverseProxy, w, request, requestMetadata{
 			start:            time.Now(),
 			serialization:    0,
 			persistenceLayer: 0,
-		}, ps.Context)
-
-		w.WriteHeader(bufferedResponse.StatusCode)
-
-		if bufferedResponse.StatusCode == http.StatusOK {
-			w.Write([]byte(bufferedResponse.Body))
-		} else {
-			logrus.Warnf(bufferedResponse.Body)
-		}
+		}, sps.Context)
 	}
 }

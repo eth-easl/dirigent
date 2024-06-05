@@ -7,6 +7,7 @@ import (
 	"cluster_manager/internal/data_plane/proxy/metrics_collection"
 	rp "cluster_manager/internal/data_plane/proxy/persistence"
 	"cluster_manager/internal/data_plane/proxy/requests"
+	"cluster_manager/internal/data_plane/proxy/reverse_proxy"
 	"cluster_manager/pkg/config"
 	"cluster_manager/pkg/tracing"
 	"cluster_manager/pkg/utils"
@@ -15,6 +16,7 @@ import (
 	"github.com/sirupsen/logrus"
 	"io"
 	"net/http"
+	"net/http/httptest"
 	"strconv"
 	"strings"
 	"sync"
@@ -24,11 +26,9 @@ import (
 const AsyncRequestBufferSize = 1000
 
 type AsyncProxyingService struct {
-	Host     string
-	Port     string
-	PortRead string
+	ProxyingService
 
-	Context proxyContext
+	PortRead string
 
 	RequestChannel chan *requests.BufferedRequest
 	Responses      *sync.Map
@@ -61,20 +61,22 @@ func NewAsyncProxyingService(cfg config.DataPlaneConfig, cache *common.Deploymen
 	incomingRequestChannel, doneRequestChannel := metrics_collection.NewMetricsCollector(cfg.ControlPlaneNotifyIntervalInMinutes, cp)
 
 	proxy := &AsyncProxyingService{
-		Host:     utils.Localhost,
-		Port:     cfg.PortProxy,
-		PortRead: cfg.PortProxyRead,
+		ProxyingService: ProxyingService{
+			Host: utils.Localhost,
+			Port: cfg.PortProxy,
+			Context: proxyContext{
+				cache:               cache,
+				cpInterface:         cp,
+				loadBalancingPolicy: loadBalancingPolicy,
 
-		Context: proxyContext{
-			cache:               cache,
-			cpInterface:         cp,
-			loadBalancingPolicy: loadBalancingPolicy,
+				tracing: tracing.NewProxyTracingService(outputFile),
 
-			tracing: tracing.NewProxyTracingService(outputFile),
-
-			incomingRequestChannel: incomingRequestChannel,
-			doneRequestChannel:     doneRequestChannel,
+				incomingRequestChannel: incomingRequestChannel,
+				doneRequestChannel:     doneRequestChannel,
+			},
 		},
+
+		PortRead: cfg.PortProxyRead,
 
 		RequestChannel: make(chan *requests.BufferedRequest, AsyncRequestBufferSize),
 		Responses:      &sync.Map{},
@@ -211,7 +213,11 @@ func (ps *AsyncProxyingService) asyncRequestHandler() {
 }
 
 func (ps *AsyncProxyingService) executeRequest(bufferedRequest *requests.BufferedRequest) *requests.BufferedResponse {
-	return proxyHandler(
+	httpResponse := httptest.NewRecorder()
+
+	bufferedResponse := proxyHandler(
+		reverse_proxy.CreateReverseProxy(),
+		httpResponse,
 		&bufferedRequest.Request,
 		requestMetadata{
 			start:            bufferedRequest.Start,
@@ -220,6 +226,10 @@ func (ps *AsyncProxyingService) executeRequest(bufferedRequest *requests.Buffere
 		},
 		ps.Context,
 	)
+	// copy response from the buffer
+	bufferedResponse.Body = httpResponse.Body.String()
+
+	return bufferedResponse
 }
 
 func (ps *AsyncProxyingService) createAsyncResponseHandler() http.HandlerFunc {

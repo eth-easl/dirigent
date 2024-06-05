@@ -1,7 +1,6 @@
 package proxy
 
 import (
-	"bytes"
 	common "cluster_manager/internal/data_plane/function_metadata"
 	"cluster_manager/internal/data_plane/proxy/load_balancing"
 	"cluster_manager/internal/data_plane/proxy/metrics_collection"
@@ -14,13 +13,11 @@ import (
 	"golang.org/x/net/http2/h2c"
 	"net"
 	"net/http"
+	"net/http/httputil"
 	"time"
 )
 
 type proxyContext struct {
-	host string
-	port string
-
 	cache               *common.Deployments
 	cpInterface         proto.CpiInterfaceClient
 	loadBalancingPolicy load_balancing.LoadBalancingPolicy
@@ -57,7 +54,7 @@ func startProxy(handler http.HandlerFunc, context proxyContext, host string, por
 	}
 }
 
-func proxyHandler(request *http.Request, requestMetadata requestMetadata, proxyContext proxyContext) *requests.BufferedResponse {
+func proxyHandler(proxy *httputil.ReverseProxy, writer http.ResponseWriter, request *http.Request, requestMetadata requestMetadata, proxyContext proxyContext) *requests.BufferedResponse {
 	///////////////////////////////////////////////
 	// METADATA FETCHING
 	///////////////////////////////////////////////
@@ -127,25 +124,7 @@ func proxyHandler(request *http.Request, requestMetadata requestMetadata, proxyC
 	///////////////////////////////////////////////
 	startProxy := time.Now()
 
-	request.RequestURI = ""
-	workerResponse, err := http.DefaultClient.Do(request)
-	if err != nil {
-		logrus.Infof(err.Error())
-		return &requests.BufferedResponse{
-			StatusCode: http.StatusInternalServerError,
-			Body:       err.Error(),
-			E2ELatency: time.Since(requestMetadata.start),
-		}
-	}
-
-	buf := new(bytes.Buffer)
-	if _, err := buf.ReadFrom(workerResponse.Body); err != nil {
-		return &requests.BufferedResponse{
-			StatusCode: http.StatusInternalServerError,
-			Body:       err.Error(),
-			E2ELatency: time.Since(requestMetadata.start),
-		}
-	}
+	proxy.ServeHTTP(writer, request)
 
 	// Notify metric collector we got a response
 	proxyContext.doneRequestChannel <- metrics_collection.DurationInvocation{
@@ -173,8 +152,8 @@ func proxyHandler(request *http.Request, requestMetadata requestMetadata, proxyC
 	metadata.GetStatistics().IncrementSuccessfulInvocations()
 
 	return &requests.BufferedResponse{
+		// Body is written by proxy.ServerHTTP()
 		StatusCode: http.StatusOK,
-		Body:       buf.String(),
 		E2ELatency: time.Since(requestMetadata.start),
 	}
 }

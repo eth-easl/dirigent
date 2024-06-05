@@ -1,6 +1,9 @@
 package proxy
 
-import "cluster_manager/proto"
+import (
+	"cluster_manager/proto"
+	"net/http/httputil"
+)
 
 type Proxy interface {
 	StartProxyServer()
@@ -8,4 +11,12 @@ type Proxy interface {
 
 	GetCpApiServer() proto.CpiInterfaceClient
 	SetCpApiServer(client proto.CpiInterfaceClient)
+}
+
+type ProxyingService struct {
+	Host    string
+	Port    string
+	Context proxyContext
+
+	reverseProxy *httputil.ReverseProxy
 }
