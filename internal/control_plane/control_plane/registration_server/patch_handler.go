@@ -4,6 +4,7 @@ import (
 	"cluster_manager/internal/control_plane/control_plane"
 	"cluster_manager/internal/control_plane/control_plane/core"
 	"cluster_manager/proto"
+	"context"
 	"errors"
 	"fmt"
 	"net/http"
@@ -92,6 +93,11 @@ func patchHandler(api *control_plane.CpApiServer) func(w http.ResponseWriter, r 
 		}
 
 		sis.FunctionState.AutoscalingConfig = config
+		sis.ServiceInfo.AutoscalingConfig = config
+
+		if err = api.ControlPlane.PersistenceLayer.StoreServiceInformation(context.Background(), sis.ServiceInfo); err != nil {
+			http.Error(w, fmt.Sprintf("Failed to persist patch handler - %v", err), http.StatusInternalServerError)
+		}
 
 		w.WriteHeader(http.StatusOK)
 	}
