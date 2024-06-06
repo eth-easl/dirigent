@@ -2,7 +2,7 @@ package predictive_autoscaler
 
 import (
 	"cluster_manager/internal/control_plane/control_plane/autoscalers/predictive_autoscaler/metric_client"
-	"cluster_manager/internal/control_plane/control_plane/per_function_state"
+	"cluster_manager/internal/control_plane/control_plane/function_state"
 	"cluster_manager/proto"
 	"fmt"
 	"github.com/sirupsen/logrus"
@@ -17,7 +17,7 @@ type autoscaler struct {
 	namespace     string
 	revision      string
 	metricClient  *metric_client.MetricClient
-	functionState *per_function_state.PFState
+	functionState *function_state.FunctionState
 	// State in panic mode.
 	panicTime    time.Time
 	maxPanicPods int32
@@ -82,7 +82,7 @@ type autoscaler struct {
 
 // New creates a new instance of default autoscaler implementation.
 func New(
-	functionState *per_function_state.PFState,
+	functionState *function_state.FunctionState,
 	revision string,
 	autoscalingConfiguration *proto.AutoscalingConfiguration,
 	predictionsCh chan ScalingDecisions,
@@ -98,7 +98,7 @@ func New(
 	return newAutoscaler(functionState, revision, delayer, predictionsCh, shiftedScalingCh, startCh, isMu)
 }
 
-func newAutoscaler(functionState *per_function_state.PFState, revision string,
+func newAutoscaler(functionState *function_state.FunctionState, revision string,
 	delayWindow *max.TimeWindow, predictionsCh chan ScalingDecisions,
 	shiftedScalingCh chan ScalingDecisions, startCh chan bool, isMu bool) *autoscaler {
 

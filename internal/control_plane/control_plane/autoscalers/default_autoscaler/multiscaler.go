@@ -1,7 +1,7 @@
 package default_autoscaler
 
 import (
-	"cluster_manager/internal/control_plane/control_plane/per_function_state"
+	"cluster_manager/internal/control_plane/control_plane/function_state"
 	"cluster_manager/pkg/synchronization"
 	"cluster_manager/proto"
 	"time"
@@ -19,8 +19,8 @@ func NewMultiscaler(autoscalingPeriod time.Duration) *DefaultMultiscaler {
 	}
 }
 
-func (m *DefaultMultiscaler) Create(perFunctionState *per_function_state.PFState) {
-	m.autoscalers.AtomicSet(perFunctionState.ServiceName, newDefaultAutoscaler(perFunctionState, m.autoscalingPeriod))
+func (m *DefaultMultiscaler) Create(functionState *function_state.FunctionState) {
+	m.autoscalers.AtomicSet(functionState.ServiceName, newDefaultAutoscaler(functionState, m.autoscalingPeriod))
 }
 
 func (m *DefaultMultiscaler) PanicPoke(functionName string, previousValue int32) {

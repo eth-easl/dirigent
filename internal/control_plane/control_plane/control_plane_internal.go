@@ -6,7 +6,7 @@ import (
 	"cluster_manager/internal/control_plane/control_plane/core"
 	"cluster_manager/internal/control_plane/control_plane/endpoint_placer"
 	"cluster_manager/internal/control_plane/control_plane/endpoint_placer/placement_policy"
-	"cluster_manager/internal/control_plane/control_plane/per_function_state"
+	"cluster_manager/internal/control_plane/control_plane/function_state"
 	"cluster_manager/internal/control_plane/control_plane/persistence"
 	"cluster_manager/pkg/config"
 	_map "cluster_manager/pkg/map"
@@ -25,7 +25,7 @@ import (
 )
 
 type AutoscalingInterface interface {
-	Create(perFunctionState *per_function_state.PFState)
+	Create(functionState *function_state.FunctionState)
 	PanicPoke(functionName string, previousValue int32)
 	Poke(functionName string, previousValue int32)
 	ForwardDataplaneMetrics(dataplaneMetrics *proto.MetricsPredictiveAutoscaler) error
@@ -168,7 +168,7 @@ func (c *ControlPlane) deregisterDataplane(ctx context.Context, in *proto.Datapl
 		}
 
 		for _, value := range c.SIStorage.GetMap() {
-			value.PerFunctionState.RemoveDataplane(in.IP)
+			value.FunctionState.RemoveDataplane(in.IP)
 		}
 
 		c.DataPlaneConnections.Remove(dataplaneInfo.Address)
@@ -343,7 +343,7 @@ func (c *ControlPlane) deregisterService(ctx context.Context, serviceInfo *proto
 			return &proto.ActionStatus{Success: false}, err
 		}
 
-		close(service.PerFunctionState.DesiredStateChannel)
+		close(service.FunctionState.DesiredStateChannel)
 		c.SIStorage.Remove(serviceInfo.Name)
 
 		c.autoscalingManager.Stop(serviceInfo.Name)
@@ -368,9 +368,9 @@ func (c *ControlPlane) setInvocationsMetrics(_ context.Context, metric *proto.Au
 		return &proto.ActionStatus{Success: false}, nil
 	}
 
-	previousValue := storage.PerFunctionState.CachedScalingMetrics
+	previousValue := storage.FunctionState.CachedScalingMetrics
 
-	storage.PerFunctionState.SetCachedScalingMetrics(metric)
+	storage.FunctionState.SetCachedScalingMetrics(metric)
 
 	logrus.Debug("Scaling metric for '", storage.ServiceInfo.Name, "' is ", metric.InflightRequests)
 

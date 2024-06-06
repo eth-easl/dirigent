@@ -38,7 +38,7 @@ func patchHandler(api *control_plane.CpApiServer) func(w http.ResponseWriter, r 
 			return
 		}
 
-		oldConfig := sis.PerFunctionState.AutoscalingConfig
+		oldConfig := sis.FunctionState.AutoscalingConfig
 		config := &proto.AutoscalingConfiguration{
 			ScalingUpperBound:                    oldConfig.ScalingUpperBound,
 			ScalingLowerBound:                    oldConfig.ScalingLowerBound,
@@ -91,7 +91,7 @@ func patchHandler(api *control_plane.CpApiServer) func(w http.ResponseWriter, r 
 			http.Error(w, "Unsupported scaling_method", http.StatusBadRequest)
 		}
 
-		sis.PerFunctionState.AutoscalingConfig = config
+		sis.FunctionState.AutoscalingConfig = config
 
 		w.WriteHeader(http.StatusOK)
 	}

@@ -8,7 +8,7 @@ import (
 	"cluster_manager/internal/control_plane/control_plane/endpoint_placer/data_plane/empty_dataplane"
 	"cluster_manager/internal/control_plane/control_plane/endpoint_placer/placement_policy"
 	"cluster_manager/internal/control_plane/control_plane/endpoint_placer/workers/empty_worker"
-	"cluster_manager/internal/control_plane/control_plane/per_function_state"
+	"cluster_manager/internal/control_plane/control_plane/function_state"
 	"cluster_manager/mock/mock_core"
 	"cluster_manager/mock/mock_persistence"
 	"cluster_manager/pkg/config"
@@ -1219,7 +1219,7 @@ func TestEndpointsWithDeregistration(t *testing.T) {
 
 	sum := 0
 	for _, value := range controlPlane.SIStorage.GetMap() {
-		sum += len(value.PerFunctionState.Endpoints)
+		sum += len(value.FunctionState.Endpoints)
 	}
 
 	assert.Zero(t, sum)
@@ -1408,7 +1408,7 @@ func TestAutoscalingPerformance(t *testing.T) {
 				multiscaler := predictive_autoscaler.NewMultiScaler(cfg)
 
 				services := make([]*proto.ServiceInfo, tt.Parallelism)
-				states := make([]*per_function_state.PFState, tt.Parallelism)
+				states := make([]*function_state.FunctionState, tt.Parallelism)
 
 				wg.Add(tt.Parallelism)
 				for i := 0; i < tt.Parallelism; i++ {
@@ -1416,7 +1416,7 @@ func TestAutoscalingPerformance(t *testing.T) {
 						Name:              "service_" + strconv.Itoa(i),
 						AutoscalingConfig: autoscalers.NewDefaultAutoscalingConfiguration(),
 					}
-					states[i] = per_function_state.NewPerFunctionState(services[i])
+					states[i] = function_state.NewFunctionState(services[i])
 
 					multiscaler.Create(states[i])
 

@@ -203,7 +203,7 @@ func (c *ControlPlane) reconstructEndpointsState(ctx context.Context) error {
 			ss.AddEndpoint(controlPlaneEndpoint)
 
 			// Inform the autoscaler we are in a reconstruction phase
-			c.autoscalingManager.PanicPoke(endpoint.ServiceName, ss.PerFunctionState.CachedScalingMetrics)
+			c.autoscalingManager.PanicPoke(endpoint.ServiceName, ss.FunctionState.CachedScalingMetrics)
 		}(e)
 	}
 

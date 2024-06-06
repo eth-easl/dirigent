@@ -1,7 +1,7 @@
 package metric_client
 
 import (
-	"cluster_manager/internal/control_plane/control_plane/per_function_state"
+	"cluster_manager/internal/control_plane/control_plane/function_state"
 	"math"
 )
 
@@ -13,27 +13,27 @@ const (
 )
 
 type MetricClient struct {
-	perFunctionState *per_function_state.PFState
+	functionState *function_state.FunctionState
 
 	ScalingMetrics []float64
 	WindowHead     int64
 }
 
-func NewMetricClient(metadata *per_function_state.PFState) *MetricClient {
+func NewMetricClient(metadata *function_state.FunctionState) *MetricClient {
 	return &MetricClient{
-		perFunctionState: metadata,
+		functionState: metadata,
 	}
 }
 
 func (c *MetricClient) StableAndPanicConcurrency() (float64, float64) {
-	observedStableValue := float64(c.perFunctionState.CachedScalingMetrics)
+	observedStableValue := float64(c.functionState.CachedScalingMetrics)
 
-	panicBucketCount := int64(c.perFunctionState.AutoscalingConfig.PanicWindowWidthSeconds / c.perFunctionState.AutoscalingConfig.ScalingPeriodSeconds)
-	stableBucketCount := int64(c.perFunctionState.AutoscalingConfig.StableWindowWidthSeconds / c.perFunctionState.AutoscalingConfig.ScalingPeriodSeconds)
+	panicBucketCount := int64(c.functionState.AutoscalingConfig.PanicWindowWidthSeconds / c.functionState.AutoscalingConfig.ScalingPeriodSeconds)
+	stableBucketCount := int64(c.functionState.AutoscalingConfig.StableWindowWidthSeconds / c.functionState.AutoscalingConfig.ScalingPeriodSeconds)
 
 	var smoothingCoefficientStable, smoothingCoefficientPanic, multiplierStable, multiplierPanic float64
 
-	if c.perFunctionState.AutoscalingConfig.ScalingMethod == Exponential {
+	if c.functionState.AutoscalingConfig.ScalingMethod == Exponential {
 		multiplierStable = smoothingCoefficientStable
 		multiplierPanic = smoothingCoefficientPanic
 	}
@@ -55,7 +55,7 @@ func (c *MetricClient) StableAndPanicConcurrency() (float64, float64) {
 		// sum values of buckets, starting at most recent measurement
 		// most recent one has the highest weight
 		value := c.ScalingMetrics[currentWindowIndex]
-		if c.perFunctionState.AutoscalingConfig.ScalingMethod == Exponential {
+		if c.functionState.AutoscalingConfig.ScalingMethod == Exponential {
 			value = value * multiplierStable
 			multiplierStable = (1 - smoothingCoefficientStable) * multiplierStable
 		}
@@ -68,7 +68,7 @@ func (c *MetricClient) StableAndPanicConcurrency() (float64, float64) {
 		}
 	}
 
-	if c.perFunctionState.AutoscalingConfig.ScalingMethod == Arithmetic {
+	if c.functionState.AutoscalingConfig.ScalingMethod == Arithmetic {
 		// divide by the number of buckets we summed over to get the average
 		avgStable = avgStable / float64(windowLength)
 	}
@@ -80,7 +80,7 @@ func (c *MetricClient) StableAndPanicConcurrency() (float64, float64) {
 	for i := 0; i < windowLength; i++ {
 		// sum values of buckets, starting at most recent measurement
 		value := c.ScalingMetrics[currentWindowIndex]
-		if c.perFunctionState.AutoscalingConfig.ScalingMethod == Exponential {
+		if c.functionState.AutoscalingConfig.ScalingMethod == Exponential {
 			value = value * multiplierPanic
 			multiplierPanic = (1 - smoothingCoefficientPanic) * multiplierPanic
 		}
@@ -98,7 +98,7 @@ func (c *MetricClient) StableAndPanicConcurrency() (float64, float64) {
 		c.WindowHead = 0 // move windowHead back to 0 if it exceeds the maximum number of buckets
 	}
 
-	if c.perFunctionState.AutoscalingConfig.ScalingMethod == Arithmetic {
+	if c.functionState.AutoscalingConfig.ScalingMethod == Arithmetic {
 		// divide by the number of buckets we summed over to get the average
 		avgPanic = avgPanic / float64(windowLength)
 	}
@@ -107,5 +107,5 @@ func (c *MetricClient) StableAndPanicConcurrency() (float64, float64) {
 }
 
 func (c *MetricClient) StableAndPanicRPS() float64 {
-	return c.perFunctionState.RpsValue
+	return c.functionState.RpsValue
 }

@@ -4,7 +4,7 @@ import (
 	"cluster_manager/internal/control_plane/control_plane/core"
 	"cluster_manager/internal/control_plane/control_plane/endpoint_placer/eviction_policy"
 	placement_policy2 "cluster_manager/internal/control_plane/control_plane/endpoint_placer/placement_policy"
-	"cluster_manager/internal/control_plane/control_plane/per_function_state"
+	"cluster_manager/internal/control_plane/control_plane/function_state"
 	"cluster_manager/internal/control_plane/control_plane/persistence"
 	"cluster_manager/pkg/synchronization"
 	"cluster_manager/pkg/tracing"
@@ -23,7 +23,7 @@ import (
 type EndpointPlacer struct {
 	ServiceInfo *proto.ServiceInfo
 
-	PerFunctionState        *per_function_state.PFState
+	FunctionState           *function_state.FunctionState
 	ColdStartTracingChannel chan tracing.ColdStartLogEntry
 
 	PlacementPolicy placement_policy2.PlacementPolicy
@@ -40,13 +40,13 @@ func (ss *EndpointPlacer) ScalingControllerLoop() {
 	desiredCount := 0
 
 	for isLoopRunning {
-		desiredCount, isLoopRunning = <-ss.PerFunctionState.DesiredStateChannel
+		desiredCount, isLoopRunning = <-ss.FunctionState.DesiredStateChannel
 		loopStarted := time.Now()
 
 		lastValue := false
 		for !lastValue {
 			select {
-			case desiredCount, isLoopRunning = <-ss.PerFunctionState.DesiredStateChannel:
+			case desiredCount, isLoopRunning = <-ss.FunctionState.DesiredStateChannel:
 				lastValue = false
 			default:
 				lastValue = true
@@ -57,21 +57,21 @@ func (ss *EndpointPlacer) ScalingControllerLoop() {
 
 		swapped := false
 		for !swapped {
-			actualScale = int(ss.PerFunctionState.ActualScale)
-			swapped = atomic.CompareAndSwapInt64(&ss.PerFunctionState.ActualScale, int64(actualScale), int64(desiredCount))
+			actualScale = int(ss.FunctionState.ActualScale)
+			swapped = atomic.CompareAndSwapInt64(&ss.FunctionState.ActualScale, int64(actualScale), int64(desiredCount))
 		}
 
 		// Channel closed ==> We send the instruction to remove all endpoints
 		if !isLoopRunning {
 			desiredCount = 0
 
-			ss.PerFunctionState.EndpointLock.Lock()
+			ss.FunctionState.EndpointLock.Lock()
 			ss.doDownscaling(actualScale, desiredCount)
-			ss.PerFunctionState.EndpointLock.Unlock()
+			ss.FunctionState.EndpointLock.Unlock()
 			break
 		}
 
-		ss.PerFunctionState.EndpointLock.Lock()
+		ss.FunctionState.EndpointLock.Lock()
 
 		if actualScale < desiredCount {
 			ss.doUpscaling(desiredCount-actualScale, loopStarted)
@@ -79,15 +79,15 @@ func (ss *EndpointPlacer) ScalingControllerLoop() {
 			ss.doDownscaling(actualScale, desiredCount)
 		}
 
-		ss.PerFunctionState.EndpointLock.Unlock() // for all cases (>, ==, <)
+		ss.FunctionState.EndpointLock.Unlock() // for all cases (>, ==, <)
 	}
 }
 
 func (ss *EndpointPlacer) AddEndpoint(endpoint *core.Endpoint) {
-	ss.PerFunctionState.EndpointLock.Lock()
-	ss.PerFunctionState.Endpoints = append(ss.PerFunctionState.Endpoints, endpoint)
-	urls := ss.PrepareEndpointInfo(ss.PerFunctionState.Endpoints)
-	ss.PerFunctionState.EndpointLock.Unlock()
+	ss.FunctionState.EndpointLock.Lock()
+	ss.FunctionState.Endpoints = append(ss.FunctionState.Endpoints, endpoint)
+	urls := ss.PrepareEndpointInfo(ss.FunctionState.Endpoints)
+	ss.FunctionState.EndpointLock.Unlock()
 
 	ss.UpdateEndpoints(urls)
 }
@@ -142,13 +142,13 @@ func (ss *EndpointPlacer) SingleThreadUpdateEndpoints(endpoints []*proto.Endpoin
 func (ss *EndpointPlacer) ExcludeEndpoints(toExclude map[*core.Endpoint]struct{}) {
 	var result []*core.Endpoint
 
-	for _, endpoint := range ss.PerFunctionState.Endpoints {
+	for _, endpoint := range ss.FunctionState.Endpoints {
 		if _, ok := toExclude[endpoint]; !ok {
 			result = append(result, endpoint)
 		}
 	}
 
-	ss.PerFunctionState.Endpoints = result
+	ss.FunctionState.Endpoints = result
 }
 
 // TODO: Refactor two following function - design can be improved
@@ -168,10 +168,10 @@ func (ss *EndpointPlacer) PrepareEndpointInfo(endpoints []*core.Endpoint) []*pro
 func (ss *EndpointPlacer) PrepareCurrentEndpointInfoList() []*proto.EndpointInfo {
 	var res []*proto.EndpointInfo
 
-	for i := 0; i < len(ss.PerFunctionState.Endpoints); i++ {
+	for i := 0; i < len(ss.FunctionState.Endpoints); i++ {
 		res = append(res, &proto.EndpointInfo{
-			ID:  ss.PerFunctionState.Endpoints[i].SandboxID,
-			URL: ss.PerFunctionState.Endpoints[i].URL,
+			ID:  ss.FunctionState.Endpoints[i].SandboxID,
+			URL: ss.FunctionState.Endpoints[i].URL,
 		})
 	}
 
@@ -209,7 +209,7 @@ func (ss *EndpointPlacer) doUpscaling(toCreateCount int, loopStarted time.Time) 
 				}
 				logrus.Warnf("Failed to start a sandbox on worker node %s (error %s)", node.GetName(), text)
 
-				atomic.AddInt64(&ss.PerFunctionState.ActualScale, -1)
+				atomic.AddInt64(&ss.FunctionState.ActualScale, -1)
 
 				var latencyBreakdown *proto.SandboxCreationBreakdown
 				if resp != nil {
@@ -254,7 +254,7 @@ func (ss *EndpointPlacer) doUpscaling(toCreateCount int, loopStarted time.Time) 
 			// Update worker node structure
 			ss.NIStorage.AtomicGetNoCheck(node.GetName()).GetEndpointMap().AtomicSet(newEndpoint, ss.ServiceInfo.Name)
 
-			ss.PerFunctionState.Endpoints = append(ss.PerFunctionState.Endpoints, newEndpoint)
+			ss.FunctionState.Endpoints = append(ss.FunctionState.Endpoints, newEndpoint)
 			urls := ss.PrepareEndpointInfo([]*core.Endpoint{newEndpoint}) // prepare delta for sending
 
 			ss.UpdateEndpoints(urls)
@@ -270,7 +270,7 @@ func (ss *EndpointPlacer) doUpscaling(toCreateCount int, loopStarted time.Time) 
 }
 
 func (ss *EndpointPlacer) doDownscaling(actualScale, desiredCount int) {
-	currentState := ss.PerFunctionState.Endpoints
+	currentState := ss.FunctionState.Endpoints
 	toEvict := make(map[*core.Endpoint]struct{})
 
 	for i := 0; i < actualScale-desiredCount; i++ {

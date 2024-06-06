@@ -1,7 +1,7 @@
 package predictive_autoscaler
 
 import (
-	"cluster_manager/internal/control_plane/control_plane/per_function_state"
+	"cluster_manager/internal/control_plane/control_plane/function_state"
 	"cluster_manager/pkg/config"
 	_map "cluster_manager/pkg/map"
 	"cluster_manager/pkg/utils"
@@ -147,17 +147,17 @@ func NewMultiScaler(
 	}
 }
 
-func (m *MultiScaler) Create(perFunctionState *per_function_state.PFState) {
+func (m *MultiScaler) Create(functionState *function_state.FunctionState) {
 	// TODO: Fix error handling
-	m.create(perFunctionState, &Decider{
-		Name:                     perFunctionState.ServiceName,
-		AutoscalingConfiguration: perFunctionState.AutoscalingConfig,
+	m.create(functionState, &Decider{
+		Name:                     functionState.ServiceName,
+		AutoscalingConfiguration: functionState.AutoscalingConfig,
 		Status:                   DeciderStatus{},
 	})
 }
 
 // Create instantiates the desired Decider.
-func (m *MultiScaler) create(functionState *per_function_state.PFState, decider *Decider) error {
+func (m *MultiScaler) create(functionState *function_state.FunctionState, decider *Decider) error {
 	m.scalersMutex.Lock()
 	defer m.scalersMutex.Unlock()
 	scaler, exists := m.scalers[decider.Name]
@@ -251,7 +251,7 @@ func (m *MultiScaler) runScalerTicker(runner *ScalerRunner, metricKey string) {
 	}()
 }
 
-func (m *MultiScaler) createScaler(functionState *per_function_state.PFState, decider *Decider, key string) (*ScalerRunner, error) {
+func (m *MultiScaler) createScaler(functionState *function_state.FunctionState, decider *Decider, key string) (*ScalerRunner, error) {
 	d := decider.DeepCopy()
 	predictionsCh := make(chan ScalingDecisions, 5)
 	shiftedScalingCh := make(chan ScalingDecisions, 5)
