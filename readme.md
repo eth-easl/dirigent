@@ -17,29 +17,41 @@
     <br />
     <a href="https://systems.ethz.ch/"><strong>Systems groups page »</strong></a>
     <br />
-    <br />
-    <a href="">View Demo</a>
-    ·
-    <a href="">Report Bug</a>
   </p>
 
-  <p>Serverless computing optimizes cloud resource use for better performance. Yet, current serverless cluster managers are retrofitted from old systems, not built for serverless tasks. We examine Knative-on-K8s, a modern serverless cluster manager. It causes delays and 65%+ of latency for cold start function calls. These issues arise during high sandbox changes, common in production serverless setups. We identify the problem and suggest new design principles to enhance performance by rethinking cluster manager architecture.</p>
+
+![Go](https://img.shields.io/badge/go-%2300ADD8.svg?style=for-the-badge&logo=go&logoColor=white)
+![Docker](https://img.shields.io/badge/docker-%230db7ed.svg?style=for-the-badge&logo=docker&logoColor=white)
+
+
+
+  <p></p>
 </div>
 
 
 <!-- ABOUT THE PROJECT -->
 ## About The Project
 
-The cluster manager in question has been developed within the systems group at ETH Zürich. It has been designed and fine-tuned specifically to the requirements of Function as a Service (FaaS) paradigms.
+The cluster manager in question has been developed within the <a href="https://systems.ethz.ch/research/easl.html"> Efficient Architectures and Systems Lab (EASL) </a> at ETH Zürich. It has been designed and fine-tuned specifically to the requirements of Function as a Service (FaaS) paradigms.
 
-### Built With
+Serverless computing optimizes cloud resource use for better performance. Yet, current serverless cluster managers are retrofitted from old systems, not built for serverless tasks. We examine Knative-on-K8s, a modern serverless cluster manager. It causes delays and 65%+ of latency for cold start function calls. These issues arise during high sandbox changes, common in production serverless setups. We identify the problem and suggest new design principles to enhance performance by rethinking cluster manager architecture.
 
-<div align="center">
+| Feature of K8s-based FaaS system design that contributes to high scheduling latency                               | Insight for Dirigent design                                                                                                    |
+|------------------------------------------------------------------------------------------------------------------|--------------------------------------------------------------------------------------------------------------------------------|
+| Managing a large volume of state for many, hierarchical abstractions in K8s (e.g., Deployments, ReplicaSets).     | Simple internal cluster management abstractions.                                                                               |
+| Persisting and serializing each cluster state update on the critical path of cold function invocations.           | Persistence-free latency-critical operations, relaxing exact cluster state reconstruction as it is abstracted from FaaS users. |
+| Microservice-based control plane with RPC communication between components.                                       | Monolithic control plane.                                                                                                      |
+| Per-sandbox sidecars on workers for concurrency throttling.                                                       | Monolithic data plane for request throttling.                                                                                  |
 
-![Go](https://img.shields.io/badge/go-%2300ADD8.svg?style=for-the-badge&logo=go&logoColor=white)
-![Docker](https://img.shields.io/badge/docker-%230db7ed.svg?style=for-the-badge&logo=docker&logoColor=white)
+Dirigent supports similar features to Knative, making it as a replacement tool for various deployment needs. 
 
-</div>
+| Feature                                           | Options                                                               |
+|---------------------------------------------------|-----------------------------------------------------------------------|
+| Load Balancing                                    | Random, Round Robin, Least Proceed, Knative                           |
+| Autoscaler                                        | Default Knative Autoscaler, Escargot, Mu Policy                       |
+| Placement Policy                                  | Random, Round Robin, K8s Placement                                    |
+| Runtimes                                          | Containerd, Firecracker, Dandelion (in progress)                      |
+| Request / Component level fault tolerance  | Asynchronous requests, High Availability Mode through Leader Election |
 
 ## Software implementation
 
@@ -47,23 +59,29 @@ See the `README.md` to get started with the code.
 
 The folder structure is as follows:
 
+* `clients` corresponds to clients that can be used for local testing (see start section)
 * `cmd` is the list of programs you can start
-* `proto` represents the proto handlers
-* `internal/master_node` corresponds to the source code of the master node
+* `configs` configuration files
+
+* `internal/control_plane` corresponds to the source code of the master node
 * `internal/data_plane` corresponds to the source code of the data plane
 * `internal/woker_node` corresponds to the source code of the worker node
 * `pkg` are shared packages that are used inside of internal to perform multiple actions
-* `scripts` are a list of scripts you can use to measures or tests Dirigent
+* `proto` represents the proto handlers
+* `scripts` are a list of scripts you can use to start and run experiments on Dirigent
+* `workload` container images
 
-## Getting the code
+##  Local development
+
+### Getting the code
 
 You can download a copy of all the files in this repository by cloning the
 [git](https://github.com/eth-easl/cluster_manager) repository:
 ```bash
-    git clone https://github.com/eth-easl/cluster_manager
+git clone https://github.com/eth-easl/cluster_manager
 ```
 
-## Dependencies - Installation
+### Dependencies - Installation
 
 
 Install HAProxy
@@ -73,6 +91,8 @@ sudo apt update && sudo apt install -y haproxy
 sudo cp configs/haproxy.cfg /etc/haproxy/haproxy.cfg
 
 ```
+
+### Installation Containerd for local development
 
 Install kubernetes-cni.
 
@@ -92,9 +112,10 @@ sudo mkdir -p /opt/cni/bin
 sudo tar -C INSTALL_PATH -xzf cni-plugins.tgz
 ```
 
-## Configure Firecracker for local development
+### Configure Firecracker for local development
 
-- Install Firecracker
+Install Firecracker
+
 ```bash
 ARCH="$(uname -m)"
 release_url="https://github.com/firecracker-microvm/firecracker/releases"
@@ -105,36 +126,36 @@ sudo mv release-${latest}-$(uname -m) /usr/local/bin/firecracker
 sudo mv /usr/local/bin/firecracker/firecracker-${latest}-${ARCH} /usr/local/bin/firecracker/firecracker
 sudo sh -c  "echo 'export PATH=\$PATH:/usr/local/bin/firecracker' >> /etc/profile" 
 ```
-- Install tun-tap
+
+Install tun-tap
+
 ```bash
 git clone https://github.com/awslabs/tc-redirect-tap.git || true
 make -C tc-redirect-tap
 sudo cp tc-redirect-tap/tc-redirect-tap /opt/cni/bin
 ```
-- Install ARP
+Install ARP
+
 ```bash
 sudo apt-get update && sudo apt-get install net-tools
 ```
-- Download Kernel
+
+Download Kernel
+
 ```bash
 sudo apt-get update && sudo apt-get install git-lfs
 git lfs fetch
 git lfs checkout
 git lfs pull 
 ```
-- Run control plane and data plane processes. Run worker daemon with `sudo` and by hardcoding environmental variable `PATH` to point to the directory where Firecracker is located.
+
+Run control plane and data plane processes. Run worker daemon with `sudo` and by hardcoding environmental variable `PATH` to point to the directory where Firecracker is located.
+
 ```bash
 sudo env 'PATH=\$PATH:/usr/local/bin/firecracker' /usr/local/go/bin/go run cmd/worker_node/main.go 
 ```
 
-## System configuration
-
-To run the cluster manager locally the following setting must be enabled:
-```bash
-sudo sysctl -w net.ipv4.conf.all.route_localnet=1
-```
-
-## Clone the code
+### Clone the code
 
 Firstly, you need to install the control plane and Redis on one machine, data plane on another machine and workers on several other machines. You can simply call the script `remote_install.sh` with the addresses of the machines:
 
@@ -148,42 +169,9 @@ If your local username differs from your remote username on these machines, you 
 ./remote_install.sh username@machine1 username@machine2 ...
 ```
 
-## Launch code
-
-> launch db
-
-```bash
-sudo docker-compose up
-```
-
-> launch master node
-
-```bash
-sudo go run cmd/master_node/main.go 
-```
-
-> launch data plane
-
-```bash
-go run cmd/data_plane/main.go 
-```
-
-> launch master node
-
-```bash
-sudo go run cmd/worker_node/main.go
-```
-
 ### Fire invocation
 
-This command will fire a single invocation.
-
-```bash
-cd clients/sync
-go run main.go
-```
-
-In case you get a timeout, try to run the following command before
+Before firing an invocation, two parameters from the sysctl configuration need to be set to a specific state. This enables readiness probes and reach the sandbox from the other nodes.
 
 ```bash
 # For local readiness probes
@@ -192,23 +180,113 @@ sudo sysctl -w net.ipv4.conf.all.route_localnet=1
 sudo sysctl -w net.ipv4.ip_forward=1
 ```
 
-## If the network breaks locally
+Starting the master node, data plane and worker nodes is easy
+```bash
+# Shell 1
+sudo go run cmd/master_node/main.go 
+# Shell 2
+go run cmd/data_plane/main.go 
+# Shell 3
+sudo go run cmd/worker_node/main.go
+```
+Finally, the a request can be sent with this command
+```bash
+cd clients/sync; go run main.go
+```
+#### Start the async dataplane
+
+
+```bash
+# Shell 1
+sudo go run cmd/master_node/main.go 
+# Shell 2
+go run cmd/data_plane/main.go --config cmd/data_plane/config_async.yaml
+# Shell 3
+sudo go run cmd/worker_node/main.go
+```
+
+#### Start with persistence layer
+
+```bash
+# Shell 2
+go run cmd/data_plane/main.go --config cmd/data_plane/config_async.yaml
+```
+
+and the command to fire the request
+
+```bash
+cd clients/async;go run main.go
+```
+
+### Invitro
+
+For more advanced use, please use Invitro.
+
+> https://github.com/vhive-serverless/invitro
+
+### If the network breaks 
+
+Sometimes network might break. This is due to some invalid configuration of iptables. Executing this commands solves the issue.
 
 ```bash
 sudo iptables -t nat -F
 ```
 
-## License
+##  Cloudlab development
 
-Distributed under the MIT License. See `LICENSE.txt` for more information.
+### Setup the cluster
 
-## Contact
+1) Clone the repo locally
+2) Clone cloudlab extension
 
-Lazar Cvetković - lazar.cvetkovic@inf.ethz.ch
+```bash
+git clone https://github.com/eth-easl/cloudlab_extension
+```
 
-François Costa - fcosta@ethz.ch
+3) Load it on google chrome
 
-Ana Klimovic - aklimovic@ethz.ch
+> https://developer.chrome.com/docs/extensions/get-started/tutorial/hello-world#load-unpacked
+ 
+4) Start experiment and go to list view
+
+![list view](docs/cloudlab_extension.png)
+
+
+5) Use the extension to modify the files ```common.sh``` and ```string.py```
+6) You can use ./remote_install $(python3 string.py) and it will install everything out of the box.
+
+### Start the cluster
+
+There are two possibles scripts for that. In the first you see the logs. The second doesn't show the logs in real time but is one command instead of 4.
+
+With logs:
+
+```bash
+# Shell 1
+./start_control_plane
+# Shell 2
+./start_data_plane
+# Shell 3
+./restart_worker_containerd
+```
+
+Without logs:
+
+``` bash
+./remote_start_cluster list_of_remote_nodes
+```
+
+### Run experiment
+
+This commands allows to run a pre default azure trace which will best automatically installed when using remote_install.
+
+```bash
+# Azure trace experiment
+./azure.sh trace_size
+
+# RPS experiment
+./rps_containerd.sh
+```
 
 ## For developpers
 
@@ -276,8 +354,12 @@ If you just want to generate images of a specific size without any specific cont
 sudo go test -v ./...
 ```
 
+## Contact
 
-### Citation 
+- Lazar Cvetković - lazar.cvetkovic@inf.ethz.ch
+- François Costa - fcosta@ethz.ch
+
+## Citation 
 
 ```
 @misc{cvetković2024dirigent,
