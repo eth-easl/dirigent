@@ -73,8 +73,10 @@ func (s *defaultAutoscaler) stopAutoscalingLoop() {
 	logrus.Debugf("Exited scaling loop for %s.", s.functionState.ServiceName)
 
 	atomic.StoreInt32(&s.AutoscalingRunning, 0)
-	close(s.functionState.StopCh)
-	s.functionState.StopCh = nil
+
+	// TODO: This code sometimes crashes
+	/* close(s.functionState.StopCh)
+	s.functionState.StopCh = nil */
 }
 
 func (s *defaultAutoscaler) scalingLoop() {

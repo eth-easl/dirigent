@@ -56,21 +56,27 @@ func patchHandler(api *control_plane.CpApiServer) func(w http.ResponseWriter, r 
 
 		if err = parseAndApplyArg("scaling_upper_bound", r, &config.ScalingUpperBound, ensurePositive[int32]); err != nil {
 			http.Error(w, fmt.Sprintf("Cannot cast scaling_upper_bound to integer - %v", err), http.StatusBadRequest)
+			return
 		}
 		if err = parseAndApplyArg("scaling_lower_bound", r, &config.ScalingLowerBound, ensurePositive[int32]); err != nil {
 			http.Error(w, fmt.Sprintf("Cannot cast scaling_lower_bound to integer - %v", err), http.StatusBadRequest)
+			return
 		}
 		if !ensureGreater(config.ScalingUpperBound, config.ScalingLowerBound) {
 			http.Error(w, "Scaling upper bound cannot be lower than the scaling lower bound.", http.StatusBadRequest)
+			return
 		}
 		if err = parseAndApplyArg("panic_threshold_percentage", r, &config.PanicThresholdPercentage, ensurePositive[float32]); err != nil {
 			http.Error(w, fmt.Sprintf("Cannot cast panic_threshold_percentage to float32 - %v", err), http.StatusBadRequest)
+			return
 		}
 		if err = parseAndApplyArg("max_scale_up_rate", r, &config.MaxScaleUpRate, ensurePositive[float32]); err != nil {
 			http.Error(w, fmt.Sprintf("Cannot cast max_scale_up_rate to float32 - %v", err), http.StatusBadRequest)
+			return
 		}
 		if err = parseAndApplyArg("max_scale_down_rate", r, &config.MaxScaleDownRate, ensurePositive[float32]); err != nil {
 			http.Error(w, fmt.Sprintf("Cannot cast max_scale_down_rate to float32 - %v", err), http.StatusBadRequest)
+			return
 		}
 		// TODO: propagate container concurrency change to data plane(s) or ignore changes to this parameter
 		/*if err = parseAndApplyArg("container_concurrency", r, &config.ContainerConcurrency, ensurePositive[int32]); err != nil {
@@ -78,18 +84,23 @@ func patchHandler(api *control_plane.CpApiServer) func(w http.ResponseWriter, r 
 		}*/
 		if err = parseAndApplyArg("container_concurrency_target_percentage", r, &config.ContainerConcurrencyTargetPercentage, ensurePositive[int32]); err != nil {
 			http.Error(w, fmt.Sprintf("Cannot cast container_concurrency_target_percentage to integer - %v", err), http.StatusBadRequest)
+			return
 		}
 		if err = parseAndApplyArg("stable_window_width", r, &config.StableWindowWidthSeconds, ensurePositive[int32]); err != nil {
 			http.Error(w, fmt.Sprintf("Cannot cast stable_window_width to integer - %v", err), http.StatusBadRequest)
+			return
 		}
 		if err = parseAndApplyArg("panic_window_width", r, &config.PanicWindowWidthSeconds, ensurePositive[int32]); err != nil {
 			http.Error(w, fmt.Sprintf("Cannot cast panic_window_width to integer - %v", err), http.StatusBadRequest)
+			return
 		}
 		if err = parseAndApplyArg("scaling_period", r, &config.ScalingPeriodSeconds, ensurePositive[int32]); err != nil {
 			http.Error(w, fmt.Sprintf("Cannot cast scaling_period to integer - %v", err), http.StatusBadRequest)
+			return
 		}
 		if err = parseAndApplyScalingMethod("scaling_method", r, &config.ScalingMethod); err != nil {
 			http.Error(w, "Unsupported scaling_method", http.StatusBadRequest)
+			return
 		}
 
 		sis.FunctionState.AutoscalingConfig = config
@@ -97,6 +108,8 @@ func patchHandler(api *control_plane.CpApiServer) func(w http.ResponseWriter, r 
 
 		if err = api.ControlPlane.PersistenceLayer.StoreServiceInformation(context.Background(), sis.ServiceInfo); err != nil {
 			http.Error(w, fmt.Sprintf("Failed to persist patch handler - %v", err), http.StatusInternalServerError)
+			return
+
 		}
 
 		w.WriteHeader(http.StatusOK)

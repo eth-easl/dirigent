@@ -3,9 +3,9 @@
 readonly DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" > /dev/null 2>&1 && pwd)"
 source $DIR/setup.cfg
 
-readonly INVITRO=Francois@hp122.utah.cloudlab.us
-readonly CONTROLPLANE=Francois@hp123.utah.cloudlab.us
-readonly DATAPLANE=Francois@hp133.utah.cloudlab.us
+readonly INVITRO=Francois@hp157.utah.cloudlab.us
+readonly CONTROLPLANE=Francois@hp124.utah.cloudlab.us
+readonly DATAPLANE=Francois@hp119.utah.cloudlab.us
 
 readonly CONTROLPLANE_1=Francois@hp091.utah.cloudlab.us
 readonly CONTROLPLANE_2=Francois@hp081.utah.cloudlab.us
@@ -128,16 +128,9 @@ function KillSystemdServices() {
 }
 
 function WipeContainerdCNI() {
-    # Stop all containers
-    ctr --namespace cm tasks ls -q | xargs ctr --namespace cm task kill || true
-
     # Remove all containers
     sudo pkill -9 server || true
     ctr --namespace cm container ls -q | xargs ctr --namespace cm container delete || true
-
-    # Remove artefacts of failed image downloads
-    ctr --namespace cm content ls | grep sha256 | cut -d$'\t' -f1 | xargs ctr --namespace cm content rm || true
-    ctr --namespace cm leases ls | grep gc.expire | cut -d' ' -f1 | xargs ctr --namespace cm leases rm || true
 
     # Remove all unused images
     ctr --namespace cm image prune --all

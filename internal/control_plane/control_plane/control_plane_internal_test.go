@@ -1358,6 +1358,9 @@ func (t *testStructure) NewMockWorkerConnection(input core.WorkerNodeConfigurati
 // Performance test - not a unit test
 
 func TestAutoscalingPerformance(t *testing.T) {
+	// Comment this line if you want to test performance
+	t.Skip()
+
 	logrus.SetFormatter(&logrus.TextFormatter{TimestampFormat: time.StampMilli, FullTimestamp: true})
 
 	tests := []struct {

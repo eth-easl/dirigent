@@ -194,7 +194,7 @@ func (ss *EndpointPlacer) doUpscaling(toCreateCount int, loopStarted time.Time) 
 			if node == nil {
 				logrus.Warn("Failed to do placement. No nodes are schedulable.")
 
-				atomic.AddInt64(&ss.PerFunctionState.ActualScale, -1)
+				atomic.AddInt64(&ss.FunctionState.ActualScale, -1)
 				return
 			}
 

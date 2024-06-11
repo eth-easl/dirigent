@@ -58,7 +58,7 @@ func NewControlPlane(client persistence.PersistenceLayer, outputFile string, pla
 
 	var autoscalingManager AutoscalingInterface
 
-	if cfg.Autoscaler == "default" {
+	if cfg.Autoscaler == utils.DEFAULT_AUTOSCALER {
 		autoscalingManager = default_autoscaler.NewMultiscaler(cfg.AutoscalingPeriod)
 	} else {
 		autoscalingManager = predictive_autoscaler2.NewMultiScaler(cfg)

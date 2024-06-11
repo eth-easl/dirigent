@@ -139,16 +139,18 @@ type MultiScaler struct {
 // NewMultiScaler constructs a MultiScaler.
 func NewMultiScaler(
 	cfg *config.ControlPlaneConfig) *MultiScaler {
+
+	isMu := cfg.Autoscaler == utils.MU_AUTOSCALER
+
 	return &MultiScaler{
 		scalersMutex: sync.RWMutex{},
 		scalers:      make(map[string]*ScalerRunner),
 		tickProvider: time.NewTicker,
-		isMu:         cfg.Autoscaler == utils.MU_AUTOSCALER,
+		isMu:         isMu,
 	}
 }
 
 func (m *MultiScaler) Create(functionState *function_state.FunctionState) {
-	// TODO: Fix error handling
 	m.create(functionState, &Decider{
 		Name:                     functionState.ServiceName,
 		AutoscalingConfiguration: functionState.AutoscalingConfig,
@@ -157,22 +159,15 @@ func (m *MultiScaler) Create(functionState *function_state.FunctionState) {
 }
 
 // Create instantiates the desired Decider.
-func (m *MultiScaler) create(functionState *function_state.FunctionState, decider *Decider) error {
+func (m *MultiScaler) create(functionState *function_state.FunctionState, decider *Decider) {
 	m.scalersMutex.Lock()
 	defer m.scalersMutex.Unlock()
 	scaler, exists := m.scalers[decider.Name]
 
 	if !exists {
-		var err error
-		logrus.Warnf("%s", decider.Name)
-		scaler, err = m.createScaler(functionState, decider, decider.Name)
-		if err != nil {
-			logrus.Errorf("Failed create scaler : %s", err.Error())
-		}
+		scaler = m.createScaler(functionState, decider, decider.Name)
 		m.scalers[decider.Name] = scaler
 	}
-
-	return nil
 }
 
 func (m *MultiScaler) GetRawScaler(name string) *ScalerRunner {
@@ -251,7 +246,7 @@ func (m *MultiScaler) runScalerTicker(runner *ScalerRunner, metricKey string) {
 	}()
 }
 
-func (m *MultiScaler) createScaler(functionState *function_state.FunctionState, decider *Decider, key string) (*ScalerRunner, error) {
+func (m *MultiScaler) createScaler(functionState *function_state.FunctionState, decider *Decider, key string) *ScalerRunner {
 	d := decider.DeepCopy()
 	predictionsCh := make(chan ScalingDecisions, 5)
 	shiftedScalingCh := make(chan ScalingDecisions, 5)
@@ -280,7 +275,7 @@ func (m *MultiScaler) createScaler(functionState *function_state.FunctionState, 
 	}
 	m.startAutoscalers = false
 	m.runScalerTicker(runner, key)
-	return runner, nil
+	return runner
 }
 
 func (m *MultiScaler) tickScaler(scaler UniScaler, runner *ScalerRunner, metricKey string) {

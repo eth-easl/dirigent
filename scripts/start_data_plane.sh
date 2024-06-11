@@ -8,7 +8,7 @@ function StartDataplane() {
   RemoteExec $1 "sudo kill -9 \$(sudo lsof -t -i:8081)"
 
   # Start new dataplane
-  RemoteExec $1 "cd ~/cluster_manager/cmd/data_plane; git pull; git reset --hard origin/current;sudo /usr/local/go/bin/go run main.go --config config_cluster.yaml"
+  RemoteExec $1 "cd ~/cluster_manager/cmd/data_plane; git pull; git reset --hard origin/master;sudo /usr/local/go/bin/go run main.go --config config_cluster.yaml"
 }
 
 if $HA;
