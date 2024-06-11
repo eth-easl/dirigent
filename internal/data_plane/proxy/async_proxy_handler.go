@@ -244,11 +244,14 @@ func (ps *AsyncProxyingService) createAsyncResponseHandler() http.HandlerFunc {
 		logrus.Tracef("[reverse proxy server] received code request with code : %s", responseKey)
 
 		if v, ok := ps.Responses.Load(responseKey); ok {
-			val := v.(*requests.BufferedResponse)
-
-			elapsed := time.Since(start) + val.E2ELatency
-			w.Header().Set("Duration-Microseconds", strconv.FormatInt(elapsed.Microseconds(), 10))
-			_ = requests.FillResponseWithBufferedResponse(w, val)
+			switch val := v.(type) {
+			case *requests.BufferedResponse:
+				elapsed := time.Since(start) + val.E2ELatency
+				w.Header().Set("Duration-Microseconds", strconv.FormatInt(elapsed.Microseconds(), 10))
+				_ = requests.FillResponseWithBufferedResponse(w, val)
+			default:
+				logrus.Errorf("Unsupported type in response handler.")
+			}
 		} else {
 			w.WriteHeader(http.StatusBadRequest)
 		}
