@@ -2,7 +2,6 @@ package control_plane
 
 import (
 	"cluster_manager/internal/control_plane/control_plane/core"
-	"cluster_manager/internal/control_plane/control_plane/endpoint_placer/placement_policy"
 	"cluster_manager/internal/control_plane/control_plane/leader_election"
 	"cluster_manager/internal/control_plane/control_plane/persistence"
 	"cluster_manager/internal/data_plane/haproxy"
@@ -28,7 +27,6 @@ type CpApiServer struct {
 type CpApiServerCreationArguments struct {
 	Client            persistence.PersistenceLayer
 	OutputFile        string
-	PlacementPolicy   placement_policy.PlacementPolicy
 	DataplaneCreator  core.DataplaneFactory
 	WorkerNodeCreator core.WorkerNodeFactory
 	Cfg               *config2.ControlPlaneConfig
@@ -38,7 +36,6 @@ func CreateNewCpApiServer(args *CpApiServerCreationArguments) (*CpApiServer, cha
 	cp := NewControlPlane(
 		args.Client,
 		args.OutputFile,
-		args.PlacementPolicy,
 		args.DataplaneCreator,
 		args.WorkerNodeCreator,
 		args.Cfg,
@@ -80,7 +77,6 @@ func (c *CpApiServer) CleanControlPlaneInMemoryData(args *CpApiServerCreationArg
 	c.ControlPlane = NewControlPlane(
 		args.Client,
 		args.OutputFile,
-		args.PlacementPolicy,
 		args.DataplaneCreator,
 		args.WorkerNodeCreator,
 		args.Cfg,

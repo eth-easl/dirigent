@@ -34,12 +34,14 @@ func (c *ControlPlane) notifyDataplanesAndStartScalingLoop(ctx context.Context, 
 
 	c.autoscalingManager.Create(functionState)
 
+	placementPolicy, evictionPolicy := parsePlacementEvictionPolicies(c.Config)
+
 	c.SIStorage.Set(serviceInfo.Name, &endpoint_placer.EndpointPlacer{
 		ServiceInfo:             serviceInfo,
 		FunctionState:           functionState,
 		ColdStartTracingChannel: c.ColdStartTracing.InputChannel,
-		PlacementPolicy:         c.PlacementPolicy,
-		EvictionPolicy:          eviction_policy.NewDefaultevictionPolicy(),
+		PlacementPolicy:         placementPolicy,
+		EvictionPolicy:          evictionPolicy,
 		PersistenceLayer:        c.PersistenceLayer,
 		NIStorage:               c.NIStorage,
 		DataPlaneConnections:    c.DataPlaneConnections,
@@ -108,20 +110,23 @@ func (c *ControlPlane) GetNumberServices() int {
 	return c.SIStorage.AtomicLen()
 }
 
-// Parse placement policy
+// Parse placement and eviction policies
 
-func ParsePlacementPolicy(controlPlaneConfig config.ControlPlaneConfig) placement_policy2.PlacementPolicy {
+func parsePlacementEvictionPolicies(controlPlaneConfig *config.ControlPlaneConfig) (placement_policy2.PlacementPolicy, eviction_policy.EvictionPolicy) {
+	var placementPolicy placement_policy2.PlacementPolicy
 	switch controlPlaneConfig.PlacementPolicy {
 	case "random":
-		return placement_policy2.NewRandomPlacement()
+		placementPolicy = placement_policy2.NewRandomPlacement()
 	case "round-robin":
-		return placement_policy2.NewRoundRobinPlacement()
+		placementPolicy = placement_policy2.NewRoundRobinPlacement()
 	case "kubernetes":
-		return placement_policy2.NewKubernetesPolicy()
+		placementPolicy = placement_policy2.NewKubernetesPolicy()
 	default:
 		logrus.Error("Failed to parse placement, default policy is random")
-		return placement_policy2.NewRandomPlacement()
+		placementPolicy = placement_policy2.NewRandomPlacement()
 	}
+
+	return placementPolicy, eviction_policy.NewDefaultevictionPolicy()
 }
 
 func isValidAutoscaler(autoscaler string) bool {

@@ -6,7 +6,6 @@ import (
 	"cluster_manager/internal/control_plane/control_plane/core"
 	"cluster_manager/internal/control_plane/control_plane/endpoint_placer/data_plane"
 	"cluster_manager/internal/control_plane/control_plane/endpoint_placer/data_plane/empty_dataplane"
-	"cluster_manager/internal/control_plane/control_plane/endpoint_placer/placement_policy"
 	"cluster_manager/internal/control_plane/control_plane/endpoint_placer/workers/empty_worker"
 	"cluster_manager/internal/control_plane/control_plane/function_state"
 	"cluster_manager/mock/mock_core"
@@ -73,7 +72,7 @@ func TestCreationControlPlaneEmpty(t *testing.T) {
 	persistenceLayer, ctrl := simplePersistenceLayer(t)
 	defer ctrl.Finish()
 
-	controlPlane := NewControlPlane(persistenceLayer, "", placement_policy.NewRandomPlacement(), data_plane.NewDataplaneConnection, empty_worker.NewEmptyWorkerNode, &mockConfig)
+	controlPlane := NewControlPlane(persistenceLayer, "", data_plane.NewDataplaneConnection, empty_worker.NewEmptyWorkerNode, &mockConfig)
 
 	err := controlPlane.ReconstructState(context.Background(), mockConfig, nil)
 
@@ -98,7 +97,7 @@ func TestRegisterWorker(t *testing.T) {
 		return nil
 	}).Times(nbRegistrations)
 
-	controlPlane := NewControlPlane(persistenceLayer, "", placement_policy.NewRandomPlacement(), data_plane.NewDataplaneConnection, empty_worker.NewEmptyWorkerNode, &mockConfig)
+	controlPlane := NewControlPlane(persistenceLayer, "", data_plane.NewDataplaneConnection, empty_worker.NewEmptyWorkerNode, &mockConfig)
 
 	err := controlPlane.ReconstructState(context.Background(), mockConfig, nil)
 
@@ -143,7 +142,7 @@ func TestRegisterDataplanes(t *testing.T) {
 		return nil
 	}).Times(nbRegistrations)
 
-	controlPlane := NewControlPlane(persistenceLayer, "", placement_policy.NewRandomPlacement(), empty_dataplane.NewDataplaneConnectionEmpty, empty_worker.NewEmptyWorkerNode, &mockConfig)
+	controlPlane := NewControlPlane(persistenceLayer, "", empty_dataplane.NewDataplaneConnectionEmpty, empty_worker.NewEmptyWorkerNode, &mockConfig)
 
 	err := controlPlane.ReconstructState(context.Background(), mockConfig, nil)
 
@@ -192,7 +191,7 @@ func TestRegisterServices(t *testing.T) {
 		return nil
 	}).Times(nbRegistrations)
 
-	controlPlane := NewControlPlane(persistenceLayer, "", placement_policy.NewRandomPlacement(), empty_dataplane.NewDataplaneConnectionEmpty, empty_worker.NewEmptyWorkerNode, &mockConfig)
+	controlPlane := NewControlPlane(persistenceLayer, "", empty_dataplane.NewDataplaneConnectionEmpty, empty_worker.NewEmptyWorkerNode, &mockConfig)
 
 	err := controlPlane.ReconstructState(context.Background(), mockConfig, nil)
 
@@ -249,7 +248,7 @@ func TestDeregisterWorker(t *testing.T) {
 		return nil
 	}).Times(nbRegistrations)
 
-	controlPlane := NewControlPlane(persistenceLayer, "", placement_policy.NewRandomPlacement(), data_plane.NewDataplaneConnection, empty_worker.NewEmptyWorkerNode, &mockConfig)
+	controlPlane := NewControlPlane(persistenceLayer, "", data_plane.NewDataplaneConnection, empty_worker.NewEmptyWorkerNode, &mockConfig)
 
 	err := controlPlane.ReconstructState(context.Background(), mockConfig, nil)
 
@@ -320,7 +319,7 @@ func TestDeregisterDataplanes(t *testing.T) {
 		return nil
 	}).Times(nbRegistrations)
 
-	controlPlane := NewControlPlane(persistenceLayer, "", placement_policy.NewRandomPlacement(), empty_dataplane.NewDataplaneConnectionEmpty, empty_worker.NewEmptyWorkerNode, &mockConfig)
+	controlPlane := NewControlPlane(persistenceLayer, "", empty_dataplane.NewDataplaneConnectionEmpty, empty_worker.NewEmptyWorkerNode, &mockConfig)
 
 	err := controlPlane.ReconstructState(context.Background(), mockConfig, nil)
 
@@ -399,7 +398,7 @@ func TestDeregisterServices(t *testing.T) {
 		return nil
 	}).Times(nbRegistrations)
 
-	controlPlane := NewControlPlane(persistenceLayer, "", placement_policy.NewRandomPlacement(), empty_dataplane.NewDataplaneConnectionEmpty, empty_worker.NewEmptyWorkerNode, &mockConfig)
+	controlPlane := NewControlPlane(persistenceLayer, "", empty_dataplane.NewDataplaneConnectionEmpty, empty_worker.NewEmptyWorkerNode, &mockConfig)
 
 	err := controlPlane.ReconstructState(context.Background(), mockConfig, nil)
 
@@ -525,7 +524,7 @@ func TestReconstructionService(t *testing.T) {
 		return nil
 	}).Times(1)
 
-	controlPlane := NewControlPlane(persistenceLayer, "", placement_policy.NewRandomPlacement(), data_plane.NewDataplaneConnection, empty_worker.NewEmptyWorkerNode, &mockConfig)
+	controlPlane := NewControlPlane(persistenceLayer, "", data_plane.NewDataplaneConnection, empty_worker.NewEmptyWorkerNode, &mockConfig)
 
 	start := time.Now()
 	err := controlPlane.ReconstructState(context.Background(), mockConfig, nil)
@@ -592,7 +591,7 @@ func TestReconstructionWorkers(t *testing.T) {
 		return nil
 	}).Times(1)
 
-	controlPlane := NewControlPlane(persistenceLayer, "", placement_policy.NewRandomPlacement(), te.NewMockDataplaneConnection, te.NewMockWorkerConnection, &mockConfig)
+	controlPlane := NewControlPlane(persistenceLayer, "", te.NewMockDataplaneConnection, te.NewMockWorkerConnection, &mockConfig)
 
 	start := time.Now()
 	err := controlPlane.ReconstructState(context.Background(), mockConfig, nil)
@@ -653,7 +652,7 @@ func TestReconstructionDataplanes(t *testing.T) {
 		return nil
 	}).Times(1)
 
-	controlPlane := NewControlPlane(persistenceLayer, "", placement_policy.NewRandomPlacement(), te.NewMockDataplaneConnection, empty_worker.NewEmptyWorkerNode, &mockConfig)
+	controlPlane := NewControlPlane(persistenceLayer, "", te.NewMockDataplaneConnection, empty_worker.NewEmptyWorkerNode, &mockConfig)
 
 	start := time.Now()
 	err := controlPlane.ReconstructState(context.Background(), mockConfig, nil)
@@ -682,7 +681,7 @@ func TestStressRegisterServices(t *testing.T) {
 		return nil
 	}).Times(size)
 
-	controlPlane := NewControlPlane(persistenceLayer, "", placement_policy.NewRandomPlacement(), data_plane.NewDataplaneConnection, empty_worker.NewEmptyWorkerNode, &mockConfig)
+	controlPlane := NewControlPlane(persistenceLayer, "", data_plane.NewDataplaneConnection, empty_worker.NewEmptyWorkerNode, &mockConfig)
 
 	start := time.Now()
 	assert.NoError(t, controlPlane.ReconstructState(context.Background(), mockConfig, nil))
@@ -730,7 +729,7 @@ func TestStressRegisterNodes(t *testing.T) {
 		return nil
 	}).Times(size)
 
-	controlPlane := NewControlPlane(persistenceLayer, "", placement_policy.NewRandomPlacement(), empty_dataplane.NewDataplaneConnectionEmpty, empty_worker.NewEmptyWorkerNode, &mockConfig)
+	controlPlane := NewControlPlane(persistenceLayer, "", empty_dataplane.NewDataplaneConnectionEmpty, empty_worker.NewEmptyWorkerNode, &mockConfig)
 
 	start := time.Now()
 	assert.NoError(t, controlPlane.ReconstructState(context.Background(), mockConfig, nil))
@@ -779,7 +778,7 @@ func TestStressRegisterDataplanes(t *testing.T) {
 		return nil
 	}).Times(size)
 
-	controlPlane := NewControlPlane(persistenceLayer, "", placement_policy.NewRandomPlacement(), empty_dataplane.NewDataplaneConnectionEmpty, empty_worker.NewEmptyWorkerNode, &mockConfig)
+	controlPlane := NewControlPlane(persistenceLayer, "", empty_dataplane.NewDataplaneConnectionEmpty, empty_worker.NewEmptyWorkerNode, &mockConfig)
 
 	start := time.Now()
 	assert.NoError(t, controlPlane.ReconstructState(context.Background(), mockConfig, nil))
@@ -834,7 +833,7 @@ func TestStressEverything(t *testing.T) {
 		return nil
 	}).Times(size)
 
-	controlPlane := NewControlPlane(persistenceLayer, "", placement_policy.NewRandomPlacement(), empty_dataplane.NewDataplaneConnectionEmpty, empty_worker.NewEmptyWorkerNode, &mockConfig)
+	controlPlane := NewControlPlane(persistenceLayer, "", empty_dataplane.NewDataplaneConnectionEmpty, empty_worker.NewEmptyWorkerNode, &mockConfig)
 
 	start := time.Now()
 	assert.NoError(t, controlPlane.ReconstructState(context.Background(), mockConfig, nil))
@@ -912,7 +911,7 @@ func TestStressRegisterDeregisterServices(t *testing.T) {
 		return nil
 	}).AnyTimes()
 
-	controlPlane := NewControlPlane(persistenceLayer, "", placement_policy.NewRandomPlacement(), data_plane.NewDataplaneConnection, empty_worker.NewEmptyWorkerNode, &mockConfig)
+	controlPlane := NewControlPlane(persistenceLayer, "", data_plane.NewDataplaneConnection, empty_worker.NewEmptyWorkerNode, &mockConfig)
 
 	start := time.Now()
 	assert.NoError(t, controlPlane.ReconstructState(context.Background(), mockConfig, nil))
@@ -993,7 +992,7 @@ func TestStressRegisterDeregisterNodes(t *testing.T) {
 		return nil
 	}).AnyTimes()
 
-	controlPlane := NewControlPlane(persistenceLayer, "", placement_policy.NewRandomPlacement(), empty_dataplane.NewDataplaneConnectionEmpty, empty_worker.NewEmptyWorkerNode, &mockConfig)
+	controlPlane := NewControlPlane(persistenceLayer, "", empty_dataplane.NewDataplaneConnectionEmpty, empty_worker.NewEmptyWorkerNode, &mockConfig)
 
 	start := time.Now()
 	assert.NoError(t, controlPlane.ReconstructState(context.Background(), mockConfig, nil))
@@ -1076,7 +1075,7 @@ func TestStressRegisterDeregisterDataplanes(t *testing.T) {
 		return nil
 	}).AnyTimes()
 
-	controlPlane := NewControlPlane(persistenceLayer, "", placement_policy.NewRandomPlacement(), empty_dataplane.NewDataplaneConnectionEmpty, empty_worker.NewEmptyWorkerNode, &mockConfig)
+	controlPlane := NewControlPlane(persistenceLayer, "", empty_dataplane.NewDataplaneConnectionEmpty, empty_worker.NewEmptyWorkerNode, &mockConfig)
 
 	start := time.Now()
 	assert.NoError(t, controlPlane.ReconstructState(context.Background(), mockConfig, nil))
@@ -1165,7 +1164,7 @@ func TestEndpointsWithDeregistration(t *testing.T) {
 		return nil
 	}).AnyTimes()
 
-	controlPlane := NewControlPlane(persistenceLayer, "", placement_policy.NewRandomPlacement(), empty_dataplane.NewDataplaneConnectionEmpty, empty_worker.NewEmptyWorkerNode, &mockConfig)
+	controlPlane := NewControlPlane(persistenceLayer, "", empty_dataplane.NewDataplaneConnectionEmpty, empty_worker.NewEmptyWorkerNode, &mockConfig)
 
 	status, err := controlPlane.registerNode(context.Background(), &proto.NodeInfo{
 		NodeID:     "mockNode",

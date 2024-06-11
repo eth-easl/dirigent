@@ -70,7 +70,6 @@ func main() {
 	cpApiCreationArgs := &control_plane.CpApiServerCreationArguments{
 		Client:            persistenceLayer,
 		OutputFile:        path.Join(cfg.TraceOutputFolder, "cold_start_trace.csv"),
-		PlacementPolicy:   control_plane.ParsePlacementPolicy(cfg),
 		DataplaneCreator:  dataplaneCreator,
 		WorkerNodeCreator: workerNodeCreator,
 		Cfg:               &cfg,

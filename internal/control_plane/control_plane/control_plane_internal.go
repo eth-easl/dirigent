@@ -5,7 +5,6 @@ import (
 	predictive_autoscaler2 "cluster_manager/internal/control_plane/control_plane/autoscalers/predictive_autoscaler"
 	"cluster_manager/internal/control_plane/control_plane/core"
 	"cluster_manager/internal/control_plane/control_plane/endpoint_placer"
-	"cluster_manager/internal/control_plane/control_plane/endpoint_placer/placement_policy"
 	"cluster_manager/internal/control_plane/control_plane/function_state"
 	"cluster_manager/internal/control_plane/control_plane/persistence"
 	"cluster_manager/pkg/config"
@@ -38,7 +37,6 @@ type ControlPlane struct {
 	SIStorage            synchronization.SyncStructure[string, *endpoint_placer.EndpointPlacer]
 
 	ColdStartTracing *tracing.TracingService[tracing.ColdStartLogEntry] `json:"-"`
-	PlacementPolicy  placement_policy.PlacementPolicy
 	PersistenceLayer persistence.PersistenceLayer
 
 	dataPlaneCreator  core.DataplaneFactory
@@ -49,8 +47,7 @@ type ControlPlane struct {
 	autoscalingManager AutoscalingInterface
 }
 
-func NewControlPlane(client persistence.PersistenceLayer, outputFile string, placementPolicy placement_policy.PlacementPolicy,
-	dataplaneCreator core.DataplaneFactory, workerNodeCreator core.WorkerNodeFactory, cfg *config.ControlPlaneConfig) *ControlPlane {
+func NewControlPlane(client persistence.PersistenceLayer, outputFile string, dataplaneCreator core.DataplaneFactory, workerNodeCreator core.WorkerNodeFactory, cfg *config.ControlPlaneConfig) *ControlPlane {
 
 	if !isValidAutoscaler(cfg.Autoscaler) {
 		logrus.Fatalf("Invalid autoscaler type %s", cfg.Autoscaler)
@@ -70,7 +67,6 @@ func NewControlPlane(client persistence.PersistenceLayer, outputFile string, pla
 		SIStorage:            synchronization.NewControlPlaneSyncStructure[string, *endpoint_placer.EndpointPlacer](),
 
 		ColdStartTracing: tracing.NewColdStartTracingService(outputFile),
-		PlacementPolicy:  placementPolicy,
 		PersistenceLayer: client,
 
 		dataPlaneCreator:  dataplaneCreator,
