@@ -21,15 +21,14 @@ func createProbingDialer(network, addr string) (net.Conn, error) {
 }
 
 var httpProbingClient = http.Client{
-	Timeout: 10 * time.Millisecond,
+	Timeout: 25 * time.Millisecond,
 	Transport: &http.Transport{
 		DialContext: (&net.Dialer{
-			Timeout: 2 * time.Second,
+			Timeout: 1 * time.Second,
 		}).DialContext,
-		DisableCompression:  true,
-		IdleConnTimeout:     2 * time.Second,
-		MaxIdleConns:        3000,
-		MaxIdleConnsPerHost: 3000,
+		IdleConnTimeout:     1 * time.Second,
+		MaxIdleConns:        5,
+		MaxIdleConnsPerHost: 1,
 	},
 }
 
