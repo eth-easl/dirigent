@@ -6,9 +6,11 @@ portGRPC: "8081"
 verbosity: "trace"
 traceOutputFolder: "data"
 loadBalancingPolicy: "knative"
-async: false
-persistRequests: false
-numberRetries: 3
+async:
+  enabled: false
+  persistRequests: false
+  numberRetries: 3
+  requestBufferSize: 1000
 
 redis:
   address: "10.0.1.2:6379"

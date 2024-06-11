@@ -38,10 +38,8 @@ type DataPlaneConfig struct {
 	Verbosity                           string    `mapstructure:"verbosity"`
 	TraceOutputFolder                   string    `mapstructure:"traceOutputFolder"`
 	LoadBalancingPolicy                 string    `mapstructure:"loadBalancingPolicy"`
-	Async                               bool      `mapstructure:"async"`
+	Async                               AsyncConf `mapstructure:"async"`
 	RedisConf                           RedisConf `mapstructure:"redis"`
-	PersistRequests                     bool      `mapstructure:"persistRequests"`
-	NumberRetries                       int       `mapstructure:"numberRetries"`
 	ControlPlaneNotifyIntervalInMinutes int       `mapstructure:"controlPlaneNotifyIntervalMinutes"`
 }
 
@@ -78,6 +76,13 @@ type RedisConf struct {
 	Replicas                 []string `mapstructure:"replicas"`
 	Db                       int      `mapstructure:"db"`
 	FullPersistence          bool     `mapstructure:"fullPersistence"`
+}
+
+type AsyncConf struct {
+	Enabled           bool `mapstructure:"enabled"`
+	PersistRequests   bool `mapstructure:"persistRequests"`
+	NumberRetries     int  `mapstructure:"numberRetries"`
+	RequestBufferSize int  `mapstructure:"requestBufferSize"`
 }
 
 func parseConfigPath(configPath string) (string, string, string) {

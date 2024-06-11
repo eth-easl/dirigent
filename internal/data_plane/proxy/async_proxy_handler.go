@@ -23,8 +23,6 @@ import (
 	"time"
 )
 
-const AsyncRequestBufferSize = 1000
-
 type AsyncProxyingService struct {
 	ProxyingService
 
@@ -49,7 +47,7 @@ func NewAsyncProxyingService(cfg config.DataPlaneConfig, cache *common.Deploymen
 	var persistenceLayer rp.RequestPersistence
 	var err error
 
-	if cfg.PersistRequests {
+	if cfg.Async.PersistRequests {
 		persistenceLayer, err = rp.CreateRequestRedisClient(context.Background(), cfg.RedisConf)
 		if err != nil {
 			logrus.Fatalf("Failed to connect to redis client %s", err.Error())
@@ -78,11 +76,11 @@ func NewAsyncProxyingService(cfg config.DataPlaneConfig, cache *common.Deploymen
 
 		PortRead: cfg.PortProxyRead,
 
-		RequestChannel: make(chan *requests.BufferedRequest, AsyncRequestBufferSize),
+		RequestChannel: make(chan *requests.BufferedRequest, cfg.Async.RequestBufferSize),
 		Responses:      &sync.Map{},
 
 		Persistence:    persistenceLayer,
-		AllowedRetries: cfg.NumberRetries,
+		AllowedRetries: cfg.Async.NumberRetries,
 	}
 
 	go proxy.startGarbageCollector()

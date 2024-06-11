@@ -34,7 +34,7 @@ func main() {
 		proto.RegisterDpiInterfaceServer(sr, dataPlane)
 	})
 
-	proxyServer, err := dataPlane.GetProxyServer(cfg.Async)
+	proxyServer, err := dataPlane.GetProxyServer(cfg.Async.Enabled)
 	if err != nil {
 		logrus.Fatalf("Failed to start proxy server (error : %s)", err.Error())
 	}
