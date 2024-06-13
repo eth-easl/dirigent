@@ -39,7 +39,7 @@ func TestCreateAContainer(t *testing.T) {
 	logrus.Info("Image fetching - ", time.Since(start).Microseconds(), "μs")
 
 	start = time.Now()
-	container, err, _ := CreateContainer(ctx, client, image, nil)
+	container, err, _ := CreateContainer(ctx, client, image, nil, false)
 	assert.NoError(t, err, "Failed to create container")
 	logrus.Info("Create container - ", time.Since(start).Microseconds(), "μs")
 
@@ -88,7 +88,7 @@ func TestParallelCreation(t *testing.T) {
 			wg.Add(1)
 
 			go func() {
-				container, err, _ := CreateContainer(ctx, client, image, nil)
+				container, err, _ := CreateContainer(ctx, client, image, nil, false)
 				assert.NoError(t, err, "Failed to create a container")
 
 				start := time.Now()
@@ -141,7 +141,7 @@ func TestContainerFailureHandlerTriggering(t *testing.T) {
 	logrus.Info("Image fetching - ", time.Since(start).Microseconds(), "μs")
 
 	start = time.Now()
-	container, err, _ := CreateContainer(ctx, client, image, nil)
+	container, err, _ := CreateContainer(ctx, client, image, nil, false)
 	assert.NoError(t, err, "Failed to create container")
 	logrus.Info("Create container - ", time.Since(start).Microseconds(), "μs")
 

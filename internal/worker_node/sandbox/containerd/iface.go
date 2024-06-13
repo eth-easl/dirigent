@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"log"
 	"math/rand"
+	"strconv"
 	"syscall"
 	"time"
 
@@ -63,18 +64,20 @@ func composeEnvironmentSetting(cfg *proto.SandboxConfiguration) []string {
 	}
 }
 
-func CreateContainer(ctx context.Context, client *containerd.Client, image containerd.Image, configuration *proto.SandboxConfiguration) (containerd.Container, error, time.Duration) {
+func CreateContainer(ctx context.Context, client *containerd.Client, image containerd.Image, configuration *proto.ServiceInfo, CPUConstaints bool) (containerd.Container, error, time.Duration) {
 	start := time.Now()
 
 	containerName := fmt.Sprintf("workload-%d", rand.Int())
 
+	options := []oci.SpecOpts{oci.WithImageConfig(image), oci.WithEnv(composeEnvironmentSetting(configuration.SandboxConfiguration))}
+	if CPUConstaints {
+		options = append(options, oci.WithCPUs(strconv.FormatUint(configuration.RequestedCpu, 10)))
+	}
+
 	container, err := client.NewContainer(ctx, containerName,
 		containerd.WithImage(image),
 		containerd.WithNewSnapshot(containerName, image),
-		containerd.WithNewSpec(
-			oci.WithImageConfig(image),
-			oci.WithEnv(composeEnvironmentSetting(configuration)),
-		),
+		containerd.WithNewSpec(options...),
 	)
 
 	if err != nil {

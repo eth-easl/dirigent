@@ -49,6 +49,7 @@ type WorkerNodeConfig struct {
 	Port                int               `mapstructure:"port"`
 	Verbosity           string            `mapstructure:"verbosity"`
 	CRIType             string            `mapstructure:"criType"`
+	CPUConstaint        bool              `mapstructure:"cpuConstaint"`
 	Containerd          ContainerdConfig  `mapstructure:"containerd"`
 	Firecracker         FirecrackerConfig `mapstructure:"firecracker"`
 }
@@ -159,6 +160,10 @@ func ReadWorkedNodeConfiguration(configPath string) (WorkerNodeConfig, error) {
 	err = viper.Unmarshal(&workerNodeConfig)
 	if err != nil {
 		return WorkerNodeConfig{}, err
+	}
+
+	if workerNodeConfig.CPUConstaint && workerNodeConfig.CRIType != "containerd" {
+		logrus.Fatal("Only containerd supports CPU Constaints")
 	}
 
 	return workerNodeConfig, nil

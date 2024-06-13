@@ -3,6 +3,7 @@ controlPlaneAddress: "10.0.1.2:9090"
 port: "$DAEMON_PORT"
 verbosity: "trace"
 criType: "scalability_test"
+cpuConstaint: false
 
 containerd:
   criPath: "/run/containerd/containerd.sock"

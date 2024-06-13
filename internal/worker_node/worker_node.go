@@ -71,6 +71,7 @@ func NewWorkerNode(cpApi proto.CpiInterfaceClient, config config.WorkerNodeConfi
 			cpApi,
 			config.Containerd,
 			sandboxManager,
+			config.CPUConstaint,
 		)
 	case "firecracker":
 		runtimeInterface = firecracker.NewFirecrackerRuntime(
