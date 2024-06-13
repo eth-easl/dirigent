@@ -1,40 +1,47 @@
 import glob
-import sys
 
 import matplotlib.pyplot as plt
 import pandas as pd
+import sys
 
 input_folder_knative = sys.argv[1]
 input_folder_dirigent = sys.argv[2]
 output_folder = sys.argv[3]
 
 
-def plot_experiment(experiment_name, input_folder, column):
+def prepareNodelist(experiment_name, input_folder):
     nodes = glob.glob(input_folder + "/cpu_mem_usage/*.csv")
     master_nodes = []
+    new_nodes = nodes.copy()
 
     for n in nodes:
         # Master node
         if experiment_name == "Knative-on-K8s" and ("hp156" in n or "hp091" in n or "hp155" in n):  # 023
             master_nodes.append(n)
-            nodes.remove(n)
+            new_nodes.remove(n)
 
         # Loader node
         if experiment_name == "Knative-on-K8s" and "hp004" in n:  # 075
-            nodes.remove(n)
+            new_nodes.remove(n)
 
         # Master node(s)
         if experiment_name == "Dirigent" and ("hp023" in n):  # or "hp091" in n or "hp081" in n):
             master_nodes.append(n)
-            nodes.remove(n)
+            new_nodes.remove(n)
 
         # Data plane(s)
         if experiment_name == "Dirigent" and ("hp091" in n):  # or "hp077" in n or "hp134" in n):
-            nodes.remove(n)
+            new_nodes.remove(n)
 
         # Loader node
         if experiment_name == "Dirigent" and ("hp080" in n):
-            nodes.remove(n)
+            new_nodes.remove(n)
+
+    return master_nodes, new_nodes
+
+
+def plot_experiment(experiment_name, input_folder, column):
+    master_nodes, nodes = prepareNodelist(experiment_name, input_folder)
 
     experiment_df = pd.read_csv(input_folder + "/experiment_duration_30.csv")
     start = experiment_df['startTime'][0] / 1e6
