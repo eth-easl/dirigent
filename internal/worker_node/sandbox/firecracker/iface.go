@@ -14,10 +14,31 @@ const (
 	debugKernelArgs   = "panic=1 pci=off nomodule reboot=k tsc=reliable quiet i8042.noaux ipv6.disable=1 console=ttyS0 random.trust_cpu=on"
 	ipKernelArg       = " ip=%s::%s:255.255.255.252::eth0:off"
 	pathToLog         = "/tmp/%s.log"
+
+	tenKilobytes = 10 * 1_1024
 )
 
 func makeSocketPath(vmmID string) string {
 	return filepath.Join(os.TempDir(), vmmID)
+}
+
+func checkVMFileSystem(path string) {
+	file, err := os.Open(path)
+	if err != nil {
+		logrus.Fatalf("Could not find root file system image - %v.", err)
+		return
+	}
+
+	fi, err := file.Stat()
+	if err != nil {
+		logrus.Fatalf("Could not obtain statistics about root file system image - %v.", err)
+		return
+	}
+
+	if fi.Size() < tenKilobytes {
+		logrus.Warnf("File system size check failed. Have you pulled root file system image from Git LFS?")
+		return
+	}
 }
 
 func makeFirecrackerConfig(vmcs *VMControlStructure, vmDebugMode bool) {
@@ -31,6 +52,8 @@ func makeFirecrackerConfig(vmcs *VMControlStructure, vmDebugMode bool) {
 		kernelArgs = debugKernelArgs
 	}
 	kernelArgs += fmt.Sprintf(ipKernelArg, vmcs.NetworkConfiguration.TapInternalIP, vmcs.NetworkConfiguration.TapExternalIP)
+
+	checkVMFileSystem(vmcs.FileSystemPath)
 
 	vmcs.VMConfig = &firecracker.Config{
 		SocketPath:      makeSocketPath(vmcs.SandboxID),

@@ -118,6 +118,11 @@ func CreateFileIfNotExist(path string) *os.File {
 }
 
 func coldStartWriteFunction(f *os.File, msg ColdStartLogEntry) {
+	if msg.LatencyBreakdown == nil {
+		logrus.Errorf("No latency breakdown provided.")
+		return
+	}
+
 	// DB should not be included in 'other' as 'LatencyBreakdown.Total' is only the worker node part
 	other := msg.LatencyBreakdown.Total.AsDuration() - (msg.LatencyBreakdown.ImageFetch.AsDuration() +
 		msg.LatencyBreakdown.SandboxCreate.AsDuration() + msg.LatencyBreakdown.SandboxStart.AsDuration() +

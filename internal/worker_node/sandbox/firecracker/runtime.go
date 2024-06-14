@@ -198,6 +198,9 @@ func (fcr *Runtime) CreateSandbox(ctx context.Context, in *proto.ServiceInfo) (*
 		return &proto.SandboxCreationStatus{
 			Success: false,
 			ID:      vmcs.SandboxID,
+			LatencyBreakdown: &proto.SandboxCreationBreakdown{
+				Total: durationpb.New(time.Since(start)),
+			},
 		}, nil
 	}
 }
