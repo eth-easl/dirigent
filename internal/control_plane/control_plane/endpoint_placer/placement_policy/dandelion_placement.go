@@ -22,7 +22,7 @@ func (d *DandelionPlacementPolicy) Place(storage synchronization.SyncStructure[s
 
 	for _, schedulable := range schedulables {
 		// find one node in schedulables and not in registeredNode
-		if exist, ok := (*registeredNodes).Get(schedulable.GetName()); !ok || !exist {
+		if _, ok := (*registeredNodes).Get(schedulable.GetName()); !ok {
 			logrus.Debugf("dandelion placement chooses node %v", schedulable.GetName())
 			(*registeredNodes).Set(schedulable.GetName(), true)
 

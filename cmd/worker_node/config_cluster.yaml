@@ -20,4 +20,4 @@ firecracker:
   NetworkPoolSize: 256
 
 dandelion:
-  binaryPath: "configs/dandelion/test_sysld_wasm_x86_64_matmul"
+  binaryPath: "configs/dandelion/sysld_wasm_x86_64_matmul"
