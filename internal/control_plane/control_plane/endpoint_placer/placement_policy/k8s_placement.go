@@ -19,7 +19,7 @@ type KubernetesPolicy struct {
 	resourceMap *ResourceMap
 }
 
-func (policy *KubernetesPolicy) Place(storage synchronization.SyncStructure[string, core.WorkerNodeInterface], requested *ResourceMap) core.WorkerNodeInterface {
+func (policy *KubernetesPolicy) Place(storage synchronization.SyncStructure[string, core.WorkerNodeInterface], requested *ResourceMap, _ *synchronization.SyncStructure[string, bool]) core.WorkerNodeInterface {
 	filteredNodes := filterMachines(storage, policy.resourceMap)
 	scores := prioritizeNodes(filteredNodes, storage, requested)
 

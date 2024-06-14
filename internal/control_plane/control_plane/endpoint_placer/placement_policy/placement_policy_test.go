@@ -63,6 +63,55 @@ func TestRoundRobin(t *testing.T) {
 	}
 }
 
+func TestDandelion(t *testing.T) {
+	policy := NewDandelionPlacement()
+	storage := synchronization.NewControlPlaneSyncStructure[string, core.WorkerNodeInterface]()
+
+	requested := &ResourceMap{}
+
+	storage.Set("w1", &workers.WorkerNode{Name: "w1", Schedulable: true})
+	storage.Set("w2", &workers.WorkerNode{Name: "w2", Schedulable: true})
+	storage.Set("w3", &workers.WorkerNode{Name: "w3", Schedulable: true})
+
+	nodes := sort.StringSlice(_map.Keys(storage.GetMap()))
+	nodes.Sort()
+
+	for i := 0; i < 100; i++ {
+		{
+			registeredNodes := synchronization.NewControlPlaneSyncStructure[string, bool]()
+			registeredNodes.Set("w1", true)
+			registeredNodes.Set("w2", true)
+			currentStorage := policy.Place(storage, requested, registeredNodes)
+			assert.NotNil(t, currentStorage)
+			assert.Equal(t, currentStorage, storage.GetNoCheck(nodes[2]))
+		}
+		{
+			registeredNodes := synchronization.NewControlPlaneSyncStructure[string, bool]()
+			registeredNodes.Set("w3", true)
+			registeredNodes.Set("w2", true)
+			currentStorage := policy.Place(storage, requested, registeredNodes)
+			assert.NotNil(t, currentStorage)
+			assert.Equal(t, currentStorage, storage.GetNoCheck(nodes[0]))
+		}
+		{
+			registeredNodes := synchronization.NewControlPlaneSyncStructure[string, bool]()
+			registeredNodes.Set("w1", true)
+			registeredNodes.Set("w3", true)
+			currentStorage := policy.Place(storage, requested, registeredNodes)
+			assert.NotNil(t, currentStorage)
+			assert.Equal(t, currentStorage, storage.GetNoCheck(nodes[1]))
+		}
+		{
+			registeredNodes := synchronization.NewControlPlaneSyncStructure[string, bool]()
+			registeredNodes.Set("w1", true)
+			registeredNodes.Set("w2", true)
+			registeredNodes.Set("w3", true)
+			currentStorage := policy.Place(storage, requested, registeredNodes)
+			assert.NotEqual(t, currentStorage, nil)
+		}
+	}
+}
+
 func TestMinimumNumberOfNodesToFilter(t *testing.T) {
 	tests := []struct {
 		name     string

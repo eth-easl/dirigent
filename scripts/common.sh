@@ -47,9 +47,11 @@ function SetupControlPlane() {
     RemoteExec $1 "sudo cp ~/cluster_manager/cmd/master_node/config_cluster$2.yaml /cluster_manager/cmd/master_node/config_cluster.yaml"
 
     # Remove old logs
-    RemoteExec $1 "sudo journalctl --vacuum-time=1s && sudo journalctl --vacuum-time=1d"
+    RemoteExec $1 "sudo journalctl --rotate && sudo journalctl --vacuum-time=1s && sudo journalctl --vacuum-time=1d"
     # Update systemd
     RemoteExec $1 "sudo cp -a ~/cluster_manager/scripts/systemd/* /etc/systemd/system/"
+    # Increase TCP port pool size
+    RemoteExec $1 "sudo sysctl -w net.ipv4.ip_local_port_range='1024 65535'"
     # Start control plane
     RemoteExec $1 "sudo systemctl daemon-reload && sudo systemctl restart control_plane.service"
 }
@@ -67,6 +69,8 @@ function SetupDataPlane() {
     RemoteExec $1 "sudo journalctl --vacuum-time=1s && sudo journalctl --vacuum-time=1d"
     # Update systemd
     RemoteExec $1 "sudo cp -a ~/cluster_manager/scripts/systemd/* /etc/systemd/system/"
+    # Increase TCP port pool size
+    RemoteExec $1 "sudo sysctl -w net.ipv4.ip_local_port_range='1024 65535'"
     # Start data plane
     RemoteExec $1 "sudo systemctl daemon-reload && sudo systemctl restart data_plane.service"
 }
@@ -75,12 +79,14 @@ function SetupWorkerNodes() {
     function internal_setup() {
         # LFS pull for VM kernel image and rootfs
         RemoteExec $1 "cd ~/cluster_manager; git pull; git lfs pull"
+        RemoteExec $1 "cd ~/dandelion; git pull; git lfs pull"
 
         # Compile worker node daemon
         RemoteExec $1 "sudo mkdir -p /cluster_manager/cmd/worker_node"
         RemoteExec $1 "cd ~/cluster_manager/cmd/worker_node/; /usr/local/go/bin/go build main.go"
         RemoteExec $1 "sudo cp ~/cluster_manager/cmd/worker_node/main /cluster_manager/cmd/worker_node/"
         RemoteExec $1 "sudo cp ~/cluster_manager/cmd/worker_node/config_cluster$2.yaml /cluster_manager/cmd/worker_node/config_cluster.yaml"
+        RemoteExec $1 "cd ~/dandelion; cargo build --bin dandelion_server -F wasm"
 
         # For readiness probe
         RemoteExec $1 "sudo sysctl -w net.ipv4.conf.all.route_localnet=1"
@@ -94,10 +100,13 @@ function SetupWorkerNodes() {
 
         # Remove old logs
         RemoteExec $1 "sudo journalctl --vacuum-time=1s && sudo journalctl --vacuum-time=1d"
+        # Increase TCP port pool size
+        RemoteExec $1 "sudo sysctl -w net.ipv4.ip_local_port_range='1024 65535'"
         # Update systemd
         RemoteExec $1 "sudo cp -a ~/cluster_manager/scripts/systemd/* /etc/systemd/system/"
         # Start worker node daemon
-        RemoteExec $1 "sudo systemctl daemon-reload && sudo systemctl restart worker_node.service"
+        RemoteExec $1 "sudo cp -a ~/dandelion/scripts/systemd/* /etc/systemd/system/"
+        RemoteExec $1 "sudo systemctl daemon-reload && sudo systemctl restart worker_node.service && sudo systemctl restart dandelion.service"
     }
 
     CP_PREFIX=""
@@ -116,7 +125,7 @@ function SetupWorkerNodes() {
 
 function KillSystemdServices() {
     function internal_kill() {
-        RemoteExec $1 "sudo systemctl stop control_plane data_plane worker_node haproxy && sudo killall firecracker"
+        RemoteExec $1 "sudo systemctl stop control_plane data_plane worker_node dandelion haproxy && sudo killall firecracker"
     }
 
     for NODE in "$@"

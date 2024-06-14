@@ -39,8 +39,23 @@ function CloneDirigent() {
     fi
 }
 
+function CloneDandelion() {
+    if RemoteExec $1 "[ ! -d ~/dandelion ]"
+    then
+        # Clone the current remote tracking branch of Dandelion if there is one,
+        # or default branch if there is not.
+        pushd ~/dandelion
+        current_branch=$(git rev-parse --abbrev-ref HEAD)
+        default_branch=$(git symbolic-ref refs/remotes/origin/HEAD | sed 's@^refs/remotes/origin/@@')
+        remote_branch=$(git rev-parse --abbrev-ref --symbolic-full-name @{u} >/dev/null 2>&1 && echo "$current_branch" || echo "$default_branch")
+        RemoteExec $1 "git clone --branch=$remote_branch git@github.com:eth-easl/dandelion.git ~/dandelion"
+        popd
+    fi
+}
+
 function SetupNode() {
     CloneDirigent $1
+    CloneDandelion $1
     CopyToRemote "$DIR/setup_node.sh" "$1:~/cluster_manager/scripts/setup_node.sh"
     strict_mode=$([[ "$-" == *e* ]] && echo "bash -e" || echo "bash")
     RemoteExec $1 "$strict_mode ~/cluster_manager/scripts/setup_node.sh $2"

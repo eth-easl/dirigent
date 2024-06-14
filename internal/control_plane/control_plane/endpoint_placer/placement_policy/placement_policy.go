@@ -6,7 +6,7 @@ import (
 )
 
 type PlacementPolicy interface {
-	Place(synchronization.SyncStructure[string, core.WorkerNodeInterface], *ResourceMap) core.WorkerNodeInterface
+	Place(synchronization.SyncStructure[string, core.WorkerNodeInterface], *ResourceMap, *synchronization.SyncStructure[string, bool]) core.WorkerNodeInterface
 }
 
 func getSchedulableNodes(allNodes []core.WorkerNodeInterface) []core.WorkerNodeInterface {
@@ -20,7 +20,7 @@ func getSchedulableNodes(allNodes []core.WorkerNodeInterface) []core.WorkerNodeI
 	return result
 }
 
-func ApplyPlacementPolicy(placementPolicy PlacementPolicy, NIStorage synchronization.SyncStructure[string, core.WorkerNodeInterface], requested *ResourceMap) core.WorkerNodeInterface {
+func ApplyPlacementPolicy(placementPolicy PlacementPolicy, NIStorage synchronization.SyncStructure[string, core.WorkerNodeInterface], requested *ResourceMap, dandelionNodes *synchronization.SyncStructure[string, bool]) core.WorkerNodeInterface {
 	NIStorage.RLock()
 	defer NIStorage.RUnlock()
 
@@ -28,7 +28,7 @@ func ApplyPlacementPolicy(placementPolicy PlacementPolicy, NIStorage synchroniza
 		return nil
 	}
 
-	return placementPolicy.Place(NIStorage, requested)
+	return placementPolicy.Place(NIStorage, requested, dandelionNodes)
 }
 
 func getNumberNodes(storage synchronization.SyncStructure[string, core.WorkerNodeInterface]) int {

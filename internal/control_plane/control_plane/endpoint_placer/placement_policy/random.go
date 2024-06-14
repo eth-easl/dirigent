@@ -12,7 +12,7 @@ func NewRandomPlacement() *Random {
 	return &Random{}
 }
 
-func (p *Random) Place(storage synchronization.SyncStructure[string, core.WorkerNodeInterface], _ *ResourceMap) core.WorkerNodeInterface {
+func (p *Random) Place(storage synchronization.SyncStructure[string, core.WorkerNodeInterface], _ *ResourceMap, _ *synchronization.SyncStructure[string, bool]) core.WorkerNodeInterface {
 	schedulable := getSchedulableNodes(storage.GetValues())
 
 	if len(schedulable) != 0 {

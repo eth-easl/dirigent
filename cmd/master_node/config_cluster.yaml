@@ -4,7 +4,7 @@ registrationServer: "10.0.1.2:9091"
 registrationServerReplicas: ""
 verbosity: "trace"
 traceOutputFolder: "data"
-placementPolicy: "random"
+placementPolicy: "dandelion"
 persistence: false
 reconstruct: false
 autoscaler: "default"

@@ -16,7 +16,7 @@ func NewRoundRobinPlacement() *RoundRobinPlacement {
 	}
 }
 
-func (policy *RoundRobinPlacement) Place(storage synchronization.SyncStructure[string, core.WorkerNodeInterface], _ *ResourceMap) core.WorkerNodeInterface {
+func (policy *RoundRobinPlacement) Place(storage synchronization.SyncStructure[string, core.WorkerNodeInterface], _ *ResourceMap, _ *synchronization.SyncStructure[string, bool]) core.WorkerNodeInterface {
 	schedulable := getSchedulableNodes(storage.GetValues())
 	if len(schedulable) == 0 {
 		return nil

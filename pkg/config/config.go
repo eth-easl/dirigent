@@ -52,6 +52,7 @@ type WorkerNodeConfig struct {
 	CPUConstaint        bool              `mapstructure:"cpuConstaint"`
 	Containerd          ContainerdConfig  `mapstructure:"containerd"`
 	Firecracker         FirecrackerConfig `mapstructure:"firecracker"`
+	Dandelion           DandelionConfig   `mapstructure:"dandelion"`
 }
 
 type ContainerdConfig struct {
@@ -68,6 +69,10 @@ type FirecrackerConfig struct {
 	VMDebugMode      bool   `mapstructure:"VMDebugMode"`
 	UseSnapshots     bool   `mapstructure:"UseSnapshots"`
 	NetworkPoolSize  int    `mapstructure:"NetworkPoolSize"`
+}
+
+type DandelionConfig struct {
+	BinaryPath string `mapstructure:"binaryPath"`
 }
 
 type RedisConf struct {

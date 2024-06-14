@@ -31,6 +31,8 @@ type EndpointPlacer struct {
 
 	DataPlaneConnections synchronization.SyncStructure[string, core.DataPlaneInterface]
 	NIStorage            synchronization.SyncStructure[string, core.WorkerNodeInterface]
+
+	DandelionNodes synchronization.SyncStructure[string, bool]
 }
 
 func (ss *EndpointPlacer) ScalingControllerLoop() {
@@ -216,7 +218,7 @@ func (ss *EndpointPlacer) doUpscaling(toCreateCount int, loopStarted time.Time) 
 			defer wg.Done()
 
 			requested := placement_policy2.CreateResourceMap(ss.FunctionState.ServiceInfo.GetRequestedCpu(), ss.FunctionState.ServiceInfo.GetRequestedMemory())
-			node := placement_policy2.ApplyPlacementPolicy(ss.PlacementPolicy, ss.NIStorage, requested)
+			node := placement_policy2.ApplyPlacementPolicy(ss.PlacementPolicy, ss.NIStorage, requested, &ss.DandelionNodes)
 			if node == nil {
 				logrus.Warn("Failed to do placement. No nodes are schedulable.")
 
@@ -341,6 +343,7 @@ func (ss *EndpointPlacer) doDownscaling(actualScale, desiredCount int) {
 				defer wg.Done()
 
 				ss.deleteSandbox(victim)
+				ss.DandelionNodes.AtomicRemove(victim.Node.GetName())
 				ss.RemoveEndpointFromWNStruct(victim)
 			}(key)
 		}

@@ -7,6 +7,7 @@ import (
 	placement_policy2 "cluster_manager/internal/control_plane/control_plane/endpoint_placer/placement_policy"
 	"cluster_manager/internal/control_plane/control_plane/function_state"
 	"cluster_manager/pkg/config"
+	"cluster_manager/pkg/synchronization"
 	"cluster_manager/pkg/utils"
 	"cluster_manager/proto"
 	"context"
@@ -44,6 +45,7 @@ func (c *ControlPlane) notifyDataplanesAndStartScalingLoop(ctx context.Context, 
 		PersistenceLayer:        c.PersistenceLayer,
 		NIStorage:               c.NIStorage,
 		DataPlaneConnections:    c.DataPlaneConnections,
+		DandelionNodes:          synchronization.NewControlPlaneSyncStructure[string, bool](),
 	})
 
 	go c.SIStorage.GetNoCheck(serviceInfo.Name).ScalingControllerLoop()
@@ -120,6 +122,8 @@ func parsePlacementEvictionPolicies(controlPlaneConfig *config.ControlPlaneConfi
 		placementPolicy = placement_policy2.NewRoundRobinPlacement()
 	case "kubernetes":
 		placementPolicy = placement_policy2.NewKubernetesPolicy()
+	case "dandelion":
+		placementPolicy = placement_policy2.NewDandelionPlacementPolicy()
 	default:
 		logrus.Error("Failed to parse placement, default policy is random")
 		placementPolicy = placement_policy2.NewRandomPlacement()

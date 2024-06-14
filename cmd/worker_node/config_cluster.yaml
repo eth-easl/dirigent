@@ -10,7 +10,6 @@ containerd:
   cniConfigPath: "/cluster_manager/configs/cni.conf"
   prefetchImage: false
 
-
 firecracker:
   Kernel: "/cluster_manager/configs/firecracker/vmlinux-4.14.bin"
   FileSystem: "/cluster_manager/configs/firecracker/rootfs.ext4"
@@ -19,3 +18,6 @@ firecracker:
   VMDebugMode: false
   UseSnapshots: true
   NetworkPoolSize: 256
+
+dandelion:
+  binaryPath: "configs/dandelion/test_sysld_wasm_x86_64_matmul"

@@ -4,6 +4,7 @@ import (
 	"cluster_manager/internal/worker_node/managers"
 	"cluster_manager/internal/worker_node/sandbox"
 	"cluster_manager/internal/worker_node/sandbox/containerd"
+	"cluster_manager/internal/worker_node/sandbox/dandelion"
 	"cluster_manager/internal/worker_node/sandbox/fake_snapshot"
 	"cluster_manager/internal/worker_node/sandbox/firecracker"
 	"cluster_manager/pkg/config"
@@ -79,6 +80,13 @@ func NewWorkerNode(cpApi proto.CpiInterfaceClient, config config.WorkerNodeConfi
 			cpApi,
 			sandboxManager,
 			config.Firecracker,
+		)
+	case "dandelion":
+		runtimeInterface = dandelion.NewDandelionRuntime(
+			cpApi,
+			config,
+			sandboxManager,
+			config.Dandelion.BinaryPath,
 		)
 	case "scalability_test":
 		runtimeInterface = fake_snapshot.NewFakeSnapshotRuntime()
