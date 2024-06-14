@@ -3,8 +3,6 @@ package dandelion
 import (
 	"bytes"
 	"cluster_manager/internal/worker_node/managers"
-	"cluster_manager/internal/worker_node/sandbox"
-	"cluster_manager/pkg/config"
 	"cluster_manager/proto"
 	"context"
 	"github.com/google/uuid"
@@ -12,8 +10,8 @@ import (
 	"go.mongodb.org/mongo-driver/bson"
 	"google.golang.org/protobuf/types/known/durationpb"
 	"google.golang.org/protobuf/types/known/emptypb"
-	"io/ioutil"
 	"net/http"
+	"os"
 	"sync"
 	"time"
 )
@@ -30,36 +28,34 @@ type registeredFunctions struct {
 	sync.RWMutex
 }
 
-type DandelionRuntime struct {
-	sandbox.RuntimeInterface
-	cpiApi              proto.CpiInterfaceClient
+type Runtime struct {
+	cpApi               proto.CpiInterfaceClient
 	SandboxManager      *managers.SandboxManager
 	registeredFunctions *registeredFunctions
-	matmulBinaryPath    string
+	binaryPath          string
 	httpClient          *http.Client
 }
 
-func NewDandelionRuntime(cpApi proto.CpiInterfaceClient, config config.WorkerNodeConfig, sandboxManager *managers.SandboxManager, matmulBinary string) *DandelionRuntime {
-	return &DandelionRuntime{
-		cpiApi:         cpApi,
+func NewDandelionRuntime(cpApi proto.CpiInterfaceClient, sandboxManager *managers.SandboxManager, binaryPath string) *Runtime {
+	return &Runtime{
+		cpApi:          cpApi,
 		SandboxManager: sandboxManager,
 		registeredFunctions: &registeredFunctions{
 			data: make(map[string]bool),
 		},
-		matmulBinaryPath: matmulBinary,
+		binaryPath: binaryPath,
 		httpClient: &http.Client{
-			Timeout: 10 * time.Second,
+			Timeout: 2500 * time.Millisecond,
 			Transport: &http.Transport{
-				DisableCompression:  true,
-				IdleConnTimeout:     30 * time.Second,
-				MaxIdleConns:        3000,
-				MaxIdleConnsPerHost: 3000,
+				IdleConnTimeout:     1 * time.Second,
+				MaxIdleConns:        5,
+				MaxIdleConnsPerHost: 5,
 			},
 		},
 	}
 }
 
-// Patch for rust and golang bson libraries' different behavior
+// Patch for Rust and Golang bson libraries' different behavior
 // rust: 1 byte -> 1 int32; golang: 1 byte -> 1 byte
 func bytesToInts(binaryData []byte) []int32 {
 	intData := make([]int32, len(binaryData))
@@ -69,28 +65,29 @@ func bytesToInts(binaryData []byte) []int32 {
 	return intData
 }
 
-func (cr *DandelionRuntime) CreateSandbox(grpcCtx context.Context, in *proto.ServiceInfo) (*proto.SandboxCreationStatus, error) {
-	failure_status := &proto.SandboxCreationStatus{
-		Success: false,
-		ID:      "-1",
+func getFailureStatus() *proto.SandboxCreationStatus {
+	return &proto.SandboxCreationStatus{
+		Success:          false,
+		ID:               "-1",
+		LatencyBreakdown: &proto.SandboxCreationBreakdown{},
 	}
+}
 
+func (dr *Runtime) CreateSandbox(_ context.Context, in *proto.ServiceInfo) (*proto.SandboxCreationStatus, error) {
+	start := time.Now()
 	logrus.Debug("Create sandbox for service = '", in.Name, "'")
 
-	start := time.Now()
-
-	cr.registeredFunctions.RLock()
-	_, ok := cr.registeredFunctions.data[in.Name]
-	cr.registeredFunctions.RUnlock()
+	dr.registeredFunctions.RLock()
+	_, ok := dr.registeredFunctions.data[in.Name]
+	dr.registeredFunctions.RUnlock()
 
 	if !ok {
 		// send register request to dandelion daemon
-		binaryData, err := ioutil.ReadFile(cr.matmulBinaryPath)
+		binaryData, err := os.ReadFile(dr.binaryPath)
 		if err != nil {
-			logrus.Errorf("Error reading binary file: %v", err)
-			return failure_status, nil
+			logrus.Errorf("Error reading binary file - %v", err)
+			return getFailureStatus(), nil
 		}
-		logrus.Debugf("binary file size = %v", len(binaryData))
 
 		registerRequest := registerFunction{
 			Name:        in.Name,
@@ -98,40 +95,41 @@ func (cr *DandelionRuntime) CreateSandbox(grpcCtx context.Context, in *proto.Ser
 			Binary:      bytesToInts(binaryData),
 			EngineType:  "RWasm",
 		}
+
 		registerRequestBody, err := bson.Marshal(registerRequest)
 		if err != nil {
-			logrus.Errorf("Error encoding register request: %v", err)
-			return failure_status, nil
+			logrus.Errorf("Error marshalling function binary to BSON - %v", err)
+			return getFailureStatus(), nil
 		}
-
-		logrus.Debugf("send register request for function %v", in.Name)
 
 		req, err := http.NewRequest("POST", "http://localhost:8082/register/function", bytes.NewBuffer(registerRequestBody))
 		if err != nil {
-			logrus.Errorf("Error constructing registration request: %v", err)
-			return failure_status, nil
+			logrus.Errorf("Error creating Dandelion function registration request - %v", err)
+			return getFailureStatus(), nil
 		}
 
-		resp, err := cr.httpClient.Do(req)
+		resp, err := dr.httpClient.Do(req)
 		if err != nil {
-			logrus.Debugf("failed to register function to dandelion worker: %v", err)
-			return failure_status, nil
+			logrus.Debugf("Failed to register function with Dandelion - %v", err)
+			return getFailureStatus(), nil
 		}
 		defer resp.Body.Close()
 
 		if resp.StatusCode == http.StatusOK {
-			logrus.Debugf("Registration to dandelion worker is successful!")
+			logrus.Debugf("Successfully registered function %s", in.Name)
 		} else {
-			logrus.Debugf("Registration failed, status code=%v", resp.StatusCode)
-			return failure_status, nil
+			logrus.Debugf("Failed to register function %s with Dandelion (status code: %d)", in.Name, resp.StatusCode)
+			return getFailureStatus(), nil
 		}
 
-		cr.registeredFunctions.Lock()
-		cr.registeredFunctions.data[in.Name] = true
-		cr.registeredFunctions.Unlock()
+		// Although someone may have registered function in the meantime, this is still fine
+		// as a function can be registered with Dandelion only once
+		dr.registeredFunctions.Lock()
+		dr.registeredFunctions.data[in.Name] = true
+		dr.registeredFunctions.Unlock()
 	}
 
-	logrus.Debug("Sandbox creation took ", time.Since(start).Microseconds(), " μs (")
+	logrus.Debug("Sandbox creation took ", time.Since(start).Microseconds(), " μs")
 	sandboxCreationDuration := time.Since(start)
 
 	return &proto.SandboxCreationStatus{
@@ -149,14 +147,14 @@ func (cr *DandelionRuntime) CreateSandbox(grpcCtx context.Context, in *proto.Ser
 	}, nil
 }
 
-func (dr *DandelionRuntime) DeleteSandbox(grpcCtx context.Context, in *proto.SandboxID) (*proto.ActionStatus, error) {
+func (dr *Runtime) DeleteSandbox(_ context.Context, _ *proto.SandboxID) (*proto.ActionStatus, error) {
 	return &proto.ActionStatus{Success: true}, nil
 }
 
-func (dr *DandelionRuntime) ListEndpoints(_ context.Context, _ *emptypb.Empty) (*proto.EndpointsList, error) {
+func (dr *Runtime) ListEndpoints(_ context.Context, _ *emptypb.Empty) (*proto.EndpointsList, error) {
 	return dr.SandboxManager.ListEndpoints()
 }
 
-func (cr *DandelionRuntime) ValidateHostConfig() bool {
+func (dr *Runtime) ValidateHostConfig() bool {
 	return true
 }

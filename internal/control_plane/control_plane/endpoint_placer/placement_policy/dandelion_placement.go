@@ -15,21 +15,21 @@ func NewDandelionPlacementPolicy() *DandelionPlacementPolicy {
 }
 
 func (d *DandelionPlacementPolicy) Place(storage synchronization.SyncStructure[string, core.WorkerNodeInterface], _ *ResourceMap, registeredNodes *synchronization.SyncStructure[string, bool]) core.WorkerNodeInterface {
-	schedulables := getSchedulableNodes(storage.GetValues())
+	schedulableNodes := getSchedulableNodes(storage.GetValues())
 
 	(*registeredNodes).Lock()
 	defer (*registeredNodes).Unlock()
 
-	for _, schedulable := range schedulables {
-		// find one node in schedulables and not in registeredNode
+	for _, schedulable := range schedulableNodes {
+		// find one node in schedulableNodes and not in registeredNode
 		if _, ok := (*registeredNodes).Get(schedulable.GetName()); !ok {
-			logrus.Debugf("dandelion placement chooses node %v", schedulable.GetName())
+			logrus.Tracef("Dandelion placement policy chose node %v", schedulable.GetName())
 			(*registeredNodes).Set(schedulable.GetName(), true)
 
 			return schedulable
 		}
 	}
 
-	logrus.Debugf("dandelion placement fallback to random placement")
-	return schedulables[rand.Intn(len(schedulables))]
+	logrus.Debugf("Dandelion placement policy fallbacked on random placement")
+	return schedulableNodes[rand.Intn(len(schedulableNodes))]
 }

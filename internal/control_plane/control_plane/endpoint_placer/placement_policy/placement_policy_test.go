@@ -25,7 +25,7 @@ func TestRandomPolicy(t *testing.T) {
 	requested := &ResourceMap{}
 
 	for i := 0; i < 100; i++ {
-		currentStorage := policy.Place(storage, requested)
+		currentStorage := policy.Place(storage, requested, nil)
 		assert.NotNil(t, currentStorage)
 		assert.True(t, currentStorage == storage.GetNoCheck("w1") || currentStorage == storage.GetNoCheck("w2"))
 	}
@@ -46,17 +46,17 @@ func TestRoundRobin(t *testing.T) {
 
 	for i := 0; i < 100; i++ {
 		{
-			currentStorage := policy.Place(storage, requested)
+			currentStorage := policy.Place(storage, requested, nil)
 			assert.NotNil(t, currentStorage)
 			assert.Equal(t, currentStorage, storage.GetNoCheck(nodes[0]))
 		}
 		{
-			currentStorage := policy.Place(storage, requested)
+			currentStorage := policy.Place(storage, requested, nil)
 			assert.NotNil(t, currentStorage)
 			assert.Equal(t, currentStorage, storage.GetNoCheck(nodes[1]))
 		}
 		{
-			currentStorage := policy.Place(storage, requested)
+			currentStorage := policy.Place(storage, requested, nil)
 			assert.NotNil(t, currentStorage)
 			assert.Equal(t, currentStorage, storage.GetNoCheck(nodes[2]))
 		}
@@ -64,7 +64,7 @@ func TestRoundRobin(t *testing.T) {
 }
 
 func TestDandelion(t *testing.T) {
-	policy := NewDandelionPlacement()
+	policy := NewDandelionPlacementPolicy()
 	storage := synchronization.NewControlPlaneSyncStructure[string, core.WorkerNodeInterface]()
 
 	requested := &ResourceMap{}
@@ -78,35 +78,39 @@ func TestDandelion(t *testing.T) {
 
 	for i := 0; i < 100; i++ {
 		{
-			registeredNodes := synchronization.NewControlPlaneSyncStructure[string, bool]()
+			var registeredNodes synchronization.SyncStructure[string, bool]
+			registeredNodes = synchronization.NewControlPlaneSyncStructure[string, bool]()
 			registeredNodes.Set("w1", true)
 			registeredNodes.Set("w2", true)
-			currentStorage := policy.Place(storage, requested, registeredNodes)
+			currentStorage := policy.Place(storage, requested, &registeredNodes)
 			assert.NotNil(t, currentStorage)
 			assert.Equal(t, currentStorage, storage.GetNoCheck(nodes[2]))
 		}
 		{
-			registeredNodes := synchronization.NewControlPlaneSyncStructure[string, bool]()
+			var registeredNodes synchronization.SyncStructure[string, bool]
+			registeredNodes = synchronization.NewControlPlaneSyncStructure[string, bool]()
 			registeredNodes.Set("w3", true)
 			registeredNodes.Set("w2", true)
-			currentStorage := policy.Place(storage, requested, registeredNodes)
+			currentStorage := policy.Place(storage, requested, &registeredNodes)
 			assert.NotNil(t, currentStorage)
 			assert.Equal(t, currentStorage, storage.GetNoCheck(nodes[0]))
 		}
 		{
-			registeredNodes := synchronization.NewControlPlaneSyncStructure[string, bool]()
+			var registeredNodes synchronization.SyncStructure[string, bool]
+			registeredNodes = synchronization.NewControlPlaneSyncStructure[string, bool]()
 			registeredNodes.Set("w1", true)
 			registeredNodes.Set("w3", true)
-			currentStorage := policy.Place(storage, requested, registeredNodes)
+			currentStorage := policy.Place(storage, requested, &registeredNodes)
 			assert.NotNil(t, currentStorage)
 			assert.Equal(t, currentStorage, storage.GetNoCheck(nodes[1]))
 		}
 		{
-			registeredNodes := synchronization.NewControlPlaneSyncStructure[string, bool]()
+			var registeredNodes synchronization.SyncStructure[string, bool]
+			registeredNodes = synchronization.NewControlPlaneSyncStructure[string, bool]()
 			registeredNodes.Set("w1", true)
 			registeredNodes.Set("w2", true)
 			registeredNodes.Set("w3", true)
-			currentStorage := policy.Place(storage, requested, registeredNodes)
+			currentStorage := policy.Place(storage, requested, &registeredNodes)
 			assert.NotEqual(t, currentStorage, nil)
 		}
 	}
@@ -203,7 +207,7 @@ func TestPlacementOnXKNodes(t *testing.T) {
 				defer wg.Done()
 
 				start := time.Now()
-				policy.Place(storage, CreateResourceMap(1, 1))
+				policy.Place(storage, CreateResourceMap(1, 1), nil)
 				dt := time.Since(start).Milliseconds()
 
 				mutex.Lock()

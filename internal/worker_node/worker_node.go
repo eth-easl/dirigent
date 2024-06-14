@@ -84,7 +84,6 @@ func NewWorkerNode(cpApi proto.CpiInterfaceClient, config config.WorkerNodeConfi
 	case "dandelion":
 		runtimeInterface = dandelion.NewDandelionRuntime(
 			cpApi,
-			config,
 			sandboxManager,
 			config.Dandelion.BinaryPath,
 		)
