@@ -224,7 +224,7 @@ func (c *ControlPlane) registerNode(ctx context.Context, in *proto.NodeInfo) (*p
 	})
 	if err != nil {
 		logrus.Errorf("Failed to store information to persistence layer (error : %s)", err.Error())
-		c.NIStorage.AtomicRemove(in.NodeID)
+		c.NIStorage.Remove(in.NodeID)
 		return &proto.ActionStatus{Success: false}, err
 	}
 
@@ -300,14 +300,14 @@ func (c *ControlPlane) registerService(ctx context.Context, serviceInfo *proto.S
 	err := c.PersistenceLayer.StoreServiceInformation(ctx, serviceInfo)
 	if err != nil {
 		logrus.Errorf("Failed to store information to persistence layer (error : %s)", err.Error())
-		c.SIStorage.AtomicRemove(serviceInfo.Name)
+		c.SIStorage.Remove(serviceInfo.Name)
 		return &proto.ActionStatus{Success: false}, err
 	}
 
 	err = c.notifyDataplanesAndStartScalingLoop(ctx, serviceInfo)
 	if err != nil {
 		logrus.Warnf("Failed to connect registered service (error : %s)", err.Error())
-		c.SIStorage.AtomicRemove(serviceInfo.Name)
+		c.SIStorage.Remove(serviceInfo.Name)
 
 		return &proto.ActionStatus{Success: false}, err
 	}
