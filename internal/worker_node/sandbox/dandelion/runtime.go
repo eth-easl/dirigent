@@ -16,13 +16,6 @@ import (
 	"time"
 )
 
-type registerFunction struct {
-	Name        string  `bson:"name"`
-	ContextSize uint64  `bson:"context_size"`
-	EngineType  string  `bson:"engine_type"`
-	Binary      []int32 `bson:"binary"`
-}
-
 type registeredFunctions struct {
 	data map[string]bool
 	sync.RWMutex
@@ -89,11 +82,13 @@ func (dr *Runtime) CreateSandbox(_ context.Context, in *proto.ServiceInfo) (*pro
 			return getFailureStatus(), nil
 		}
 
-		registerRequest := registerFunction{
-			Name:        in.Name,
-			ContextSize: 0x8020000,
-			Binary:      bytesToInts(binaryData),
-			EngineType:  "RWasm",
+		registerRequest := bson.D{
+			{Key: "name", Value: in.Name},
+			{Key: "context_size", Value: 0x8020000},
+			{Key: "engine_type", Value: "RWasm"},
+			{Key: "binary", Value: bytesToInts(binaryData)},
+			{Key: "input_sets", Value: bson.A{bson.A{"input", nil}}},
+			{Key: "output_sets", Value: []string{"output"}},
 		}
 
 		registerRequestBody, err := bson.Marshal(registerRequest)
