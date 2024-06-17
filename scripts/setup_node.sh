@@ -51,7 +51,7 @@ sudo apt-get -y install containerd kubernetes-cni >> /dev/null
 # Install Firecracker
 ARCH="$(uname -m)"
 release_url="https://github.com/firecracker-microvm/firecracker/releases"
-latest=$(basename $(curl -fsSLI -o /dev/null -w  %{url_effective} ${release_url}/latest))
+latest="v1.5.0"
 curl -L ${release_url}/download/${latest}/firecracker-${latest}-${ARCH}.tgz | tar -xz
 sudo rm -rf /usr/local/bin/firecracker
 sudo mv release-${latest}-$(uname -m) /usr/local/bin/firecracker
