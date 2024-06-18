@@ -73,6 +73,7 @@ type FirecrackerConfig struct {
 
 type DandelionConfig struct {
 	BinaryPath string `mapstructure:"binaryPath"`
+	EngineType string `mapstructure:"engineType"`
 }
 
 type RedisConf struct {

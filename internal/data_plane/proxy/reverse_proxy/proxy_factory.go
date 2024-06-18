@@ -1,10 +1,7 @@
 package reverse_proxy
 
 import (
-	"context"
-	"crypto/tls"
 	"github.com/sirupsen/logrus"
-	"golang.org/x/net/http2"
 	"net"
 	"net/http"
 	"net/http/httputil"
@@ -16,12 +13,16 @@ var EmptyReverseProxyDirector = func(request *http.Request) {}
 func CreateReverseProxy() *httputil.ReverseProxy {
 	return &httputil.ReverseProxy{
 		Director: EmptyReverseProxyDirector,
-		Transport: &http2.Transport{
-			DialTLSContext: func(ctx context.Context, network, addr string, cfg *tls.Config) (net.Conn, error) {
+		Transport: &http.Transport{
+			/*DialTLSContext: func(ctx context.Context, network, addr string, cfg *tls.Config) (net.Conn, error) {
 				return net.Dial(network, addr)
 			},
 			AllowHTTP:       true,
-			IdleConnTimeout: 2 * time.Second,
+			IdleConnTimeout: 2 * time.Second,*/
+			DialContext: (&net.Dialer{
+				Timeout: 1 * time.Second,
+			}).DialContext,
+			IdleConnTimeout: 1 * time.Second,
 		},
 		BufferPool:    NewBufferPool(),
 		FlushInterval: 0,

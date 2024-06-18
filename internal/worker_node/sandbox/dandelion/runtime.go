@@ -3,6 +3,7 @@ package dandelion
 import (
 	"bytes"
 	"cluster_manager/internal/worker_node/managers"
+	"cluster_manager/pkg/config"
 	"cluster_manager/proto"
 	"context"
 	"github.com/google/uuid"
@@ -25,18 +26,18 @@ type Runtime struct {
 	cpApi               proto.CpiInterfaceClient
 	SandboxManager      *managers.SandboxManager
 	registeredFunctions *registeredFunctions
-	binaryPath          string
+	dandelionConfig     *config.DandelionConfig
 	httpClient          *http.Client
 }
 
-func NewDandelionRuntime(cpApi proto.CpiInterfaceClient, sandboxManager *managers.SandboxManager, binaryPath string) *Runtime {
+func NewDandelionRuntime(cpApi proto.CpiInterfaceClient, sandboxManager *managers.SandboxManager, dandelionConfig *config.DandelionConfig) *Runtime {
 	return &Runtime{
 		cpApi:          cpApi,
 		SandboxManager: sandboxManager,
 		registeredFunctions: &registeredFunctions{
 			data: make(map[string]bool),
 		},
-		binaryPath: binaryPath,
+		dandelionConfig: dandelionConfig,
 		httpClient: &http.Client{
 			Timeout: 2500 * time.Millisecond,
 			Transport: &http.Transport{
@@ -76,7 +77,7 @@ func (dr *Runtime) CreateSandbox(_ context.Context, in *proto.ServiceInfo) (*pro
 
 	if !ok {
 		// send register request to dandelion daemon
-		binaryData, err := os.ReadFile(dr.binaryPath)
+		binaryData, err := os.ReadFile(dr.dandelionConfig.BinaryPath)
 		if err != nil {
 			logrus.Errorf("Error reading binary file - %v", err)
 			return getFailureStatus(), nil
@@ -85,10 +86,10 @@ func (dr *Runtime) CreateSandbox(_ context.Context, in *proto.ServiceInfo) (*pro
 		registerRequest := bson.D{
 			{Key: "name", Value: in.Name},
 			{Key: "context_size", Value: 0x8020000},
-			{Key: "engine_type", Value: "RWasm"},
+			{Key: "engine_type", Value: dr.dandelionConfig.EngineType},
 			{Key: "binary", Value: bytesToInts(binaryData)},
 			{Key: "input_sets", Value: bson.A{bson.A{"input", nil}}},
-			{Key: "output_sets", Value: []string{"output"}},
+			{Key: "output_sets", Value: []string{"output"}}, // add "stdio" for debugging purpose
 		}
 
 		registerRequestBody, err := bson.Marshal(registerRequest)

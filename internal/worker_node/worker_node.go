@@ -85,12 +85,13 @@ func NewWorkerNode(cpApi proto.CpiInterfaceClient, config config.WorkerNodeConfi
 		runtimeInterface = dandelion.NewDandelionRuntime(
 			cpApi,
 			sandboxManager,
-			config.Dandelion.BinaryPath,
+			&config.Dandelion,
 		)
 	case "scalability_test":
 		runtimeInterface = fake_snapshot.NewFakeSnapshotRuntime()
 	default:
 		logrus.Fatal("Unsupported sandbox type.")
+		return nil
 	}
 
 	if !runtimeInterface.ValidateHostConfig() {
