@@ -44,7 +44,7 @@ function CloneDandelion() {
     then
         # Clone the current remote tracking branch of Dandelion if there is one,
         # or default branch if there is not.
-        pushd ~/dandelion
+        pushd ~/projects/dandelion
         current_branch=$(git rev-parse --abbrev-ref HEAD)
         default_branch=$(git symbolic-ref refs/remotes/origin/HEAD | sed 's@^refs/remotes/origin/@@')
         remote_branch=$(git rev-parse --abbrev-ref --symbolic-full-name @{u} >/dev/null 2>&1 && echo "$current_branch" || echo "$default_branch")

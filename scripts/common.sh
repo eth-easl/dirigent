@@ -86,7 +86,11 @@ function SetupWorkerNodes() {
         RemoteExec $1 "cd ~/cluster_manager/cmd/worker_node/; /usr/local/go/bin/go build main.go"
         RemoteExec $1 "sudo cp ~/cluster_manager/cmd/worker_node/main /cluster_manager/cmd/worker_node/"
         RemoteExec $1 "sudo cp ~/cluster_manager/cmd/worker_node/config_cluster$2.yaml /cluster_manager/cmd/worker_node/config_cluster.yaml"
-        RemoteExec $1 "cd ~/dandelion; cargo build --bin dandelion_server -F wasm"
+
+        # Start Dandelion
+        RemoteExec $1 "cd ~/dandelion; RUSTFLAGS='-C target-feature=+crt-static' cargo build --bin mmu_worker --features mmu --target \$(arch)-unknown-linux-gnu"
+        RemoteExec $1 "tmux new -s dandelion -d"
+        RemoteExec $1 "tmux send-keys -t dandelion 'cd ~/dandelion; RUST_LOG=debug cargo run --bin dandelion_server -F mmu,reqwest_io' ENTER"
 
         # For readiness probe
         RemoteExec $1 "sudo sysctl -w net.ipv4.conf.all.route_localnet=1"
@@ -105,15 +109,14 @@ function SetupWorkerNodes() {
         # Update systemd
         RemoteExec $1 "sudo cp -a ~/cluster_manager/scripts/systemd/* /etc/systemd/system/"
         # Start worker node daemon
-        RemoteExec $1 "sudo cp -a ~/dandelion/scripts/systemd/* /etc/systemd/system/"
-        RemoteExec $1 "sudo systemctl daemon-reload && sudo systemctl restart worker_node.service && sudo systemctl restart dandelion.service"
+        RemoteExec $1 "sudo systemctl daemon-reload && sudo systemctl restart worker_node.service"
     }
 
     CP_PREFIX=""
     if [ "$1" -ne 1 ]; then
         CP_PREFIX="_raft"
     fi
-    shift
+    shift # throw control plane replicas argument
 
     for NODE in "$@"
     do
@@ -125,7 +128,11 @@ function SetupWorkerNodes() {
 
 function KillSystemdServices() {
     function internal_kill() {
-        RemoteExec $1 "sudo systemctl stop control_plane data_plane worker_node dandelion haproxy && sudo killall firecracker"
+        RemoteExec $1 "sudo systemctl stop control_plane data_plane worker_node haproxy && sudo killall firecracker"
+
+        #local DANDELION_TO_KILL=$(RemoteExec $1 "ps -aux | grep target/debug/dandelion_server | awk '{print \$2}' | tr '\n' ' '")
+        RemoteExec $1 "sudo pkill -9 dandelion_server"
+        RemoteExec $1 "tmux kill-session -t dandelion"
     }
 
     for NODE in "$@"
@@ -138,7 +145,7 @@ function KillSystemdServices() {
 
 function WipeContainerdCNI() {
     # Remove all containers
-    sudo pkill -9 server || true
+    sudo pkill -9 workload || true
     ctr --namespace cm container ls -q | xargs ctr --namespace cm container delete || true
 
     # Remove all unused images
