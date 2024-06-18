@@ -5,13 +5,14 @@ import (
 	"context"
 	"crypto/tls"
 	"fmt"
-	"github.com/sirupsen/logrus"
-	"golang.org/x/net/http2"
 	"io"
 	"net"
 	"net/http"
 	"strconv"
 	"time"
+
+	"github.com/sirupsen/logrus"
+	"golang.org/x/net/http2"
 )
 
 func SyncRequest() {

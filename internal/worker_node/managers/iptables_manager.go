@@ -2,7 +2,6 @@ package managers
 
 import (
 	"fmt"
-	"os/exec"
 	"strconv"
 
 	"github.com/sirupsen/logrus"
@@ -45,11 +44,14 @@ func AddRules(ipt *iptables.IPTables, sourcePort int, destIP string, destPort in
 	if err != nil {
 		logrus.Errorf("Error adding a POSTROUTING MASQUERADE - %s", err.Error())
 	}
+	logrus.Debugf("Added a POSTROUTING MASQUERADE")
 
-	err = exec.Command("sudo", "iptables", "-P", "FORWARD", "ACCEPT").Run()
+	err = ipt.ChangePolicy("filter", "FORWARD", "ACCEPT")
 	if err != nil {
 		logrus.Errorf("Error changing IP routing policy FORWARD ACCEPT - %s", err.Error())
 	}
+	logrus.Debugf("Changing IP routing policy FORWARD ACCEPT")
+
 }
 
 func DeleteRules(ipt *iptables.IPTables, sourcePort int, destIP string, destPort int) {
