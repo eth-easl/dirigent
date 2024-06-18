@@ -21,6 +21,7 @@ firecracker:
 
 dandelion:
   binaryPath: "configs/dandelion/sysld_wasm_x86_64_busy_loop"
+  daemonPort: 8082
   engineType: "Process"
   #binaryPath: "configs/dandelion/sysld_wasm_x86_64_matmul"
   #engineType: "RWasm"

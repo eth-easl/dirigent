@@ -6,6 +6,7 @@ import (
 	"cluster_manager/pkg/config"
 	"cluster_manager/proto"
 	"context"
+	"fmt"
 	"github.com/google/uuid"
 	"github.com/sirupsen/logrus"
 	"go.mongodb.org/mongo-driver/bson"
@@ -98,7 +99,8 @@ func (dr *Runtime) CreateSandbox(_ context.Context, in *proto.ServiceInfo) (*pro
 			return getFailureStatus(), nil
 		}
 
-		req, err := http.NewRequest("POST", "http://localhost:8082/register/function", bytes.NewBuffer(registerRequestBody))
+		registrationURL := fmt.Sprintf("http://localhost:%d/register/function", dr.dandelionConfig.DaemonPort)
+		req, err := http.NewRequest("POST", registrationURL, bytes.NewBuffer(registerRequestBody))
 		if err != nil {
 			logrus.Errorf("Error creating Dandelion function registration request - %v", err)
 			return getFailureStatus(), nil
@@ -132,7 +134,7 @@ func (dr *Runtime) CreateSandbox(_ context.Context, in *proto.ServiceInfo) (*pro
 		Success: true,
 		ID:      uuid.New().String(),
 		PortMappings: &proto.PortMapping{
-			HostPort:  8082,
+			HostPort:  int32(dr.dandelionConfig.DaemonPort),
 			GuestPort: in.PortForwarding.GuestPort,
 			Protocol:  in.PortForwarding.Protocol,
 		},

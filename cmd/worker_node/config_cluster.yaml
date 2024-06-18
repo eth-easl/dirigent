@@ -21,4 +21,5 @@ firecracker:
 
 dandelion:
   binaryPath: "/cluster_manager/configs/dandelion/sysld_wasm_x86_64_busy_loop"
+  daemonPort: 8080
   engineType: "Process"
