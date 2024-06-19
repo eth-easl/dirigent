@@ -72,8 +72,8 @@ type FirecrackerConfig struct {
 }
 
 type DandelionConfig struct {
-	BinaryPath string `mapstructure:"binaryPath"`
 	DaemonPort int    `mapstructure:"daemonPort"`
+	BinaryPath string `mapstructure:"binaryPath"`
 	EngineType string `mapstructure:"engineType"`
 }
 

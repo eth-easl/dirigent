@@ -16,7 +16,7 @@ loadBalancerAddress: "10.0.1.254:8079"
 removeWorkerNode: false
 removeDataplane: false
 
-precreateSnapshots: false
+precreateSnapshots: true
 
 redis:
   address: "10.0.1.2:6379"

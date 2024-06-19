@@ -20,6 +20,6 @@ firecracker:
   NetworkPoolSize: 256
 
 dandelion:
-  binaryPath: "/cluster_manager/configs/dandelion/sysld_wasm_x86_64_busy_loop"
   daemonPort: 8080
+  binaryPath: "/cluster_manager/configs/dandelion/sysld_wasm_x86_64_busy_loop"
   engineType: "Process"

@@ -488,14 +488,18 @@ func (c *ControlPlane) getServicesOnWorkerNode(_ *endpoint_placer.EndpointPlacer
 	return cIDs
 }
 
+// precreateSnapshots assumes that a lock on SIStorage was acquired beforehand
 func (c *ControlPlane) precreateSnapshots(info *proto.ServiceInfo) {
-	c.SIStorage.Lock()
-	defer c.SIStorage.Unlock()
+	ss, ok := c.SIStorage.Get(info.Name)
+	if !ok {
+		logrus.Errorf("Cannot find information in SIStorage for %s", info.Name)
+		return
+	}
 
-	ss, _ := c.SIStorage.Get(info.Name)
+	c.NIStorage.RLock()
+	defer c.NIStorage.RUnlock()
 
 	wg := &sync.WaitGroup{}
-
 	for _, node := range c.NIStorage.GetMap() {
 		wg.Add(1)
 
