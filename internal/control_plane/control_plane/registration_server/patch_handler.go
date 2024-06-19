@@ -39,7 +39,7 @@ func patchHandler(api *control_plane.CpApiServer) func(w http.ResponseWriter, r 
 			return
 		}
 
-		oldConfig := sis.FunctionState.AutoscalingConfig
+		oldConfig := sis.FunctionState.GetAutoscalingConfig()
 		config := &proto.AutoscalingConfiguration{
 			ScalingUpperBound:                    oldConfig.ScalingUpperBound,
 			ScalingLowerBound:                    oldConfig.ScalingLowerBound,
@@ -103,7 +103,6 @@ func patchHandler(api *control_plane.CpApiServer) func(w http.ResponseWriter, r 
 			return
 		}
 
-		sis.FunctionState.AutoscalingConfig = config
 		sis.ServiceInfo.AutoscalingConfig = config
 
 		if err = api.ControlPlane.PersistenceLayer.StoreServiceInformation(context.Background(), sis.ServiceInfo); err != nil {

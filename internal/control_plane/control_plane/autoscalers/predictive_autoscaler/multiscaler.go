@@ -6,10 +6,11 @@ import (
 	_map "cluster_manager/pkg/map"
 	"cluster_manager/pkg/utils"
 	"cluster_manager/proto"
-	"github.com/sirupsen/logrus"
 	"math"
 	"sync"
 	"time"
+
+	"github.com/sirupsen/logrus"
 )
 
 // tickInterval is how often the Autoscaler evaluates the metrics
@@ -153,7 +154,7 @@ func NewMultiScaler(
 func (m *MultiScaler) Create(functionState *function_state.FunctionState) {
 	m.create(functionState, &Decider{
 		Name:                     functionState.ServiceName,
-		AutoscalingConfiguration: functionState.AutoscalingConfig,
+		AutoscalingConfiguration: functionState.GetAutoscalingConfig(),
 		Status:                   DeciderStatus{},
 	})
 }

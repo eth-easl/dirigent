@@ -5,9 +5,10 @@ import (
 	"cluster_manager/internal/control_plane/control_plane/function_state"
 	"cluster_manager/proto"
 	"fmt"
-	"github.com/sirupsen/logrus"
 	"math"
 	"time"
+
+	"github.com/sirupsen/logrus"
 
 	"knative.dev/serving/pkg/autoscaler/aggregation/max"
 )
@@ -192,7 +193,7 @@ func (a *autoscaler) Scale(now time.Time) ScaleResult {
 	// E.g. MSUR=1.1, OCC=3, RPC=2, TV=1 => OCC/TV=3, MSU=2.2 => DSPC=2, while we definitely, need
 	// 3 pods. See the unit test for this scenario in action.
 
-	spec2 := a.functionState.AutoscalingConfig
+	spec2 := a.functionState.GetAutoscalingConfig()
 
 	maxScaleUp := math.Ceil(float64(spec2.MaxScaleUpRate) * readyPodsCount)
 	// Same logic, opposite math applies here.
