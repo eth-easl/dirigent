@@ -31,16 +31,17 @@ func takeSqrts() C.double {
 	return tmp
 }
 
-func busySpin(multiplier, runtimeMilli uint32) {
-	totalIterations := int(multiplier * runtimeMilli)
+func busySpin(multiplier, runtimeMilli uint64) {
+	totalIterations := multiplier * runtimeMilli
 
-	for i := 0; i < totalIterations; i++ {
+	var i uint64
+	for i = 0; i < totalIterations; i++ {
 		takeSqrts()
 	}
 }
 
 func busyLoopFor(timeToSpin uint32, mpl int) {
-	busySpin(uint32(mpl), timeToSpin)
+	busySpin(uint64(mpl), uint64(timeToSpin))
 }
 
 func rootHandler(w http.ResponseWriter, req *http.Request) {
