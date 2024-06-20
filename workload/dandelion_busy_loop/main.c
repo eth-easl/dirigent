@@ -48,23 +48,23 @@ int main(int argc, char const *argv[]) {
 
     char *trace_string = "trace";
     char *empyt_string = "empty";
-    char is_trace = 0;
 
     if (strcmp(trace_string, function) == 0) {
-        is_trace = 1;
-
         long multiplier_num = strtol(multiplier, NULL, 10);
         long requested_cpu_num = strtol(requestedCpu, NULL, 10);
 
         long total_iterations = multiplier_num * requested_cpu_num;
 
-        double result = 0.0;
+	//printf("%ld, %ld, %ld\n", multiplier_num, requested_cpu_num, total_iterations);
+
+        volatile double result = 0.0;
         volatile double input = 10.0;
-        for (long iteration = 0; iteration < total_iterations; iteration++) {
+	    volatile long iteration;
+        for (iteration = 0; iteration < total_iterations; iteration++) {
             result = sqrt(input);
         }
 
-        fprintf(output_data, "\"OK\",\"%s\",\"dandelionServer\",%ld", function, multiplier_num);
+        fprintf(output_data, "\"OK\",\"%s\",\"dandelionServer\",%ld,%f", function, iteration, result);
 
         return 0;
     } else if (strcmp(empyt_string, function) == 0) {

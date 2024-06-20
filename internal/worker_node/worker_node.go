@@ -253,7 +253,7 @@ func (w *WorkerNode) sendHeartbeatLoop(cfg *config.WorkerNodeConfig) {
 			logrus.Fatalf("Cannot establish connection with any of the specified control plane(s) (error : %s)", err.Error())
 		} else {
 			w.cpApi = cpApi
-			logrus.Infof("Control plance changed successfully.")
+			logrus.Infof("Control plane changed successfully.")
 		}
 	} else {
 		logrus.Debug("Sent heartbeat to the control plane")
