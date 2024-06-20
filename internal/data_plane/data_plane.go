@@ -11,12 +11,13 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"k8s.io/apimachinery/pkg/util/wait"
 	"math/rand"
 	"os"
 	"path"
 	"strconv"
 	"time"
+
+	"k8s.io/apimachinery/pkg/util/wait"
 
 	"github.com/sirupsen/logrus"
 	"google.golang.org/protobuf/types/known/emptypb"
@@ -102,6 +103,15 @@ func (d *Dataplane) registerDataPlane(cpApiServer proto.CpiInterfaceClient) erro
 
 func (d *Dataplane) AddDeployment(_ context.Context, in *proto.ServiceInfo) (*proto.DeploymentUpdateSuccess, error) {
 	return &proto.DeploymentUpdateSuccess{Success: d.deployments.AddDeployment(in.GetName(), d.dataplaneID)}, nil
+}
+
+func (d *Dataplane) UpdateDeployment(_ context.Context, in *proto.ServiceInfo) (*proto.DeploymentUpdateSuccess, error) {
+	deployment, _ := d.deployments.GetDeployment(in.GetName())
+	if deployment == nil {
+		return &proto.DeploymentUpdateSuccess{Success: false}, errors.New("deployment does not exists on the data plane side")
+	}
+	deployment.PutSandboxParallelism(uint(in.AutoscalingConfig.ContainerConcurrency))
+	return &proto.DeploymentUpdateSuccess{Success: true}, nil
 }
 
 func (d *Dataplane) UpdateEndpointList(_ context.Context, patch *proto.DeploymentEndpointPatch) (*proto.DeploymentUpdateSuccess, error) {

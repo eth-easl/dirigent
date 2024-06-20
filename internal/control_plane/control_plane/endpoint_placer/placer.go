@@ -83,6 +83,34 @@ func (ss *EndpointPlacer) ScalingControllerLoop() {
 	}
 }
 
+func (ss *EndpointPlacer) UpdateDeployment(serviceInfo *proto.ServiceInfo) {
+	ss.DataPlaneConnections.Lock()
+	defer ss.DataPlaneConnections.Unlock()
+
+	ss.SingleThreadUpdateDeployment(serviceInfo)
+}
+
+func (ss *EndpointPlacer) SingleThreadUpdateDeployment(serviceInfo *proto.ServiceInfo) {
+	wg := &sync.WaitGroup{}
+	wg.Add(ss.DataPlaneConnections.Len())
+
+	for _, dp := range ss.DataPlaneConnections.GetMap() {
+		go func(dataPlane core.DataPlaneInterface) {
+			defer wg.Done()
+
+			ctx, cancel := context.WithTimeout(context.Background(), utils.WorkerNodeTrafficTimeout)
+			defer cancel()
+
+			_, err := dataPlane.UpdateDeployment(ctx, serviceInfo)
+			if err != nil {
+				logrus.Warnf("Failed to update deployment in the data plane - %v", err)
+			}
+		}(dp)
+	}
+
+	wg.Wait()
+}
+
 func (ss *EndpointPlacer) AddEndpoint(endpoint *core.Endpoint) {
 	ss.FunctionState.EndpointLock.Lock()
 	ss.FunctionState.Endpoints = append(ss.FunctionState.Endpoints, endpoint)

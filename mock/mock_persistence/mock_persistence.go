@@ -10,7 +10,6 @@
 package mock_persistence
 
 import (
-	core "cluster_manager/internal/control_plane/control_plane/core"
 	proto "cluster_manager/proto"
 	context "context"
 	reflect "reflect"
@@ -154,20 +153,6 @@ func (m *MockPersistenceLayer) StoreDataPlaneInformation(ctx context.Context, da
 func (mr *MockPersistenceLayerMockRecorder) StoreDataPlaneInformation(ctx, dataplaneInfo any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "StoreDataPlaneInformation", reflect.TypeOf((*MockPersistenceLayer)(nil).StoreDataPlaneInformation), ctx, dataplaneInfo)
-}
-
-// StoreEndpoint mocks base method.
-func (m *MockPersistenceLayer) StoreEndpoint(ctx context.Context, endpoint core.Endpoint) error {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "StoreEndpoint", ctx, endpoint)
-	ret0, _ := ret[0].(error)
-	return ret0
-}
-
-// StoreEndpoint indicates an expected call of StoreEndpoint.
-func (mr *MockPersistenceLayerMockRecorder) StoreEndpoint(ctx, endpoint any) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "StoreEndpoint", reflect.TypeOf((*MockPersistenceLayer)(nil).StoreEndpoint), ctx, endpoint)
 }
 
 // StoreServiceInformation mocks base method.

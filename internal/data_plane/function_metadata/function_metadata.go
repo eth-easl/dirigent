@@ -10,6 +10,7 @@ import (
 	"sync"
 	"sync/atomic"
 	"time"
+	"unsafe"
 
 	"github.com/sirupsen/logrus"
 )
@@ -112,6 +113,12 @@ func (m *FunctionMetadata) GetUpstreamEndpoints() []*UpstreamEndpoint {
 
 func (m *FunctionMetadata) GetSandboxParallelism() uint {
 	return m.sandboxParallelism
+}
+
+func (m *FunctionMetadata) PutSandboxParallelism(containerConcurrency uint) {
+	ptr := (*uint64)(unsafe.Pointer(&m.sandboxParallelism))
+	atomic.SwapUint64(ptr, uint64(containerConcurrency))
+	logrus.Infof("Have modified sandbox parallelism to %d", containerConcurrency)
 }
 
 func (m *FunctionMetadata) GetRoundRobinCounter() uint32 {

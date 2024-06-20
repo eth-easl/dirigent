@@ -3,12 +3,13 @@ package load_balancing
 import (
 	"cluster_manager/internal/data_plane/function_metadata"
 	"fmt"
-	"github.com/montanaflynn/stats"
-	"github.com/sirupsen/logrus"
 	"math/rand"
 	"sync"
 	"testing"
 	"time"
+
+	"github.com/montanaflynn/stats"
+	"github.com/sirupsen/logrus"
 
 	"github.com/stretchr/testify/assert"
 )

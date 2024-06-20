@@ -4,8 +4,9 @@ import (
 	"cluster_manager/internal/control_plane/control_plane/core"
 	"cluster_manager/proto"
 	"context"
-	"google.golang.org/protobuf/types/known/emptypb"
 	"time"
+
+	"google.golang.org/protobuf/types/known/emptypb"
 )
 
 type emptyDataplane struct{}
@@ -19,6 +20,13 @@ func (e emptyDataplane) InitializeDataPlaneConnection(host string, port string) 
 }
 
 func (e emptyDataplane) AddDeployment(ctx context.Context, info *proto.ServiceInfo) (*proto.DeploymentUpdateSuccess, error) {
+	return &proto.DeploymentUpdateSuccess{
+		Success: true,
+		Message: "",
+	}, nil
+}
+
+func (e emptyDataplane) UpdateDeployment(ctx context.Context, info *proto.ServiceInfo) (*proto.DeploymentUpdateSuccess, error) {
 	return &proto.DeploymentUpdateSuccess{
 		Success: true,
 		Message: "",

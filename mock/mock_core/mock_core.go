@@ -175,6 +175,21 @@ func (mr *MockDataPlaneInterfaceMockRecorder) ResetMeasurements(arg0, arg1 any) 
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ResetMeasurements", reflect.TypeOf((*MockDataPlaneInterface)(nil).ResetMeasurements), arg0, arg1)
 }
 
+// UpdateDeployment mocks base method.
+func (m *MockDataPlaneInterface) UpdateDeployment(arg0 context.Context, arg1 *proto.ServiceInfo) (*proto.DeploymentUpdateSuccess, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "UpdateDeployment", arg0, arg1)
+	ret0, _ := ret[0].(*proto.DeploymentUpdateSuccess)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// UpdateDeployment indicates an expected call of UpdateDeployment.
+func (mr *MockDataPlaneInterfaceMockRecorder) UpdateDeployment(arg0, arg1 any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateDeployment", reflect.TypeOf((*MockDataPlaneInterface)(nil).UpdateDeployment), arg0, arg1)
+}
+
 // UpdateEndpointList mocks base method.
 func (m *MockDataPlaneInterface) UpdateEndpointList(arg0 context.Context, arg1 *proto.DeploymentEndpointPatch) (*proto.DeploymentUpdateSuccess, error) {
 	m.ctrl.T.Helper()
@@ -522,6 +537,18 @@ func NewMockAutoscalingInterface(ctrl *gomock.Controller) *MockAutoscalingInterf
 // EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockAutoscalingInterface) EXPECT() *MockAutoscalingInterfaceMockRecorder {
 	return m.recorder
+}
+
+// PanicPoke mocks base method.
+func (m *MockAutoscalingInterface) PanicPoke(functionName string, previousValue int32) {
+	m.ctrl.T.Helper()
+	m.ctrl.Call(m, "PanicPoke", functionName, previousValue)
+}
+
+// PanicPoke indicates an expected call of PanicPoke.
+func (mr *MockAutoscalingInterfaceMockRecorder) PanicPoke(functionName, previousValue any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "PanicPoke", reflect.TypeOf((*MockAutoscalingInterface)(nil).PanicPoke), functionName, previousValue)
 }
 
 // Poke mocks base method.

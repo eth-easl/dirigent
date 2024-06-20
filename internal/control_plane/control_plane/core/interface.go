@@ -4,14 +4,16 @@ import (
 	"cluster_manager/pkg/synchronization"
 	"cluster_manager/proto"
 	"context"
+	"time"
+
 	"google.golang.org/grpc"
 	"google.golang.org/protobuf/types/known/emptypb"
-	"time"
 )
 
 type DataPlaneInterface interface {
 	InitializeDataPlaneConnection(host string, port string) error
 	AddDeployment(context.Context, *proto.ServiceInfo) (*proto.DeploymentUpdateSuccess, error)
+	UpdateDeployment(context.Context, *proto.ServiceInfo) (*proto.DeploymentUpdateSuccess, error)
 	UpdateEndpointList(context.Context, *proto.DeploymentEndpointPatch) (*proto.DeploymentUpdateSuccess, error)
 	DeleteDeployment(context.Context, *proto.ServiceInfo) (*proto.DeploymentUpdateSuccess, error)
 	DrainSandbox(context.Context, *proto.DeploymentEndpointPatch) (*proto.DeploymentUpdateSuccess, error)

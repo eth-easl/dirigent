@@ -5,8 +5,9 @@ import (
 	"cluster_manager/pkg/grpc_helpers"
 	"cluster_manager/proto"
 	"context"
-	"google.golang.org/protobuf/types/known/emptypb"
 	"time"
+
+	"google.golang.org/protobuf/types/known/emptypb"
 )
 
 func NewDataplaneConnection(IP, APIPort, ProxyPort string) core.DataPlaneInterface {
@@ -42,6 +43,10 @@ func (d *DataPlaneConnectionInfo) InitializeDataPlaneConnection(host string, por
 
 func (d *DataPlaneConnectionInfo) AddDeployment(ctx context.Context, in *proto.ServiceInfo) (*proto.DeploymentUpdateSuccess, error) {
 	return d.Iface.AddDeployment(ctx, in)
+}
+
+func (d *DataPlaneConnectionInfo) UpdateDeployment(ctx context.Context, in *proto.ServiceInfo) (*proto.DeploymentUpdateSuccess, error) {
+	return d.Iface.UpdateDeployment(ctx, in)
 }
 
 func (d *DataPlaneConnectionInfo) UpdateEndpointList(ctx context.Context, in *proto.DeploymentEndpointPatch) (*proto.DeploymentUpdateSuccess, error) {
