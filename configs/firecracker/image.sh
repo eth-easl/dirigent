@@ -38,19 +38,25 @@ if [ "$SOURCE_PATH" = "" ]; then
     exit 1
 fi
 
-build_go_function(){
+build_go_function() {
     export PATH=$PATH:/usr/local/go/bin
     go build -buildvcs=false -tags netgo -ldflags '-extldflags "-static"' -o "$DEST_PATH/$APP_NAME" || exit
     echo "Built go function"
 }
+
+build_cpp_function() {
+    g++ -std=c++11 -static -O0 -o $DEST_PATH/$APP_NAME main.h main.cpp -lboost_system -lboost_thread -lpthread
+    echo "Built C++ function"
+}
+
 #  build the application
 (
     # Execute in subshell to avoid changing shell directory
     cd "$SOURCE_PATH" || exit
     # Build function based on source path contents
     # by checking if there is a *.go file in the source path, "no such file" errors are piped to /dev/null
-    if [[ -n $(find "$SOURCE_PATH/workload.go" 2>/dev/null) ]]; then
-        build_go_function
+    if [[ -n $(find "$SOURCE_PATH/main.cpp" 2>/dev/null) ]]; then
+        build_cpp_function
     else
         echo "Failed to find the workload for image building."
         exit 1
