@@ -13,10 +13,11 @@ import (
 	"cluster_manager/proto"
 	"context"
 	"fmt"
-	"google.golang.org/protobuf/types/known/emptypb"
 	"math/rand"
 	"os"
 	"time"
+
+	"google.golang.org/protobuf/types/known/emptypb"
 
 	"github.com/sirupsen/logrus"
 	"k8s.io/apimachinery/pkg/util/wait"

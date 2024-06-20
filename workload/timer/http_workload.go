@@ -2,13 +2,14 @@ package main
 
 import (
 	"encoding/json"
-	log "github.com/sirupsen/logrus"
-	"golang.org/x/net/http2"
-	"golang.org/x/net/http2/h2c"
 	"net/http"
 	"os"
 	"strconv"
 	"time"
+
+	log "github.com/sirupsen/logrus"
+	"golang.org/x/net/http2"
+	"golang.org/x/net/http2/h2c"
 )
 
 // static double SQRTSD (double x) {
@@ -52,7 +53,12 @@ func rootHandler(w http.ResponseWriter, req *http.Request) {
 	workload := req.Header.Get("workload")
 	function := req.Header.Get("function")
 	requestedCpu := req.Header.Get("requested_cpu")
-	multiplier := req.Header.Get("multiplier")
+
+	multiplier := -1
+	multiplierString, multiplierOk := os.LookupEnv("ITERATIONS_MULTIPLIER")
+	if multiplierOk {
+		multiplier, _ = strconv.Atoi(multiplierString)
+	}
 
 	switch workload {
 	case "empty":
@@ -72,14 +78,13 @@ func rootHandler(w http.ResponseWriter, req *http.Request) {
 			return
 		}
 
-		mpl, err := strconv.Atoi(multiplier)
-		if err != nil {
+		if !multiplierOk {
 			w.WriteHeader(http.StatusBadRequest)
 			return
 		}
 
 		start := time.Now()
-		busyLoopFor(uint32(tlm), start, mpl)
+		busyLoopFor(uint32(tlm), start, multiplier)
 
 		responseBytes, _ := json.Marshal(FunctionResponse{
 			Status:        "OK",

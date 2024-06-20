@@ -8,13 +8,14 @@ import (
 	"cluster_manager/pkg/tracing"
 	"cluster_manager/proto"
 	"fmt"
-	"github.com/sirupsen/logrus"
-	"golang.org/x/net/http2"
-	"golang.org/x/net/http2/h2c"
 	"net"
 	"net/http"
 	"net/http/httputil"
 	"time"
+
+	"github.com/sirupsen/logrus"
+	"golang.org/x/net/http2"
+	"golang.org/x/net/http2/h2c"
 )
 
 type proxyContext struct {

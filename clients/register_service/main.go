@@ -6,6 +6,7 @@ import (
 	"cluster_manager/pkg/utils"
 	"cluster_manager/proto"
 	"context"
+
 	"github.com/sirupsen/logrus"
 )
 
@@ -29,6 +30,9 @@ func Deployservice() {
 			Protocol:  proto.L4Protocol_TCP,
 		},
 		AutoscalingConfig: autoscalingConfig,
+		SandboxConfiguration: &proto.SandboxConfiguration{
+			IterationMultiplier: 102,
+		},
 	})
 
 	if err != nil || !resp.Success {

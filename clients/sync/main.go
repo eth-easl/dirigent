@@ -44,7 +44,6 @@ func SyncRequest() {
 	req.Header.Set("workload", "empty")
 	req.Header.Set("requested_cpu", strconv.Itoa(1))
 	req.Header.Set("requested_memory", strconv.Itoa(1))
-	req.Header.Set("multiplier", strconv.Itoa(0))
 
 	resp, err := client.Do(req)
 	if err != nil {
