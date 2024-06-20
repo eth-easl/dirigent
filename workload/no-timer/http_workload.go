@@ -9,39 +9,30 @@ import (
 	log "github.com/sirupsen/logrus"
 	"golang.org/x/net/http2"
 	"golang.org/x/net/http2/h2c"
+	"math"
 )
-
-// static double SQRTSD (double x) {
-//     double r;
-//     __asm__ ("sqrtsd %1, %0" : "=x" (r) : "x" (x));
-//     return r;
-// }
-import "C"
-
-const ExecUnit int = 1e2
 
 var machineName string
 var multiplier = 0
 
-func takeSqrts() C.double {
-	var tmp C.double // Circumvent compiler optimizations
-	for i := 0; i < ExecUnit; i++ {
-		tmp = C.SQRTSD(C.double(10))
-	}
-	return tmp
+func takeSqrts() float64 {
+	return math.Sqrt(10)
 }
 
 func busySpin(multiplier, runtimeMilli uint64) {
 	totalIterations := multiplier * runtimeMilli
 
+	var result float64
 	var i uint64
 	for i = 0; i < totalIterations; i++ {
 		takeSqrts()
 	}
+
+	log.Trace(result)
 }
 
-func busyLoopFor(timeToSpin uint32, mpl int) {
-	busySpin(uint64(mpl), uint64(timeToSpin))
+func busyLoopFor(timeToSpin uint64, mpl uint64) {
+	busySpin(mpl, timeToSpin)
 }
 
 func rootHandler(w http.ResponseWriter, req *http.Request) {
@@ -74,7 +65,7 @@ func rootHandler(w http.ResponseWriter, req *http.Request) {
 			return
 		}
 
-		busyLoopFor(uint32(tlm), multiplier)
+		busyLoopFor(uint64(tlm), uint64(multiplier))
 
 		responseBytes, _ := json.Marshal(FunctionResponse{
 			Status:        "OK",
@@ -158,7 +149,7 @@ func busyLoopOnStartup() {
 	}
 	log.Infof("Iteration multiplier configured to %d", multiplier)
 
-	busyLoopFor(uint32(loopForMs), multiplier)
+	busyLoopFor(uint64(loopForMs), uint64(multiplier))
 }
 
 func StartHTTPServer() {
