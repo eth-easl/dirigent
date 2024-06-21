@@ -26,7 +26,7 @@ func NewMetricClient(metadata *function_state.FunctionState) *MetricClient {
 }
 
 func (c *MetricClient) StableAndPanicConcurrency() (float64, float64) {
-	autoscalingConfig := c.functionState.GetAutoscalingConfig()
+	autoscalingConfig := c.functionState.ServiceInfo.AutoscalingConfig
 	observedStableValue := float64(c.functionState.CachedScalingMetrics)
 
 	panicBucketCount := int64(autoscalingConfig.PanicWindowWidthSeconds / autoscalingConfig.ScalingPeriodSeconds)

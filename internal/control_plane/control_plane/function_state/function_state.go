@@ -15,7 +15,7 @@ type FunctionState struct {
 
 	ActualScale int64
 
-	autoscalingConfig **proto.AutoscalingConfiguration
+	ServiceInfo *proto.ServiceInfo
 
 	inflightRequestsPerDataPlane map[string]int32
 	inflightRequestsLock         sync.RWMutex
@@ -30,16 +30,12 @@ type FunctionState struct {
 
 func NewFunctionState(serviceInfo *proto.ServiceInfo) *FunctionState {
 	return &FunctionState{
-		autoscalingConfig:            &serviceInfo.AutoscalingConfig,
+		ServiceInfo:                  serviceInfo,
 		inflightRequestsPerDataPlane: make(map[string]int32),
 		inflightRequestsLock:         sync.RWMutex{},
 		DesiredStateChannel:          make(chan int),
 		ServiceName:                  serviceInfo.Name,
 	}
-}
-
-func (fstate *FunctionState) GetAutoscalingConfig() *proto.AutoscalingConfiguration {
-	return *fstate.autoscalingConfig
 }
 
 func (fState *FunctionState) GetNumberEndpoint() int {

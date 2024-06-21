@@ -39,7 +39,7 @@ func patchHandler(api *control_plane.CpApiServer) func(w http.ResponseWriter, r 
 			return
 		}
 
-		oldConfig := sis.FunctionState.GetAutoscalingConfig()
+		oldConfig := sis.FunctionState.ServiceInfo.AutoscalingConfig
 		config := &proto.AutoscalingConfiguration{
 			ScalingUpperBound:                    oldConfig.ScalingUpperBound,
 			ScalingLowerBound:                    oldConfig.ScalingLowerBound,
@@ -102,11 +102,11 @@ func patchHandler(api *control_plane.CpApiServer) func(w http.ResponseWriter, r 
 			return
 		}
 
-		sis.ServiceInfo.AutoscalingConfig = config
+		sis.FunctionState.ServiceInfo.AutoscalingConfig = config
 
-		sis.UpdateDeployment(sis.ServiceInfo)
+		sis.UpdateDeployment(sis.FunctionState.ServiceInfo)
 
-		if err = api.ControlPlane.PersistenceLayer.StoreServiceInformation(context.Background(), sis.ServiceInfo); err != nil {
+		if err = api.ControlPlane.PersistenceLayer.StoreServiceInformation(context.Background(), sis.FunctionState.ServiceInfo); err != nil {
 			http.Error(w, fmt.Sprintf("Failed to persist patch handler - %v", err), http.StatusInternalServerError)
 			return
 

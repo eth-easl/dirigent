@@ -154,7 +154,7 @@ func NewMultiScaler(
 func (m *MultiScaler) Create(functionState *function_state.FunctionState) {
 	m.create(functionState, &Decider{
 		Name:                     functionState.ServiceName,
-		AutoscalingConfiguration: functionState.GetAutoscalingConfig(),
+		AutoscalingConfiguration: functionState.ServiceInfo.AutoscalingConfig,
 		Status:                   DeciderStatus{},
 	})
 }

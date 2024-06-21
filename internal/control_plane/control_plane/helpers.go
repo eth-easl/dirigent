@@ -37,7 +37,6 @@ func (c *ControlPlane) notifyDataplanesAndStartScalingLoop(ctx context.Context, 
 	placementPolicy, evictionPolicy := parsePlacementEvictionPolicies(c.Config)
 
 	c.SIStorage.Set(serviceInfo.Name, &endpoint_placer.EndpointPlacer{
-		ServiceInfo:             serviceInfo,
 		FunctionState:           functionState,
 		ColdStartTracingChannel: c.ColdStartTracing.InputChannel,
 		PlacementPolicy:         placementPolicy,

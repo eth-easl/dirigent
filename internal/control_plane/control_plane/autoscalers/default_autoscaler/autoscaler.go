@@ -111,12 +111,14 @@ func (s *defaultAutoscaler) KnativeScaling(isScaleFromZero bool) int {
 
 	desiredScale, _ := s.internalScaleAlgorithm(float64(s.functionState.CachedScalingMetrics))
 
-	return mathutil.Clamp(desiredScale, int(s.functionState.GetAutoscalingConfig().ScalingLowerBound), int(s.functionState.GetAutoscalingConfig().ScalingUpperBound))
+	autoscalingConfig := s.functionState.ServiceInfo.AutoscalingConfig
+
+	return mathutil.Clamp(desiredScale, int(autoscalingConfig.ScalingLowerBound), int(autoscalingConfig.ScalingUpperBound))
 }
 
 func (s *defaultAutoscaler) internalScaleAlgorithm(scalingMetric float64) (int, float64) {
 	originalReadyPodsCount := s.functionState.ActualScale
-	autoScalingConfig := s.functionState.GetAutoscalingConfig()
+	autoScalingConfig := s.functionState.ServiceInfo.AutoscalingConfig
 
 	// Use 1 if there are zero current pods.
 	readyPodsCount := math.Max(1, float64(originalReadyPodsCount))
@@ -200,7 +202,7 @@ func (s *defaultAutoscaler) internalScaleAlgorithm(scalingMetric float64) (int, 
 }
 
 func (s *defaultAutoscaler) windowAverage(observedStableValue float64) (float64, float64) {
-	autoscalingConfig := s.functionState.GetAutoscalingConfig()
+	autoscalingConfig := s.functionState.ServiceInfo.AutoscalingConfig
 
 	panicBucketCount := int64(autoscalingConfig.PanicWindowWidthSeconds / autoscalingConfig.ScalingPeriodSeconds)
 	stableBucketCount := int64(autoscalingConfig.StableWindowWidthSeconds / autoscalingConfig.ScalingPeriodSeconds)

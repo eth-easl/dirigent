@@ -129,7 +129,7 @@ func (c *ControlPlane) registerDataplane(ctx context.Context, in *proto.Dataplan
 	c.DataPlaneConnections.Set(key, dataplaneConnection)
 
 	for _, service := range c.SIStorage.GetMap() {
-		if _, err = c.DataPlaneConnections.GetNoCheck(key).AddDeployment(ctx, service.ServiceInfo); err != nil {
+		if _, err = c.DataPlaneConnections.GetNoCheck(key).AddDeployment(ctx, service.FunctionState.ServiceInfo); err != nil {
 			logrus.Errorf("Failed to add deployement : %s", err.Error())
 			c.DataPlaneConnections.Remove(key)
 			return &proto.ActionStatus{Success: false}, err, false
@@ -368,7 +368,7 @@ func (c *ControlPlane) setInvocationsMetrics(_ context.Context, metric *proto.Au
 
 	storage.FunctionState.SetCachedScalingMetrics(metric)
 
-	logrus.Debug("Scaling metric for '", storage.ServiceInfo.Name, "' is ", metric.InflightRequests)
+	logrus.Debug("Scaling metric for '", storage.FunctionState.ServiceInfo.Name, "' is ", metric.InflightRequests)
 
 	// Notify autoscaler we received metrics
 	c.autoscalingManager.Poke(metric.ServiceName, previousValue)
@@ -459,7 +459,7 @@ func (c *ControlPlane) createWorkerNodeFailureEvents(wn core.WorkerNodeInterface
 	for _, value := range c.SIStorage.GetMap() {
 		failureMetadata := &proto.Failure{
 			Type:        proto.FailureType_WORKER_NODE_FAILURE,
-			ServiceName: value.ServiceInfo.Name,
+			ServiceName: value.FunctionState.ServiceInfo.Name,
 			SandboxIDs:  c.getServicesOnWorkerNode(value, wn),
 		}
 
@@ -502,7 +502,7 @@ func (c *ControlPlane) precreateSnapshots(info *proto.ServiceInfo) {
 		go func(node core.WorkerNodeInterface) {
 			defer wg.Done()
 
-			sandboxInfo, err := node.CreateSandbox(context.Background(), ss.ServiceInfo)
+			sandboxInfo, err := node.CreateSandbox(context.Background(), ss.FunctionState.ServiceInfo)
 			if err != nil {
 				logrus.Warnf("Failed to create a image prewarming sandbox for function %s on node %s.", info.Name, node.GetName())
 				return

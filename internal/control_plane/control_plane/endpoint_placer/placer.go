@@ -21,8 +21,6 @@ import (
 )
 
 type EndpointPlacer struct {
-	ServiceInfo *proto.ServiceInfo
-
 	FunctionState           *function_state.FunctionState
 	ColdStartTracingChannel chan tracing.ColdStartLogEntry
 
@@ -83,14 +81,14 @@ func (ss *EndpointPlacer) ScalingControllerLoop() {
 	}
 }
 
-func (ss *EndpointPlacer) UpdateDeployment(serviceInfo *proto.ServiceInfo) {
+func (ss *EndpointPlacer) UpdateDeployment(newServiceInfo *proto.ServiceInfo) {
 	ss.DataPlaneConnections.Lock()
 	defer ss.DataPlaneConnections.Unlock()
 
-	ss.SingleThreadUpdateDeployment(serviceInfo)
+	ss.SingleThreadUpdateDeployment(newServiceInfo)
 }
 
-func (ss *EndpointPlacer) SingleThreadUpdateDeployment(serviceInfo *proto.ServiceInfo) {
+func (ss *EndpointPlacer) SingleThreadUpdateDeployment(newServiceInfo *proto.ServiceInfo) {
 	wg := &sync.WaitGroup{}
 	wg.Add(ss.DataPlaneConnections.Len())
 
@@ -101,7 +99,7 @@ func (ss *EndpointPlacer) SingleThreadUpdateDeployment(serviceInfo *proto.Servic
 			ctx, cancel := context.WithTimeout(context.Background(), utils.WorkerNodeTrafficTimeout)
 			defer cancel()
 
-			_, err := dataPlane.UpdateDeployment(ctx, serviceInfo)
+			_, err := dataPlane.UpdateDeployment(ctx, newServiceInfo)
 			if err != nil {
 				logrus.Warnf("Failed to update deployment in the data plane - %v", err)
 			}
@@ -155,7 +153,7 @@ func (ss *EndpointPlacer) SingleThreadUpdateEndpoints(endpoints []*proto.Endpoin
 			defer cancel()
 
 			_, err := dataPlane.UpdateEndpointList(ctx, &proto.DeploymentEndpointPatch{
-				Service:   ss.ServiceInfo,
+				Service:   ss.FunctionState.ServiceInfo,
 				Endpoints: endpoints,
 			})
 			if err != nil {
@@ -217,7 +215,7 @@ func (ss *EndpointPlacer) doUpscaling(toCreateCount int, loopStarted time.Time) 
 		go func() {
 			defer wg.Done()
 
-			requested := placement_policy2.CreateResourceMap(ss.ServiceInfo.GetRequestedCpu(), ss.ServiceInfo.GetRequestedMemory())
+			requested := placement_policy2.CreateResourceMap(ss.FunctionState.ServiceInfo.GetRequestedCpu(), ss.FunctionState.ServiceInfo.GetRequestedMemory())
 			node := placement_policy2.ApplyPlacementPolicy(ss.PlacementPolicy, ss.NIStorage, requested)
 			if node == nil {
 				logrus.Warn("Failed to do placement. No nodes are schedulable.")
@@ -229,7 +227,7 @@ func (ss *EndpointPlacer) doUpscaling(toCreateCount int, loopStarted time.Time) 
 			ctx, cancel := context.WithTimeout(context.Background(), utils.WorkerNodeTrafficTimeout)
 			defer cancel()
 
-			resp, err := node.CreateSandbox(ctx, ss.ServiceInfo)
+			resp, err := node.CreateSandbox(ctx, ss.FunctionState.ServiceInfo)
 			if err != nil || !resp.Success {
 				text := ""
 				if err != nil {
@@ -248,7 +246,7 @@ func (ss *EndpointPlacer) doUpscaling(toCreateCount int, loopStarted time.Time) 
 					}
 				}
 				ss.ColdStartTracingChannel <- tracing.ColdStartLogEntry{
-					ServiceName:      ss.ServiceInfo.Name,
+					ServiceName:      ss.FunctionState.ServiceInfo.Name,
 					ContainerID:      "",
 					Success:          false,
 					PersistenceCost:  0,
@@ -269,7 +267,7 @@ func (ss *EndpointPlacer) doUpscaling(toCreateCount int, loopStarted time.Time) 
 				Node:      node,
 				HostPort:  resp.PortMappings.HostPort,
 				CreationHistory: tracing.ColdStartLogEntry{
-					ServiceName:      ss.ServiceInfo.Name,
+					ServiceName:      ss.FunctionState.ServiceInfo.Name,
 					ContainerID:      resp.ID,
 					Success:          resp.Success,
 					PersistenceCost:  time.Since(costPersistStart),
@@ -280,7 +278,7 @@ func (ss *EndpointPlacer) doUpscaling(toCreateCount int, loopStarted time.Time) 
 			startEndpointPropagation := time.Now()
 
 			// Update worker node structure
-			ss.NIStorage.AtomicGetNoCheck(node.GetName()).GetEndpointMap().AtomicSet(newEndpoint, ss.ServiceInfo.Name)
+			ss.NIStorage.AtomicGetNoCheck(node.GetName()).GetEndpointMap().AtomicSet(newEndpoint, ss.FunctionState.ServiceInfo.Name)
 
 			ss.FunctionState.Endpoints = append(ss.FunctionState.Endpoints, newEndpoint)
 			urls := ss.PrepareEndpointInfo([]*core.Endpoint{newEndpoint}) // prepare delta for sending
@@ -390,11 +388,11 @@ func (ss *EndpointPlacer) drainSandbox(toEvict map[*core.Endpoint]struct{}) {
 			defer cancel()
 
 			_, err := dataPlane.DrainSandbox(ctx, &proto.DeploymentEndpointPatch{
-				Service:   ss.ServiceInfo,
+				Service:   ss.FunctionState.ServiceInfo,
 				Endpoints: ss.PrepareEndpointInfo(toDrain),
 			})
 			if err != nil {
-				logrus.Errorf("Error draining endpoints for service %s.", ss.ServiceInfo.Name)
+				logrus.Errorf("Error draining endpoints for service %s.", ss.FunctionState.ServiceInfo.Name)
 			}
 		}(dp)
 	}

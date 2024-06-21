@@ -197,7 +197,7 @@ func (c *ControlPlane) reconstructEndpointsState(ctx context.Context) error {
 			}
 			c.SIStorage.RUnlock()
 
-			ss.NIStorage.AtomicGetNoCheck(node.GetName()).GetEndpointMap().AtomicSet(controlPlaneEndpoint, ss.ServiceInfo.Name)
+			ss.NIStorage.AtomicGetNoCheck(node.GetName()).GetEndpointMap().AtomicSet(controlPlaneEndpoint, ss.FunctionState.ServiceInfo.Name)
 
 			// Add endpoint to the node endpoint_placer
 			ss.AddEndpoint(controlPlaneEndpoint)
