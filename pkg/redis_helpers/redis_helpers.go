@@ -4,7 +4,9 @@ import (
 	"cluster_manager/pkg/config"
 	"context"
 	"fmt"
+
 	"github.com/redis/go-redis/v9"
+	"github.com/sirupsen/logrus"
 )
 
 func CreateRedisConnector(ctx context.Context, redisLogin config.RedisConf) (*redis.Client, []*redis.Client, error) {
@@ -41,6 +43,7 @@ func CreateRedisConnector(ctx context.Context, redisLogin config.RedisConf) (*re
 		}))
 	}
 
+	logrus.Infof("Connect to redis server %s", redisLogin.Address)
 	return redisClient, otherClients, redisClient.Ping(ctx).Err()
 }
 

@@ -6,10 +6,11 @@ import (
 	"cluster_manager/proto"
 	"context"
 	"fmt"
+	"net"
+
 	proto2 "github.com/golang/protobuf/proto"
 	"github.com/redis/go-redis/v9"
 	"github.com/sirupsen/logrus"
-	"net"
 )
 
 const (
