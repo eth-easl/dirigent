@@ -138,15 +138,18 @@ func proxyHandler(proxy *httputil.ReverseProxy, writer http.ResponseWriter, requ
 	///////////////////////////////////////////////
 
 	proxyContext.tracing.InputChannel <- tracing.ProxyLogEntry{
-		ServiceName:      serviceName,
-		ContainerID:      endpoint.ID,
-		Total:            time.Since(requestMetadata.start),
-		GetMetadata:      durationGetDeployment,
-		AddDeployment:    addDeploymentDuration,
-		ColdStart:        durationColdStart,
-		LoadBalancing:    durationLB,
-		CCThrottling:     durationCC,
-		Proxying:         time.Since(startProxy),
+		ServiceName: serviceName,
+		ContainerID: endpoint.ID,
+
+		StartTime:     requestMetadata.start,
+		Total:         time.Since(requestMetadata.start),
+		GetMetadata:   durationGetDeployment,
+		AddDeployment: addDeploymentDuration,
+		ColdStart:     durationColdStart,
+		LoadBalancing: durationLB,
+		CCThrottling:  durationCC,
+		Proxying:      time.Since(startProxy),
+
 		Serialization:    requestMetadata.serialization,
 		PersistenceLayer: requestMetadata.persistenceLayer,
 	}
