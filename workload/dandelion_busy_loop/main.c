@@ -44,7 +44,6 @@ int main(int argc, char const *argv[]) {
         perror("failed to read multiplier");
         return -1;
     }
-    multiplier[strlen(multiplier) - 1] = '\0';
 
     char *trace_string = "trace";
     char *empyt_string = "empty";
@@ -54,8 +53,6 @@ int main(int argc, char const *argv[]) {
         long requested_cpu_num = strtol(requestedCpu, NULL, 10);
 
         long total_iterations = multiplier_num * requested_cpu_num;
-
-	//printf("%ld, %ld, %ld\n", multiplier_num, requested_cpu_num, total_iterations);
 
         volatile double result = 0.0;
         volatile double input = 10.0;
