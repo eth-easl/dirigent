@@ -88,13 +88,13 @@ function SetupWorkerNodes() {
         RemoteExec $1 "sudo cp ~/cluster_manager/cmd/worker_node/config_cluster$2.yaml /cluster_manager/cmd/worker_node/config_cluster.yaml"
 
         # Start Dandelion
-        RUNTIME=$(RemoteExec $1 "cat /cluster_manager/cmd/worker_node/config_cluster.yaml | yq '.criType'")
+        #RUNTIME=$(RemoteExec $1 "cat /cluster_manager/cmd/worker_node/config_cluster.yaml | yq '.criType'")
 
-        if [[ "$RUNTIME" == "dandelion" ]]; then
-            RemoteExec $1 "cd ~/dandelion; RUSTFLAGS='-C target-feature=+crt-static' cargo build --bin mmu_worker --features mmu --target \$(arch)-unknown-linux-gnu"
-            RemoteExec $1 "tmux new -s dandelion -d"
-            RemoteExec $1 "tmux send-keys -t dandelion 'cd ~/dandelion; RUST_LOG=debug cargo run --bin dandelion_server -F mmu,reqwest_io' ENTER"
-        fi
+        #if [[ "$RUNTIME" == "dandelion" ]]; then
+        RemoteExec $1 "cd ~/dandelion; RUSTFLAGS='-C target-feature=+crt-static' cargo build --bin mmu_worker --features mmu --target \$(arch)-unknown-linux-gnu"
+        RemoteExec $1 "tmux new -s dandelion -d"
+        RemoteExec $1 "tmux send-keys -t dandelion 'cd ~/dandelion; RUST_LOG=debug cargo run --bin dandelion_server -F mmu,reqwest_io' ENTER"
+        #fi
 
         # For readiness probe
         RemoteExec $1 "sudo sysctl -w net.ipv4.conf.all.route_localnet=1"
