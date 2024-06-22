@@ -70,3 +70,8 @@ readonly NODE_PURPOSE=$1
 if [ "$NODE_PURPOSE" = "CONTROL_PLANE" ]; then
     SetupLoadBalancer
 fi
+
+if [ "$NODE_PURPOSE" = "INVITRO"]; then
+    RemoteExec $1 '[ ! -d ~/invitro ] && git clone https://github.com/vhive-serverless/invitro.git'
+    rsync -av invitro_traces/* $INVITRO:invitro/invitro_traces
+fi

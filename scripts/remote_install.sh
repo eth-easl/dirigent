@@ -47,7 +47,6 @@ function SetupNode() {
     # LFS pull for VM kernel image and rootfs
     RemoteExec $1 'cd ~/cluster_manager; git pull; git lfs pull'
     RemoteExec $1 'sudo cp -r ~/cluster_manager/ /cluster_manager'
-    RemoteExec $1 '[ ! -d ~/invitro ] && git clone https://github.com/vhive-serverless/invitro.git'
 }
 
 git lfs pull
@@ -60,7 +59,7 @@ NODE_COUNTER=0
 for NODE in "$@"
 do
     if [ "$NODE_COUNTER" -eq 0 ]; then
-        HA_SETTING="REDIS"
+        HA_SETTING="INVITRO"
     elif [ "$NODE_COUNTER" -le $CONTROL_PLANE_REPLICAS ]; then
         HA_SETTING="CONTROL_PLANE"
     elif [ "$NODE_COUNTER" -le $(( $CONTROL_PLANE_REPLICAS + $DATA_PLANE_REPLICAS )) ]; then
@@ -72,7 +71,4 @@ do
     SetupNode $NODE $HA_SETTING &
     let NODE_COUNTER++ || true
 done
-
-rsync -av invitro_traces/* $INVITRO:invitro/invitro_traces
-
 wait
