@@ -289,6 +289,7 @@ func (ss *EndpointPlacer) doUpscaling(toCreateCount int, loopStarted time.Time) 
 			logrus.Debugf("Endpoint has been propagated - %s", resp.ID)
 
 			newEndpoint.CreationHistory.LatencyBreakdown.DataplanePropagation = durationpb.New(time.Since(startEndpointPropagation))
+			newEndpoint.CreationHistory.Event = "CREATE"
 
 			ss.ColdStartTracingChannel <- newEndpoint.CreationHistory
 		}()
@@ -341,6 +342,15 @@ func (ss *EndpointPlacer) doDownscaling(actualScale, desiredCount int) {
 
 			go func(victim *core.Endpoint) {
 				defer wg.Done()
+
+				ss.ColdStartTracingChannel <- tracing.ColdStartLogEntry{
+					ServiceName:      ss.ServiceInfo.Name,
+					ContainerID:      victim.SandboxID,
+					Event:            "DELETE",
+					Success:          true,
+					PersistenceCost:  0,
+					LatencyBreakdown: &proto.SandboxCreationBreakdown{},
+				}
 
 				ss.deleteSandbox(victim)
 				ss.DandelionNodes.AtomicRemove(victim.Node.GetName())
