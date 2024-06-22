@@ -12,13 +12,14 @@ import (
 )
 
 const (
-	coldStartLogHeader = "time,service_name,container_id,success,image_fetch,sandbox_create,sandbox_start,network_setup,iptables,readiness_probe,data_plane_propagation,snapshot_creation,configure_monitoring,find_snapshot,db,other_worker_node\n"
+	coldStartLogHeader = "time,service_name,container_id,event,success,image_fetch,sandbox_create,sandbox_start,network_setup,iptables,readiness_probe,data_plane_propagation,snapshot_creation,configure_monitoring,find_snapshot,db,other_worker_node\n"
 	proxyLogHeader     = "time,service_name,container_id,start_time,get_metadata,add_deployment,cold_start,load_balancing,cc_throttling,proxying,serialization,persistence_layer,other\n"
 )
 
 type ColdStartLogEntry struct {
 	ServiceName     string
 	ContainerID     string
+	Event           string
 	Success         bool
 	PersistenceCost time.Duration
 
@@ -131,10 +132,11 @@ func coldStartWriteFunction(f *os.File, msg ColdStartLogEntry) {
 		msg.LatencyBreakdown.ReadinessProbing.AsDuration() + msg.LatencyBreakdown.SnapshotCreation.AsDuration() +
 		msg.LatencyBreakdown.ConfigureMonitoring.AsDuration() + msg.LatencyBreakdown.FindSnapshot.AsDuration())
 
-	if _, err := f.WriteString(fmt.Sprintf("%d,%s,%s,%t,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d\n",
+	if _, err := f.WriteString(fmt.Sprintf("%d,%s,%s,%s,%t,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d\n",
 		time.Now().UnixNano(),
 		msg.ServiceName,
 		msg.ContainerID,
+		msg.Event,
 		msg.Success,
 		msg.LatencyBreakdown.ImageFetch.AsDuration().Microseconds(),
 		msg.LatencyBreakdown.SandboxCreate.AsDuration().Microseconds(),
