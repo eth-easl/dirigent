@@ -39,26 +39,13 @@ func patchHandler(api *control_plane.CpApiServer) func(w http.ResponseWriter, r 
 			return
 		}
 
-		oldConfig := sis.FunctionState.ServiceInfo.AutoscalingConfig
-		config := &proto.AutoscalingConfiguration{
-			ScalingUpperBound:                    oldConfig.ScalingUpperBound,
-			ScalingLowerBound:                    oldConfig.ScalingLowerBound,
-			PanicThresholdPercentage:             oldConfig.PanicThresholdPercentage,
-			MaxScaleUpRate:                       oldConfig.MaxScaleUpRate,
-			MaxScaleDownRate:                     oldConfig.MaxScaleDownRate,
-			ContainerConcurrency:                 oldConfig.ContainerConcurrency,
-			ContainerConcurrencyTargetPercentage: oldConfig.ContainerConcurrencyTargetPercentage,
-			StableWindowWidthSeconds:             oldConfig.StableWindowWidthSeconds,
-			PanicWindowWidthSeconds:              oldConfig.PanicWindowWidthSeconds,
-			ScalingPeriodSeconds:                 oldConfig.ScalingPeriodSeconds,
-			ScalingMethod:                        oldConfig.ScalingMethod,
-		}
+		config := cloneAutoscalingConfig(sis.FunctionState.ServiceInfo.AutoscalingConfig)
 
 		if err = parseAndApplyArg("scaling_upper_bound", r, &config.ScalingUpperBound, ensurePositive[int32]); err != nil {
 			http.Error(w, fmt.Sprintf("Cannot cast scaling_upper_bound to integer - %v", err), http.StatusBadRequest)
 			return
 		}
-		if err = parseAndApplyArg("scaling_lower_bound", r, &config.ScalingLowerBound, ensurePositive[int32]); err != nil {
+		if err = parseAndApplyArg("scaling_lower_bound", r, &config.ScalingLowerBound, ensurePositiveOrZero[int32]); err != nil {
 			http.Error(w, fmt.Sprintf("Cannot cast scaling_lower_bound to integer - %v", err), http.StatusBadRequest)
 			return
 		}
@@ -66,42 +53,58 @@ func patchHandler(api *control_plane.CpApiServer) func(w http.ResponseWriter, r 
 			http.Error(w, "Scaling upper bound cannot be lower than the scaling lower bound.", http.StatusBadRequest)
 			return
 		}
-		if err = parseAndApplyArg("panic_threshold_percentage", r, &config.PanicThresholdPercentage, ensurePositive[float32]); err != nil {
-			http.Error(w, fmt.Sprintf("Cannot cast panic_threshold_percentage to float32 - %v", err), http.StatusBadRequest)
+		if err = parseAndApplyArg("panic_threshold_percentage", r, &config.PanicThresholdPercentage, ensurePositiveOrZero[float32]); err != nil {
+			http.Error(w, fmt.Sprintf("Invalid panic_threshold_percentage - %v", err), http.StatusBadRequest)
 			return
 		}
 		if err = parseAndApplyArg("max_scale_up_rate", r, &config.MaxScaleUpRate, ensurePositive[float32]); err != nil {
-			http.Error(w, fmt.Sprintf("Cannot cast max_scale_up_rate to float32 - %v", err), http.StatusBadRequest)
+			http.Error(w, fmt.Sprintf("Invalid max_scale_up_rate - %v", err), http.StatusBadRequest)
 			return
 		}
 		if err = parseAndApplyArg("max_scale_down_rate", r, &config.MaxScaleDownRate, ensurePositive[float32]); err != nil {
-			http.Error(w, fmt.Sprintf("Cannot cast max_scale_down_rate to float32 - %v", err), http.StatusBadRequest)
+			http.Error(w, fmt.Sprintf("Invalid max_scale_down_rate - %v", err), http.StatusBadRequest)
 			return
 		}
-		if err = parseAndApplyArg("container_concurrency", r, &config.ContainerConcurrency, ensurePositive[int32]); err != nil {
-			http.Error(w, fmt.Sprintf("Cannot cast container_concurrency to integer - %v", err), http.StatusBadRequest)
+		if err = parseAndApplyArg("container_concurrency", r, &config.ContainerConcurrency, ensurePositiveOrZero[int32]); err != nil {
+			http.Error(w, fmt.Sprintf("Invalid container_concurrency - %v", err), http.StatusBadRequest)
+			return
 		}
 		if err = parseAndApplyArg("container_concurrency_target_percentage", r, &config.ContainerConcurrencyTargetPercentage, ensurePositive[int32]); err != nil {
-			http.Error(w, fmt.Sprintf("Cannot cast container_concurrency_target_percentage to integer - %v", err), http.StatusBadRequest)
+			http.Error(w, fmt.Sprintf("Invalid container_concurrency_target_percentage - %v", err), http.StatusBadRequest)
 			return
 		}
 		if err = parseAndApplyArg("stable_window_width", r, &config.StableWindowWidthSeconds, ensurePositive[int32]); err != nil {
-			http.Error(w, fmt.Sprintf("Cannot cast stable_window_width to integer - %v", err), http.StatusBadRequest)
+			http.Error(w, fmt.Sprintf("Invalid stable_window_width - %v", err), http.StatusBadRequest)
 			return
 		}
 		if err = parseAndApplyArg("panic_window_width", r, &config.PanicWindowWidthSeconds, ensurePositive[int32]); err != nil {
-			http.Error(w, fmt.Sprintf("Cannot cast panic_window_width to integer - %v", err), http.StatusBadRequest)
+			http.Error(w, fmt.Sprintf("Invalid panic_window_width - %v", err), http.StatusBadRequest)
 			return
 		}
 		if err = parseAndApplyArg("scaling_period", r, &config.ScalingPeriodSeconds, ensurePositive[int32]); err != nil {
-			http.Error(w, fmt.Sprintf("Cannot cast scaling_period to integer - %v", err), http.StatusBadRequest)
+			http.Error(w, fmt.Sprintf("Invalid scaling_period - %v", err), http.StatusBadRequest)
 			return
 		}
 		if err = parseAndApplyScalingMethod("scaling_method", r, &config.ScalingMethod); err != nil {
 			http.Error(w, "Unsupported scaling_method", http.StatusBadRequest)
 			return
 		}
-
+		if err = parseAndApplyArg("target_burst_capacity", r, &config.TargetBurstCapacity, ensurePositiveOrZero[float32]); err != nil {
+			http.Error(w, "Invalid target_burst_capacity", http.StatusBadRequest)
+			return
+		}
+		if err = parseAndApplyArg("initial_scale", r, &config.InitialScale, ensurePositiveOrZero[int32]); err != nil {
+			http.Error(w, fmt.Sprintf("Invalid initial_scale - %v", err), http.StatusBadRequest)
+			return
+		}
+		if err = parseAndApplyArg("total_value", r, &config.TotalValue, ensurePositiveOrZero[float32]); err != nil {
+			http.Error(w, fmt.Sprintf("Invalid total_value - %v", err), http.StatusBadRequest)
+			return
+		}
+		if err = parseAndApplyArg("scale_down_delay", r, &config.ScaleDownDelay, ensurePositiveOrZero[int32]); err != nil {
+			http.Error(w, fmt.Sprintf("Invalid scale_down_delay - %v", err), http.StatusBadRequest)
+			return
+		}
 		sis.FunctionState.ServiceInfo.AutoscalingConfig = config
 
 		sis.UpdateDeployment(sis.FunctionState.ServiceInfo)
@@ -166,6 +169,30 @@ func ensurePositive[T int32 | float32](val T) bool {
 	return val > 0
 }
 
+func ensurePositiveOrZero[T int32 | float32](val T) bool {
+	return val >= 0
+}
+
 func ensureGreater(val1, val2 int32) bool {
 	return val1 > val2
+}
+
+func cloneAutoscalingConfig(cfg *proto.AutoscalingConfiguration) *proto.AutoscalingConfiguration {
+	return &proto.AutoscalingConfiguration{
+		ScalingUpperBound:                    cfg.ScalingUpperBound,
+		ScalingLowerBound:                    cfg.ScalingLowerBound,
+		PanicThresholdPercentage:             cfg.PanicThresholdPercentage,
+		MaxScaleUpRate:                       cfg.MaxScaleUpRate,
+		MaxScaleDownRate:                     cfg.MaxScaleDownRate,
+		ContainerConcurrency:                 cfg.ContainerConcurrency,
+		ContainerConcurrencyTargetPercentage: cfg.ContainerConcurrencyTargetPercentage,
+		StableWindowWidthSeconds:             cfg.StableWindowWidthSeconds,
+		PanicWindowWidthSeconds:              cfg.PanicWindowWidthSeconds,
+		ScalingPeriodSeconds:                 cfg.ScalingPeriodSeconds,
+		ScalingMethod:                        cfg.ScalingMethod,
+		TargetBurstCapacity:                  cfg.TargetBurstCapacity,
+		InitialScale:                         cfg.InitialScale,
+		TotalValue:                           cfg.TotalValue,
+		ScaleDownDelay:                       cfg.ScaleDownDelay,
+	}
 }

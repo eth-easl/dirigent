@@ -51,7 +51,6 @@ func AddRules(ipt *iptables.IPTables, sourcePort int, destIP string, destPort in
 		logrus.Errorf("Error changing IP routing policy FORWARD ACCEPT - %s", err.Error())
 	}
 	logrus.Debugf("Changing IP routing policy FORWARD ACCEPT")
-
 }
 
 func DeleteRules(ipt *iptables.IPTables, sourcePort int, destIP string, destPort int) {

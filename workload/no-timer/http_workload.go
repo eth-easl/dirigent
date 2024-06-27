@@ -21,6 +21,7 @@ import "C"
 const ExecUnit int = 1e2
 
 var machineName string
+var multiplier = 0
 
 func takeSqrts() C.double {
 	var tmp C.double // Circumvent compiler optimizations
@@ -46,11 +47,12 @@ func rootHandler(w http.ResponseWriter, req *http.Request) {
 	workload := req.Header.Get("workload")
 	function := req.Header.Get("function")
 	requestedCpu := req.Header.Get("requested_cpu")
+	multiplierRaw := req.Header.Get("multiplier") // for Firecracker
 
-	multiplier := -1
-	multiplierString, multiplierOk := os.LookupEnv("ITERATIONS_MULTIPLIER")
-	if multiplierOk {
-		multiplier, _ = strconv.Atoi(multiplierString)
+	multiplier, err := strconv.Atoi(multiplierRaw)
+	if err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		return
 	}
 
 	switch workload {
@@ -67,11 +69,6 @@ func rootHandler(w http.ResponseWriter, req *http.Request) {
 	case "trace":
 		tlm, err := strconv.Atoi(requestedCpu)
 		if err != nil {
-			w.WriteHeader(http.StatusBadRequest)
-			return
-		}
-
-		if !multiplierOk {
 			w.WriteHeader(http.StatusBadRequest)
 			return
 		}
@@ -154,11 +151,11 @@ func busyLoopOnStartup() {
 		loopForMs, _ = strconv.Atoi(loopForMsString)
 	}
 
-	multiplier := 102
 	multiplierString, ok := os.LookupEnv("ITERATIONS_MULTIPLIER")
 	if ok {
 		multiplier, _ = strconv.Atoi(multiplierString)
 	}
+	log.Infof("Iteration multiplier configured to %d", multiplier)
 
 	busyLoopFor(uint32(loopForMs), multiplier)
 }

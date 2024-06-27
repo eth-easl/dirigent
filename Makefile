@@ -23,7 +23,7 @@ build_rootfs:
 	sudo rm -rf $(ROOT_DIR)/configs/firecracker/app $(ROOT_DIR)/configs/firecracker/rootfs.ext4
 	sudo $(ROOT_DIR)/configs/firecracker/image.sh \
 		-d $(ROOT_DIR)/configs/firecracker/ \
-		-s $(ROOT_DIR)/workload \
+		-s $(ROOT_DIR)/workload/timer \
 		-r $(ROOT_DIR)/configs/firecracker/rootfs.ext4
 
 empty_container:

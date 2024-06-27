@@ -17,7 +17,7 @@ RUN go mod download
 COPY . ./
 
 # Build the binary.
-WORKDIR /app/workload
+WORKDIR /app/workload/timer
 
 # -mod=readonly: ensures immutable go.mod and go.sum in container builds.
 # CGO_ENABLED=1: uses common libraries found on most major OS distributions.
@@ -28,7 +28,7 @@ RUN CGO_ENABLED=1 GOARCH=amd64 GOGCCFLAGS=-m64 GOOS=linux go build -mod=readonly
 FROM debian:stable-slim
 
 # Copy the binary to the production image from the BUILDER stage.
-COPY --from=BUILDER /app/workload/server /server
+COPY --from=BUILDER /app/workload/timer/server /server
 
 # Run the web service on container startup.
 CMD /server

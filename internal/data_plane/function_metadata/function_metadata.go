@@ -118,7 +118,7 @@ func (m *FunctionMetadata) GetSandboxParallelism() uint {
 func (m *FunctionMetadata) PutSandboxParallelism(containerConcurrency uint) {
 	ptr := (*uint64)(unsafe.Pointer(&m.sandboxParallelism))
 	atomic.SwapUint64(ptr, uint64(containerConcurrency))
-	logrus.Infof("Have modified sandbox parallelism to %d", containerConcurrency)
+	logrus.Infof("Modified container concurrency for %s to %d", m.identifier, containerConcurrency)
 }
 
 func (m *FunctionMetadata) GetRoundRobinCounter() uint32 {
