@@ -7,7 +7,7 @@ import (
 	"strconv"
 	"time"
 
-	log "github.com/sirupsen/logrus"
+	"github.com/sirupsen/logrus"
 	"golang.org/x/net/http2"
 	"golang.org/x/net/http2/h2c"
 )
@@ -32,20 +32,26 @@ func takeSqrts() C.double {
 	return tmp
 }
 
-func busySpin(multiplier, runtimeMilli uint32) {
-	totalIterations := int(multiplier * runtimeMilli)
+func busySpin(multiplier, runtimeMilli, ioPercentage uint32) {
+	executeFor := float64(runtimeMilli) * float64(100-ioPercentage) / 100.0
+	sleepFor := float64(runtimeMilli) * float64(ioPercentage) / 100.0
 
-	for i := 0; i < totalIterations; i++ {
+	// I/O workload
+	time.Sleep(time.Duration(sleepFor) * time.Millisecond)
+
+	// CPU workload
+	totalIterations := int64(multiplier * uint32(executeFor))
+	for i := int64(0); i < totalIterations; i++ {
 		takeSqrts()
 	}
 }
 
-func busyLoopFor(timeLeftMilliseconds uint32, start time.Time, mpl int) {
+func busyLoopFor(timeLeftMilliseconds uint32, start time.Time, mpl int, ioPercentage int) {
 	timeConsumedMilliseconds := uint32(time.Since(start).Milliseconds())
 	if timeConsumedMilliseconds < timeLeftMilliseconds {
 		timeLeftMilliseconds -= timeConsumedMilliseconds
 		if timeLeftMilliseconds > 0 {
-			busySpin(uint32(mpl), timeLeftMilliseconds)
+			busySpin(uint32(mpl), timeLeftMilliseconds, uint32(ioPercentage))
 		}
 	}
 }
@@ -55,8 +61,15 @@ func rootHandler(w http.ResponseWriter, req *http.Request) {
 	function := req.Header.Get("function")
 	requestedCpu := req.Header.Get("requested_cpu")
 	multiplierRaw := req.Header.Get("multiplier") // for Firecracker
+	ioPercentageRaw := req.Header.Get("io_percentage")
 
 	multiplier, err := strconv.Atoi(multiplierRaw)
+	if err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		return
+	}
+
+	ioPercentage, err := strconv.Atoi(ioPercentageRaw)
 	if err != nil {
 		w.WriteHeader(http.StatusBadRequest)
 		return
@@ -81,7 +94,7 @@ func rootHandler(w http.ResponseWriter, req *http.Request) {
 		}
 
 		start := time.Now()
-		busyLoopFor(uint32(tlm), start, multiplier)
+		busyLoopFor(uint32(tlm), start, multiplier, ioPercentage)
 
 		responseBytes, _ := json.Marshal(FunctionResponse{
 			Status:        "OK",
@@ -132,7 +145,7 @@ func (mux *Multiplexer) init() {
 
 		f := mux.GetHandler(r.URL.Path)
 		if f == nil {
-			log.Println("unknown path", r.URL.Path)
+			logrus.Println("unknown path", r.URL.Path)
 			return
 		}
 		f(w, r)
@@ -163,18 +176,18 @@ func busyLoopOnStartup() {
 	if ok {
 		multiplier, _ = strconv.Atoi(multiplierString)
 	}
-	log.Infof("Iteration multiplier configured to %d", multiplier)
+	logrus.Infof("Iteration multiplier configured to %d", multiplier)
 
 	start := time.Now()
-	busyLoopFor(uint32(loopForMs), start, multiplier)
-	log.Debugf("Spent %d ms on startup", time.Since(start).Milliseconds())
+	busyLoopFor(uint32(loopForMs), start, multiplier, 0)
+	logrus.Debugf("Spent %d ms on startup", time.Since(start).Milliseconds())
 }
 
 func StartHTTPServer() {
 	var err error
 	machineName, err = os.Hostname()
 	if err != nil {
-		log.Fatal("Failed to get HOSTNAME environmental variable.")
+		logrus.Fatal("Failed to get HOSTNAME environmental variable.")
 	}
 
 	busyLoopOnStartup()
@@ -190,6 +203,6 @@ func StartHTTPServer() {
 
 	err = server.ListenAndServe()
 	if err != nil {
-		log.Fatal("Failed to set up an HTTP server - ", err)
+		logrus.Fatal("Failed to set up an HTTP server - ", err)
 	}
 }
