@@ -35,6 +35,7 @@ func takeSqrts() C.double {
 func busySpin(multiplier, runtimeMilli, ioPercentage uint32) {
 	executeFor := float64(runtimeMilli) * float64(100-ioPercentage) / 100.0
 	sleepFor := float64(runtimeMilli) * float64(ioPercentage) / 100.0
+	logrus.Debugf("Execute for %.2f ms; Sleep for %.2f ms", executeFor, sleepFor)
 
 	// I/O workload
 	time.Sleep(time.Duration(sleepFor) * time.Millisecond)
@@ -84,8 +85,8 @@ func rootHandler(w http.ResponseWriter, req *http.Request) {
 			ExecutionTime: 0,
 		})
 
-		_, _ = w.Write(responseBytes)
 		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write(responseBytes)
 	case "trace":
 		tlm, err := strconv.Atoi(requestedCpu)
 		if err != nil {
@@ -103,8 +104,8 @@ func rootHandler(w http.ResponseWriter, req *http.Request) {
 			ExecutionTime: time.Since(start).Microseconds(),
 		})
 
-		_, _ = w.Write(responseBytes)
 		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write(responseBytes)
 	default:
 		w.WriteHeader(http.StatusBadRequest)
 	}
