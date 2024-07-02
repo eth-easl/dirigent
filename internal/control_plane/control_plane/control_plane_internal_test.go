@@ -1213,6 +1213,8 @@ func TestEndpointsWithDeregistration(t *testing.T) {
 		CpuCores:   0,
 		MemorySize: 0,
 	})
+	assert.True(t, status.Success)
+	assert.NoError(t, err)
 
 	time.Sleep(1 * time.Second)
 
