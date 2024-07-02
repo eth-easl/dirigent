@@ -12,7 +12,7 @@ const (
 	TolerateHeartbeatMisses = 3
 	HeartbeatInterval       = 5 * time.Second
 
-	WorkerNodeTrafficTimeout = 60 * time.Second
+	WorkerNodeTrafficTimeout = 300 * time.Second
 
 	GRPCConnectionTimeout = 5 * time.Second
 	GRPCFunctionTimeout   = 15 * time.Minute // AWS Lambda
