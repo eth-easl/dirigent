@@ -37,7 +37,7 @@ func (m *ImageManager) GetImage(ctx context.Context, containerdClient *container
 			if failed {
 				// The other goroutine has sent the error in the channel,
 				// meaning that fetching failed.
-				logrus.Warnf("Image %s failed to fetch (other thread).", url)
+				logrus.Warnf("Image %s failed to fetch (other thread): %s", url, err.Error())
 				fetched <- err
 				return nil, err, time.Since(start)
 			}
@@ -57,7 +57,7 @@ func (m *ImageManager) GetImage(ctx context.Context, containerdClient *container
 			if err != nil {
 				// Let everyone else know there has been an error while
 				// fetching.
-				logrus.Warnf("Image %s failed to fetch (fetcher).", url)
+				logrus.Warnf("Image %s failed to fetch (fetcher): %s", url, err.Error())
 				fetched <- err
 				return image, err, time.Since(start)
 			}
