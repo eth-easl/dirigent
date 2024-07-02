@@ -5,11 +5,11 @@ import "cluster_manager/pkg/tracing"
 type DataplaneFactory func(string, string, string) DataPlaneInterface
 
 type WorkerNodeConfiguration struct {
-	Name     string
-	IP       string
-	Port     string
-	CpuCores uint64
-	Memory   uint64
+	Name   string
+	IP     string
+	Port   string
+	Cpu    uint64
+	Memory uint64
 }
 
 type WorkerNodeFactory func(configuration WorkerNodeConfiguration) WorkerNodeInterface

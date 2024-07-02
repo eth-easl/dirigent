@@ -15,6 +15,11 @@ import (
 	"cluster_manager/proto"
 	"context"
 	"fmt"
+	"strconv"
+	"sync"
+	"testing"
+	"time"
+
 	"github.com/google/uuid"
 	"github.com/montanaflynn/stats"
 	"github.com/sirupsen/logrus"
@@ -22,10 +27,6 @@ import (
 	"go.uber.org/mock/gomock"
 	"google.golang.org/grpc"
 	"google.golang.org/protobuf/types/known/emptypb"
-	"strconv"
-	"sync"
-	"testing"
-	"time"
 )
 
 var mockConfig = config.ControlPlaneConfig{
@@ -553,27 +554,27 @@ func TestReconstructionWorkers(t *testing.T) {
 		wi := make([]*proto.WorkerNodeInformation, 0)
 
 		wi = append(wi, &proto.WorkerNodeInformation{
-			Name:     "w1",
-			Ip:       "",
-			Port:     "",
-			CpuCores: 0,
-			Memory:   0,
+			Name:   "w1",
+			Ip:     "",
+			Port:   "",
+			Cpu:    0,
+			Memory: 0,
 		})
 
 		wi = append(wi, &proto.WorkerNodeInformation{
-			Name:     "w2",
-			Ip:       "",
-			Port:     "",
-			CpuCores: 0,
-			Memory:   0,
+			Name:   "w2",
+			Ip:     "",
+			Port:   "",
+			Cpu:    0,
+			Memory: 0,
 		})
 
 		wi = append(wi, &proto.WorkerNodeInformation{
-			Name:     "w3",
-			Ip:       "",
-			Port:     "",
-			CpuCores: 0,
-			Memory:   0,
+			Name:   "w3",
+			Ip:     "",
+			Port:   "",
+			Cpu:    0,
+			Memory: 0,
 		})
 
 		return wi, nil
@@ -744,11 +745,11 @@ func TestStressRegisterNodes(t *testing.T) {
 	for cnt < size {
 		go func() {
 			status, err := controlPlane.registerNode(context.Background(), &proto.NodeInfo{
-				NodeID:     uuid.New().String(),
-				IP:         uuid.New().String(),
-				Port:       0,
-				CpuCores:   0,
-				MemorySize: 0,
+				NodeID: uuid.New().String(),
+				IP:     uuid.New().String(),
+				Port:   0,
+				Cpu:    0,
+				Memory: 0,
 			})
 			assert.NotNil(t, status)
 			assert.NoError(t, err)
@@ -848,11 +849,11 @@ func TestStressEverything(t *testing.T) {
 	for cnt < size {
 		go func() {
 			status, err := controlPlane.registerNode(context.Background(), &proto.NodeInfo{
-				NodeID:     uuid.New().String(),
-				IP:         uuid.New().String(),
-				Port:       0,
-				CpuCores:   0,
-				MemorySize: 0,
+				NodeID: uuid.New().String(),
+				IP:     uuid.New().String(),
+				Port:   0,
+				Cpu:    0,
+				Memory: 0,
 			})
 			assert.NotNil(t, status)
 			assert.NoError(t, err)
@@ -1007,22 +1008,22 @@ func TestStressRegisterDeregisterNodes(t *testing.T) {
 	for cnt < size {
 		go func(idx int) {
 			controlPlane.registerNode(context.Background(), &proto.NodeInfo{
-				NodeID:     "mock" + fmt.Sprint(idx),
-				IP:         "",
-				Port:       0,
-				CpuCores:   0,
-				MemorySize: 0,
+				NodeID: "mock" + fmt.Sprint(idx),
+				IP:     "",
+				Port:   0,
+				Cpu:    0,
+				Memory: 0,
 			})
 			wg.Done()
 		}(cnt)
 
 		go func(idx int) {
 			controlPlane.deregisterNode(context.Background(), &proto.NodeInfo{
-				NodeID:     "mock" + fmt.Sprint(idx),
-				IP:         "",
-				Port:       0,
-				CpuCores:   0,
-				MemorySize: 0,
+				NodeID: "mock" + fmt.Sprint(idx),
+				IP:     "",
+				Port:   0,
+				Cpu:    0,
+				Memory: 0,
 			})
 			wg.Done()
 		}(cnt)
@@ -1039,11 +1040,11 @@ func TestStressRegisterDeregisterNodes(t *testing.T) {
 	for cnt < size {
 		go func(idx int) {
 			controlPlane.registerNode(context.Background(), &proto.NodeInfo{
-				NodeID:     "mock" + fmt.Sprint(idx),
-				IP:         "",
-				Port:       0,
-				CpuCores:   0,
-				MemorySize: 0,
+				NodeID: "mock" + fmt.Sprint(idx),
+				IP:     "",
+				Port:   0,
+				Cpu:    0,
+				Memory: 0,
 			})
 			wg.Done()
 		}(cnt)
@@ -1167,11 +1168,11 @@ func TestEndpointsWithDeregistration(t *testing.T) {
 	controlPlane := NewControlPlane(persistenceLayer, "", empty_dataplane.NewDataplaneConnectionEmpty, empty_worker.NewEmptyWorkerNode, &mockConfig)
 
 	status, err := controlPlane.registerNode(context.Background(), &proto.NodeInfo{
-		NodeID:     "mockNode",
-		IP:         uuid.New().String(),
-		Port:       0,
-		CpuCores:   0,
-		MemorySize: 0,
+		NodeID: "mockNode",
+		IP:     uuid.New().String(),
+		Port:   0,
+		Cpu:    0,
+		Memory: 0,
 	})
 
 	assert.NotNil(t, status)
@@ -1207,11 +1208,11 @@ func TestEndpointsWithDeregistration(t *testing.T) {
 	time.Sleep(500 * time.Millisecond)
 
 	status, err = controlPlane.deregisterNode(context.Background(), &proto.NodeInfo{
-		NodeID:     "mockNode",
-		IP:         uuid.New().String(),
-		Port:       0,
-		CpuCores:   0,
-		MemorySize: 0,
+		NodeID: "mockNode",
+		IP:     uuid.New().String(),
+		Port:   0,
+		Cpu:    0,
+		Memory: 0,
 	})
 	assert.True(t, status.Success)
 	assert.NoError(t, err)

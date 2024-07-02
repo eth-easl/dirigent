@@ -11,7 +11,7 @@ type ResourceMap struct {
 	resources map[string]uint64
 }
 
-func (r *ResourceMap) GetCPUCores() uint64 {
+func (r *ResourceMap) GetCpu() uint64 {
 	return r.GetByKey(RM_CPU_KEY)
 }
 
@@ -19,7 +19,7 @@ func (r *ResourceMap) GetMemory() uint64 {
 	return r.GetByKey(RM_MEMORY_KEY)
 }
 
-func (r *ResourceMap) SetCPUCores(v uint64) {
+func (r *ResourceMap) SetCpu(v uint64) {
 	r.resources[RM_CPU_KEY] = v
 }
 
@@ -63,28 +63,28 @@ func CreateResourceMap(cpu, memory uint64) *ResourceMap {
 		resources: make(map[string]uint64),
 	}
 
-	r.SetCPUCores(cpu)
+	r.SetCpu(cpu)
 	r.SetMemory(memory)
 
 	return r
 }
 
 func ExtendCPU(resourceMap *ResourceMap) *ResourceMap {
-	resourceMap.SetCPUCores(resourceMap.GetCPUCores() * 1000)
+	resourceMap.SetCpu(resourceMap.GetCpu() * 1000)
 
 	return resourceMap
 }
 
 func SumResources(a, b *ResourceMap) *ResourceMap {
 	return CreateResourceMap(
-		a.GetCPUCores()+b.GetCPUCores(),
+		a.GetCpu()+b.GetCpu(),
 		a.GetMemory()+b.GetMemory(),
 	)
 }
 
 func SubtractResources(a, b *ResourceMap) *ResourceMap {
 	return CreateResourceMap(
-		a.GetCPUCores()-b.GetCPUCores(),
+		a.GetCpu()-b.GetCpu(),
 		a.GetMemory()-b.GetMemory(),
 	)
 }

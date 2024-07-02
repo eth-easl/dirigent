@@ -2,7 +2,6 @@ package hardware
 
 import (
 	"log"
-	"math"
 	"runtime"
 
 	"github.com/pbnjay/memory"
@@ -10,8 +9,8 @@ import (
 )
 
 type HardwareUsage struct {
-	CpuUsage    uint64
-	MemoryUsage uint64
+	CpuUsage    float64
+	MemoryUsage float64
 }
 
 func GetNumberCpus() uint64 {
@@ -22,18 +21,17 @@ func GetMemory() uint64 {
 	return memory.TotalMemory()
 }
 
-func getCpuUsage() uint64 {
+func getCpuUsage() float64 {
 	percent, err := cpu.Percent(0, false)
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	return uint64(math.Ceil(percent[0]))
+	return percent[0] / 100.0
 }
 
-func getMemoryUsage() uint64 {
-	memory := float64(memory.TotalMemory()-memory.FreeMemory()) / float64(memory.TotalMemory())
-	return uint64(memory * 100)
+func getMemoryUsage() float64 {
+	return float64(memory.TotalMemory()-memory.FreeMemory()) / float64(memory.TotalMemory())
 }
 
 func GetHardwareUsage() HardwareUsage {

@@ -106,25 +106,25 @@ func (e *emptyWorker) GetWorkerNodeConfiguration() core.WorkerNodeConfiguration 
 func (e *emptyWorker) UpdateLastHearBeat() {
 }
 
-func (e *emptyWorker) SetCpuUsage(u uint64) {
+func (e *emptyWorker) SetCpuUsed(u uint64) {
 }
 
-func (e *emptyWorker) SetMemoryUsage(u uint64) {
+func (e *emptyWorker) SetMemoryUsed(u uint64) {
 }
 
-func (e *emptyWorker) GetMemory() uint64 {
+func (e *emptyWorker) GetCpuAvailable() uint64 {
 	return 0
 }
 
-func (e *emptyWorker) GetCpuCores() uint64 {
+func (e *emptyWorker) GetCpuUsed() uint64 {
 	return 0
 }
 
-func (e *emptyWorker) GetCpuUsage() uint64 {
+func (e *emptyWorker) GetMemoryAvailable() uint64 {
 	return 0
 }
 
-func (e *emptyWorker) GetMemoryUsage() uint64 {
+func (e *emptyWorker) GetMemoryUsed() uint64 {
 	return 0
 }
 

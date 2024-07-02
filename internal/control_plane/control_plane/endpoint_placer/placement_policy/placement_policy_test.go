@@ -174,9 +174,9 @@ func createStorageWithXNodes(n int) synchronization.SyncStructure[string, core.W
 
 	for i := 0; i < n; i++ {
 		storage.Set(fmt.Sprintf("w%d", i), &workers.WorkerNode{
-			Schedulable: true,
-			CpuCores:    10_000,
-			Memory:      65536,
+			Schedulable:     true,
+			CpuAvailable:    10_000,
+			MemoryAvailable: 65536,
 		})
 	}
 

@@ -15,9 +15,9 @@ func TestGetMemory(t *testing.T) {
 }
 
 func TestCpuPercentage(t *testing.T) {
-	assert.True(t, 0 <= getCpuUsage() && getCpuUsage() <= 100)
+	assert.True(t, 0.0 <= getCpuUsage() && getCpuUsage() <= 1.0)
 }
 
 func TestMemoryUsage(t *testing.T) {
-	assert.True(t, 0 <= getMemoryUsage() && getMemoryUsage() <= 100)
+	assert.True(t, 0.0 <= getMemoryUsage() && getMemoryUsage() <= 1.0)
 }

@@ -18,13 +18,13 @@ const (
 func TestResourceMap(t *testing.T) {
 	resourceMap := CreateResourceMap(mockCpus, mockMemory)
 
-	assert.Equal(t, resourceMap.GetCPUCores(), mockCpus, "Cpu cores should be the same")
+	assert.Equal(t, resourceMap.GetCpu(), mockCpus, "Cpu cores should be the same")
 	assert.Equal(t, resourceMap.GetMemory(), mockMemory, "Memory should be the same")
 
-	resourceMap.SetCPUCores(mockCpus2)
+	resourceMap.SetCpu(mockCpus2)
 	resourceMap.SetMemory(mockMemory2)
 
-	assert.Equal(t, resourceMap.GetCPUCores(), mockCpus2, "Cpu cores should be the same")
+	assert.Equal(t, resourceMap.GetCpu(), mockCpus2, "Cpu cores should be the same")
 	assert.Equal(t, resourceMap.GetMemory(), mockMemory2, "Memory should be the same")
 
 	assert.Equal(t, resourceMap.SumAllResourceTypes(), mockCpus2+mockMemory2)

@@ -7,10 +7,11 @@ import (
 	"cluster_manager/proto"
 	"context"
 	"fmt"
-	"github.com/sirupsen/logrus"
-	"google.golang.org/protobuf/types/known/emptypb"
 	"sync"
 	"time"
+
+	"github.com/sirupsen/logrus"
+	"google.golang.org/protobuf/types/known/emptypb"
 )
 
 // ReconstructState Single threaded function - reconstruction happend before starting the control plane
@@ -94,11 +95,11 @@ func (c *ControlPlane) reconstructWorkersState(ctx context.Context) error {
 
 	for _, worker := range workers {
 		wn := c.workerNodeCreator(core.WorkerNodeConfiguration{
-			Name:     worker.Name,
-			IP:       worker.Ip,
-			Port:     worker.Port,
-			CpuCores: worker.CpuCores,
-			Memory:   worker.Memory,
+			Name:   worker.Name,
+			IP:     worker.Ip,
+			Port:   worker.Port,
+			Cpu:    worker.Cpu,
+			Memory: worker.Memory,
 		})
 
 		go func() {

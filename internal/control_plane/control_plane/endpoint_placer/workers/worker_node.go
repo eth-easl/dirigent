@@ -17,11 +17,12 @@ type WorkerNode struct {
 	IP   string
 	Port string
 
-	CpuUsage    uint64
-	MemoryUsage uint64
-
-	CpuCores uint64
-	Memory   uint64
+	// In milli-CPU
+	CpuUsed      uint64
+	CpuAvailable uint64
+	// In MiB
+	MemoryUsed      uint64
+	MemoryAvailable uint64
 
 	LastHeartbeat time.Time
 	wnConnection  proto.WorkerNodeInterfaceClient
@@ -40,23 +41,23 @@ func (w *WorkerNode) GetSchedulability() bool {
 
 func NewWorkerNode(workerNodeConfiguration core.WorkerNodeConfiguration) core.WorkerNodeInterface {
 	return &WorkerNode{
-		Name:          workerNodeConfiguration.Name,
-		IP:            workerNodeConfiguration.IP,
-		Port:          workerNodeConfiguration.Port,
-		CpuCores:      workerNodeConfiguration.CpuCores,
-		Memory:        workerNodeConfiguration.Memory,
-		LastHeartbeat: time.Now(),
-		endpointMap:   synchronization.NewControlPlaneSyncStructure[*core.Endpoint, string](),
+		Name:            workerNodeConfiguration.Name,
+		IP:              workerNodeConfiguration.IP,
+		Port:            workerNodeConfiguration.Port,
+		CpuAvailable:    workerNodeConfiguration.Cpu,
+		MemoryAvailable: workerNodeConfiguration.Memory,
+		LastHeartbeat:   time.Now(),
+		endpointMap:     synchronization.NewControlPlaneSyncStructure[*core.Endpoint, string](),
 	}
 }
 
 func (w *WorkerNode) GetWorkerNodeConfiguration() core.WorkerNodeConfiguration {
 	return core.WorkerNodeConfiguration{
-		Name:     w.Name,
-		IP:       w.IP,
-		Port:     w.Port,
-		CpuCores: w.CpuCores,
-		Memory:   w.Memory,
+		Name:   w.Name,
+		IP:     w.IP,
+		Port:   w.Port,
+		Cpu:    w.CpuAvailable,
+		Memory: w.MemoryAvailable,
 	}
 }
 
@@ -105,12 +106,12 @@ func (w *WorkerNode) UpdateLastHearBeat() {
 	w.LastHeartbeat = time.Now()
 }
 
-func (w *WorkerNode) SetCpuUsage(usage uint64) {
-	w.CpuUsage = usage
+func (w *WorkerNode) SetCpuUsed(usage uint64) {
+	w.CpuUsed = usage
 }
 
-func (w *WorkerNode) SetMemoryUsage(usage uint64) {
-	w.MemoryUsage = usage
+func (w *WorkerNode) SetMemoryUsed(usage uint64) {
+	w.MemoryUsed = usage
 }
 
 func (w *WorkerNode) GetIP() string {
@@ -121,20 +122,20 @@ func (w *WorkerNode) GetPort() string {
 	return w.Port
 }
 
-func (w *WorkerNode) GetMemory() uint64 {
-	return w.Memory
+func (w *WorkerNode) GetCpuAvailable() uint64 {
+	return w.CpuAvailable
 }
 
-func (w *WorkerNode) GetCpuCores() uint64 {
-	return w.CpuCores
+func (w *WorkerNode) GetCpuUsed() uint64 {
+	return w.CpuUsed
 }
 
-func (w *WorkerNode) GetCpuUsage() uint64 {
-	return w.CpuUsage
+func (w *WorkerNode) GetMemoryAvailable() uint64 {
+	return w.MemoryAvailable
 }
 
-func (w *WorkerNode) GetMemoryUsage() uint64 {
-	return w.MemoryUsage
+func (w *WorkerNode) GetMemoryUsed() uint64 {
+	return w.MemoryUsed
 }
 
 func (w *WorkerNode) GetEndpointMap() synchronization.SyncStructure[*core.Endpoint, string] {

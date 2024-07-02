@@ -12,14 +12,14 @@ message NodeInfo {
   string NodeID = 1;
   string IP = 2;
   int32 Port = 3;
-  uint64 CpuCores = 4;
-  uint64 MemorySize = 5;
+  uint64 Cpu = 4;
+  uint64 Memory = 5;
 }
 
 message NodeHeartbeatMessage {
   string NodeID = 1;
-  uint64 CpuUsage = 2;
-  uint64 MemoryUsage = 3;
+  uint64 CpuUsed = 2;
+  uint64 MemoryUsed = 3;
 }
 
 message AutoscalingMetric {

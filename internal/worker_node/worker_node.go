@@ -175,12 +175,14 @@ func (w *WorkerNode) SetupHeartbeatLoop(cfg *config.WorkerNodeConfig) {
 func (w *WorkerNode) sendInstructionToControlPlane(ctx context.Context, config config.WorkerNodeConfig, cpi *proto.CpiInterfaceClient, action int) error {
 	pollErr := wait.PollUntilContextCancel(ctx, 5*time.Second, true,
 		func(ctx context.Context) (done bool, err error) {
+			milliCpu := hardware.GetNumberCpus() * 1000
+			memoryMiB := hardware.GetMemory() / 1024 / 1024
 			nodeInfo := &proto.NodeInfo{
-				NodeID:     w.Name,
-				IP:         config.WorkerNodeIP,
-				Port:       int32(config.Port),
-				CpuCores:   hardware.GetNumberCpus(),
-				MemorySize: hardware.GetMemory(),
+				NodeID: w.Name,
+				IP:     config.WorkerNodeIP,
+				Port:   int32(config.Port),
+				Cpu:    milliCpu,
+				Memory: memoryMiB,
 			}
 
 			var resp *proto.ActionStatus
@@ -224,11 +226,13 @@ func (w *WorkerNode) cleanResources() {
 
 func (w *WorkerNode) getWorkerStatistics() (*proto.NodeHeartbeatMessage, error) {
 	hardwareUsage := hardware.GetHardwareUsage()
+	milliCpuUsed := uint64(float64(hardware.GetNumberCpus()) * hardwareUsage.CpuUsage * 1000)
+	memoryMiBUsed := uint64(float64(hardware.GetMemory()) * hardwareUsage.MemoryUsage / 1024 / 1024)
 
 	return &proto.NodeHeartbeatMessage{
-		NodeID:      w.Name,
-		CpuUsage:    hardwareUsage.CpuUsage,
-		MemoryUsage: hardwareUsage.MemoryUsage,
+		NodeID:     w.Name,
+		CpuUsed:    milliCpuUsed,
+		MemoryUsed: memoryMiBUsed,
 	}, nil
 }
 

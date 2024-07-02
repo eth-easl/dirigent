@@ -3,18 +3,19 @@ package data_plane
 import (
 	"cluster_manager/internal/control_plane/control_plane/core"
 	"cluster_manager/internal/control_plane/control_plane/endpoint_placer/workers"
-	"github.com/stretchr/testify/assert"
 	"testing"
 	"time"
+
+	"github.com/stretchr/testify/assert"
 )
 
 func TestDataPlaneCreation(t *testing.T) {
 	conf := core.WorkerNodeConfiguration{
-		Name:     "mockName",
-		IP:       "mockIp",
-		Port:     "100",
-		CpuCores: 10,
-		Memory:   10,
+		Name:   "mockName",
+		IP:     "mockIp",
+		Port:   "100",
+		Cpu:    10000,
+		Memory: 10,
 	}
 
 	wn := workers.NewWorkerNode(conf)
@@ -22,8 +23,8 @@ func TestDataPlaneCreation(t *testing.T) {
 	assert.Equal(t, wn.GetName(), conf.Name)
 	assert.Equal(t, wn.GetIP(), conf.IP)
 	assert.Equal(t, wn.GetPort(), conf.Port)
-	assert.Equal(t, wn.GetCpuCores(), conf.CpuCores)
-	assert.Equal(t, wn.GetMemory(), conf.Memory)
+	assert.Equal(t, wn.GetCpuAvailable(), conf.Cpu)
+	assert.Equal(t, wn.GetMemoryAvailable(), conf.Memory)
 
 	wn.UpdateLastHearBeat()
 

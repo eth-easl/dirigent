@@ -101,7 +101,7 @@ message WorkerNodeInformation {
   string Name = 1;
   string Ip = 2;
   string Port = 3;
-  uint64 CpuCores = 4;
+  uint64 Cpu = 4;
   uint64 Memory = 5;
 }
 

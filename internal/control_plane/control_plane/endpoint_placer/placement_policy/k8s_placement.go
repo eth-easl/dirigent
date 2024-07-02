@@ -145,8 +145,8 @@ func filterMachines(storage synchronization.SyncStructure[string, core.WorkerNod
 
 	// Model implementation - kubernetes/pkg/scheduler/framework/plugins/noderesources/fit.go:fitsRequest:256
 	for key, value := range storage.GetMap() {
-		isMemoryBigEnough := value.GetMemory() >= resourceMap.GetMemory()
-		isCpuBigEnough := value.GetCpuCores() >= resourceMap.GetCPUCores()
+		isMemoryBigEnough := value.GetMemoryAvailable() >= resourceMap.GetMemory()
+		isCpuBigEnough := value.GetCpuAvailable() >= resourceMap.GetCpu()
 
 		if !isMemoryBigEnough || !isCpuBigEnough || !value.GetSchedulability() {
 			continue
@@ -164,11 +164,11 @@ func filterMachines(storage synchronization.SyncStructure[string, core.WorkerNod
 }
 
 func getInstalledResources(machine core.WorkerNodeInterface) *ResourceMap {
-	return CreateResourceMap(machine.GetCpuCores(), machine.GetMemory())
+	return CreateResourceMap(machine.GetCpuAvailable(), machine.GetMemoryAvailable())
 }
 
 func getRequestedResources(machine core.WorkerNodeInterface, request *ResourceMap) *ResourceMap {
-	currentUsage := CreateResourceMap(machine.GetCpuUsage()*machine.GetCpuCores(), machine.GetMemoryUsage()*machine.GetMemory())
+	currentUsage := CreateResourceMap(machine.GetCpuUsed(), machine.GetCpuAvailable())
 	return SumResources(currentUsage, request)
 }
 
