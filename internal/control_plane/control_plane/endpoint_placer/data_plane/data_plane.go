@@ -70,7 +70,7 @@ func (d *DataPlaneConnectionInfo) DrainSandbox(ctx context.Context, patch *proto
 }
 
 func (d *DataPlaneConnectionInfo) ResetMeasurements(ctx context.Context, in *emptypb.Empty) (*proto.ActionStatus, error) {
-	return d.ResetMeasurements(ctx, in)
+	return d.Iface.ResetMeasurements(ctx, in)
 }
 
 func (d *DataPlaneConnectionInfo) GetIP() string {
