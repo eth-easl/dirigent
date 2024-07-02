@@ -5,12 +5,13 @@ import (
 	"cluster_manager/pkg/synchronization"
 	"cluster_manager/proto"
 	"context"
+	"time"
+
 	"github.com/google/uuid"
 	"github.com/sirupsen/logrus"
 	"google.golang.org/grpc"
 	durationpb "google.golang.org/protobuf/types/known/durationpb"
 	"google.golang.org/protobuf/types/known/emptypb"
-	"time"
 )
 
 type emptyWorker struct {
@@ -138,4 +139,16 @@ func (e *emptyWorker) GetPort() string {
 
 func (e *emptyWorker) GetEndpointMap() synchronization.SyncStructure[*core.Endpoint, string] {
 	return e.workerEndPointMap
+}
+
+func (e *emptyWorker) AddImage(string) bool {
+	return false
+}
+
+func (e *emptyWorker) RemoveImage(string) bool {
+	return false
+}
+
+func (e *emptyWorker) HasImage(string) bool {
+	return false
 }

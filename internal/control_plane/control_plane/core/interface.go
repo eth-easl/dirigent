@@ -48,6 +48,9 @@ type WorkerNodeInterface interface {
 	GetEndpointMap() synchronization.SyncStructure[*Endpoint, string]
 	SetSchedulability(bool)
 	GetSchedulability() bool
+	AddImage(string) bool
+	RemoveImage(string) bool
+	HasImage(string) bool
 }
 
 type AutoscalingInterface interface {

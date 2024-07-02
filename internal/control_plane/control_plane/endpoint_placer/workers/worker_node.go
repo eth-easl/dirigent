@@ -28,6 +28,7 @@ type WorkerNode struct {
 	wnConnection  proto.WorkerNodeInterfaceClient
 
 	endpointMap synchronization.SyncStructure[*core.Endpoint, string]
+	imageSet    synchronization.SyncStructure[string, struct{}]
 	Schedulable bool
 }
 
@@ -48,6 +49,7 @@ func NewWorkerNode(workerNodeConfiguration core.WorkerNodeConfiguration) core.Wo
 		MemoryAvailable: workerNodeConfiguration.Memory,
 		LastHeartbeat:   time.Now(),
 		endpointMap:     synchronization.NewControlPlaneSyncStructure[*core.Endpoint, string](),
+		imageSet:        synchronization.NewControlPlaneSyncStructure[string, struct{}](),
 	}
 }
 
@@ -140,4 +142,30 @@ func (w *WorkerNode) GetMemoryUsed() uint64 {
 
 func (w *WorkerNode) GetEndpointMap() synchronization.SyncStructure[*core.Endpoint, string] {
 	return w.endpointMap
+}
+
+func (w *WorkerNode) AddImage(image string) bool {
+	w.imageSet.Lock()
+	defer w.imageSet.Unlock()
+	if w.imageSet.Present(image) {
+		return false
+	}
+	w.imageSet.Set(image, struct{}{})
+	return true
+}
+
+func (w *WorkerNode) RemoveImage(image string) bool {
+	w.imageSet.Lock()
+	defer w.imageSet.Unlock()
+	if !w.imageSet.Present(image) {
+		return false
+	}
+	w.imageSet.Remove(image)
+	return true
+}
+
+func (w *WorkerNode) HasImage(image string) bool {
+	w.imageSet.RLock()
+	defer w.imageSet.RUnlock()
+	return w.imageSet.Present(image)
 }
