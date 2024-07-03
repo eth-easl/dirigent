@@ -249,6 +249,11 @@ func (c *ControlPlane) registerNode(ctx context.Context, in *proto.NodeInfo) (*p
 		c.NIStorage.Remove(in.NodeID)
 		return &proto.ActionStatus{Success: false}, err
 	}
+	c.imageStorage.Lock()
+	for _, image := range in.Images {
+		c.imageStorage.RegisterNoFetch(image.URL, image.Size, wn)
+	}
+	c.imageStorage.Unlock()
 
 	c.NIStorage.Set(in.NodeID, wn)
 

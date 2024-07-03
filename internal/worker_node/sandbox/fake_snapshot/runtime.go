@@ -54,6 +54,10 @@ func (fsr *Runtime) ListEndpoints(_ context.Context, _ *emptypb.Empty) (*proto.E
 	return &proto.EndpointsList{Endpoint: nil}, nil
 }
 
+func (fsr *Runtime) GetImages(grpcCtx context.Context) ([]*proto.ImageInfo, error) {
+	return []*proto.ImageInfo{}, nil
+}
+
 func (fsr *Runtime) ValidateHostConfig() bool {
 	return true
 }

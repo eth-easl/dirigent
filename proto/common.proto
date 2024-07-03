@@ -37,6 +37,14 @@ message SandboxConfiguration {
   int32 ColdStartBusyLoopMs = 2;
 }
 
+enum PrepullMode {
+  NONE = 0;
+  ONE_SYNC = 1;
+  ONE_ASYNC = 2;
+  ALL_SYNC = 3;
+  ALL_ASYNC = 4;
+}
+
 message ServiceInfo {
   string Name = 1;
   string Image = 2;
@@ -49,6 +57,7 @@ message ServiceInfo {
   uint32 NumRets = 9;
   repeated string EnvironmentVariables = 10;
   repeated string ProgramArguments = 11;
+  PrepullMode PrepullConfig = 12;
 }
 
 message ServiceList {
@@ -111,4 +120,9 @@ message Endpoint {
   string NodeName = 3;
   string ServiceName = 4;
   int32 HostPort = 5;
+}
+
+message ImageInfo {
+  string URL = 1;
+  uint64 Size = 2;
 }

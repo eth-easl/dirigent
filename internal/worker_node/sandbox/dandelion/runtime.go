@@ -6,17 +6,19 @@ import (
 	"cluster_manager/pkg/config"
 	"cluster_manager/proto"
 	"context"
+	"errors"
 	"fmt"
+	"net/http"
+	"os"
+	"sync"
+	"time"
+
 	"github.com/google/uuid"
 	"github.com/sirupsen/logrus"
 	"go.mongodb.org/mongo-driver/bson"
 	"google.golang.org/protobuf/types/known/durationpb"
 	"google.golang.org/protobuf/types/known/emptypb"
-	"net/http"
-	"os"
 	"slices"
-	"sync"
-	"time"
 )
 
 type registeredServices struct {
@@ -316,6 +318,11 @@ func (dr *Runtime) CreateTaskSandbox(_ context.Context, task *proto.WorkflowTask
 
 func (dr *Runtime) ListEndpoints(_ context.Context, _ *emptypb.Empty) (*proto.EndpointsList, error) {
 	return dr.SandboxManager.ListEndpoints()
+}
+
+func (dr *Runtime) GetImages(grpcCtx context.Context) ([]*proto.ImageInfo, error) {
+	// TODO: Implement Firecracker image fetching.
+	return []*proto.ImageInfo{}, errors.New("image pulling in Dandelion not implemented yet")
 }
 
 func (dr *Runtime) ValidateHostConfig() bool {

@@ -233,6 +233,26 @@ func (cr *ContainerdRuntime) ListEndpoints(_ context.Context, _ *emptypb.Empty) 
 	return cr.SandboxManager.ListEndpoints()
 }
 
+func (cr *ContainerdRuntime) GetImages(grpcCtx context.Context) ([]*proto.ImageInfo, error) {
+	ctx := namespaces.WithNamespace(grpcCtx, "cm")
+	images, err := cr.ContainerdClient.ListImages(ctx)
+	if err != nil {
+		return []*proto.ImageInfo{}, err
+	}
+	imageList := make([]*proto.ImageInfo, 0)
+	for _, image := range images {
+		size, err := image.Size(ctx)
+		if err != nil {
+			return imageList, err
+		}
+		imageList = append(imageList, &proto.ImageInfo{
+			URL:  image.Name(),
+			Size: uint64(size),
+		})
+	}
+	return imageList, nil
+}
+
 func (cr *ContainerdRuntime) ValidateHostConfig() bool {
 	return true
 }

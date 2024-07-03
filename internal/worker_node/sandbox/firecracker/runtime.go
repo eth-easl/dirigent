@@ -7,6 +7,7 @@ import (
 	"cluster_manager/pkg/config"
 	"cluster_manager/proto"
 	"context"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -276,6 +277,11 @@ func (fcr *Runtime) CreateTaskSandbox(_ context.Context, _ *proto.WorkflowTaskIn
 
 func (fcr *Runtime) ListEndpoints(_ context.Context, _ *emptypb.Empty) (*proto.EndpointsList, error) {
 	return fcr.SandboxManager.ListEndpoints()
+}
+
+func (fcr *Runtime) GetImages(grpcCtx context.Context) ([]*proto.ImageInfo, error) {
+	// TODO: Implement Firecracker image fetching.
+	return []*proto.ImageInfo{}, errors.New("image pulling in Firecracker not implemented yet")
 }
 
 func (fcr *Runtime) ValidateHostConfig() bool {

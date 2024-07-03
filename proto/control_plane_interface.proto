@@ -14,6 +14,7 @@ message NodeInfo {
   int32 Port = 3;
   uint64 Cpu = 4;
   uint64 Memory = 5;
+  repeated ImageInfo Images = 6;
 }
 
 message NodeHeartbeatMessage {

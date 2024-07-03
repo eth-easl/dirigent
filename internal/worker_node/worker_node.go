@@ -173,6 +173,10 @@ func (w *WorkerNode) SetupHeartbeatLoop(cfg *config.WorkerNodeConfig) {
 }
 
 func (w *WorkerNode) sendInstructionToControlPlane(ctx context.Context, config config.WorkerNodeConfig, cpi *proto.CpiInterfaceClient, action int) error {
+	images, err := w.SandboxRuntime.GetImages(ctx)
+	if err != nil {
+		return err
+	}
 	pollErr := wait.PollUntilContextCancel(ctx, 5*time.Second, true,
 		func(ctx context.Context) (done bool, err error) {
 			milliCpu := hardware.GetNumberCpus() * 1000
@@ -183,6 +187,7 @@ func (w *WorkerNode) sendInstructionToControlPlane(ctx context.Context, config c
 				Port:   int32(config.Port),
 				Cpu:    milliCpu,
 				Memory: memoryMiB,
+				Images: images,
 			}
 
 			var resp *proto.ActionStatus
