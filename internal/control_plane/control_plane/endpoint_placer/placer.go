@@ -4,6 +4,7 @@ import (
 	"cluster_manager/internal/control_plane/control_plane/core"
 	"cluster_manager/internal/control_plane/control_plane/endpoint_placer/eviction_policy"
 	placement_policy2 "cluster_manager/internal/control_plane/control_plane/endpoint_placer/placement_policy"
+	"cluster_manager/internal/control_plane/control_plane/image_storage"
 	"cluster_manager/internal/control_plane/control_plane/persistence"
 	"cluster_manager/internal/control_plane/control_plane/service_state"
 	"cluster_manager/pkg/synchronization"
@@ -31,6 +32,7 @@ type EndpointPlacer struct {
 
 	DataPlaneConnections synchronization.SyncStructure[string, core.DataPlaneInterface]
 	NIStorage            synchronization.SyncStructure[string, core.WorkerNodeInterface]
+	ImageStorage         image_storage.ImageStorage
 
 	DandelionNodes synchronization.SyncStructure[string, bool]
 }
@@ -269,6 +271,9 @@ func (ep *EndpointPlacer) doUpscaling(toCreateCount int, loopStarted time.Time) 
 				}
 				return
 			}
+			ep.ImageStorage.Lock()
+			ep.ImageStorage.RegisterNoFetch(ep.ServiceState.FunctionInfo[0].Image, 0, node)
+			ep.ImageStorage.Unlock()
 
 			sandboxCreationTook := time.Since(loopStarted)
 			resp.LatencyBreakdown.Total = durationpb.New(sandboxCreationTook)

@@ -719,6 +719,12 @@ func (c *ControlPlane) precreateSnapshots(info *proto.ServiceInfo) {
 				return
 			}
 
+			c.imageStorage.Lock()
+			err = c.imageStorage.RegisterWithFetch(ss.FunctionState.ServiceInfo.Image, node)
+			c.imageStorage.Unlock()
+			if err != nil {
+				logrus.Warnf("Failed to fetch image size for %s on node %s while precreating snapshots: %s", ss.FunctionState.ServiceInfo.Image, node.GetName(), err.Error())
+			}
 			msg, err := node.DeleteSandbox(context.Background(), &proto.SandboxID{
 				ID:       sandboxInfo.ID,
 				HostPort: sandboxInfo.PortMappings.HostPort,

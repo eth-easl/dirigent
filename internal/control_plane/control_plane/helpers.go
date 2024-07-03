@@ -44,6 +44,7 @@ func (c *ControlPlane) notifyDataplanesAndStartScalingLoop(ctx context.Context, 
 		EvictionPolicy:          evictionPolicy,
 		PersistenceLayer:        c.PersistenceLayer,
 		NIStorage:               c.NIStorage,
+		ImageStorage:            c.imageStorage,
 		DataPlaneConnections:    c.DataPlaneConnections,
 		DandelionNodes:          synchronization.NewControlPlaneSyncStructure[string, bool](),
 	})
