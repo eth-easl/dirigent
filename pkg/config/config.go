@@ -2,10 +2,11 @@ package config
 
 import (
 	"cluster_manager/pkg/network"
-	"github.com/sirupsen/logrus"
 	"path/filepath"
 	"strings"
 	"time"
+
+	"github.com/sirupsen/logrus"
 
 	"github.com/spf13/viper"
 )
@@ -28,6 +29,7 @@ type ControlPlaneConfig struct {
 	Autoscaler                 string        `mapstructure:"autoscaler"`
 	AutoscalingPeriod          time.Duration `mapstructure:"autoscalingPeriod"`
 	DefaultWFPartitionMethod   string        `mapstructure:"defaultWFPartitionMethod"`
+	ImageStorage               string        `mapstructure:"imageStorage"`
 }
 
 type DataPlaneConfig struct {

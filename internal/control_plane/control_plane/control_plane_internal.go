@@ -5,6 +5,7 @@ import (
 	predictive_autoscaler2 "cluster_manager/internal/control_plane/control_plane/autoscalers/predictive_autoscaler"
 	"cluster_manager/internal/control_plane/control_plane/core"
 	"cluster_manager/internal/control_plane/control_plane/endpoint_placer"
+	"cluster_manager/internal/control_plane/control_plane/image_storage"
 	"cluster_manager/internal/control_plane/control_plane/persistence"
 	"cluster_manager/internal/control_plane/control_plane/service_state"
 	"cluster_manager/internal/control_plane/workflow"
@@ -17,11 +18,12 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"github.com/sirupsen/logrus"
-	"google.golang.org/protobuf/types/known/emptypb"
 	"strconv"
 	"sync"
 	"time"
+
+	"github.com/sirupsen/logrus"
+	"google.golang.org/protobuf/types/known/emptypb"
 )
 
 type AutoscalingInterface interface {
@@ -37,6 +39,7 @@ type ControlPlane struct {
 	NIStorage            synchronization.SyncStructure[string, core.WorkerNodeInterface]
 	SIStorage            synchronization.SyncStructure[string, *endpoint_placer.EndpointPlacer]
 	WIStorage            synchronization.SyncStructure[string, *workflow.StorageTacker]
+	imageStorage         image_storage.ImageStorage
 
 	ColdStartTracing *tracing.TracingService[tracing.ColdStartLogEntry] `json:"-"`
 	PersistenceLayer persistence.PersistenceLayer
@@ -68,6 +71,7 @@ func NewControlPlane(client persistence.PersistenceLayer, outputFile string, dat
 		NIStorage:            synchronization.NewControlPlaneSyncStructure[string, core.WorkerNodeInterface](),
 		SIStorage:            synchronization.NewControlPlaneSyncStructure[string, *endpoint_placer.EndpointPlacer](),
 		WIStorage:            synchronization.NewControlPlaneSyncStructure[string, *workflow.StorageTacker](),
+		imageStorage:         image_storage.ParseImageStorage(cfg.ImageStorage),
 
 		ColdStartTracing: tracing.NewColdStartTracingService(outputFile),
 		PersistenceLayer: client,
@@ -219,8 +223,8 @@ func (c *ControlPlane) registerNode(ctx context.Context, in *proto.NodeInfo) (*p
 		Name:   in.NodeID,
 		IP:     in.IP,
 		Port:   strconv.Itoa(int(in.Port)),
-		Cpu:    in.Cpu,
-		Memory: in.Memory,
+		Cpu:    in.CpuCores,
+		Memory: in.MemorySize,
 	})
 
 	c.NIStorage.Lock()
@@ -234,11 +238,11 @@ func (c *ControlPlane) registerNode(ctx context.Context, in *proto.NodeInfo) (*p
 	}
 
 	err := c.PersistenceLayer.StoreWorkerNodeInformation(ctx, &proto.WorkerNodeInformation{
-		Name:   in.NodeID,
-		Ip:     in.IP,
-		Port:   strconv.Itoa(int(in.Port)),
-		Cpu:    in.Cpu,
-		Memory: in.Memory,
+		Name:     in.NodeID,
+		Ip:       in.IP,
+		Port:     strconv.Itoa(int(in.Port)),
+		CpuCores: in.CpuCores,
+		Memory:   in.MemorySize,
 	})
 	if err != nil {
 		logrus.Errorf("Failed to store information to persistence layer (error : %s)", err.Error())
@@ -293,11 +297,11 @@ func (c *ControlPlane) nodeHeartbeat(_ context.Context, in *proto.NodeHeartbeatM
 	}
 
 	c.NIStorage.GetMap()[in.NodeID].UpdateLastHearBeat()
-	c.NIStorage.GetMap()[in.NodeID].SetCpuUsed(in.CpuUsed)
-	c.NIStorage.GetMap()[in.NodeID].SetMemoryUsed(in.MemoryUsed)
+	c.NIStorage.GetMap()[in.NodeID].SetCpuUsed(in.CpuUsage)
+	c.NIStorage.GetMap()[in.NodeID].SetMemoryUsed(in.MemoryUsage)
 	c.NIStorage.GetMap()[in.NodeID].SetSchedulability(true)
 
-	logrus.Tracef("Heartbeat received from %s with %d milli-CPU used and %d MiB memory used", in.NodeID, in.CpuUsed, in.MemoryUsed)
+	logrus.Tracef("Heartbeat received from %s with %d milli-CPU used and %d MiB memory used", in.NodeID, in.CpuUsage, in.MemoryUsage)
 
 	return &proto.ActionStatus{Success: true}, nil
 }

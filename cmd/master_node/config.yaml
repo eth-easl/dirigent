@@ -10,6 +10,7 @@ reconstruct: false
 autoscaler: "default"
 autoscalingPeriod: "2s"
 defaultWFPartitionMethod: "fullPartition"
+imageStorage: "default"
 
 # to use HAProxy load balancer put 127.0.0.1:8079, otherwise leave blank
 loadBalancerAddress: "127.0.0.1:8079"
