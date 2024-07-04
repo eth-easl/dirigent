@@ -6,10 +6,12 @@ import (
 	"cluster_manager/pkg/synchronization"
 	"cluster_manager/proto"
 	"context"
+	"sync/atomic"
+	"time"
+
 	"github.com/sirupsen/logrus"
 	"google.golang.org/grpc"
 	"google.golang.org/protobuf/types/known/emptypb"
-	"time"
 )
 
 type WorkerNode struct {
@@ -118,6 +120,11 @@ func (w *WorkerNode) SetCpuUsed(usage uint64) {
 
 func (w *WorkerNode) SetMemoryUsed(usage uint64) {
 	w.MemoryUsed = usage
+}
+
+func (w *WorkerNode) AddUsage(cpu, memory uint64) {
+	atomic.AddUint64(&w.CpuUsed, cpu)
+	atomic.AddUint64(&w.MemoryUsed, memory)
 }
 
 func (w *WorkerNode) GetIP() string {

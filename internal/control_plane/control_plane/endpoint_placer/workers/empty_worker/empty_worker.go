@@ -115,6 +115,9 @@ func (e *emptyWorker) SetCpuUsed(u uint64) {
 func (e *emptyWorker) SetMemoryUsed(u uint64) {
 }
 
+func (e *emptyWorker) AddUsage(c, m uint64) {
+}
+
 func (e *emptyWorker) GetCpuAvailable() uint64 {
 	return 0
 }

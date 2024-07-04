@@ -142,6 +142,26 @@ func (mr *MockCpiInterfaceClientMockRecorder) DeregisterWorkflow(ctx, in any, op
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeregisterWorkflow", reflect.TypeOf((*MockCpiInterfaceClient)(nil).DeregisterWorkflow), varargs...)
 }
 
+// HasService mocks base method.
+func (m *MockCpiInterfaceClient) HasService(ctx context.Context, in *proto.ServiceIdentifier, opts ...grpc.CallOption) (*proto.HasServiceResult, error) {
+	m.ctrl.T.Helper()
+	varargs := []any{ctx, in}
+	for _, a := range opts {
+		varargs = append(varargs, a)
+	}
+	ret := m.ctrl.Call(m, "HasService", varargs...)
+	ret0, _ := ret[0].(*proto.HasServiceResult)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// HasService indicates an expected call of HasService.
+func (mr *MockCpiInterfaceClientMockRecorder) HasService(ctx, in any, opts ...any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	varargs := append([]any{ctx, in}, opts...)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "HasService", reflect.TypeOf((*MockCpiInterfaceClient)(nil).HasService), varargs...)
+}
+
 // ListServices mocks base method.
 func (m *MockCpiInterfaceClient) ListServices(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*proto.ServiceList, error) {
 	m.ctrl.T.Helper()
@@ -478,6 +498,21 @@ func (m *MockCpiInterfaceServer) DeregisterWorkflow(arg0 context.Context, arg1 *
 func (mr *MockCpiInterfaceServerMockRecorder) DeregisterWorkflow(arg0, arg1 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeregisterWorkflow", reflect.TypeOf((*MockCpiInterfaceServer)(nil).DeregisterWorkflow), arg0, arg1)
+}
+
+// HasService mocks base method.
+func (m *MockCpiInterfaceServer) HasService(arg0 context.Context, arg1 *proto.ServiceIdentifier) (*proto.HasServiceResult, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "HasService", arg0, arg1)
+	ret0, _ := ret[0].(*proto.HasServiceResult)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// HasService indicates an expected call of HasService.
+func (mr *MockCpiInterfaceServerMockRecorder) HasService(arg0, arg1 any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "HasService", reflect.TypeOf((*MockCpiInterfaceServer)(nil).HasService), arg0, arg1)
 }
 
 // ListServices mocks base method.

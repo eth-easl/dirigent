@@ -40,6 +40,7 @@ type WorkerNodeInterface interface {
 	UpdateLastHearBeat()
 	SetCpuUsed(uint64)
 	SetMemoryUsed(uint64)
+	AddUsage(cpu, memory uint64)
 	GetCpuAvailable() uint64
 	GetCpuUsed() uint64
 	GetMemoryAvailable() uint64

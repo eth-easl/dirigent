@@ -227,6 +227,7 @@ func (ep *EndpointPlacer) doUpscaling(toCreateCount int, loopStarted time.Time) 
 				atomic.AddInt64(&ep.ServiceState.ActualScale, -1)
 				return
 			}
+			node.AddUsage(ep.ServiceState.FunctionInfo[0].GetRequestedCpu(), ep.ServiceState.FunctionInfo[0].GetRequestedMemory())
 
 			ctx, cancel := context.WithTimeout(context.Background(), utils.WorkerNodeTrafficTimeout)
 			defer cancel()
@@ -253,6 +254,7 @@ func (ep *EndpointPlacer) doUpscaling(toCreateCount int, loopStarted time.Time) 
 				logrus.Warnf("Failed to start a sandbox on worker node %s (error %s)", node.GetName(), text)
 
 				atomic.AddInt64(&ep.ServiceState.ActualScale, -1)
+				node.AddUsage(-ep.ServiceState.FunctionInfo[0].GetRequestedCpu(), -ep.ServiceState.FunctionInfo[0].GetRequestedMemory())
 
 				var latencyBreakdown *proto.SandboxCreationBreakdown
 				if resp != nil {
