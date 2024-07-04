@@ -91,6 +91,10 @@ func (w *WorkerNode) ListEndpoints(ctx context.Context, empty *emptypb.Empty, op
 	}
 }
 
+func (w *WorkerNode) PrepullImage(ctx context.Context, id *proto.ImageInfo, option ...grpc.CallOption) (*proto.ActionStatus, error) {
+	return w.wnConnection.PrepullImage(ctx, id, option...)
+}
+
 func (w *WorkerNode) ConnectToWorker() proto.WorkerNodeInterfaceClient {
 	if w.wnConnection == nil {
 		var err error

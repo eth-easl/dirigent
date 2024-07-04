@@ -24,6 +24,7 @@ const (
 	WorkerNodeInterface_DeleteSandbox_FullMethodName     = "/data_plane.WorkerNodeInterface/DeleteSandbox"
 	WorkerNodeInterface_CreateTaskSandbox_FullMethodName = "/data_plane.WorkerNodeInterface/CreateTaskSandbox"
 	WorkerNodeInterface_ListEndpoints_FullMethodName     = "/data_plane.WorkerNodeInterface/ListEndpoints"
+	WorkerNodeInterface_PrepullImage_FullMethodName      = "/data_plane.WorkerNodeInterface/PrepullImage"
 )
 
 // WorkerNodeInterfaceClient is the client API for WorkerNodeInterface service.
@@ -34,6 +35,7 @@ type WorkerNodeInterfaceClient interface {
 	DeleteSandbox(ctx context.Context, in *SandboxID, opts ...grpc.CallOption) (*ActionStatus, error)
 	CreateTaskSandbox(ctx context.Context, in *WorkflowTaskInfo, opts ...grpc.CallOption) (*SandboxCreationStatus, error)
 	ListEndpoints(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*EndpointsList, error)
+	PrepullImage(ctx context.Context, in *ImageInfo, opts ...grpc.CallOption) (*ActionStatus, error)
 }
 
 type workerNodeInterfaceClient struct {
@@ -80,6 +82,15 @@ func (c *workerNodeInterfaceClient) ListEndpoints(ctx context.Context, in *empty
 	return out, nil
 }
 
+func (c *workerNodeInterfaceClient) PrepullImage(ctx context.Context, in *ImageInfo, opts ...grpc.CallOption) (*ActionStatus, error) {
+	out := new(ActionStatus)
+	err := c.cc.Invoke(ctx, WorkerNodeInterface_PrepullImage_FullMethodName, in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // WorkerNodeInterfaceServer is the server API for WorkerNodeInterface service.
 // All implementations must embed UnimplementedWorkerNodeInterfaceServer
 // for forward compatibility
@@ -88,6 +99,7 @@ type WorkerNodeInterfaceServer interface {
 	DeleteSandbox(context.Context, *SandboxID) (*ActionStatus, error)
 	CreateTaskSandbox(context.Context, *WorkflowTaskInfo) (*SandboxCreationStatus, error)
 	ListEndpoints(context.Context, *emptypb.Empty) (*EndpointsList, error)
+	PrepullImage(context.Context, *ImageInfo) (*ActionStatus, error)
 	mustEmbedUnimplementedWorkerNodeInterfaceServer()
 }
 
@@ -106,6 +118,9 @@ func (UnimplementedWorkerNodeInterfaceServer) CreateTaskSandbox(context.Context,
 }
 func (UnimplementedWorkerNodeInterfaceServer) ListEndpoints(context.Context, *emptypb.Empty) (*EndpointsList, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method ListEndpoints not implemented")
+}
+func (UnimplementedWorkerNodeInterfaceServer) PrepullImage(context.Context, *ImageInfo) (*ActionStatus, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method PrepullImage not implemented")
 }
 func (UnimplementedWorkerNodeInterfaceServer) mustEmbedUnimplementedWorkerNodeInterfaceServer() {}
 
@@ -192,6 +207,24 @@ func _WorkerNodeInterface_ListEndpoints_Handler(srv interface{}, ctx context.Con
 	return interceptor(ctx, in, info, handler)
 }
 
+func _WorkerNodeInterface_PrepullImage_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ImageInfo)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(WorkerNodeInterfaceServer).PrepullImage(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: WorkerNodeInterface_PrepullImage_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(WorkerNodeInterfaceServer).PrepullImage(ctx, req.(*ImageInfo))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // WorkerNodeInterface_ServiceDesc is the grpc.ServiceDesc for WorkerNodeInterface service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -214,6 +247,10 @@ var WorkerNodeInterface_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "ListEndpoints",
 			Handler:    _WorkerNodeInterface_ListEndpoints_Handler,
+		},
+		{
+			MethodName: "PrepullImage",
+			Handler:    _WorkerNodeInterface_PrepullImage_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

@@ -10,10 +10,11 @@ import (
 	"cluster_manager/proto"
 	"context"
 	"errors"
+	"strconv"
+
 	"github.com/sirupsen/logrus"
 	"google.golang.org/grpc"
 	"google.golang.org/protobuf/types/known/emptypb"
-	"strconv"
 )
 
 type CpApiServer struct {
@@ -138,6 +139,21 @@ func (c *CpApiServer) ListServices(ctx context.Context, empty *emptypb.Empty) (*
 	}
 
 	return c.ControlPlane.listServices(ctx, empty)
+}
+
+func (c *CpApiServer) HasService(ctx context.Context, service *proto.ServiceIdentifier) (*proto.HasServiceResult, error) {
+	if !c.LeaderElectionServer.IsLeader() {
+		logrus.Warn("Received hasService call although not the leader. Forwarding the call...")
+		leader := c.LeaderElectionServer.GetLeader()
+
+		if leader != nil {
+			return leader.HasService(ctx, service)
+		} else {
+			return &proto.HasServiceResult{HasService: false}, nil
+		}
+	}
+
+	return c.ControlPlane.hasService(ctx, service)
 }
 
 func (c *CpApiServer) RegisterNode(ctx context.Context, info *proto.NodeInfo) (*proto.ActionStatus, error) {

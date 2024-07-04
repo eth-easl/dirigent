@@ -316,6 +316,12 @@ func (c *ControlPlane) nodeHeartbeat(_ context.Context, in *proto.NodeHeartbeatM
 func (c *ControlPlane) registerService(ctx context.Context, serviceInfo *proto.ServiceInfo) (*proto.ActionStatus, error) {
 	logrus.Infof("Received a service registration with name : %s", serviceInfo.Name)
 
+	err := c.prepullImagesForService(ctx, serviceInfo.PrepullConfig, serviceInfo.Image)
+	if err != nil {
+		logrus.Warnf("Failed to prepull images: %s", err.Error())
+		return &proto.ActionStatus{Success: false}, err
+	}
+
 	c.SIStorage.Lock()
 	defer c.SIStorage.Unlock()
 
@@ -324,7 +330,7 @@ func (c *ControlPlane) registerService(ctx context.Context, serviceInfo *proto.S
 		return &proto.ActionStatus{Success: false}, errors.New("service is already registered")
 	}
 
-	err := c.PersistenceLayer.StoreServiceInformation(ctx, serviceInfo)
+	err = c.PersistenceLayer.StoreServiceInformation(ctx, serviceInfo)
 	if err != nil {
 		logrus.Errorf("Failed to store information to persistence layer (error : %s)", err.Error())
 		c.SIStorage.Remove(serviceInfo.Name)
@@ -343,6 +349,7 @@ func (c *ControlPlane) registerService(ctx context.Context, serviceInfo *proto.S
 		c.precreateSnapshots(serviceInfo)
 	}
 
+	logrus.Debugf("Successfully registered function %s.", serviceInfo.Name)
 	return &proto.ActionStatus{Success: true}, nil
 }
 
@@ -382,6 +389,10 @@ func (c *ControlPlane) listServices(_ context.Context, _ *emptypb.Empty) (*proto
 	c.SIStorage.RLock()
 	defer c.SIStorage.RUnlock()
 	return &proto.ServiceList{Service: _map.Keys(c.SIStorage.GetMap())}, nil
+}
+
+func (c *ControlPlane) hasService(_ context.Context, service *proto.ServiceIdentifier) (*proto.HasServiceResult, error) {
+	return &proto.HasServiceResult{HasService: c.SIStorage.Present(service.Name)}, nil
 }
 
 func (c *ControlPlane) setInvocationsMetrics(_ context.Context, metric *proto.AutoscalingMetric) (*proto.ActionStatus, error) {

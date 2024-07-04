@@ -23,6 +23,7 @@ const (
 	CpiInterface_SetInvocationsMetrics_FullMethodName      = "/data_plane.CpiInterface/SetInvocationsMetrics"
 	CpiInterface_SetBackgroundMetrics_FullMethodName       = "/data_plane.CpiInterface/SetBackgroundMetrics"
 	CpiInterface_ListServices_FullMethodName               = "/data_plane.CpiInterface/ListServices"
+	CpiInterface_HasService_FullMethodName                 = "/data_plane.CpiInterface/HasService"
 	CpiInterface_RegisterDataplane_FullMethodName          = "/data_plane.CpiInterface/RegisterDataplane"
 	CpiInterface_RegisterService_FullMethodName            = "/data_plane.CpiInterface/RegisterService"
 	CpiInterface_RegisterWorkflow_FullMethodName           = "/data_plane.CpiInterface/RegisterWorkflow"
@@ -46,6 +47,7 @@ type CpiInterfaceClient interface {
 	SetInvocationsMetrics(ctx context.Context, in *AutoscalingMetric, opts ...grpc.CallOption) (*ActionStatus, error)
 	SetBackgroundMetrics(ctx context.Context, in *MetricsPredictiveAutoscaler, opts ...grpc.CallOption) (*ActionStatus, error)
 	ListServices(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*ServiceList, error)
+	HasService(ctx context.Context, in *ServiceIdentifier, opts ...grpc.CallOption) (*HasServiceResult, error)
 	RegisterDataplane(ctx context.Context, in *DataplaneInfo, opts ...grpc.CallOption) (*ActionStatus, error)
 	RegisterService(ctx context.Context, in *ServiceInfo, opts ...grpc.CallOption) (*ActionStatus, error)
 	RegisterWorkflow(ctx context.Context, in *WorkflowInfo, opts ...grpc.CallOption) (*ActionStatus, error)
@@ -93,6 +95,15 @@ func (c *cpiInterfaceClient) SetBackgroundMetrics(ctx context.Context, in *Metri
 func (c *cpiInterfaceClient) ListServices(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*ServiceList, error) {
 	out := new(ServiceList)
 	err := c.cc.Invoke(ctx, CpiInterface_ListServices_FullMethodName, in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *cpiInterfaceClient) HasService(ctx context.Context, in *ServiceIdentifier, opts ...grpc.CallOption) (*HasServiceResult, error) {
+	out := new(HasServiceResult)
+	err := c.cc.Invoke(ctx, CpiInterface_HasService_FullMethodName, in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -232,6 +243,7 @@ type CpiInterfaceServer interface {
 	SetInvocationsMetrics(context.Context, *AutoscalingMetric) (*ActionStatus, error)
 	SetBackgroundMetrics(context.Context, *MetricsPredictiveAutoscaler) (*ActionStatus, error)
 	ListServices(context.Context, *emptypb.Empty) (*ServiceList, error)
+	HasService(context.Context, *ServiceIdentifier) (*HasServiceResult, error)
 	RegisterDataplane(context.Context, *DataplaneInfo) (*ActionStatus, error)
 	RegisterService(context.Context, *ServiceInfo) (*ActionStatus, error)
 	RegisterWorkflow(context.Context, *WorkflowInfo) (*ActionStatus, error)
@@ -263,6 +275,9 @@ func (UnimplementedCpiInterfaceServer) SetBackgroundMetrics(context.Context, *Me
 }
 func (UnimplementedCpiInterfaceServer) ListServices(context.Context, *emptypb.Empty) (*ServiceList, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method ListServices not implemented")
+}
+func (UnimplementedCpiInterfaceServer) HasService(context.Context, *ServiceIdentifier) (*HasServiceResult, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method HasService not implemented")
 }
 func (UnimplementedCpiInterfaceServer) RegisterDataplane(context.Context, *DataplaneInfo) (*ActionStatus, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method RegisterDataplane not implemented")
@@ -369,6 +384,24 @@ func _CpiInterface_ListServices_Handler(srv interface{}, ctx context.Context, de
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(CpiInterfaceServer).ListServices(ctx, req.(*emptypb.Empty))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _CpiInterface_HasService_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ServiceIdentifier)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(CpiInterfaceServer).HasService(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: CpiInterface_HasService_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(CpiInterfaceServer).HasService(ctx, req.(*ServiceIdentifier))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -643,6 +676,10 @@ var CpiInterface_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "ListServices",
 			Handler:    _CpiInterface_ListServices_Handler,
+		},
+		{
+			MethodName: "HasService",
+			Handler:    _CpiInterface_HasService_Handler,
 		},
 		{
 			MethodName: "RegisterDataplane",

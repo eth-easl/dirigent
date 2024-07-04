@@ -63,11 +63,20 @@ message FunctionMetrics {
   repeated double invocationsPerMinute = 3;
 }
 
+message ServiceIdentifier {
+  string Name = 1;
+}
+
+message HasServiceResult {
+  bool HasService = 2;
+}
+
 service CpiInterface {
   rpc SetInvocationsMetrics(AutoscalingMetric) returns (ActionStatus);
   rpc SetBackgroundMetrics(MetricsPredictiveAutoscaler) returns (ActionStatus);
 
   rpc ListServices(google.protobuf.Empty) returns (ServiceList);
+  rpc HasService(ServiceIdentifier) returns (HasServiceResult);
 
   rpc RegisterDataplane(DataplaneInfo) returns (ActionStatus);
   rpc RegisterService(ServiceInfo) returns (ActionStatus);

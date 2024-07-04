@@ -279,6 +279,14 @@ func (fcr *Runtime) ListEndpoints(_ context.Context, _ *emptypb.Empty) (*proto.E
 	return fcr.SandboxManager.ListEndpoints()
 }
 
+func (fcr *Runtime) PrepullImage(grpcCtx context.Context, imageInfo *proto.ImageInfo) (*proto.ActionStatus, error) {
+	// TODO: Implement Firecracker image fetching.
+	return &proto.ActionStatus{
+		Success: false,
+		Message: "Firecracker runtime does not currently support prepulling images.",
+	}, nil
+}
+
 func (fcr *Runtime) GetImages(grpcCtx context.Context) ([]*proto.ImageInfo, error) {
 	// TODO: Implement Firecracker image fetching.
 	return []*proto.ImageInfo{}, errors.New("image pulling in Firecracker not implemented yet")

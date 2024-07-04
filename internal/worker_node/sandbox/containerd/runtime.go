@@ -233,6 +233,17 @@ func (cr *ContainerdRuntime) ListEndpoints(_ context.Context, _ *emptypb.Empty) 
 	return cr.SandboxManager.ListEndpoints()
 }
 
+func (cr *ContainerdRuntime) PrepullImage(grpcCtx context.Context, imageInfo *proto.ImageInfo) (*proto.ActionStatus, error) {
+	logrus.Debugf("PrepullImage with image = '%s'", imageInfo.URL)
+
+	ctx := namespaces.WithNamespace(grpcCtx, "cm")
+	_, err, _ := cr.ImageManager.GetImage(ctx, cr.ContainerdClient, imageInfo.URL)
+	if err != nil {
+		return &proto.ActionStatus{Success: false}, err
+	}
+	return &proto.ActionStatus{Success: true}, nil
+}
+
 func (cr *ContainerdRuntime) GetImages(grpcCtx context.Context) ([]*proto.ImageInfo, error) {
 	ctx := namespaces.WithNamespace(grpcCtx, "cm")
 	images, err := cr.ContainerdClient.ListImages(ctx)

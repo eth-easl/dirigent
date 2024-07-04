@@ -7,6 +7,7 @@ import (
 	"cluster_manager/internal/control_plane/workflow"
 	"cluster_manager/internal/control_plane/workflow/dandelion-workflow"
 	"cluster_manager/proto"
+	"context"
 	"errors"
 	"fmt"
 	"google.golang.org/protobuf/types/known/emptypb"
@@ -28,6 +29,21 @@ func getFormValue(w http.ResponseWriter, r *http.Request, key string) (string, e
 	}
 
 	return val, nil
+}
+
+func parsePrepullConfig(mode string) proto.PrepullMode {
+	switch mode {
+	case "all_sync":
+		return proto.PrepullMode_ALL_SYNC
+	case "all_async":
+		return proto.PrepullMode_ALL_ASYNC
+	case "one_sync":
+		return proto.PrepullMode_ONE_SYNC
+	case "one_async":
+		return proto.PrepullMode_ONE_ASYNC
+	default:
+		return proto.PrepullMode_NONE
+	}
 }
 
 func functionRegistrationHandler(cpApi *control_plane.CpApiServer) func(w http.ResponseWriter, r *http.Request) {
@@ -97,6 +113,13 @@ func functionRegistrationHandler(cpApi *control_plane.CpApiServer) func(w http.R
 				return
 			}
 		}
+
+		prepullConfig := proto.PrepullMode_NONE
+		prepullMode, ok := r.Form["prepull_mode"]
+		if ok {
+			prepullConfig = parsePrepullConfig(prepullMode[0])
+		}
+		isAsync := prepullConfig != proto.PrepullMode_NONE
 
 		autoscalingConfig := autoscalers.NewDefaultAutoscalingConfiguration()
 
@@ -180,16 +203,13 @@ func functionRegistrationHandler(cpApi *control_plane.CpApiServer) func(w http.R
 		}
 
 		var service *proto.ActionStatus
-		if cpApi.LeaderElectionServer.IsLeader() {
-			service, err = cpApi.RegisterService(r.Context(), serviceInfo)
+		if isAsync {
+			go cpApi.RegisterService(context.Background(), serviceInfo)
 		} else {
-			service, err = cpApi.LeaderElectionServer.GetLeader().RegisterService(r.Context(), serviceInfo)
-		}
-		if err != nil {
-			return
+			service, err = cpApi.RegisterService(r.Context(), serviceInfo)
 		}
 
-		if service.Success {
+		if err == nil && service.Success {
 			w.WriteHeader(http.StatusOK)
 		} else {
 			http.Error(w, "Failed to register service.", http.StatusConflict)
@@ -201,8 +221,26 @@ func functionRegistrationHandler(cpApi *control_plane.CpApiServer) func(w http.R
 			http.Error(w, "Error writing endpoints.", http.StatusInternalServerError)
 			return
 		}
+	}
+}
 
-		logrus.Debugf("Successfully registered function %s.", name)
+func isFunctionRegisteredHandler(cpApi *control_plane.CpApiServer) func(w http.ResponseWriter, r *http.Request) {
+	return func(w http.ResponseWriter, r *http.Request) {
+		name, ok := r.URL.Query()["name"]
+		if !ok {
+			http.Error(w, "Querystring argument 'name' has not been specified.", http.StatusBadRequest)
+			return
+		}
+		result, err := cpApi.HasService(r.Context(), &proto.ServiceIdentifier{Name: name[0]})
+		if err != nil {
+			http.Error(w, "Error checking for service.", http.StatusInternalServerError)
+			return
+		}
+		if result.HasService {
+			w.WriteHeader(http.StatusOK)
+		} else {
+			w.WriteHeader(http.StatusNotFound)
+		}
 	}
 }
 
@@ -409,6 +447,7 @@ func StartServiceRegistrationServer(cpApi *control_plane.CpApiServer, registrati
 	mux.HandleFunc("/health", healthHandler)
 	mux.HandleFunc("/patch", patchHandler(cpApi))
 	mux.HandleFunc("/workflow", workflowRegistrationHandler(cpApi))
+	mux.HandleFunc("/check", isFunctionRegisteredHandler(cpApi))
 
 	server := &http.Server{
 		Addr:    fmt.Sprintf(":%s", registrationPort),
@@ -423,18 +462,16 @@ func StartServiceRegistrationServer(cpApi *control_plane.CpApiServer, registrati
 		attempt := 0
 
 		for {
-			select {
-			case <-time.After(50 * time.Millisecond):
-				logrus.Infof("Starting service registration service - attempt #%d", attempt+1)
+			time.Sleep(50 * time.Millisecond)
+			logrus.Infof("Starting service registration service - attempt #%d", attempt+1)
 
-				err := server.ListenAndServe()
-				if !errors.Is(err, http.ErrServerClosed) {
-					logrus.Errorf("Failed to start service registration server (attempt: #%d, error: %s)", attempt+1, err.Error())
-					attempt++
-				} else {
-					logrus.Infof("Succesfully closed function registration server")
-					return
-				}
+			err := server.ListenAndServe()
+			if !errors.Is(err, http.ErrServerClosed) {
+				logrus.Errorf("Failed to start service registration server (attempt: #%d, error: %s)", attempt+1, err.Error())
+				attempt++
+			} else {
+				logrus.Infof("Succesfully closed function registration server")
+				return
 			}
 		}
 	}()
@@ -449,8 +486,6 @@ func StartServiceRegistrationServer(cpApi *control_plane.CpApiServer, registrati
 		if err := server.Close(); err != nil {
 			logrus.Errorf("Failed to shut down function registration server.")
 		}
-
-		return
 	}()
 
 	return stopCh

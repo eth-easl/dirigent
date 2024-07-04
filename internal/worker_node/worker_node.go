@@ -130,6 +130,10 @@ func (w *WorkerNode) ListEndpoints(grpcCtx context.Context, in *emptypb.Empty) (
 	return w.SandboxRuntime.ListEndpoints(grpcCtx, in)
 }
 
+func (w *WorkerNode) PrepullImage(grpcCtx context.Context, in *proto.ImageInfo) (*proto.ActionStatus, error) {
+	return w.SandboxRuntime.PrepullImage(grpcCtx, in)
+}
+
 func (w *WorkerNode) RegisterNodeWithControlPlane(config config.WorkerNodeConfig, cpApi *proto.CpiInterfaceClient) {
 	logrus.Info("Trying to register the node with the control plane")
 

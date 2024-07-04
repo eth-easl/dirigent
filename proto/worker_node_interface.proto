@@ -44,4 +44,6 @@ service WorkerNodeInterface {
   rpc CreateTaskSandbox(WorkflowTaskInfo) returns (SandboxCreationStatus);
 
   rpc ListEndpoints(google.protobuf.Empty) returns (EndpointsList);
+
+  rpc PrepullImage(ImageInfo) returns (ActionStatus);
 }

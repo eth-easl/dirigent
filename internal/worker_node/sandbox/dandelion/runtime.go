@@ -320,6 +320,14 @@ func (dr *Runtime) ListEndpoints(_ context.Context, _ *emptypb.Empty) (*proto.En
 	return dr.SandboxManager.ListEndpoints()
 }
 
+func (dr *Runtime) PrepullImage(grpcCtx context.Context, imageInfo *proto.ImageInfo) (*proto.ActionStatus, error) {
+	// TODO: Implement Firecracker image fetching.
+	return &proto.ActionStatus{
+		Success: false,
+		Message: "Dandelion runtime does not currently support prepulling images.",
+	}, nil
+}
+
 func (dr *Runtime) GetImages(grpcCtx context.Context) ([]*proto.ImageInfo, error) {
 	// TODO: Implement Firecracker image fetching.
 	return []*proto.ImageInfo{}, errors.New("image pulling in Dandelion not implemented yet")

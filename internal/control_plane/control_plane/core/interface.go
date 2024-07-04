@@ -33,6 +33,7 @@ type WorkerNodeInterface interface {
 	DeleteSandbox(context.Context, *proto.SandboxID, ...grpc.CallOption) (*proto.ActionStatus, error)
 	CreateTaskSandbox(context.Context, *proto.WorkflowTaskInfo, ...grpc.CallOption) (*proto.SandboxCreationStatus, error)
 	ListEndpoints(context.Context, *emptypb.Empty, ...grpc.CallOption) (*proto.EndpointsList, error)
+	PrepullImage(context.Context, *proto.ImageInfo, ...grpc.CallOption) (*proto.ActionStatus, error)
 	GetName() string
 	GetLastHeartBeat() time.Time
 	GetWorkerNodeConfiguration() WorkerNodeConfiguration
