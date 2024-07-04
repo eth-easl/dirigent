@@ -3,21 +3,24 @@ package placement_policy
 import (
 	"cluster_manager/internal/control_plane/control_plane/core"
 	"cluster_manager/internal/control_plane/control_plane/endpoint_placer/workers"
+	"cluster_manager/internal/control_plane/control_plane/image_storage"
 	_map "cluster_manager/pkg/map"
 	"cluster_manager/pkg/synchronization"
 	"fmt"
-	"github.com/montanaflynn/stats"
-	"github.com/sirupsen/logrus"
-	"github.com/stretchr/testify/assert"
 	"sort"
 	"sync"
 	"testing"
 	"time"
+
+	"github.com/montanaflynn/stats"
+	"github.com/sirupsen/logrus"
+	"github.com/stretchr/testify/assert"
 )
 
 func TestRandomPolicy(t *testing.T) {
 	policy := NewRandomPlacement()
 	storage := synchronization.NewControlPlaneSyncStructure[string, core.WorkerNodeInterface]()
+	images := image_storage.NewDefaultImageStorage()
 
 	storage.Set("w1", &workers.WorkerNode{Schedulable: true})
 	storage.Set("w2", &workers.WorkerNode{Schedulable: true})
@@ -25,7 +28,7 @@ func TestRandomPolicy(t *testing.T) {
 	requested := &ResourceMap{}
 
 	for i := 0; i < 100; i++ {
-		currentStorage := policy.Place(storage, requested, nil)
+		currentStorage := policy.Place(storage, images, requested, nil)
 		assert.NotNil(t, currentStorage)
 		assert.True(t, currentStorage == storage.GetNoCheck("w1") || currentStorage == storage.GetNoCheck("w2"))
 	}
@@ -34,6 +37,7 @@ func TestRandomPolicy(t *testing.T) {
 func TestRoundRobin(t *testing.T) {
 	policy := NewRoundRobinPlacement()
 	storage := synchronization.NewControlPlaneSyncStructure[string, core.WorkerNodeInterface]()
+	images := image_storage.NewDefaultImageStorage()
 
 	requested := &ResourceMap{}
 
@@ -46,17 +50,17 @@ func TestRoundRobin(t *testing.T) {
 
 	for i := 0; i < 100; i++ {
 		{
-			currentStorage := policy.Place(storage, requested, nil)
+			currentStorage := policy.Place(storage, images, requested, nil)
 			assert.NotNil(t, currentStorage)
 			assert.Equal(t, currentStorage, storage.GetNoCheck(nodes[0]))
 		}
 		{
-			currentStorage := policy.Place(storage, requested, nil)
+			currentStorage := policy.Place(storage, images, requested, nil)
 			assert.NotNil(t, currentStorage)
 			assert.Equal(t, currentStorage, storage.GetNoCheck(nodes[1]))
 		}
 		{
-			currentStorage := policy.Place(storage, requested, nil)
+			currentStorage := policy.Place(storage, images, requested, nil)
 			assert.NotNil(t, currentStorage)
 			assert.Equal(t, currentStorage, storage.GetNoCheck(nodes[2]))
 		}
@@ -66,6 +70,7 @@ func TestRoundRobin(t *testing.T) {
 func TestDandelion(t *testing.T) {
 	policy := NewDandelionPlacementPolicy()
 	storage := synchronization.NewControlPlaneSyncStructure[string, core.WorkerNodeInterface]()
+	images := image_storage.NewDefaultImageStorage()
 
 	requested := &ResourceMap{}
 
@@ -82,7 +87,7 @@ func TestDandelion(t *testing.T) {
 			registeredNodes = synchronization.NewControlPlaneSyncStructure[string, bool]()
 			registeredNodes.Set("w1", true)
 			registeredNodes.Set("w2", true)
-			currentStorage := policy.Place(storage, requested, &registeredNodes)
+			currentStorage := policy.Place(storage, images, requested, &registeredNodes)
 			assert.NotNil(t, currentStorage)
 			assert.Equal(t, currentStorage, storage.GetNoCheck(nodes[2]))
 		}
@@ -91,7 +96,7 @@ func TestDandelion(t *testing.T) {
 			registeredNodes = synchronization.NewControlPlaneSyncStructure[string, bool]()
 			registeredNodes.Set("w3", true)
 			registeredNodes.Set("w2", true)
-			currentStorage := policy.Place(storage, requested, &registeredNodes)
+			currentStorage := policy.Place(storage, images, requested, &registeredNodes)
 			assert.NotNil(t, currentStorage)
 			assert.Equal(t, currentStorage, storage.GetNoCheck(nodes[0]))
 		}
@@ -100,7 +105,7 @@ func TestDandelion(t *testing.T) {
 			registeredNodes = synchronization.NewControlPlaneSyncStructure[string, bool]()
 			registeredNodes.Set("w1", true)
 			registeredNodes.Set("w3", true)
-			currentStorage := policy.Place(storage, requested, &registeredNodes)
+			currentStorage := policy.Place(storage, images, requested, &registeredNodes)
 			assert.NotNil(t, currentStorage)
 			assert.Equal(t, currentStorage, storage.GetNoCheck(nodes[1]))
 		}
@@ -110,7 +115,7 @@ func TestDandelion(t *testing.T) {
 			registeredNodes.Set("w1", true)
 			registeredNodes.Set("w2", true)
 			registeredNodes.Set("w3", true)
-			currentStorage := policy.Place(storage, requested, &registeredNodes)
+			currentStorage := policy.Place(storage, images, requested, &registeredNodes)
 			assert.NotEqual(t, currentStorage, nil)
 		}
 	}
@@ -193,6 +198,7 @@ func TestPlacementOnXKNodes(t *testing.T) {
 
 	// create cluster
 	storage := createStorageWithXNodes(NODES)
+	images := image_storage.NewDefaultImageStorage()
 	policy := NewKubernetesPolicy()
 
 	var data []float64
@@ -207,7 +213,7 @@ func TestPlacementOnXKNodes(t *testing.T) {
 				defer wg.Done()
 
 				start := time.Now()
-				policy.Place(storage, CreateResourceMap(1, 1), nil)
+				policy.Place(storage, images, CreateResourceMap(1, 1, ""), nil)
 				dt := time.Since(start).Milliseconds()
 
 				mutex.Lock()

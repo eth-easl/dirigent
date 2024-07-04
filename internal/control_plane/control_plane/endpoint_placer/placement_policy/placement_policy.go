@@ -2,11 +2,12 @@ package placement_policy
 
 import (
 	"cluster_manager/internal/control_plane/control_plane/core"
+	"cluster_manager/internal/control_plane/control_plane/image_storage"
 	"cluster_manager/pkg/synchronization"
 )
 
 type PlacementPolicy interface {
-	Place(synchronization.SyncStructure[string, core.WorkerNodeInterface], *ResourceMap, *synchronization.SyncStructure[string, bool]) core.WorkerNodeInterface
+	Place(synchronization.SyncStructure[string, core.WorkerNodeInterface], image_storage.ImageStorage, *ResourceMap, *synchronization.SyncStructure[string, bool]) core.WorkerNodeInterface
 }
 
 func getSchedulableNodes(allNodes []core.WorkerNodeInterface) []core.WorkerNodeInterface {
@@ -20,7 +21,7 @@ func getSchedulableNodes(allNodes []core.WorkerNodeInterface) []core.WorkerNodeI
 	return result
 }
 
-func ApplyPlacementPolicy(placementPolicy PlacementPolicy, NIStorage synchronization.SyncStructure[string, core.WorkerNodeInterface], requested *ResourceMap, dandelionNodes *synchronization.SyncStructure[string, bool]) core.WorkerNodeInterface {
+func ApplyPlacementPolicy(placementPolicy PlacementPolicy, NIStorage synchronization.SyncStructure[string, core.WorkerNodeInterface], images image_storage.ImageStorage, requested *ResourceMap, dandelionNodes *synchronization.SyncStructure[string, bool]) core.WorkerNodeInterface {
 	NIStorage.RLock()
 	defer NIStorage.RUnlock()
 
@@ -28,7 +29,7 @@ func ApplyPlacementPolicy(placementPolicy PlacementPolicy, NIStorage synchroniza
 		return nil
 	}
 
-	return placementPolicy.Place(NIStorage, requested, dandelionNodes)
+	return placementPolicy.Place(NIStorage, images, requested, dandelionNodes)
 }
 
 func getNumberNodes(storage synchronization.SyncStructure[string, core.WorkerNodeInterface]) int {

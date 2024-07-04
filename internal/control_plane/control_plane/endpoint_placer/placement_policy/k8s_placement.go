@@ -2,16 +2,24 @@ package placement_policy
 
 import (
 	"cluster_manager/internal/control_plane/control_plane/core"
+	"cluster_manager/internal/control_plane/control_plane/image_storage"
 	"cluster_manager/pkg/synchronization"
-	"github.com/sirupsen/logrus"
 	"math"
 	"math/rand"
+
+	"github.com/sirupsen/logrus"
+)
+
+const (
+	oneMebibyte  = 1024 * 1024
+	minImageSize = uint64(50 * oneMebibyte)
+	maxImageSize = uint64(1000 * oneMebibyte)
 )
 
 func NewKubernetesPolicy() *KubernetesPolicy {
 	return &KubernetesPolicy{
 		// TODO: Make it dynamic in the future
-		resourceMap: CreateResourceMap(1, 1),
+		resourceMap: CreateResourceMap(1, 1, ""),
 	}
 }
 
@@ -19,14 +27,14 @@ type KubernetesPolicy struct {
 	resourceMap *ResourceMap
 }
 
-func (policy *KubernetesPolicy) Place(storage synchronization.SyncStructure[string, core.WorkerNodeInterface], requested *ResourceMap, _ *synchronization.SyncStructure[string, bool]) core.WorkerNodeInterface {
-	filteredNodes := filterMachines(storage, policy.resourceMap)
-	scores := prioritizeNodes(filteredNodes, storage, requested)
+func (policy *KubernetesPolicy) Place(nodes synchronization.SyncStructure[string, core.WorkerNodeInterface], images image_storage.ImageStorage, requested *ResourceMap, _ *synchronization.SyncStructure[string, bool]) core.WorkerNodeInterface {
+	filteredNodes := filterMachines(nodes, policy.resourceMap)
+	scores := prioritizeNodes(filteredNodes, nodes, images, requested)
 
-	return selectOneMachine(storage, scores)
+	return selectOneMachine(nodes, scores)
 }
 
-type ScoringAlgorithmType func(ResourceMap, ResourceMap) uint64
+type ScoringAlgorithmType func(ResourceMap, ResourceMap, image_storage.ImageStorage, synchronization.SyncStructure[string, core.WorkerNodeInterface], core.WorkerNodeInterface) uint64
 
 type ScoringAlgorithm struct {
 	Name  string
@@ -42,6 +50,10 @@ func CreateScoringPipeline() []ScoringAlgorithm {
 		{
 			Name:  "NodeResourcesBalancedAllocation",
 			Score: ScoreBalancedAllocation,
+		},
+		{
+			Name:  "ImageLocality",
+			Score: ScoreImageLocality,
 		},
 	}
 }
@@ -59,7 +71,7 @@ func leastRequestedScore(requested, capacity uint64) uint64 {
 	return ((capacity - requested) * 100) / capacity
 }
 
-func ScoreFitLeastAllocated(installed ResourceMap, requested ResourceMap) uint64 {
+func ScoreFitLeastAllocated(installed ResourceMap, requested ResourceMap, _ image_storage.ImageStorage, _ synchronization.SyncStructure[string, core.WorkerNodeInterface], _ core.WorkerNodeInterface) uint64 {
 	var nodeScore uint64 = 0
 	var weightSum uint64 = 0
 
@@ -83,7 +95,7 @@ func ScoreFitLeastAllocated(installed ResourceMap, requested ResourceMap) uint64
 	return nodeScore / weightSum
 }
 
-func ScoreBalancedAllocation(installed ResourceMap, requested ResourceMap) uint64 {
+func ScoreBalancedAllocation(installed ResourceMap, requested ResourceMap, _ image_storage.ImageStorage, _ synchronization.SyncStructure[string, core.WorkerNodeInterface], _ core.WorkerNodeInterface) uint64 {
 	var (
 		totalFraction float64
 	)
@@ -121,6 +133,26 @@ func ScoreBalancedAllocation(installed ResourceMap, requested ResourceMap) uint6
 	// STD (standard deviation) is always a positive value. 1-deviation lets the score to be higher for node which has least deviation and
 	// multiplying it with `MaxNodeScore` provides the scaling factor needed.
 	return uint64((1 - std) * float64(100))
+}
+
+func ScoreImageLocality(installed ResourceMap, requested ResourceMap, images image_storage.ImageStorage, nodes synchronization.SyncStructure[string, core.WorkerNodeInterface], node core.WorkerNodeInterface) uint64 {
+	image := requested.GetImage()
+	imageInfo, ok := images.Get(image)
+	if !ok {
+		logrus.Warnf("K8s placement policy cannot determine image locality for unregistered image %s", image)
+		return 0
+	}
+	if !node.HasImage(requested.GetImage()) {
+		return 0
+	}
+	spread := float64(imageInfo.Count) / float64(nodes.AtomicLen())
+	scaledImageSize := uint64(float64(imageInfo.Size) * spread)
+	if scaledImageSize > maxImageSize {
+		scaledImageSize = maxImageSize
+	} else if scaledImageSize < minImageSize {
+		scaledImageSize = minImageSize
+	}
+	return 100 * (scaledImageSize - minImageSize) / (maxImageSize - minImageSize)
 }
 
 func minimumNumberOfNodesToFilter(storage synchronization.SyncStructure[string, core.WorkerNodeInterface]) int {
@@ -164,33 +196,34 @@ func filterMachines(storage synchronization.SyncStructure[string, core.WorkerNod
 }
 
 func getInstalledResources(machine core.WorkerNodeInterface) *ResourceMap {
-	return CreateResourceMap(machine.GetCpuAvailable(), machine.GetMemoryAvailable())
+	return CreateResourceMap(machine.GetCpuAvailable(), machine.GetMemoryAvailable(), "")
 }
 
 func getRequestedResources(machine core.WorkerNodeInterface, request *ResourceMap) *ResourceMap {
-	currentUsage := CreateResourceMap(machine.GetCpuUsed(), machine.GetCpuAvailable())
+	currentUsage := CreateResourceMap(machine.GetCpuUsed(), machine.GetCpuAvailable(), request.GetImage())
 	return SumResources(currentUsage, request)
 }
 
-func prioritizeNodes(nodes []string, storage synchronization.SyncStructure[string, core.WorkerNodeInterface], request *ResourceMap) map[string]uint64 {
+func prioritizeNodes(nodes []string, storage synchronization.SyncStructure[string, core.WorkerNodeInterface], images image_storage.ImageStorage, request *ResourceMap) map[string]uint64 {
 	scores := make(map[string]uint64)
 	if len(nodes) == 0 {
 		return scores
 	}
 
 	filterAlgorithms := CreateScoringPipeline()
-	for _, alg := range filterAlgorithms {
-		for _, machine := range nodes {
-			wni := storage.GetNoCheck(machine)
+	for _, machine := range nodes {
+		wni := storage.GetNoCheck(machine)
 
-			installedResources := getInstalledResources(wni)
-			requestedResources := getRequestedResources(wni, request)
-
-			sc := alg.Score(*installedResources, *requestedResources)
-			scores[machine] += sc
+		installedResources := getInstalledResources(wni)
+		requestedResources := getRequestedResources(wni, request)
+		score := uint64(0)
+		for _, alg := range filterAlgorithms {
+			sc := alg.Score(*installedResources, *requestedResources, images, storage, wni)
+			score += sc
 
 			logrus.Tracef("%s on node #%s has scored %d.\n", alg.Name, machine, sc)
 		}
+		scores[machine] = score
 	}
 
 	return scores
@@ -220,6 +253,7 @@ func selectOneMachine(storage synchronization.SyncStructure[string, core.WorkerN
 			}
 		}
 	}
+	logrus.Tracef("Kubernetes policy selected node %s out of %d", selected.GetName(), cntOfMaxScore)
 
 	return selected
 }

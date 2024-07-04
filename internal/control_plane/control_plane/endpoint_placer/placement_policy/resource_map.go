@@ -9,6 +9,7 @@ const (
 
 type ResourceMap struct {
 	resources map[string]uint64
+	image     string
 }
 
 func (r *ResourceMap) GetCpu() uint64 {
@@ -19,12 +20,20 @@ func (r *ResourceMap) GetMemory() uint64 {
 	return r.GetByKey(RM_MEMORY_KEY)
 }
 
+func (r *ResourceMap) GetImage() string {
+	return r.image
+}
+
 func (r *ResourceMap) SetCpu(v uint64) {
 	r.resources[RM_CPU_KEY] = v
 }
 
 func (r *ResourceMap) SetMemory(v uint64) {
 	r.resources[RM_MEMORY_KEY] = v
+}
+
+func (r *ResourceMap) SetImage(image string) {
+	r.image = image
 }
 
 func (r *ResourceMap) ResourceKeys() []string {
@@ -58,9 +67,10 @@ func (r *ResourceMap) SumAllResourceTypes() uint64 {
 }
 
 // CreateResourceMap CPU in milliCPUs.
-func CreateResourceMap(cpu, memory uint64) *ResourceMap {
+func CreateResourceMap(cpu, memory uint64, image string) *ResourceMap {
 	r := &ResourceMap{
 		resources: make(map[string]uint64),
+		image:     image,
 	}
 
 	r.SetCpu(cpu)
@@ -79,6 +89,7 @@ func SumResources(a, b *ResourceMap) *ResourceMap {
 	return CreateResourceMap(
 		a.GetCpu()+b.GetCpu(),
 		a.GetMemory()+b.GetMemory(),
+		a.GetImage(),
 	)
 }
 
@@ -86,5 +97,6 @@ func SubtractResources(a, b *ResourceMap) *ResourceMap {
 	return CreateResourceMap(
 		a.GetCpu()-b.GetCpu(),
 		a.GetMemory()-b.GetMemory(),
+		a.GetImage(),
 	)
 }

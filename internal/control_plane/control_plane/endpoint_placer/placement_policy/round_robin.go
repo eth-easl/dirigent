@@ -2,6 +2,7 @@ package placement_policy
 
 import (
 	"cluster_manager/internal/control_plane/control_plane/core"
+	"cluster_manager/internal/control_plane/control_plane/image_storage"
 	"cluster_manager/pkg/synchronization"
 	"sync/atomic"
 )
@@ -16,7 +17,7 @@ func NewRoundRobinPlacement() *RoundRobinPlacement {
 	}
 }
 
-func (policy *RoundRobinPlacement) Place(storage synchronization.SyncStructure[string, core.WorkerNodeInterface], _ *ResourceMap, _ *synchronization.SyncStructure[string, bool]) core.WorkerNodeInterface {
+func (policy *RoundRobinPlacement) Place(storage synchronization.SyncStructure[string, core.WorkerNodeInterface], _ image_storage.ImageStorage, _ *ResourceMap, _ *synchronization.SyncStructure[string, bool]) core.WorkerNodeInterface {
 	schedulable := getSchedulableNodes(storage.GetValues())
 	if len(schedulable) == 0 {
 		return nil

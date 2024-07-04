@@ -219,8 +219,8 @@ func (ep *EndpointPlacer) doUpscaling(toCreateCount int, loopStarted time.Time) 
 		go func() {
 			defer wg.Done()
 
-			requested := placement_policy2.CreateResourceMap(ep.ServiceState.GetRequestedCpu(), ep.ServiceState.GetRequestedMemory())
-			node := placement_policy2.ApplyPlacementPolicy(ep.PlacementPolicy, ep.NIStorage, requested, &ep.DandelionNodes)
+			requested := placement_policy2.CreateResourceMap(ep.ServiceState.GetRequestedCpu(), ep.ServiceState.GetRequestedMemory(), ep.ServiceState.FunctionInfo[0].Image)
+			node := placement_policy2.ApplyPlacementPolicy(ep.PlacementPolicy, ep.NIStorage, ep.ImageStorage, requested, &ep.DandelionNodes)
 			if node == nil {
 				logrus.Warn("Failed to do placement. No nodes are schedulable.")
 

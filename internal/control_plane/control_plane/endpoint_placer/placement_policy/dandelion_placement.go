@@ -2,9 +2,11 @@ package placement_policy
 
 import (
 	"cluster_manager/internal/control_plane/control_plane/core"
+	"cluster_manager/internal/control_plane/control_plane/image_storage"
 	"cluster_manager/pkg/synchronization"
-	"github.com/sirupsen/logrus"
 	"math/rand"
+
+	"github.com/sirupsen/logrus"
 )
 
 type DandelionPlacementPolicy struct {
@@ -14,7 +16,7 @@ func NewDandelionPlacementPolicy() *DandelionPlacementPolicy {
 	return &DandelionPlacementPolicy{}
 }
 
-func (d *DandelionPlacementPolicy) Place(storage synchronization.SyncStructure[string, core.WorkerNodeInterface], _ *ResourceMap, registeredNodes *synchronization.SyncStructure[string, bool]) core.WorkerNodeInterface {
+func (d *DandelionPlacementPolicy) Place(storage synchronization.SyncStructure[string, core.WorkerNodeInterface], _ image_storage.ImageStorage, _ *ResourceMap, registeredNodes *synchronization.SyncStructure[string, bool]) core.WorkerNodeInterface {
 	schedulableNodes := getSchedulableNodes(storage.GetValues())
 
 	(*registeredNodes).Lock()
