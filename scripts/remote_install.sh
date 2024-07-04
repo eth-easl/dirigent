@@ -62,6 +62,10 @@ function SetupNode() {
     # LFS pull for VM kernel image and rootfs
     RemoteExec $1 'cd ~/cluster_manager; git pull; git lfs pull'
     RemoteExec $1 'sudo cp -r ~/cluster_manager/ /cluster_manager'
+    if [ "$2" == "INVITRO" ]
+    then
+        CopyToRemote $DIR/invitro_traces/* $1:invitro/invitro_traces
+    fi
 }
 
 git lfs pull
