@@ -2,7 +2,7 @@ workerNodeIp: "dynamic"
 controlPlaneAddress: "10.0.1.2:9090"
 port: "10010"
 verbosity: "trace"
-criType: "dandelion"
+criType: "containerd"
 cpuConstaint: false
 
 containerd:
@@ -17,7 +17,7 @@ firecracker:
   ExposedIPPrefix: "192.254"
   VMDebugMode: false
   UseSnapshots: true
-  NetworkPoolSize: 256
+  NetworkPoolSize: 128
 
 dandelion:
   daemonPort: 8080

@@ -1,5 +1,5 @@
 *.bin filter=lfs diff=lfs merge=lfs -text
 *.ext4 filter=lfs diff=lfs merge=lfs -text
 *.csv filter=lfs diff=lfs merge=lfs -text
+configs/dandelion/sysld_wasm_x86_64_busy_loop filter=lfs diff=lfs merge=lfs -text
 configs/dandelion/sysld_wasm_x86_64_matmul filter=lfs diff=lfs merge=lfs -text
-sysld_wasm_x86_64_busy_loop filter=lfs diff=lfs merge=lfs -text

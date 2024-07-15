@@ -4,7 +4,7 @@ registrationServer: "10.0.1.2:9091"
 registrationServerReplicas: ""
 verbosity: "trace"
 traceOutputFolder: "data"
-placementPolicy: "dandelion"
+placementPolicy: "random"
 persistence: false
 reconstruct: false
 autoscaler: "default"
@@ -16,7 +16,7 @@ loadBalancerAddress: "10.0.1.254:8079"
 removeWorkerNode: false
 removeDataplane: false
 
-precreateSnapshots: true
+precreateSnapshots: false
 
 redis:
   address: "10.0.1.2:6379"
