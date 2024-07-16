@@ -344,7 +344,7 @@ func (ss *EndpointPlacer) doDownscaling(actualScale, desiredCount int) {
 				defer wg.Done()
 
 				ss.ColdStartTracingChannel <- tracing.ColdStartLogEntry{
-					ServiceName:      ss.ServiceInfo.Name,
+					ServiceName:      ss.FunctionState.ServiceInfo.Name,
 					ContainerID:      victim.SandboxID,
 					Event:            "DELETE",
 					Success:          true,

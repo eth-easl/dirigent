@@ -53,10 +53,22 @@ build_cpp_function() {
 (
     # Execute in subshell to avoid changing shell directory
     cd "$SOURCE_PATH" || exit
+
+    if [[ "$SOURCE_PATH" == *_cpp ]]; then
+        MAIN_FILE="$SOURCE_PATH/main.cpp"
+    else
+        MAIN_FILE="$SOURCE_PATH/workload.go"
+    fi
+    echo ".........................${MAIN_FILE}"
+
     # Build function based on source path contents
     # by checking if there is a *.go file in the source path, "no such file" errors are piped to /dev/null
-    if [[ -n $(find "$SOURCE_PATH/main.cpp" 2>/dev/null) ]]; then
-        build_cpp_function
+    if [[ -n $(find "$MAIN_FILE" 2>/dev/null) ]]; then
+        if [[ "$SOURCE_PATH" == *_cpp ]]; then
+            build_cpp_function
+        else
+            build_go_function
+        fi
     else
         echo "Failed to find the workload for image building."
         exit 1
