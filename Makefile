@@ -26,6 +26,13 @@ build_rootfs:
 		-s $(ROOT_DIR)/workload/timer \
 		-r $(ROOT_DIR)/configs/firecracker/rootfs.ext4
 
+build_rootfs_cpp:
+	sudo rm -rf $(ROOT_DIR)/configs/firecracker/app $(ROOT_DIR)/configs/firecracker/rootfs_cpp.ext4
+	sudo $(ROOT_DIR)/configs/firecracker/image.sh \
+		-d $(ROOT_DIR)/configs/firecracker/ \
+		-s $(ROOT_DIR)/workload/no_timer_cpp \
+		-r $(ROOT_DIR)/configs/firecracker/rootfs_cpp.ext4
+
 empty_container:
 	docker build \
 		-f Dockerfile \
