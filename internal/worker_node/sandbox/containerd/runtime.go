@@ -19,6 +19,10 @@ import (
 	"google.golang.org/protobuf/types/known/emptypb"
 )
 
+const (
+	containerdNamespace = "cm"
+)
+
 type ContainerdRuntime struct {
 	sandbox.RuntimeInterface
 
@@ -85,7 +89,7 @@ func (cr *ContainerdRuntime) CreateSandbox(grpcCtx context.Context, in *proto.Se
 
 	start := time.Now()
 
-	ctx := namespaces.WithNamespace(grpcCtx, "cm")
+	ctx := namespaces.WithNamespace(grpcCtx, containerdNamespace)
 	image, err, durationFetch := cr.ImageManager.GetImage(ctx, cr.ContainerdClient, in.Image)
 
 	if err != nil {
@@ -193,7 +197,7 @@ func (cr *ContainerdRuntime) CreateSandbox(grpcCtx context.Context, in *proto.Se
 func (cr *ContainerdRuntime) DeleteSandbox(grpcCtx context.Context, in *proto.SandboxID) (*proto.ActionStatus, error) {
 	logrus.Debug("RemoveKey sandbox with ID = '", in.ID, "'")
 
-	ctx := namespaces.WithNamespace(grpcCtx, "cm")
+	ctx := namespaces.WithNamespace(grpcCtx, containerdNamespace)
 	metadata := cr.SandboxManager.DeleteSandbox(in.ID)
 
 	if metadata == nil {
@@ -236,7 +240,7 @@ func (cr *ContainerdRuntime) ListEndpoints(_ context.Context, _ *emptypb.Empty) 
 func (cr *ContainerdRuntime) PrepullImage(grpcCtx context.Context, imageInfo *proto.ImageInfo) (*proto.ActionStatus, error) {
 	logrus.Debugf("PrepullImage with image = '%s'", imageInfo.URL)
 
-	ctx := namespaces.WithNamespace(grpcCtx, "cm")
+	ctx := namespaces.WithNamespace(grpcCtx, containerdNamespace)
 	_, err, _ := cr.ImageManager.GetImage(ctx, cr.ContainerdClient, imageInfo.URL)
 	if err != nil {
 		return &proto.ActionStatus{Success: false}, err
@@ -245,7 +249,7 @@ func (cr *ContainerdRuntime) PrepullImage(grpcCtx context.Context, imageInfo *pr
 }
 
 func (cr *ContainerdRuntime) GetImages(grpcCtx context.Context) ([]*proto.ImageInfo, error) {
-	ctx := namespaces.WithNamespace(grpcCtx, "cm")
+	ctx := namespaces.WithNamespace(grpcCtx, containerdNamespace)
 	images, err := cr.ContainerdClient.ListImages(ctx)
 	if err != nil {
 		return []*proto.ImageInfo{}, err
