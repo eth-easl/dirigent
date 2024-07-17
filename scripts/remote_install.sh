@@ -40,16 +40,28 @@ function CloneDirigent() {
 }
 
 function CloneDandelion() {
+    if [ "$DANDELION_DIR" == "" ]
+    then
+        echo -e "Skipping Dandelion cloning because ${color_cyan}\$DANDELION_DIR${color_reset} is empty."
+        return
+    fi
     if RemoteExec $1 "[ ! -d ~/dandelion ]"
     then
         # Clone the current remote tracking branch of Dandelion if there is one,
         # or default branch if there is not.
-        pushd ~/projects/dandelion
-        current_branch=$(git rev-parse --abbrev-ref HEAD)
-        default_branch=$(git symbolic-ref refs/remotes/origin/HEAD | sed 's@^refs/remotes/origin/@@')
-        remote_branch=$(git rev-parse --abbrev-ref --symbolic-full-name @{u} >/dev/null 2>&1 && echo "$current_branch" || echo "$default_branch")
-        RemoteExec $1 "git clone --branch=$remote_branch git@github.com:eth-easl/dandelion.git ~/dandelion"
-        popd
+        if [ -d "$DANDELION_DIR" ]
+        then
+            pushd "$DANDELION_DIR"
+            current_branch=$(git rev-parse --abbrev-ref HEAD)
+            default_branch=$(git symbolic-ref refs/remotes/origin/HEAD | sed 's@^refs/remotes/origin/@@')
+            remote_branch=$(git rev-parse --abbrev-ref --symbolic-full-name @{u} >/dev/null 2>&1 && echo "$current_branch" || echo "$default_branch")
+            RemoteExec $1 "git clone --branch=$remote_branch git@github.com:eth-easl/dandelion.git ~/dandelion"
+            popd
+        else
+            echo -e "${color_red}WARNING: ${color_cyan}\$DANDELION_DIR${color_white} is not a valid directory!"
+            echo "If you wish to clone Dandelion, please set it to a valid directory."
+            echo -e "If you do not wish to see this warning, set ${color_cyan}$DANDELION_DIR${color_white} to empty.${color_reset}"
+        fi
     fi
 }
 
