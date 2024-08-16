@@ -58,9 +58,9 @@ The folder structure is as follow:
 ## Getting the code
 
 You can download a copy of all the files in this repository by cloning the
-[git](https://github.com/eth-easl/cluster_manager) repository:
+[git](https://github.com/eth-easl/dirigent) repository:
 ```bash
-    git clone https://github.com/eth-easl/cluster_manager
+    git clone https://github.com/eth-easl/dirigent
 ```
 
 ## Dependencies - Installation
