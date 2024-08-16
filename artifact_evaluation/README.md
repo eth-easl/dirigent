@@ -13,8 +13,8 @@ Order of experiments to run experiments:
 
 
 - Azure 500 - containerd (instructions in `azure_500/dirigent`)
-- Cold start sweep - containerd
-- **Plot the data and verify**
+- Cold start sweep - containerd (instructions in `cold_start_sweep/dirigent`)
+- **Plot the data and verify** (plotting script in ``)
 - **Reload the cluster**
 
 
