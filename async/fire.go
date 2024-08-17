@@ -29,7 +29,7 @@ func Deployservice() {
 	ctx, cancel := context.WithTimeout(context.Background(), utils.GRPCFunctionTimeout)
 	defer cancel()
 
-	autoscalingConfig := autoscaling.NewDefaultAutoscalingMetadata()
+	autoscalingConfig := autoscaling.NewDefaultAutoscalingMetadata(false)
 	autoscalingConfig.ScalingUpperBound = 1
 
 	resp, err := cpApi.RegisterService(ctx, &proto2.ServiceInfo{

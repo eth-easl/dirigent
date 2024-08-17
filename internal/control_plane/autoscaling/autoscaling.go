@@ -35,19 +35,35 @@ type AutoscalingMetadata struct {
 	windowHead          int64
 }
 
-func NewDefaultAutoscalingMetadata() *proto.AutoscalingConfiguration {
-	return &proto.AutoscalingConfiguration{
-		ScalingUpperBound:                    math.MaxInt32,
-		ScalingLowerBound:                    0,
-		PanicThresholdPercentage:             200,
-		MaxScaleUpRate:                       1000.0,
-		MaxScaleDownRate:                     2.0,
-		ContainerConcurrency:                 1,
-		ContainerConcurrencyTargetPercentage: 100,
-		StableWindowWidthSeconds:             60,
-		PanicWindowWidthSeconds:              6,
-		ScalingPeriodSeconds:                 2,
-		ScalingMethod:                        Arithmetic,
+func NewDefaultAutoscalingMetadata(coldStartSweep bool) *proto.AutoscalingConfiguration {
+	if coldStartSweep {
+		return &proto.AutoscalingConfiguration{
+			ScalingUpperBound:                    1,
+			ScalingLowerBound:                    0,
+			PanicThresholdPercentage:             200,
+			MaxScaleUpRate:                       1000.0,
+			MaxScaleDownRate:                     2.0,
+			ContainerConcurrency:                 1,
+			ContainerConcurrencyTargetPercentage: 100,
+			StableWindowWidthSeconds:             6,
+			PanicWindowWidthSeconds:              2,
+			ScalingPeriodSeconds:                 2,
+			ScalingMethod:                        Arithmetic,
+		}
+	} else {
+		return &proto.AutoscalingConfiguration{
+			ScalingUpperBound:                    math.MaxInt32,
+			ScalingLowerBound:                    0,
+			PanicThresholdPercentage:             200,
+			MaxScaleUpRate:                       1000.0,
+			MaxScaleDownRate:                     2.0,
+			ContainerConcurrency:                 1,
+			ContainerConcurrencyTargetPercentage: 100,
+			StableWindowWidthSeconds:             60,
+			PanicWindowWidthSeconds:              6,
+			ScalingPeriodSeconds:                 2,
+			ScalingMethod:                        Arithmetic,
+		}
 	}
 }
 
