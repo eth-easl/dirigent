@@ -1,4 +1,5 @@
 Time required: 10 min to set up environment and 30 min per experiment
+
 Description:  This experiment runs the downsampled Azure trace with 500 functions. First run all the experiments with containerd, as given in the main `README.md`, and then deploy the cluster again, just that time with Firecracker. The procedure for running experiments is the same, just the trace with suffix `_firecracker` should be used.
 
 Instructions:

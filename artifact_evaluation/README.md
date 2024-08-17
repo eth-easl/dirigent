@@ -14,24 +14,25 @@ Order of experiments to run experiments:
 
 - Azure 500 - containerd (instructions in `azure_500/dirigent`)
 - Cold start sweep - containerd (instructions in `cold_start_sweep/dirigent`)
-- **Plot the data and verify** (plotting script in ``)
-- **Reload the cluster**
+- **Plot the data and verify** (run `run_plotting_scripts.sh`)
+- **Reload the cluster through Cloudlab interface**
 
 
 - Azure 500 - Firecracker (instructions in `azure_500/dirigent`)
 - Cold start sweep - Firecracker
-- **Plot the data and verify**
-- **Reload the cluster**
+- **Plot the data and verify** (run `run_plotting_scripts.sh`)
+- **Reload the cluster through Cloudlab interface**
 
 
 - Azure 500 - Knative/K8s
 - Cold start sweep - Knative/K8s
-- **Plot the data and verify**
+- **Plot the data and verify** (run `run_plotting_scripts.sh`)
 
 Note:
 - Make sure to which addresses for of each node, because of the cluster utilization script. Node0 should run the loader, Node[1] and Node[1,2,3] run the Dirigent control plane(s) in non-HA and HA modes, respectively. Node[2] and Node[4,5,6] run the Dirigent data plane(s) in non-HA and HA modes, respectively. All the other nodes serve as worker nodes.
+- All the plotting scripts are configured to work out of the box if you placed the experiment results in the correct folders.
 
-Instructions to set up:
+Instructions to set up a Dirigent cluster:
 - Make sure the cluster is in a reloaded state, i.e., that Dirigent is not running. 
 - Clone Dirigent locally (`git clone https://github.com/eth-easl/dirigent.git`)
 - Open Cloudlab experiment, open Cloudlab extension, and copy list of all addresses (RAW) using the extension. This puts the list of all nodes in your clipboard in format requested by the scripts below.
