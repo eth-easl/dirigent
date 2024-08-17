@@ -1174,7 +1174,7 @@ func TestEndpointsWithDeregistration(t *testing.T) {
 	assert.NoError(t, err)
 
 	for i := 0; i < size; i++ {
-		autoscalingConfig := autoscaling.NewDefaultAutoscalingMetadata()
+		autoscalingConfig := autoscaling.NewDefaultAutoscalingMetadata(false)
 		autoscalingConfig.ScalingUpperBound = 1
 		//autoscalingConfig.ScalingLowerBound = 1
 

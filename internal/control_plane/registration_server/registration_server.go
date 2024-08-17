@@ -81,7 +81,22 @@ func registrationHandler(cpApi *api.CpApiServer) func(w http.ResponseWriter, r *
 			}
 		}
 
-		autoscalingConfig := autoscaling.NewDefaultAutoscalingMetadata()
+		var autoscalingConfig *proto.AutoscalingConfiguration
+		coldStartSweep, ok := r.Form["cold_start_sweep"]
+		if ok {
+			parsed, err := strconv.ParseBool(coldStartSweep[0])
+			if err != nil {
+				http.Error(w, "Invalid cold start sweep value", http.StatusBadRequest)
+				return
+			}
+
+			autoscalingConfig = autoscaling.NewDefaultAutoscalingMetadata(parsed)
+			if parsed {
+				logrus.Infof("Autoscaling configuration for %s set to cold start sweep mode.", name)
+			}
+		} else {
+			autoscalingConfig = autoscaling.NewDefaultAutoscalingMetadata(false)
+		}
 
 		if len(r.FormValue("scaling_upper_bound")) != 0 {
 			upperBound, err := strconv.Atoi(r.FormValue("scaling_upper_bound"))
