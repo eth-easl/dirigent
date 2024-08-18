@@ -71,3 +71,6 @@ readonly NODE_PURPOSE=$1
 if [ "$NODE_PURPOSE" = "CONTROL_PLANE" ]; then
     SetupLoadBalancer
 fi
+
+readonly RUNTIME=$2
+sudo yq -i '.criType = '"$RUNTIME"'' $DIR/../cmd/worker_node/config_cluster.yaml
