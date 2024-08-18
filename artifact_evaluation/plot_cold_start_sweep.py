@@ -46,42 +46,26 @@ def get_knative_data():
     p99_measurements, p99_std = [], []
     warm_start_ratio = []
 
-    for datasetPerRps in toProcess:
-        p50_subtotal = []
-        p99_subtotal = []
-        warm_start_ratio_subtotal = []
+    for f in toProcess:
+        df = pd.read_csv(f)
 
-        for index in range(0, len(datasetPerRps)):
-            df = pd.read_csv(datasetPerRps[index])
+        warmStartRatio = len(df[df.responseTime < 300_000].index) / len(df.index)
+        print(f"Ratio of warm starts before filtering: {warmStartRatio}")
 
-            print(datasetPerRps[index])
+        # Filter out warmup phase and warm starts
+        df = df[(df.phase == 2) & (df.responseTime > 300_000)]
+        print("Sample size after filtering: ", len(df.index))
 
-            warmStartRatio = len(df[df.responseTime < 300_000].index) / len(df.index)
-            warm_start_ratio_subtotal.append(warmStartRatio)
-            print(f"Ratio of warm starts before filtering: {warmStartRatio}")
+        p50 = df['responseTime'].quantile(0.5) / 1000  # ms
+        p99 = df['responseTime'].quantile(0.99) / 1000  # ms
+        p50_measurements.append(p50)
+        p99_measurements.append(p99)
+        warm_start_ratio.append(warmStartRatio)
 
-            # Filter out warmup phase and warm starts
-            df = df[(df.phase == 2) & (df.responseTime > 300_000)]
-            print("Sample size after filtering: ", len(df.index))
+        print("p50: ", p50, "ms")
+        print("p99: ", p99, "ms")
 
-            # df['responseTime'] -= df['requestedDuration']
-            # df['responseTime'] -= df['grpcConnEstablish']
-
-            p50 = df['responseTime'].quantile(0.5) / 1000  # ms
-            p99 = df['responseTime'].quantile(0.99) / 1000  # ms
-            p50_subtotal.append(p50)
-            p99_subtotal.append(p99)
-            print("p50: ", p50, "ms")
-            print("p99: ", p99, "ms")
-
-            print()
-
-        p50_measurements.append(numpy.array(p50_subtotal).mean())
-        p99_measurements.append(numpy.array(p99_subtotal).mean())
-        warm_start_ratio.append(numpy.array(warm_start_ratio_subtotal).mean())
-
-        p50_std.append(numpy.array(p50_subtotal).std())
-        p99_std.append(numpy.array(p99_subtotal).std())
+        print()
 
     return xPoints, p50_measurements, p99_measurements
 
