@@ -10,4 +10,4 @@ Instructions:
 - Run the load generator in `screen` on `node0` with `cd ~/invitro; go run cmd/loader.go --config cmd/config_dirigent_trace.json`. Wait for 30 minutes. There should be ~170K invocations, with a negligible failure rate.
 - Gather experiment results. Make sure you do not overwrite data from the other experiment.
   - Copy load generator output with `scp user@node0:~/invitro/data/out/experiment_duration_30.csv results_azure_500/`
-  - Copy resource utilization data with `mkdir -p ./artifact_evaluation/azure_500/dirigent/results_azure_500/cpu_mem_usage && ./scripts/collect_resource_monitoring.sh ./artifact_evaluation/azure_500/dirigent/results_azure_500/cpu_mem_usage user@node1 user@node2 user@node3`.
+  - Copy resource utilization data with `mkdir -p ./artifact_evaluation/azure_500/dirigent/results_azure_500/cpu_mem_usage && ./scripts/collect_resource_monitoring.sh ./artifact_evaluation/azure_500/dirigent/results_azure_500/cpu_mem_usage user@node0 user@node1 user@node2`.

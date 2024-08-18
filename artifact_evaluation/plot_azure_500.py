@@ -74,10 +74,6 @@ def plot_per_function_slowdown():
     if os.path.exists(dirigent_firecracker):
         plt.plot(getCurve(dirigent_firecracker), label='Dirigent - Firecracker', color='tab:green')
 
-    plt.plot(getCurve(
-        '/media/lcvetkovic/Cvetkovic/ETH/Experiments/Dirigent_SOSP_24_Submission/Data/dirigent_3cp_3dp/azure_500/experiment_duration_30.csv',
-        idx=2), label='asd')
-
     #########################
     #########################
     #########################
@@ -127,11 +123,6 @@ def plot_function_scheduling_latency():
     if os.path.exists(dirigent_containerd):
         ax1.plot(get_per_invocation(dirigent_containerd), label='Dirigent', color='tab:green')
         ax2.plot(get_per_function(dirigent_containerd), label='Dirigent', color='tab:green')
-
-    # aws_per_invocation = get_per_invocation(f'/media/lcvetkovic/Cvetkovic/ETH/Experiments/Dirigent_SOSP_24_Submission/Data/aws_lambda/aws_azure_500_container.csv')
-    # aws_per_function = get_per_function(f'/media/lcvetkovic/Cvetkovic/ETH/Experiments/Dirigent_SOSP_24_Submission/Data/aws_lambda/aws_azure_500_container.csv')
-    # ax1.plot(aws_per_invocation, label='AWS λ', color='tab:red', linestyle='dashdot')
-    # ax2.plot(aws_per_function, label='AWS λ', color='tab:red', linestyle='dashdot')
 
     ax1.set_xlabel('Per-invocation scheduling\nlatency [ms]')
     ax1.set_ylabel('CDF')

@@ -25,8 +25,6 @@ function SetupNode() {
     RemoteExec $1 'cd ~/cluster_manager; git pull; git lfs pull'
     RemoteExec $1 'sudo cp -r ~/cluster_manager/ /cluster_manager'
     RemoteExec $1 'git clone https://github.com/vhive-serverless/invitro --branch=rps_mode'
-
-    rsync -av invitro_traces/* $1:invitro/
 }
 
 git lfs pull
