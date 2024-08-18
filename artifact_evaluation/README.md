@@ -31,6 +31,7 @@ Notes:
 - Make sure to which addresses for of each node, because of the cluster utilization script. Node0 should run the loader, Node[1] and Node[1,2,3] run the Dirigent control plane(s) in non-HA and HA modes, respectively. Node[2] and Node[4,5,6] run the Dirigent data plane(s) in non-HA and HA modes, respectively. All the other nodes serve as worker nodes.
 - All the plotting scripts are configured to work out of the box if you placed the experiment results in the correct folders.
 - For Firecracker experiments, we noticed disk operation delays while creating Firecracker snapshots across different types of Cloudlab nodes. First 10 minutes of experiments on a new cluster may show a lot of timeouts. You should discard these measurements. The problems resolve after ~10 minutes on their own, assuming snapshots creation was triggered on each node (can be done with cold start sweep experiment).
+- Traces for the experiments described here are stored on Git LFS. Make sure you pull these files before proceeding further.
 
 Instructions to set up a Dirigent cluster:
 - Make sure the cluster is in a reloaded state, i.e., that neither Dirigent nor Knative is not running. 
