@@ -72,10 +72,8 @@ if [ "$NODE_PURPOSE" = "CONTROL_PLANE" ]; then
     SetupLoadBalancer
 fi
 
-sudo apt update
-sudo apt install snapd
-sudo snap install snapd
-sudo snap install yq
+wget https://github.com/mikefarah/yq/releases/download/${VERSION}/${BINARY}.tar.gz -O - |\
+  tar xz && mv ${BINARY} /usr/bin/yq
 
 readonly RUNTIME=$2
 sudo yq -i '.criType = '"$RUNTIME"'' $DIR/../cmd/worker_node/config_cluster.yaml
