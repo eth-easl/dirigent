@@ -4,7 +4,7 @@ Description:  This experiment triggers cold start in Maestro cluster. You should
 
 Instructions:
 - Start Dirigent cluster according to instructions located in the root folder of artifact evaluation instructions. You can reuse the existing cluster running Dirigent containerd.
-- On remote machine `node0` open `~/invitro/cmd/config_dirigent_rps.json`. Set `RpsColdStartRatioPercentage` to `100`, and sweep the load with `RpsTarget` while configuring `ExperimentDuration` according to instructions above. For higher RPS, it might be necessary to increase `RpsCooldownSeconds`, which controls the number of functions that are deployed in the cluster to achieve the requested RPS. Set `GRPCFunctionTimeoutSeconds` to `15`.
+- On remote machine `node0` open `~/invitro/cmd/config_dirigent_rps.json`. Set `RpsColdStartRatioPercentage` to `100`, and sweep the load with `RpsTarget` while configuring `ExperimentDuration` according to instructions above. For higher RPS, it might be necessary to increase `RpsCooldownSeconds`, which controls the number of functions that are deployed in the cluster to achieve the requested RPS. Set `GRPCFunctionTimeoutSeconds` to `15`. For containerd experiments make sure `RpsImage` is set to `docker.io/cvetkovic/dirigent_empty_function:latest`, whereas for Firecracker experiments this field should be set to `empty`.
 - Start RPS experiment by running `cd ~/invitro; go run cmd/loader.go --config cmd/config_dirigent_rps.json`
 - Create folder storing results with `mkdir -p ./artifact_evaluation/cold_start_sweep/dirigent/results_containerd`
 - Gather results located in `data/out/experiment_duration_X.csv` and copy them to your local machine in format `rps_X.csv` to the folder you created in the previous step.
