@@ -1,6 +1,6 @@
 Time required: 10 min to set up environment and 2-3 min per data point
 
-Description:  This experiment triggers cold start in Maestro cluster. You should sweep the load until the cluster saturates, which will be visible on the latency plot. We suggest running experiments with 1, 10, 100, 500, 1000, 1250, 1500, ... RPS and observing the latency after conducting experiment for each data point. Low RPS (<10 RPS) rates should be run for 3-5 minutes, because of warmup, while all other loads can be run for just 1 minute.
+Description:  This experiment triggers cold start in Maestro cluster. You should sweep the load until the cluster saturates, which will be visible on the latency plot. We suggest running experiments with 1, 10, 100, 500, 1000, 1250, 1500, ... RPS and observing the latency after conducting experiment for each data point. Low RPS (<10 RPS) rates should be run for 3-5 minutes, because of warmup, while all other loads can be run for just 1 minute. Always discard the results of the first experiment when starting a new cluster, as these measurements include image pull latency, which we should not include in the results.
 
 Instructions:
 - Start Dirigent cluster according to instructions located in the root folder of artifact evaluation instructions. You can reuse the existing cluster running Dirigent containerd.
