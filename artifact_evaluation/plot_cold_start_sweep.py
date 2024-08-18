@@ -27,7 +27,11 @@ def get_processing_list(path):
             rps = f[rpsStart + 4: rpsEnd]
 
             xPoints.append(int(rps))
-            toProcess.append(f)
+
+    xPoints.sort()
+
+    for f in xPoints:
+        toProcess.append(f"{path}/rps_{f}.csv")
 
     return xPoints, toProcess
 
