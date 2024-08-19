@@ -23,8 +23,8 @@ function RemoteExec() {
 
 function SetupControlPlane() {
     # Start Redis server
-    RemoteExec $1 "sudo docker stop \$(docker ps -aq)"
-    RemoteExec $1 "sudo docker rm \$(docker ps -a -q)"
+    RemoteExec $1 "sudo docker stop \$(sudo docker ps -aq)"
+    RemoteExec $1 "sudo docker rm \$(sudo docker ps -a -q)"
     RemoteExec $1 "sudo docker run -d --name redis-stack-server -p 6379:6379 redis/redis-stack-server:latest"
 
     RemoteExec $1 "cd ~/cluster_manager; git pull"
