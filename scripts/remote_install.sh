@@ -35,7 +35,7 @@ function CloneDirigent() {
         current_branch=$(git rev-parse --abbrev-ref HEAD)
         default_branch=$(git symbolic-ref refs/remotes/origin/HEAD | sed 's@^refs/remotes/origin/@@')
         remote_branch=$(git rev-parse --abbrev-ref --symbolic-full-name @{u} >/dev/null 2>&1 && echo "$current_branch" || echo "$default_branch")
-        RemoteExec $1 "git clone --branch=$remote_branch git@github.com:eth-easl/dirigent.git ~/cluster_manager"
+        RemoteExec $1 "git clone --branch=$remote_branch git@github.com:eth-easl/cluster_manager.git ~/cluster_manager"
     fi
 }
 
