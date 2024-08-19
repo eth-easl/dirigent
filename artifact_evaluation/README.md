@@ -5,7 +5,7 @@ The following experiments aim to repeat results from Figures 7, 9, and 10, i.e.,
 Time burden: We expect you will need at most a day of active work to run all the experiments.
 
 Prerequisites:
-- Cloudlab cluster of 20 xl170 machines instantiated using `maestro_sosp24ae` Cloudlab profile (`https://www.cloudlab.us/p/faas-sched/maestro_sosp24ae`). 
+- Cloudlab cluster of at least 20 xl170 machines instantiated using `maestro_sosp24ae` Cloudlab profile (`https://www.cloudlab.us/p/faas-sched/maestro_sosp24ae`).
 - Chrome Cloudlab extension - install from https://github.com/eth-easl/cloudlab_extension
 
 Order of experiments to run experiments:
@@ -48,3 +48,8 @@ Instructions to set up Knative/K8s baseline cluster:
 - Open Cloudlab experiment, open Cloudlab extension, and copy list of all addresses (RAW) using the extension. This puts the list of all nodes in your clipboard in format requested by the scripts below.
 - Set up a Knative/K8s cluster by locally running `./scripts/setup/create_multinode.sh`. Arguments should be the copied list of addresses from the previous step. For example, `./scripts/setup/create_multinode.sh user@node0 user@node1 user@node2`. This script should be executed only once.
 - After a couple of minutes, once the script has completed executing, the cluster should be running, and you can ssh into `node0`. Execute `kubectl get pods -A` and verify that installation has completed successfully by checking that all pods are in `Running` or `Completed` state.
+
+Results expectation/interpretation:
+- Since we cannot guarantee artifact evaluators access to a 100-node cluster over a 2-week artifact evaluation period, there will be some performance degradation than what we show in the paper.
+  - For cold start sweep, the throughput we show in Figure 7 will be reduced, as worker nodes become the bottleneck. What you should verify is that the cold start throughput conforms to the following inequalities -- `Knative/K8s throughtput << Maestro - containerd throughtput < Maestro - Firecracker throughtput` and `Knative/K8s latency >> Maestro latency`.
+  - For Azure 500 trace experiments, per-function slowdown of containerd and Firecracker should almost be identical. The workload on Knative/K8s should be worse, and should suffer from a long tail. Per-invocation scheduling latency for Dirigent should be better almost all the time, and the average per-function scheduling latency of Dirigent should be by a couple of orders of magnitude better than with Knative/K8s.
