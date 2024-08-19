@@ -10,7 +10,7 @@ Instructions:
   - Open `~/invitro/workloads/container/trace_func_go.yaml`, set `autoscaling.knative.dev/max-scale` to `1`, and then set image to `docker.io/cvetkovic/dirigent_empty_function:latest`.
   - Run `kubectl patch configmap config-autoscaler -n knative-serving -p '{"data":{"scale-to-zero-grace-period":"1s","scale-to-zero-pod-retention-period":"1s","stable-window":"6s"}}'`
   - In `~/invitro/cmd/config_knative_rps.json` set `ExperimentDuration` to 2 and `RpsColdStartRatioPercentage` to `100`
-- The command for running experiment for each data point is `cd invitro; go run cmd/loader.go --config cmd/config_knative_rps.json`. Use the following data point settings in `cmd/config_knative_rps.json` for experiments.
+- The command for running experiment for each data point is `cd ~/invitro; go run cmd/loader.go --config cmd/config_knative_rps.json`. Use the following data point settings in `cmd/config_knative_rps.json` for experiments.
   - `RpsTarget=1` with `RpsCooldownSeconds=10`
   - `RpsTarget=2` with `RpsCooldownSeconds=15`
   - `RpsTarget=3` with `RpsCooldownSeconds=20`
