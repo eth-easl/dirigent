@@ -1,11 +1,11 @@
 ## Dirigent Artifact Evaluation Instructions
 
-The following experiments aim to repeat results from Figures 7, 9, and 10, i.e., main results from sections 5.3 and 5.2.1, which themselves constitute the biggest contribution of the paper.
+The following experiments aim to repeat results from Figures 7, 9, and 10, i.e., main results from sections 5.3 and 5.2.1, which constitute the biggest contribution of the paper.
 
-Time burden: We expect you will need at most a day of active work to repeat all the experiments.
+Time burden: We expect you will need at most a day of active work to run all the experiments.
 
 Prerequisites:
-- Cloudlab cluster of 20 xl170 machines using `maestro_sosp24ae` Cloudlab profile (`https://www.cloudlab.us/p/faas-sched/maestro_sosp24ae`). 
+- Cloudlab cluster of 20 xl170 machines instantiated using `maestro_sosp24ae` Cloudlab profile (`https://www.cloudlab.us/p/faas-sched/maestro_sosp24ae`). 
 - Chrome Cloudlab extension - install from https://github.com/eth-easl/cloudlab_extension
 
 Order of experiments to run experiments:
@@ -28,23 +28,23 @@ Order of experiments to run experiments:
 - **Plot the data and verify** (run `run_plotting_scripts.sh`)
 
 Notes:
-- Make sure to which addresses for of each node, because of the cluster utilization script. Node0 should run the loader, Node[1] and Node[1,2,3] run the Dirigent control plane(s) in non-HA and HA modes, respectively. Node[2] and Node[4,5,6] run the Dirigent data plane(s) in non-HA and HA modes, respectively. All the other nodes serve as worker nodes.
-- All the plotting scripts are configured to work out of the box if you placed the experiment results in the correct folders.
-- For Firecracker experiments, we noticed disk operation delays while creating Firecracker snapshots across different types of Cloudlab nodes. First 10 minutes of experiments on a new cluster may show a lot of timeouts. You should discard these measurements. The problems resolve after ~10 minutes on their own, assuming snapshots creation was triggered on each node (can be done with cold start sweep experiment).
+- For simplicity and because we cannot guarantee artifact evaluators a huge Cloudlab cluster, we will be running all experiments in mode where Dirigent and Knative/K8s components are not replicated. We also ran experiment in an environment where components run in high-availability mode, but we did not notice significant performance differences. Our deployment scripts put load generator on `node0`, control plane on `node1`, data plane on `node2`, whereas all the other nodes serve as worker nodes.
+- All the plotting scripts are configured to work out of the box provided you placed experiment results in correct folders.
+- For Firecracker experiments on Cloudlab, we noticed some disk operation delays while creating Firecracker snapshots. First 10 minutes of experiments on a new cluster may experience a lot of timeouts. You should discard these measurements. The problems resolve after ~10 minutes on their own, assuming snapshots creation was triggered on each node. To make sure a snapshot was created on each node run Firecracker cold start sweep for a couple of minutes.
 - Traces for the experiments described here are stored on Git LFS. Make sure you pull these files before proceeding further.
+- Default Cloudlab shell should be `bash`. You can configure when logged in here `https://www.cloudlab.us/myaccount.php`.
 
 Instructions to set up a Dirigent cluster:
 - Make sure the cluster is in a reloaded state, i.e., that neither Dirigent nor Knative is not running. 
 - Clone Dirigent locally (`git clone https://github.com/eth-easl/dirigent.git`)
 - Set sandbox runtime (`containerd` or `firecracker`) by editing `WORKER_RUNTIME` in `./scripts/setup.cfg`
 - Open Cloudlab experiment, open Cloudlab extension, and copy list of all addresses (RAW) using the extension. This puts the list of all nodes in your clipboard in format requested by the scripts below.
-- Run locally `./scripts/remote_install.sh`. Arguments should be the copied list of addresses from the previous step. For example, `./scripts/remote_install.sh user@node1 user@node2 user@node3`. This script should be executed only once.
-- Run locally `./scripts/remote_start_cluster.sh user@node1 user@node2 user@node3`. After this step Dirigent cluster will be operational. This script can be executed to restart Dirigent cluster in case you experience issues.
+- Run locally `./scripts/remote_install.sh`. Arguments should be the copied list of addresses from the previous step. For example, `./scripts/remote_install.sh user@node0 user@node1 user@node2`. This script should be executed only once.
+- Run locally `./scripts/remote_start_cluster.sh user@node0 user@node1 user@node2`. After this step Dirigent cluster should be operational. This script can be executed to restart Dirigent cluster in case you experience issues without reloading the Cloudlab cluster.
 
 Instructions to set up Knative/K8s baseline cluster:
 - Make sure the cluster is in a reloaded state, i.e., that neither Dirigent nor Knative is not running.
 - Clone Invitro locally and checkout to `ha_k8s` branch (`git clone --branch=ha_k8s https://github.com/vhive-serverless/invitro`)
 - Open Cloudlab experiment, open Cloudlab extension, and copy list of all addresses (RAW) using the extension. This puts the list of all nodes in your clipboard in format requested by the scripts below.
-- Set up a Knative/K8s cluster by locally running `./scripts/setup/create_multinode.sh`. Arguments should be the copied list of addresses from the previous step. For example, `./scripts/setup/create_multinode.sh user@node1 user@node2 user@node3`. This script should be executed only once.
-- After a couple of minutes the cluster should be running, and you can ssh into `node0`. Execute `kubectl get pods -A` and verify that installation has completed successfully by checking that all pods are in `Running` or `Completed` state.
-- 
+- Set up a Knative/K8s cluster by locally running `./scripts/setup/create_multinode.sh`. Arguments should be the copied list of addresses from the previous step. For example, `./scripts/setup/create_multinode.sh user@node0 user@node1 user@node2`. This script should be executed only once.
+- After a couple of minutes, once the script has completed executing, the cluster should be running, and you can ssh into `node0`. Execute `kubectl get pods -A` and verify that installation has completed successfully by checking that all pods are in `Running` or `Completed` state.
