@@ -18,8 +18,7 @@ function AddSshKeys() {
 }
 
 function SetupNode() {
-    AddSshKeys $1
-    RemoteExec $1 'if [ ! -d ~/cluster_manager ];then git clone git@github.com:eth-easl/dirigent.git cluster_manager; fi'
+    RemoteExec $1 'if [ ! -d ~/cluster_manager ];then git clone https://github.com/eth-easl/dirigent.git cluster_manager; fi'
     RemoteExec $1 "bash ~/cluster_manager/scripts/setup_node.sh $2 $WORKER_RUNTIME"
     # LFS pull for VM kernel image and rootfs
     RemoteExec $1 'cd ~/cluster_manager; git pull; git lfs pull'

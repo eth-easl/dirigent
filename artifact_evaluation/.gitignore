@@ -1,1 +1,2 @@
 *.png
+!sample_results/*.png
