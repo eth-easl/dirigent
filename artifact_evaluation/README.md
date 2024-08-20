@@ -5,7 +5,7 @@ The following experiments aim to repeat results from Figures 7, 9, and 10, i.e.,
 Time burden: We expect you will need at 3-5 hours to run the experiments we describe below.
 
 Prerequisites:
-- Cloudlab cluster of at least 20 xl170 machines instantiated using `maestro_sosp24ae` Cloudlab profile (`https://www.cloudlab.us/p/faas-sched/maestro_sosp24ae`). We recommend using a 27-node cluster.
+- For the paper, we did all experiments on a 100-node Cloudlab `xl170` cluster. Because it is hard to get 100 nodes, we recommend using a cluster of at least 17  `xl170` Cloudlab machines running `maestro_sosp24ae` profile (`https://www.cloudlab.us/p/faas-sched/maestro_sosp24ae`), preferably 27. We provided sample results in the `artifact_evaluation` folder which we did on a 17-node cluster when we prepared artifacts.
 - Chrome Cloudlab extension - install from https://github.com/eth-easl/cloudlab_extension
 
 Order of experiments to run experiments:
