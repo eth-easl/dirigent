@@ -5,36 +5,25 @@
     <img src="https://systems.ethz.ch/_jcr_content/orgbox/image.imageformat.logo.1825449303.svg" alt="Logo" width="160" height="80">
   </a>
 
-<h1 align="center">Dirigent</h1>
-
----
+  <h1 align="center">Dirigent</h1>
+  <p align="center">
+    A serverless cluster manager built by 
+    <a href="https://systems.ethz.ch/"><strong>Systems Groups</strong></a> 
+    at <a href="https://ethz.ch/"><strong>ETH Zürich</strong></a>
+  </p>
 
 [![GitHub Workflow Status](https://github.com/eth-easl/modyn/actions/workflows/workflow.yaml/badge.svg)](https://github.com/eth-easl/modyn/actions/workflows/workflow.yaml)
 [![License](https://img.shields.io/github/license/eth-easl/modyn)](https://img.shields.io/github/license/eth-easl/modyn)
 
-  <p align="center">
-    A research cluster manager built at ETH Zürich
-    <br />
-    <a href="https://systems.ethz.ch/"><strong>Systems groups page »</strong></a>
-    <br />
-    <br />
-    <a href="">View Demo</a>
-    ·
-    <a href="">Report Bug</a>
+---
+  <p>Dirigent is a lightweight cluster manager for FaaS that aims to solve performance issues of existing FaaS platforms. It is a clean-slate system architecture for FaaS orchestration based on three key principles. First, Dirigent optimizes internal cluster manager abstractions to simplify state management. Second, it eliminates persistent state updates on the critical path of function invocations, leveraging the fact that FaaS abstracts sandboxes from users to relax exact state reconstruction guarantees. Finally, Dirigent runs monolithic control and data planes to minimize internal communication overheads and maximize throughput. The architecture of Dirigent is shown on the picture below. Our performance study reveals that compared to current state-of-the-art platforms Dirigent reduces 99th percentile per-function scheduling latency for a production workload by 2.79x compared to AWS Lambda and can spin up 2500 sandboxes per second at low latency, which is 1250x more than with Knative.
   </p>
-
-  <p>Serverless computing optimizes cloud resource use for better performance. Yet, current serverless cluster managers are retrofitted from old systems, not built for serverless tasks. We examine Knative-on-K8s, a modern serverless cluster manager. It causes delays and 65%+ of latency for cold start function calls. These issues arise during high sandbox changes, common in production serverless setups. We identify the problem and suggest new design principles to enhance performance by rethinking cluster manager architecture.</p>
+  <img src="docs/architecture.png" width="500" alt="Dirigent architecture"/>
 </div>
 
-
-<!-- ABOUT THE PROJECT -->
-## About The Project
-
-The cluster manager in question has been developed within the systems group at ETH Zürich. It has been designed and fine-tuned specifically to the requirements of Function as a Service (FaaS) paradigms.
+<div align="center">
 
 ### Built With
-
-<div align="center">
 
 ![Go](https://img.shields.io/badge/go-%2300ADD8.svg?style=for-the-badge&logo=go&logoColor=white)
 ![Docker](https://img.shields.io/badge/docker-%230db7ed.svg?style=for-the-badge&logo=docker&logoColor=white)
@@ -47,13 +36,16 @@ See the `README.md` to get started with the code.
 
 The folder structure is as follow:
 
-* `cmd` is the list of programms you can start
-* `api` represents the API handlers
-* `internal/master_node` corresponds to the source code of the master node
-* `internal/data_plane` corresponds to the source code of the data plane
-* `internal/woker_node` corresponds to the source code of the worker node
-* `pkg` are shared packages that are used inside of internal to perform multiple actions
-* `scripts` are a list of scripts you can use to measures or tests the cluster manager
+* `api` - proto files for Dirigent components
+* `artifact_evaluation` - instructions and material for SOSP'24 artifact evaluation  
+* `cmd` - Dirigent components main methods
+* `configs` - configuration files for external dependencies
+* `internal/master_node` - control plane source code
+* `internal/data_plane` - data plane source code
+* `internal/worker_node` - worker node source code
+* `pkg` - common packages of Dirigent components
+* `scripts` - auxiliary scripts
+* `workload` - workload we used for evaluation
 
 ## Getting the code
 
@@ -75,10 +67,9 @@ Install HAProxy
 ```bash
 sudo apt update && sudo apt install -y haproxy
 sudo cp configs/haproxy.cfg /etc/haproxy/haproxy.cfg
-
 ```
 
-kubernetes-cni must be installed.
+kubernetes-cni must be installed
 
 
 ```bash
@@ -87,7 +78,7 @@ sudo mkdir -p /opt/cni/bin
 sudo tar -C /opt/cni/bin -xzf cni-plugins.tgz
 ```
 
-If you want to install it on a custom path.
+If you want to install it on a custom path
 
 ```bash
 INSTALL_PATH='your/path/here'
@@ -97,110 +88,51 @@ sudo mkdir -p /opt/cni/bin
 sudo tar -C INSTALL_PATH -xzf cni-plugins.tgz
 ```
 
-## Start the code
+## Start Dirigent on a cluster
 
-To launch the code, perform the following actions. 
-
-
-Once the configuration stage is complete, we can start the programs.
-
-#### Clone the code
-
-First we need to install a copy of a master node on one machine, a dataplane on another machine, a copy of redis on a third machine and finally copy the code base on several other machines for the workers. You can simply call the script remote_install.sh with the ssh address of the computers. Before calling the script you have to make sure you have a github token on the following path which can install ssh keys.
+Prepare a Cloudlab cluster of at least 5 nodes. We tested our setup on xl170 and d430 nodes. Clone the repository locally, configure `scripts/setup.cfg` and run the following script to deploy the cluster. The load generator will be deployed on node0, control plane with Redis on node1, data plane on node2, and the rest of the nodes will be used as worker nodes.
 
 ```bash
-ACCESS_TOKEN="$(cat ~/.git_token_loader)"
+./scripts/remote_install.sh user@node0 user@node1 user@node2 user@node ...
 ```
+
+After this setup, you run the following scripts to (re)start the cluster.
 
 ```bash
-./remote_install.sh ip1 ip2 ...
+./scripts/remote_start_cluster.sh user@node0 user@node1 user@node2 user@node ...
 ```
 
-#### Setup configuration file
+We recommend using [Invitro Load Generator](https://github.com/vhive-serverless/invitro) on rps_mode branch for running experiments with Dirigent cluster manager. The load generator will be automatically cloned on node0 after running `scripts/remote_install.sh`.
 
-Once this has been done, we can move on to configuring the various programs. The most important field is to set the correct IP for the database and control plane.
+## Start Dirigent locally
 
-Config master node 
-
-```yaml
-port: "9090" # Port used for the GRPC server
-portRegistration: "9091" # Port for registrating a new service
-verbosity: "trace" # Verbosity of the logs
-traceOutputFolder: "data" # Output folder for measurements
-placementPolicy: "kubernetes" # Placement policy
-persistence: true # Store persistence value - if the value is false you can run the cluster without database
-reconstruct: false # Reconstruct values on start
-
-profiler:
-  enable: true # Enable profiler support - it makes the programm a bit slower
-  mutex: false # Enable mutex support in profiler
-
-redis:
-  address: "127.0.0.1:6379" # Address of the database 
-  password: "" # Password
-  db: 0 # Database name
-
-```
-
-Config dataplane
-
-```yaml
-controlPlaneIp: "localhost" # Ip of the control plane (master node)
-controlPlanePort: "9090" # GRPC port used in the control plane
-portProxy: "8080" # Port used for requests 
-portGRPC: "8081" # Port used for the GRPC server
-verbosity: "trace" # Verbosity of the logs
-traceOutputFolder: "data" # Output folder for measurements
-loadBalancingPolicy: "knative" # Load balancing policy
-```
-
-Config worker node
-
-```yaml
-controlPlaneIp: "localhost" # Ip of the control plane (master node)
-controlPlanePort: "9090" # GRPC port used in the control plane
-port: "10010" # Port used for the GRPC server
-verbosity: "trace" # Verbosity of the logs
-criPath: "/run/containerd/containerd.sock" # path for CRI
-cniConfigPath: "configs/cni.conf" # path for CNI
-prefetchImage: true # If enabled, workers will prefetch an image (thus image download will be removed from the measures)
-```
-
-#### Launch code
-
-> launch db
+Start a Redis DB instance
 
 ```bash
 sudo docker-compose up
 ```
 
-> launch master node
+Start the master node
 
 ```bash
-cd cmd/master_node; go run main.go --config config_cluster.yaml
+cd cmd/master_node; sudo /usr/local/go/bin/go run main.go --config cmd/config.yaml
 ```
 
-> launch data plane
+Start the data plane
 
 ```bash
-cd cmd/data_plane; go run main.go --config config_cluster.yaml
+cd cmd/data_plane; go run main.go --config cmd/config.yaml
 ```
 
-> launch master node
+Start the worker node
 
 ```bash
-cd scripts/francois; ./restart_workers.sh ip1 ip2 ip3 ....
+cd cmd/worker_node; sudo /usr/local/go/bin/go run main.go --config cmd/config.yaml
 ```
 
-#### Fire invocation
+#### Potential problems
 
-This command will fire a single invocation.
-
-```bash
-cd scripts/francois; ./burst.sh 1 
-```
-
-In case you get a timeout, try to run the following command before
+In case you get a timeout, try to run the following command and then repeat the experiment.
 
 ```bash
 # For local readiness probes
@@ -239,12 +171,12 @@ git lfs fetch
 git lfs checkout
 git lfs pull 
 ```
-- Run control plane and data plane processes. Run worker daemon with `sudo` and by hardcoding environmental variable `PATH` to point to the directory where Firecracker is located.
+- Run control plane and data plane processes. Run worker daemon with `sudo` and with hardcoded environmental variable `PATH` to point to the directory where Firecracker is located.
 ```bash
 sudo env 'PATH=\$PATH:/usr/local/bin/firecracker' /usr/local/go/bin/go run cmd/worker_node/main.go 
 ```
 
-## If the network breaks locally
+#### If the network breaks locally
 
 ```bash
 sudo iptables -t nat -F
@@ -252,7 +184,7 @@ sudo iptables -t nat -F
 
 ## License
 
-Distributed under the MIT License. See `LICENSE.txt` for more information.
+Distributed under the MIT License. See `LICENSE` for more information.
 
 ## Contact
 
@@ -262,8 +194,7 @@ François Costa - fcosta@ethz.ch
 
 Ana Klimovic - aklimovic@ethz.ch
 
-## For developpers
-
+## For developers
 
 ### Generate proto files
 
@@ -310,9 +241,3 @@ or with verbose
 ``` bash
 golangci-lint run -v --timeout 5m0s
 ```
-
-### Profiler
-
-Nice tutorial that explains how to use it
-
-> https://teivah.medium.com/profiling-and-execution-tracing-in-go-a5e646970f5b
