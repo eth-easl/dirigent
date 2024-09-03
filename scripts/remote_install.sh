@@ -58,7 +58,7 @@ function SetupNode() {
     CloneDandelion $1
     CopyToRemote "$DIR/setup_node.sh" "$1:~/cluster_manager/scripts/setup_node.sh"
     strict_mode=$([[ "$-" == *e* ]] && echo "bash -e" || echo "bash")
-    RemoteExec $1 "$strict_mode ~/cluster_manager/scripts/setup_node.sh $2"
+    RemoteExec $1 "$strict_mode ~/cluster_manager/scripts/setup_node.sh $2 $FIRECRACKER_VERSION"
     # LFS pull for VM kernel image and rootfs
     RemoteExec $1 'cd ~/cluster_manager; git pull; git lfs pull'
     RemoteExec $1 'sudo cp -r ~/cluster_manager/ /cluster_manager'
