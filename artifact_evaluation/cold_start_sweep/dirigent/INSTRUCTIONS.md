@@ -11,3 +11,7 @@ Instructions:
 - Create folder storing results with `mkdir -p ./artifact_evaluation/cold_start_sweep/dirigent/results_containerd`.
 - Gather results located in `data/out/experiment_duration_X.csv` and copy them to your local machine in format `rps_X.csv` to the folder you created in the previous step.
 - Repeat for different RPS values until the cluster saturates, which you can see by plotting the data with the provided script.
+
+Notes:
+- It is tottaly fine to see error rates of <1 percent.
+- If you start seeing a high percentage of errors, it means the cluster has saturated and you need to reload the cluster using the `remote_start_cluster.sh` script.
