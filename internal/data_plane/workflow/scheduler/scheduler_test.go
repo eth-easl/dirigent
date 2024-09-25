@@ -16,19 +16,19 @@ func dummyScheduleFunc() ScheduleTaskFunc {
 		inData := s.GetInData()
 		out := "("
 		for _, data := range inData {
-			out += string(data.Data) + ","
+			out += string(data.GetData()) + ","
 		}
 		if len(inData) > 0 {
 			out = out[:len(out)-1]
 		}
 		out += ")->" + s.Name
-		outData := make([]*workflow.Data, s.GetNumOutData())
+		outData := make([]workflow.Data, s.GetNumOutData())
 		if s.GetNumOutData() > 1 {
 			for i := 0; i < s.GetNumOutData(); i++ {
-				outData[i] = &workflow.Data{Data: []byte(out + fmt.Sprintf("[%d]", i))}
+				outData[i] = &workflow.BytesData{Data: []byte(out + fmt.Sprintf("[%d]", i))}
 			}
 		} else if s.GetNumOutData() == 1 {
-			outData[0] = &workflow.Data{Data: []byte(out)}
+			outData[0] = &workflow.BytesData{Data: []byte(out)}
 		}
 		err := s.SetOutData(outData)
 		if err != nil {
@@ -74,8 +74,8 @@ func TestSimpleChain(t *testing.T) {
 		return
 	}
 
-	inputA := &workflow.Data{Data: []byte("InputA")}
-	inData := []*workflow.Data{inputA}
+	inputA := &workflow.BytesData{Data: []byte("InputA")}
+	inData := []workflow.Data{inputA}
 	scheduler := NewScheduler(wf, testedSchedulerType)
 	err = scheduler.Schedule(dummyScheduleFunc(), inData)
 	if err != nil {
@@ -88,8 +88,8 @@ func TestSimpleChain(t *testing.T) {
 		t.Errorf("Got error while collecting output: %v", err)
 		return
 	}
-	if len(outData) != 1 || string(outData[0].Data) != "(((InputA)->FunA)->FunB)->FunC" {
-		t.Errorf("Got invalid output: %s", string(outData[0].Data))
+	if len(outData) != 1 || string(outData[0].GetData()) != "(((InputA)->FunA)->FunB)->FunC" {
+		t.Errorf("Got invalid output: %s", string(outData[0].GetData()))
 	}
 }
 
@@ -135,8 +135,8 @@ func TestSimpleSplit(t *testing.T) {
 		return
 	}
 
-	inputA := &workflow.Data{Data: []byte("InputA")}
-	inData := []*workflow.Data{inputA}
+	inputA := &workflow.BytesData{Data: []byte("InputA")}
+	inData := []workflow.Data{inputA}
 	scheduler := NewScheduler(wf, testedSchedulerType)
 	err = scheduler.Schedule(dummyScheduleFunc(), inData)
 	if err != nil {
@@ -149,8 +149,8 @@ func TestSimpleSplit(t *testing.T) {
 		t.Errorf("Got error while collecting output: %v", err)
 		return
 	}
-	if len(outData) != 1 || string(outData[0].Data) != "(((InputA)->FunA)->FunB,((InputA)->FunA)->FunC)->FunD" {
-		t.Errorf("Got invalid output: %s", string(outData[0].Data))
+	if len(outData) != 1 || string(outData[0].GetData()) != "(((InputA)->FunA)->FunB,((InputA)->FunA)->FunC)->FunD" {
+		t.Errorf("Got invalid output: %s", string(outData[0].GetData()))
 	}
 }
 
@@ -198,8 +198,8 @@ func TestSimpleExample(t *testing.T) {
 		return
 	}
 
-	inputA := &workflow.Data{Data: []byte("InputA")}
-	inData := []*workflow.Data{inputA}
+	inputA := &workflow.BytesData{Data: []byte("InputA")}
+	inData := []workflow.Data{inputA}
 	scheduler := NewScheduler(wf, testedSchedulerType)
 	err = scheduler.Schedule(dummyScheduleFunc(), inData)
 	if err != nil {
@@ -212,8 +212,8 @@ func TestSimpleExample(t *testing.T) {
 		t.Errorf("Got error while collecting output: %v", err)
 		return
 	}
-	if len(outData) != 1 || string(outData[0].Data) != "((((((((InputA)->FunA)->FunB)->FunC)->FunD)->FunE,(((((InputA)->FunA)->FunB)->FunF)->FunH,((((InputA)->FunA)->FunB)->FunF)->FunG)->FunI)->FunJ)->FunK)->FunL" {
-		t.Errorf("Got invalid output: %s", string(outData[0].Data))
+	if len(outData) != 1 || string(outData[0].GetData()) != "((((((((InputA)->FunA)->FunB)->FunC)->FunD)->FunE,(((((InputA)->FunA)->FunB)->FunF)->FunH,((((InputA)->FunA)->FunB)->FunF)->FunG)->FunI)->FunJ)->FunK)->FunL" {
+		t.Errorf("Got invalid output: %s", string(outData[0].GetData()))
 	}
 }
 
@@ -259,9 +259,9 @@ func TestDandelionSimpleExamples(t *testing.T) {
 	`
 
 	tests := []string{testExample2}
-	inData := [][]*workflow.Data{
+	inData := [][]workflow.Data{
 		//{&workflow.Data{Data: []byte("S3GetRequest")}},
-		{&workflow.Data{Data: []byte("InputA")}, &workflow.Data{Data: []byte("InputB")}},
+		{&workflow.BytesData{Data: []byte("InputA")}, &workflow.BytesData{Data: []byte("InputB")}},
 	}
 	expectedOutput := []string{
 		//"",
@@ -288,8 +288,8 @@ func TestDandelionSimpleExamples(t *testing.T) {
 			t.Errorf("Got error while collecting output: %v (testcase %d)", err, i)
 			return
 		}
-		if len(outData) != 1 || string(outData[0].Data) != expectedOutput[i] {
-			t.Errorf("Got invalid output: %s (testcase %d)", string(outData[0].Data), i)
+		if len(outData) != 1 || string(outData[0].GetData()) != expectedOutput[i] {
+			t.Errorf("Got invalid output: %s (testcase %d)", string(outData[0].GetData()), i)
 		}
 	}
 }
@@ -375,9 +375,9 @@ func TestDataHandling(t *testing.T) {
 		return
 	}
 
-	inputA := &workflow.Data{Data: []byte("InputA")}
-	inputB := &workflow.Data{Data: []byte("InputB")}
-	inData := []*workflow.Data{inputA, inputB}
+	inputA := &workflow.BytesData{Data: []byte("InputA")}
+	inputB := &workflow.BytesData{Data: []byte("InputB")}
+	inData := []workflow.Data{inputA, inputB}
 	scheduler := NewScheduler(wf, testedSchedulerType)
 	err = scheduler.Schedule(dummyScheduleFunc(), inData)
 	if err != nil {
@@ -391,8 +391,8 @@ func TestDataHandling(t *testing.T) {
 		return
 	}
 	if len(outData) != 2 ||
-		string(outData[0].Data) != "(InputA)->FunA[1]" ||
-		string(outData[1].Data) != "((InputA)->FunA[0],InputB)->FunB" {
-		t.Errorf("Got invalid output: %s", string(outData[0].Data))
+		string(outData[0].GetData()) != "(InputA)->FunA[1]" ||
+		string(outData[1].GetData()) != "((InputA)->FunA[0],InputB)->FunB" {
+		t.Errorf("Got invalid outputs: %s, %s", string(outData[0].GetData()), string(outData[1].GetData()))
 	}
 }

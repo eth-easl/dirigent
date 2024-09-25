@@ -279,16 +279,16 @@ func TestDataMapping(t *testing.T) {
 		return
 	}
 
-	inputA := &Data{[]byte("InputA")}
-	inputB := &Data{[]byte("InputB")}
-	interC := &Data{[]byte("InterC")}
-	interD := &Data{[]byte("InterD")}
-	outputE := &Data{[]byte("OutputE")}
-	interF := &Data{[]byte("InterF")}
-	inputG := &Data{[]byte("InputG")}
-	outputH := &Data{[]byte("OutputH")}
+	inputA := &BytesData{[]byte("InputA")}
+	inputB := &BytesData{[]byte("InputB")}
+	interC := &BytesData{[]byte("InterC")}
+	interD := &BytesData{[]byte("InterD")}
+	outputE := &BytesData{[]byte("OutputE")}
+	interF := &BytesData{[]byte("InterF")}
+	inputG := &BytesData{[]byte("InputG")}
+	outputH := &BytesData{[]byte("OutputH")}
 
-	stmts, err := wf.Compositions[0].GetInitialRunnable([]*Data{inputA, inputB, inputG})
+	stmts, err := wf.Compositions[0].GetInitialRunnable([]Data{inputA, inputB, inputG})
 	if err != nil {
 		t.Errorf("Got error while getting initial runnable: %v", err)
 	}
@@ -303,7 +303,7 @@ func TestDataMapping(t *testing.T) {
 			if stmtInData[0] != inputA || stmtInData[1] != inputB {
 				t.Errorf("Got incorrect input data for FunA")
 			}
-			err = currStmt.SetOutData([]*Data{interC, interD})
+			err = currStmt.SetOutData([]Data{interC, interD})
 			nextStmts = currStmt.SetDone()
 
 		case "FunB":
@@ -311,7 +311,7 @@ func TestDataMapping(t *testing.T) {
 			if stmtInData[0] != interC || stmtInData[1] != interD {
 				t.Errorf("Got incorrect input data for FunB")
 			}
-			err = currStmt.SetOutData([]*Data{outputE, interF})
+			err = currStmt.SetOutData([]Data{outputE, interF})
 			nextStmts = currStmt.SetDone()
 
 		case "FunC":
@@ -319,7 +319,7 @@ func TestDataMapping(t *testing.T) {
 			if stmtInData[0] != inputB || stmtInData[1] != interD || stmtInData[2] != interF || stmtInData[3] != inputG {
 				t.Errorf("Got incorrect input data for FunC")
 			}
-			err = currStmt.SetOutData([]*Data{outputH})
+			err = currStmt.SetOutData([]Data{outputH})
 			nextStmts = currStmt.SetDone()
 		}
 

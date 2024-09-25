@@ -30,7 +30,12 @@ func (d *DandelionData) GetType() DataType {
 	return DandelionSets
 }
 func (d *DandelionData) GetData() []byte {
-	return nil
+	// concatenate all items into one output byte array
+	var outData []byte
+	for _, itemData := range d.Data.Items {
+		outData = append(outData, itemData.Data...)
+	}
+	return outData
 }
 func (d *DandelionData) GetDandelionData() (*InputSet, error) {
 	return &d.Data, nil
