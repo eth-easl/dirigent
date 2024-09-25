@@ -79,6 +79,7 @@ func (dr *Runtime) CreateSandbox(_ context.Context, in *proto.ServiceInfo) (*pro
 	if !ok {
 		// send register request to dandelion daemon
 		binaryData, err := os.ReadFile(dr.dandelionConfig.BinaryPath)
+		logrus.Infof("Using binary file %s (len: %d)", dr.dandelionConfig.BinaryPath, len(binaryData))
 		if err != nil {
 			logrus.Errorf("Error reading binary file - %v", err)
 			return getFailureStatus(), nil
@@ -89,8 +90,8 @@ func (dr *Runtime) CreateSandbox(_ context.Context, in *proto.ServiceInfo) (*pro
 			{Key: "context_size", Value: 0x8020000},
 			{Key: "engine_type", Value: dr.dandelionConfig.EngineType},
 			{Key: "binary", Value: bytesToInts(binaryData)},
-			{Key: "input_sets", Value: bson.A{bson.A{"input", nil}}},
-			{Key: "output_sets", Value: []string{"output"}}, // add "stdio" for debugging purpose
+			{Key: "input_sets", Value: bson.A{bson.A{"input", nil}, bson.A{"input", nil}}}, // names do not matter so far
+			{Key: "output_sets", Value: []string{"output"}},                                // add "stdio" for debugging purpose
 		}
 
 		registerRequestBody, err := bson.Marshal(registerRequest)

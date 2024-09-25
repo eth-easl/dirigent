@@ -14,7 +14,7 @@ func NewSequentialFifoScheduler(wf *workflow.Workflow) *SequentialFifoScheduler 
 	return &SequentialFifoScheduler{wf: wf}
 }
 
-func (s *SequentialFifoScheduler) Schedule(scheduleTask ScheduleTaskFunc) error {
+func (s *SequentialFifoScheduler) Schedule(scheduleTask ScheduleTaskFunc, inData []workflow.Data) error {
 	err := s.wf.Process()
 	if err != nil {
 		return fmt.Errorf("scheduler failed to process workflow: %v", err)
@@ -26,22 +26,26 @@ func (s *SequentialFifoScheduler) Schedule(scheduleTask ScheduleTaskFunc) error 
 	}
 	comp := s.wf.Compositions[0]
 
-	queue := comp.GetInitialRunnable()
+	queue, err := comp.GetInitialRunnable(inData)
+	if err != nil {
+		return fmt.Errorf("scheduler failed to get initial runnable tasks: %v", err)
+	}
 	tasksFinished := 0
-	tasksTotal := len(comp.Statements)
+	tasksTotal := comp.GetNumStatements()
 
 	for len(queue) > 0 {
-		next := queue[0]
+		currStmt := queue[0]
 
-		logrus.Debugf("Scheduling task '%s' (queue depth: %d)\n", next.Name, len(queue))
-		err = scheduleTask(next.Name)
+		// schedule task
+		logrus.Tracef("Scheduling task '%s' (queue depth: %d)\n", currStmt.Name, len(queue))
+		err = scheduleTask(currStmt)
 		if err != nil {
 			return fmt.Errorf("scheduler failed to execute task: %v", err)
 		}
 
 		tasksFinished++
 		queue = queue[1:]
-		logrus.Debugf("Task finished (%d/%d).\n", tasksFinished, tasksTotal)
+		logrus.Tracef("Task finished (%d/%d).\n", tasksFinished, tasksTotal)
 
 		if tasksTotal == tasksFinished {
 			if len(queue) > 0 {
@@ -51,8 +55,8 @@ func (s *SequentialFifoScheduler) Schedule(scheduleTask ScheduleTaskFunc) error 
 		}
 
 		// add statements that are now runnable
-		for _, stmt := range next.SetDone() {
-			queue = append(queue, stmt)
+		for _, nextStmt := range currStmt.SetDone() {
+			queue = append(queue, nextStmt)
 		}
 	}
 
@@ -61,4 +65,15 @@ func (s *SequentialFifoScheduler) Schedule(scheduleTask ScheduleTaskFunc) error 
 	}
 
 	return nil
+}
+
+func (s *SequentialFifoScheduler) CollectOutput() ([]workflow.Data, error) {
+	// TODO: check that workflow has run
+	// TODO: only schedules a single composition right now
+	if len(s.wf.Compositions) != 1 {
+		return nil, fmt.Errorf("scheduler expected exactly 1 composition, but got %v", len(s.wf.Compositions))
+	}
+	comp := s.wf.Compositions[0]
+
+	return comp.CollectOutData(), nil
 }

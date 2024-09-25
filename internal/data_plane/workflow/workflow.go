@@ -2,7 +2,9 @@ package workflow
 
 import (
 	"fmt"
+	"github.com/sirupsen/logrus"
 	"slices"
+	"sync"
 )
 
 type Sharding int
@@ -28,6 +30,13 @@ const (
 	LoopStmt
 )
 
+type DataType int
+
+const (
+	Bytes DataType = iota
+	DandelionSets
+)
+
 type FunctionDecl struct {
 	name    string
 	params  []string
@@ -47,29 +56,58 @@ type OutputDescriptor struct {
 	feedback bool
 }
 
+type Data interface {
+	GetType() DataType
+	GetData() []byte
+	GetDandelionData() (*InputSet, error)
+}
+
+type BytesData struct {
+	Data []byte
+}
+
+func (d *BytesData) GetType() DataType {
+	return Bytes
+}
+func (d *BytesData) GetData() []byte {
+	return d.Data
+}
+func (d *BytesData) GetDandelionData() (*InputSet, error) {
+	return nil, fmt.Errorf("not a DandelionData object")
+}
+
 type Statement struct {
 	Name string
 	kind StatementType
 
 	args       []InputDescriptor
 	rets       []OutputDescriptor
-	statements []*Statement
+	statements []*Statement // is nil unless type is loop
 
 	consumers      []*Statement
 	consumerArgIdx []int
-	argAvail       []bool
+	consumerOutIdx []int
+	inData         []Data
+	inDataMutex    sync.Mutex
+	outData        []Data
 
 	pFlags uint8
 }
 
 type Composition struct {
-	name       string
+	Name       string
 	params     []string
 	returns    []string
-	Statements []*Statement
+	statements []*Statement
 
+	inData         []Data
 	consumers      []*Statement
 	consumerArgIdx []int
+	consumerOutIdx []int
+
+	outData       []Data
+	outStmts      []*Statement
+	outStmtRetIdx []int
 }
 
 type Workflow struct {
@@ -79,15 +117,29 @@ type Workflow struct {
 	validated bool
 }
 
-// TODO: SetDone() is not thread safe
+func (s *Statement) GetInData() []Data {
+	return s.inData
+}
+func (s *Statement) GetNumOutData() int {
+	return len(s.rets)
+}
+func (s *Statement) SetOutData(data []Data) error {
+	if len(data) != len(s.rets) {
+		return fmt.Errorf("got %d output data objects, statement has %d returns", len(data), len(s.rets))
+	}
+	s.outData = data
+	return nil
+}
 func (s *Statement) SetDone() []*Statement {
 	var stmtRunnable []*Statement
 	for i, consumer := range s.consumers {
-		consumer.argAvail[s.consumerArgIdx[i]] = true
+		consumer.inDataMutex.Lock()
+
+		consumer.inData[s.consumerArgIdx[i]] = s.outData[s.consumerOutIdx[i]]
 
 		allTrue := true
-		for _, arg := range consumer.argAvail {
-			if !arg {
+		for _, arg := range consumer.inData {
+			if arg == nil {
 				allTrue = false
 				break
 			}
@@ -95,17 +147,25 @@ func (s *Statement) SetDone() []*Statement {
 		if allTrue {
 			stmtRunnable = append(stmtRunnable, consumer)
 		}
+
+		consumer.inDataMutex.Unlock()
 	}
+
 	return stmtRunnable
 }
-func (c *Composition) GetInitialRunnable() []*Statement {
+func (c *Composition) GetInitialRunnable(inData []Data) ([]*Statement, error) {
+	if len(inData) != len(c.params) {
+		return nil, fmt.Errorf("got %d input data objects, composition has %d params", len(c.inData), len(c.params))
+	}
+	c.inData = inData
+
 	var stmtRunnable []*Statement
 	for i, consumer := range c.consumers {
-		consumer.argAvail[c.consumerArgIdx[i]] = true
+		consumer.inData[c.consumerArgIdx[i]] = c.inData[c.consumerOutIdx[i]]
 
 		allTrue := true
-		for _, arg := range consumer.argAvail {
-			if !arg {
+		for _, arg := range consumer.inData {
+			if arg == nil {
 				allTrue = false
 				break
 			}
@@ -114,7 +174,28 @@ func (c *Composition) GetInitialRunnable() []*Statement {
 			stmtRunnable = append(stmtRunnable, consumer)
 		}
 	}
-	return stmtRunnable
+	return stmtRunnable, nil
+}
+func (c *Composition) CollectOutData() []Data {
+	if c.outData != nil {
+		return c.outData
+	}
+
+	c.outData = make([]Data, len(c.outStmts))
+	for i, outStmt := range c.outStmts {
+		c.outData[i] = outStmt.outData[c.outStmtRetIdx[i]]
+	}
+	return c.outData
+}
+func (c *Composition) GetNumStatements() int {
+	return len(c.statements)
+}
+func (w *Workflow) GetFunctionNames() []string {
+	var names []string
+	for _, decl := range w.FunctionDecls {
+		names = append(names, decl.name)
+	}
+	return names
 }
 
 func (s *Statement) checkFunctionDecl(functionDecls []*FunctionDecl) bool {
@@ -151,7 +232,8 @@ func (s *Statement) checkFunctionDecl(functionDecls []*FunctionDecl) bool {
 	return false
 }
 func (c *Composition) checkCircularDependency() bool {
-	stack := c.consumers
+	stack := make([]*Statement, len(c.consumers))
+	copy(stack, c.consumers)
 	stackSize := len(stack)
 
 	for stackSize > 0 {
@@ -182,21 +264,27 @@ func (w *Workflow) Process() error {
 		return nil
 	}
 
+	type outLoc struct {
+		stmt    *Statement
+		dataIdx int
+	}
+
 	// validate workflow semantics and set consumers
 	for _, c := range w.Compositions {
-		funcOutputs := make(map[string]*Statement)
+		logrus.Tracef("Processing composition %s", c.Name)
+		funcOutputs := make(map[string]outLoc)
 
-		for _, stmt := range c.Statements {
+		for _, stmt := range c.statements {
 			// compare functions against the function declarations
 			if !stmt.checkFunctionDecl(w.FunctionDecls) {
 				return fmt.Errorf("function %s not declared doesn't match declaration", stmt.Name)
 			}
 
 			// collect (intermediate) outputs
-			for _, ret := range stmt.rets {
+			for retIdx, ret := range stmt.rets {
 				_, ok := funcOutputs[ret.dest]
 				if !ok {
-					funcOutputs[ret.dest] = stmt
+					funcOutputs[ret.dest] = outLoc{stmt, retIdx}
 				} else {
 					return fmt.Errorf("output %s is defined more than once", ret.dest)
 				}
@@ -204,28 +292,39 @@ func (w *Workflow) Process() error {
 		}
 
 		// check that inputs match an output or composition parameter + set consumers
-		for _, stmt := range c.Statements {
-			stmt.argAvail = make([]bool, len(stmt.args))
+		for _, stmt := range c.statements {
+			stmt.inData = make([]Data, len(stmt.args))
 			for argIdx, arg := range stmt.args {
-				srcStmt, ok := funcOutputs[arg.src]
+				srcLoc, ok := funcOutputs[arg.src]
 				if !ok {
-					if slices.Contains(c.params, arg.src) {
-						c.consumers = append(c.consumers, stmt)
-						c.consumerArgIdx = append(c.consumerArgIdx, argIdx)
-					} else {
+					isInput := false
+					for paramIdx, param := range c.params {
+						if param == arg.src {
+							isInput = true
+							c.consumers = append(c.consumers, stmt)
+							c.consumerArgIdx = append(c.consumerArgIdx, argIdx)
+							c.consumerOutIdx = append(c.consumerOutIdx, paramIdx)
+							break
+						}
+					}
+					if !isInput {
 						return fmt.Errorf("cannot find source for argument %s", arg.src)
 					}
 				} else {
-					srcStmt.consumers = append(srcStmt.consumers, stmt)
-					srcStmt.consumerArgIdx = append(srcStmt.consumerArgIdx, argIdx)
+					srcLoc.stmt.consumers = append(srcLoc.stmt.consumers, stmt)
+					srcLoc.stmt.consumerArgIdx = append(srcLoc.stmt.consumerArgIdx, argIdx)
+					srcLoc.stmt.consumerOutIdx = append(srcLoc.stmt.consumerOutIdx, srcLoc.dataIdx)
 				}
 			}
 		}
 
 		// check that composition returns match a statement output
 		for _, ret := range c.returns {
-			_, ok := funcOutputs[ret]
-			if !ok {
+			srcLoc, ok := funcOutputs[ret]
+			if ok {
+				c.outStmts = append(c.outStmts, srcLoc.stmt)
+				c.outStmtRetIdx = append(c.outStmtRetIdx, srcLoc.dataIdx)
+			} else {
 				return fmt.Errorf("cannot find source for composition output %s", ret)
 			}
 		}
@@ -240,14 +339,6 @@ func (w *Workflow) Process() error {
 
 	w.validated = true
 	return nil
-}
-
-func (w *Workflow) GetFunctionNames() []string {
-	var names []string
-	for _, decl := range w.FunctionDecls {
-		names = append(names, decl.name)
-	}
-	return names
 }
 
 func (w *Workflow) getFunctionDecl(name string) *FunctionDecl {

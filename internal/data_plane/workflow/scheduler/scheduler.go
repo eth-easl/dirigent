@@ -12,10 +12,11 @@ const (
 	ConcurrentFifo
 )
 
-type ScheduleTaskFunc func(string) error
+type ScheduleTaskFunc func(*workflow.Statement) error
 
 type Scheduler interface {
-	Schedule(ScheduleTaskFunc) error
+	Schedule(ScheduleTaskFunc, []workflow.Data) error
+	CollectOutput() ([]workflow.Data, error)
 }
 
 func NewScheduler(wf *workflow.Workflow, t SchedulerType) Scheduler {

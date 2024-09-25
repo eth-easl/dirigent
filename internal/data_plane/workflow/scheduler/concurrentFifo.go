@@ -28,23 +28,23 @@ func (s *ConcurrentFifoScheduler) workStmt(stmt *workflow.Statement, scheduleTas
 	defer s.wg.Done()
 
 	// schedule task
-	logrus.Debugf("Scheduling task '%s'\n", stmt.Name)
-	err := scheduleTask(stmt.Name)
+	logrus.Tracef("Scheduling task '%s'\n", stmt.Name)
+	err := scheduleTask(stmt)
 	if err != nil {
 		s.errorChan <- err
 		return
 	}
 	s.tasksFinished.Add(1)
-	logrus.Debugf("Task '%s' finished\n", stmt.Name)
+	logrus.Tracef("Task '%s' finished\n", stmt.Name)
 
 	// enqueue next runnable tasks
-	for _, next := range stmt.SetDone() {
+	for _, nextStmt := range stmt.SetDone() {
 		s.wg.Add(1)
-		go s.workStmt(next, scheduleTask)
+		go s.workStmt(nextStmt, scheduleTask)
 	}
 }
 
-func (s *ConcurrentFifoScheduler) Schedule(scheduleTask ScheduleTaskFunc) error {
+func (s *ConcurrentFifoScheduler) Schedule(scheduleTask ScheduleTaskFunc, inData []workflow.Data) error {
 	err := s.wf.Process()
 	if err != nil {
 		return fmt.Errorf("scheduler failed to process workflow: %v", err)
@@ -57,11 +57,15 @@ func (s *ConcurrentFifoScheduler) Schedule(scheduleTask ScheduleTaskFunc) error 
 	comp := s.wf.Compositions[0]
 
 	// create workers for all initially runnable tasks
-	for _, task := range comp.GetInitialRunnable() {
+	initStmts, err := comp.GetInitialRunnable(inData)
+	if err != nil {
+		return fmt.Errorf("scheduler failed to get initial runnable statements: %v", err)
+	}
+	for _, task := range initStmts {
 		s.wg.Add(1)
 		go s.workStmt(task, scheduleTask)
 	}
-	tasksTotal := uint64(len(comp.Statements))
+	tasksTotal := uint64(comp.GetNumStatements())
 
 	// wait for workers to finish + check if errors occured
 	s.wg.Wait()
@@ -76,4 +80,15 @@ func (s *ConcurrentFifoScheduler) Schedule(scheduleTask ScheduleTaskFunc) error 
 	}
 
 	return nil
+}
+
+func (s *ConcurrentFifoScheduler) CollectOutput() ([]workflow.Data, error) {
+	// TODO: check that workflow has run
+	// TODO: only schedules a single composition right now
+	if len(s.wf.Compositions) != 1 {
+		return nil, fmt.Errorf("scheduler expected exactly 1 composition, but got %v", len(s.wf.Compositions))
+	}
+	comp := s.wf.Compositions[0]
+
+	return comp.CollectOutData(), nil
 }

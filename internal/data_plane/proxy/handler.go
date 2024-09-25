@@ -133,7 +133,6 @@ func proxyHandler(proxy *httputil.ReverseProxy, writer http.ResponseWriter, requ
 	///////////////////////////////////////////////
 	startProxy := time.Now()
 
-	logrus.Infof("Forwarding request -> header: %s, body: %s, host: %s, url: %s", request.Header, request.Body, request.Host, request.URL)
 	proxy.ServeHTTP(writer, request)
 
 	// Notify metric collector we got a response
@@ -174,7 +173,7 @@ func proxyHandler(proxy *httputil.ReverseProxy, writer http.ResponseWriter, requ
 // TODO: refactor this + implement metrics stuff
 //
 //	-> maybe create a function that can handle single function invocation + scheduling functions for workflows
-func functionInvocationRequest(wfRequest *http.Request, proxyContext *proxyContext, serviceName string) (*http.Request, error) {
+func functionInvocationRequest(wfRequest *http.Request, proxyContext *proxyContext, serviceName string, reqBody []byte) (*http.Request, error) {
 	metadata, _ := proxyContext.cache.GetDeployment(serviceName)
 	proxyContext.incomingRequestChannel <- serviceName
 
@@ -203,11 +202,10 @@ func functionInvocationRequest(wfRequest *http.Request, proxyContext *proxyConte
 	///////////////////////////////////////////////
 	// CREATE REQUEST THAT IS SENT TO SANDBOX
 	///////////////////////////////////////////////
-	funcReq, err := http.NewRequest("GET", "http://localhost/", &bytes.Buffer{})
+	funcReq, err := http.NewRequest("GET", "http://localhost/hot/matmul", bytes.NewBuffer(reqBody))
 	if err != nil {
 		return nil, fmt.Errorf("failed to create the function invocation request for the worker (%v)", err)
 	}
-	funcReq.Host = serviceName
 
 	///////////////////////////////////////////////
 	// LOAD BALANCING AND ROUTING
@@ -223,30 +221,46 @@ func functionInvocationRequest(wfRequest *http.Request, proxyContext *proxyConte
 
 // TODO: refactor (same as above)
 func scheduleWorkflowFunction(httpClient *http.Client, wfRequest *http.Request, proxyContext *proxyContext) scheduler.ScheduleTaskFunc {
-	return func(serviceName string) error {
-		logrus.Tracef("Invoking function '%s'", serviceName)
+	return func(service *workflow.Statement) error {
+		logrus.Tracef("Invoking workflow function '%s'", service.Name)
 
-		funcReq, err := functionInvocationRequest(wfRequest, proxyContext, serviceName)
+		// create the function invocation request
+		funcReqBody, err := workflow.BusyLoopInvocationBody(service.Name, service.GetInData())
+		if err != nil {
+			return err
+		}
+		funcReq, err := functionInvocationRequest(wfRequest, proxyContext, service.Name, funcReqBody)
 		if err != nil {
 			return err
 		}
 
+		// execute the request
 		resp, err := httpClient.Do(funcReq)
 		if err != nil {
-			return fmt.Errorf("HTTP client call for '%s' failed (%v)", serviceName, err)
+			return fmt.Errorf("HTTP client call for '%s' failed (%v)", service.Name, err)
 		}
-		logrus.Tracef("Function invocation returned status code %d", resp.StatusCode)
+		logrus.Tracef("Workflow function invocation (%s) returned status code %d", service.Name, resp.StatusCode)
 
 		defer resp.Body.Close()
 		respBody, err := io.ReadAll(resp.Body)
 		if err != nil || resp.StatusCode != http.StatusOK {
 			if err != nil {
-				return fmt.Errorf("HTTP request failed for '%s', got invalid response (cannot read body: %v)", serviceName, err)
+				return fmt.Errorf("HTTP request failed for '%s', got invalid response (cannot read body: %v)", service.Name, err)
 			}
 			if len(respBody) == 0 {
-				return fmt.Errorf("HTTP request failed for '%s', got status code %s", serviceName, resp.StatusCode)
+				return fmt.Errorf("HTTP request failed for '%s', got status code %s", service.Name, resp.StatusCode)
 			}
-			return fmt.Errorf("HTTP request failed for '%s', got status code: %s, response body: { %s }", serviceName, resp.Status, string(respBody))
+			return fmt.Errorf("HTTP request failed for '%s', got status code: %s, response body: { %s }", service.Name, resp.Status, string(respBody))
+		}
+
+		// collect data and update the scheduler
+		outData, err := workflow.DeserializeResponseToData(respBody)
+		if err != nil {
+			return err
+		}
+		err = service.SetOutData(outData)
+		if err != nil {
+			return err
 		}
 
 		return nil
@@ -280,9 +294,9 @@ func workflowHandler(w http.ResponseWriter, r *http.Request, proxyContext proxyC
 		http.Error(w, "Empty workflow description.", http.StatusBadRequest)
 		return
 	}
+	input := r.FormValue("input")
 
 	// Parse workflow
-	logrus.Tracef("Parsing workflow request.")
 	wfParser := workflow.NewParser(bufio.NewReader(strings.NewReader(wfString)))
 	wf, err := wfParser.Parse()
 	if err != nil {
@@ -291,16 +305,33 @@ func workflowHandler(w http.ResponseWriter, r *http.Request, proxyContext proxyC
 		return
 	}
 
+	// Prepare workflow input
+	inData, err := workflow.DeserializeRequestToData([]byte(input))
+	if err != nil {
+		logrus.Errorf("Invalid workflow request (failed to deserialize input data): %v).", err)
+		http.Error(w, "Invalid workflow input.", http.StatusBadRequest)
+		return
+	}
+
 	// Execute workflow
 	logrus.Debugf("Executing workflow '%s'.", name)
 	httpClient := &http.Client{Timeout: 10 * time.Second}
 	wfScheduler := scheduler.NewScheduler(wf, scheduler.SequentialFifo)
-	err = wfScheduler.Schedule(scheduleWorkflowFunction(httpClient, r, &proxyContext))
+	err = wfScheduler.Schedule(scheduleWorkflowFunction(httpClient, r, &proxyContext), inData)
 	if err != nil {
 		logrus.Errorf("Failed while executing workflow %s: %v", name, err)
 		http.Error(w, "Failed to execute workflow.", http.StatusInternalServerError)
 		return
 	}
 
+	// collect workflow output
 	w.WriteHeader(http.StatusOK)
+	outData := wf.Compositions[0].CollectOutData()
+	outBody, err := workflow.GetResponseBody(outData)
+	if err != nil {
+		w.Write([]byte(fmt.Sprintf("Failed to add workflow output: %s", err)))
+	} else {
+		w.Write(outBody)
+	}
+
 }

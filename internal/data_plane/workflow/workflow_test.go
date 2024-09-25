@@ -208,7 +208,7 @@ func TestExport(t *testing.T) {
 	}
 
 	for i, tc := range testCases {
-		composition, err := wf.ExportStatements(tc.exportName, wf.Compositions[0].Statements[tc.headIdx:tc.tailIdx])
+		composition, err := wf.ExportStatements(tc.exportName, wf.Compositions[0].statements[tc.headIdx:tc.tailIdx])
 		if err != nil {
 			t.Errorf("Got error while exporting composition: %v", err)
 			return
@@ -230,8 +230,8 @@ func TestExport(t *testing.T) {
 			return
 		}
 
-		if compWF.Compositions[0].name != tc.exportName {
-			t.Errorf("Exported composition has wrong Name: expected: %s, got: %s", compWF.Compositions[0].name, tc.exportName)
+		if compWF.Compositions[0].Name != tc.exportName {
+			t.Errorf("Exported composition has wrong Name: expected: %s, got: %s", compWF.Compositions[0].Name, tc.exportName)
 		}
 		for _, compParam := range expectedCompParam[i] {
 			if !slices.Contains(compWF.Compositions[0].params, compParam) {
@@ -250,6 +250,92 @@ func TestExport(t *testing.T) {
 			t.Errorf("Exported composition contains wrong number of parameters\n -> output: %s.", composition)
 		}
 
+	}
+
+}
+
+func TestDataMapping(t *testing.T) {
+	input := `
+		(:function FunA (A B) -> (C D))
+		(:function FunB (C D) -> (E F))
+		(:function FunC (B D F G) -> (H))
+    
+		(:composition Test (InputA InputB InputG) -> (OutputE OutputH) (
+			(FunA ((A <- InputA) (B <- InputB)) => ((InterC := C) (InterD := D)))
+			(FunB ((C <- InterC) (D <- InterD)) => ((OutputE := E) (InterF := F)))
+			(FunC ((B <- InputB) (D <- InterD) (F <- InterF) (G <- InputG)) => ((OutputH := H)))
+		))
+	`
+
+	parser := NewParser(bufio.NewReader(strings.NewReader(input)))
+	wf, err := parser.Parse()
+	if err != nil {
+		t.Errorf("Got error while parsing input: %v", err)
+		return
+	}
+	err = wf.Process()
+	if err != nil {
+		t.Errorf("Got error while processing workflow: %v", err)
+		return
+	}
+
+	inputA := &Data{[]byte("InputA")}
+	inputB := &Data{[]byte("InputB")}
+	interC := &Data{[]byte("InterC")}
+	interD := &Data{[]byte("InterD")}
+	outputE := &Data{[]byte("OutputE")}
+	interF := &Data{[]byte("InterF")}
+	inputG := &Data{[]byte("InputG")}
+	outputH := &Data{[]byte("OutputH")}
+
+	stmts, err := wf.Compositions[0].GetInitialRunnable([]*Data{inputA, inputB, inputG})
+	if err != nil {
+		t.Errorf("Got error while getting initial runnable: %v", err)
+	}
+
+	for len(stmts) > 0 {
+		currStmt := stmts[0]
+
+		var nextStmts []*Statement
+		switch currStmt.Name {
+		case "FunA":
+			stmtInData := currStmt.GetInData()
+			if stmtInData[0] != inputA || stmtInData[1] != inputB {
+				t.Errorf("Got incorrect input data for FunA")
+			}
+			err = currStmt.SetOutData([]*Data{interC, interD})
+			nextStmts = currStmt.SetDone()
+
+		case "FunB":
+			stmtInData := currStmt.GetInData()
+			if stmtInData[0] != interC || stmtInData[1] != interD {
+				t.Errorf("Got incorrect input data for FunB")
+			}
+			err = currStmt.SetOutData([]*Data{outputE, interF})
+			nextStmts = currStmt.SetDone()
+
+		case "FunC":
+			stmtInData := currStmt.GetInData()
+			if stmtInData[0] != inputB || stmtInData[1] != interD || stmtInData[2] != interF || stmtInData[3] != inputG {
+				t.Errorf("Got incorrect input data for FunC")
+			}
+			err = currStmt.SetOutData([]*Data{outputH})
+			nextStmts = currStmt.SetDone()
+		}
+
+		if err != nil {
+			t.Errorf("Got error while getting next runnable statements: %v", err)
+		}
+		for _, nextStmt := range nextStmts {
+			stmts = append(stmts, nextStmt)
+		}
+
+		stmts = stmts[1:]
+	}
+
+	outData := wf.Compositions[0].CollectOutData()
+	if outData[0] != outputE || outData[1] != outputH {
+		t.Errorf("Got incorrect output data for composition")
 	}
 
 }

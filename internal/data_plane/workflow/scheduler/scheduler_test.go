@@ -2,16 +2,39 @@ package scheduler
 
 import (
 	"bufio"
-	"go-sandbox/workflow-scheduling/workflow"
+	"cluster_manager/internal/data_plane/workflow"
+	"fmt"
 	"strings"
 	"testing"
 	"time"
 )
 
-const testedSchedulerType = ConcurrentFifo
+const testedSchedulerType = SequentialFifo
 
 func dummyScheduleFunc() ScheduleTaskFunc {
-	return func(string) error {
+	return func(s *workflow.Statement) error {
+		inData := s.GetInData()
+		out := "("
+		for _, data := range inData {
+			out += string(data.Data) + ","
+		}
+		if len(inData) > 0 {
+			out = out[:len(out)-1]
+		}
+		out += ")->" + s.Name
+		outData := make([]*workflow.Data, s.GetNumOutData())
+		if s.GetNumOutData() > 1 {
+			for i := 0; i < s.GetNumOutData(); i++ {
+				outData[i] = &workflow.Data{Data: []byte(out + fmt.Sprintf("[%d]", i))}
+			}
+		} else if s.GetNumOutData() == 1 {
+			outData[0] = &workflow.Data{Data: []byte(out)}
+		}
+		err := s.SetOutData(outData)
+		if err != nil {
+			return err
+		}
+
 		time.Sleep(100 * time.Millisecond)
 		return nil
 	}
@@ -51,11 +74,22 @@ func TestSimpleChain(t *testing.T) {
 		return
 	}
 
+	inputA := &workflow.Data{Data: []byte("InputA")}
+	inData := []*workflow.Data{inputA}
 	scheduler := NewScheduler(wf, testedSchedulerType)
-	err = scheduler.Schedule(dummyScheduleFunc())
+	err = scheduler.Schedule(dummyScheduleFunc(), inData)
 	if err != nil {
 		t.Errorf("Got error while scheduling workflow: %v", err)
 		return
+	}
+
+	outData, err := scheduler.CollectOutput()
+	if err != nil {
+		t.Errorf("Got error while collecting output: %v", err)
+		return
+	}
+	if len(outData) != 1 || string(outData[0].Data) != "(((InputA)->FunA)->FunB)->FunC" {
+		t.Errorf("Got invalid output: %s", string(outData[0].Data))
 	}
 }
 
@@ -101,11 +135,22 @@ func TestSimpleSplit(t *testing.T) {
 		return
 	}
 
+	inputA := &workflow.Data{Data: []byte("InputA")}
+	inData := []*workflow.Data{inputA}
 	scheduler := NewScheduler(wf, testedSchedulerType)
-	err = scheduler.Schedule(dummyScheduleFunc())
+	err = scheduler.Schedule(dummyScheduleFunc(), inData)
 	if err != nil {
 		t.Errorf("Got error while scheduling workflow: %v", err)
 		return
+	}
+
+	outData, err := scheduler.CollectOutput()
+	if err != nil {
+		t.Errorf("Got error while collecting output: %v", err)
+		return
+	}
+	if len(outData) != 1 || string(outData[0].Data) != "(((InputA)->FunA)->FunB,((InputA)->FunA)->FunC)->FunD" {
+		t.Errorf("Got invalid output: %s", string(outData[0].Data))
 	}
 }
 
@@ -153,11 +198,22 @@ func TestSimpleExample(t *testing.T) {
 		return
 	}
 
+	inputA := &workflow.Data{Data: []byte("InputA")}
+	inData := []*workflow.Data{inputA}
 	scheduler := NewScheduler(wf, testedSchedulerType)
-	err = scheduler.Schedule(dummyScheduleFunc())
+	err = scheduler.Schedule(dummyScheduleFunc(), inData)
 	if err != nil {
 		t.Errorf("Got error while scheduling workflow: %v", err)
 		return
+	}
+
+	outData, err := scheduler.CollectOutput()
+	if err != nil {
+		t.Errorf("Got error while collecting output: %v", err)
+		return
+	}
+	if len(outData) != 1 || string(outData[0].Data) != "((((((((InputA)->FunA)->FunB)->FunC)->FunD)->FunE,(((((InputA)->FunA)->FunB)->FunF)->FunH,((((InputA)->FunA)->FunB)->FunF)->FunG)->FunI)->FunJ)->FunK)->FunL" {
+		t.Errorf("Got invalid output: %s", string(outData[0].Data))
 	}
 }
 
@@ -203,6 +259,14 @@ func TestDandelionSimpleExamples(t *testing.T) {
 	`
 
 	tests := []string{testExample2}
+	inData := [][]*workflow.Data{
+		//{&workflow.Data{Data: []byte("S3GetRequest")}},
+		{&workflow.Data{Data: []byte("InputA")}, &workflow.Data{Data: []byte("InputB")}},
+	}
+	expectedOutput := []string{
+		//"",
+		"((InputA,InputB,(InputA,InputB)->FunA)->FunB)->FunC",
+	}
 
 	for i, test := range tests {
 		parser := workflow.NewParser(bufio.NewReader(strings.NewReader(test)))
@@ -213,10 +277,19 @@ func TestDandelionSimpleExamples(t *testing.T) {
 		}
 
 		scheduler := NewScheduler(wf, testedSchedulerType)
-		err = scheduler.Schedule(dummyScheduleFunc())
+		err = scheduler.Schedule(dummyScheduleFunc(), inData[i])
 		if err != nil {
 			t.Errorf("Got error while scheduling workflow: %v (testcase %d)", err, i)
 			return
+		}
+
+		outData, err := scheduler.CollectOutput()
+		if err != nil {
+			t.Errorf("Got error while collecting output: %v (testcase %d)", err, i)
+			return
+		}
+		if len(outData) != 1 || string(outData[0].Data) != expectedOutput[i] {
+			t.Errorf("Got invalid output: %s (testcase %d)", string(outData[0].Data), i)
 		}
 	}
 }
@@ -283,3 +356,43 @@ func TestDandelionLoopExample(t *testing.T) {
 	}
 }
 */
+
+func TestDataHandling(t *testing.T) {
+	testWorkflow := `
+		(:function FunA (A) -> (C D))
+    	(:function FunB (C B) -> (E))
+    
+		(:composition Test (InputA InputB) -> (OutputD OutputE) (
+			(FunA ((A <- InputA)) => ((InterC := C) (OutputD := D)))
+			(FunB ((C <- InterC) (B <- InputB)) => ((OutputE := E)))
+		))
+	`
+
+	parser := workflow.NewParser(bufio.NewReader(strings.NewReader(testWorkflow)))
+	wf, err := parser.Parse()
+	if err != nil {
+		t.Errorf("Got error while parsing input: %v", err)
+		return
+	}
+
+	inputA := &workflow.Data{Data: []byte("InputA")}
+	inputB := &workflow.Data{Data: []byte("InputB")}
+	inData := []*workflow.Data{inputA, inputB}
+	scheduler := NewScheduler(wf, testedSchedulerType)
+	err = scheduler.Schedule(dummyScheduleFunc(), inData)
+	if err != nil {
+		t.Errorf("Got error while scheduling workflow: %v", err)
+		return
+	}
+
+	outData, err := scheduler.CollectOutput()
+	if err != nil {
+		t.Errorf("Got error while collecting output: %v", err)
+		return
+	}
+	if len(outData) != 2 ||
+		string(outData[0].Data) != "(InputA)->FunA[1]" ||
+		string(outData[1].Data) != "((InputA)->FunA[0],InputB)->FunB" {
+		t.Errorf("Got invalid output: %s", string(outData[0].Data))
+	}
+}

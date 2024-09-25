@@ -3,6 +3,7 @@ package workflow
 import (
 	"bufio"
 	"fmt"
+	"github.com/sirupsen/logrus"
 )
 
 type Parser struct {
@@ -431,15 +432,17 @@ func (p *Parser) parseComposition() (*Composition, error) {
 	}
 
 	return &Composition{
-		name:       name,
+		Name:       name,
 		params:     params,
 		returns:    returns,
-		Statements: statements,
+		statements: statements,
 	}, nil
 }
 
 func (p *Parser) Parse() (*Workflow, error) {
 	w := Workflow{}
+
+	logrus.Tracef("Parsing workflow")
 	for {
 		// expect ( or EOF
 		t, s := p.l.ScanIgnoreSpace()
