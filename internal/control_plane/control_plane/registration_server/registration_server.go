@@ -1,19 +1,22 @@
 package registration_server
 
 import (
+	"bufio"
 	"cluster_manager/internal/control_plane/control_plane"
 	"cluster_manager/internal/control_plane/control_plane/autoscalers"
+	"cluster_manager/internal/control_plane/workflow/dandelion-workflow"
 	"cluster_manager/proto"
 	"errors"
 	"fmt"
 	"net/http"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/sirupsen/logrus"
 )
 
-func registrationHandler(cpApi *control_plane.CpApiServer) func(w http.ResponseWriter, r *http.Request) {
+func functionRegistrationHandler(cpApi *control_plane.CpApiServer) func(w http.ResponseWriter, r *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodPost {
 			http.Error(w, "Method not allowed.", http.StatusMethodNotAllowed)
@@ -172,6 +175,62 @@ func registrationHandler(cpApi *control_plane.CpApiServer) func(w http.ResponseW
 	}
 }
 
+func workflowRegistrationHandler(cpApi *control_plane.CpApiServer) func(w http.ResponseWriter, r *http.Request) {
+	return func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodPost {
+			http.Error(w, "Method not allowed.", http.StatusMethodNotAllowed)
+			return
+		}
+
+		// Parse request
+		logrus.Infof("Received workflow request.")
+		err := r.ParseForm()
+		if err != nil {
+			http.Error(w, "Failed to parse workflow request.", http.StatusBadRequest)
+			return
+		}
+		name := r.FormValue("name")
+		if len(name) == 0 {
+			logrus.Errorf("Invalid workflow request (empty workflow name).")
+			http.Error(w, "Invalid workflow name.", http.StatusBadRequest)
+			return
+		}
+		wfString := r.FormValue("workflow")
+		if len(wfString) == 0 {
+			logrus.Errorf("Invalid workflow request (empty workflow description).")
+			http.Error(w, "Empty workflow description.", http.StatusBadRequest)
+			return
+		}
+
+		// Parse workflow
+		dwfParser := dandelion_workflow.NewParser(bufio.NewReader(strings.NewReader(wfString)))
+		dwf, err := dwfParser.Parse()
+		if err != nil {
+			logrus.Errorf("Failed to parse workflow '%s': %v", name, err)
+			http.Error(w, fmt.Sprintf("Invalid workflow (failed to parse: %s).", err), http.StatusBadRequest)
+			return
+		}
+
+		// Process workflow
+		wfs, wfTasks, err := dwf.ExportWorkflow(dandelion_workflow.FullPartition)
+		if err != nil {
+			logrus.Errorf("Failed to process workflow '%s': %v", name, err)
+			http.Error(w, fmt.Sprintf("Invalid workflow (failed to process: %s).", err), http.StatusBadRequest)
+			return
+		}
+
+		// TODO: register workflow + notify data planes
+		for _, wf := range wfs {
+			logrus.Infof("Successfully parsed and processed workflow '%s'.", wf.Name)
+		}
+		for _, task := range wfTasks {
+			logrus.Infof("Successfully parsed and processed workflow task '%s'.", task.Name)
+		}
+
+	}
+
+}
+
 func GetLoadBalancerAddress(cpApi *control_plane.CpApiServer) string {
 	if cpApi.HAProxyAPI.GetLoadBalancerAddress() == "" {
 		if len(cpApi.LeaderElectionServer.GetPeers()) > 0 {
@@ -208,9 +267,10 @@ func healthHandler(writer http.ResponseWriter, _ *http.Request) {
 
 func StartServiceRegistrationServer(cpApi *control_plane.CpApiServer, registrationPort string) chan struct{} {
 	mux := http.NewServeMux()
-	mux.HandleFunc("/", registrationHandler(cpApi))
+	mux.HandleFunc("/", functionRegistrationHandler(cpApi))
 	mux.HandleFunc("/health", healthHandler)
 	mux.HandleFunc("/patch", patchHandler(cpApi))
+	mux.HandleFunc("/workflow", workflowRegistrationHandler(cpApi))
 
 	server := &http.Server{
 		Addr:    fmt.Sprintf(":%s", registrationPort),
