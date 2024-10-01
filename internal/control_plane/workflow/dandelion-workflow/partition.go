@@ -9,8 +9,11 @@ import (
 type PartitionMethod int
 
 const (
+	// FullPartition creates a task for every function
 	FullPartition PartitionMethod = iota
+	// NoPartition combines all functions into a single task
 	NoPartition
+	// ConsumerBased combines functions that consume exactly all output from the previous one
 	ConsumerBased
 )
 
@@ -28,8 +31,8 @@ func createTaskFromStatements(stmts []*Statement, wf *workflow.Workflow) *workfl
 	numStmts := len(stmts)
 	task := &workflow.Task{
 		Functions:      make([]string, numStmts),
-		FunctionOutNum: make([]int, numStmts),
-		FunctionInNum:  make([]int, numStmts),
+		FunctionOutNum: make([]int32, numStmts),
+		FunctionInNum:  make([]int32, numStmts),
 	}
 
 	fToIdx := make(map[string]int)
@@ -37,12 +40,12 @@ func createTaskFromStatements(stmts []*Statement, wf *workflow.Workflow) *workfl
 	var taskOut []int
 	for stmtIdx, stmt := range stmts {
 		task.Functions[stmtIdx] = stmt.Name
-		task.FunctionOutNum[stmtIdx] = len(stmt.Rets)
+		task.FunctionOutNum[stmtIdx] = int32(len(stmt.Rets))
 		fToIdx[stmt.Name] = stmtIdx
 	}
 	for stmtIdx, stmt := range stmts {
 		stmtArgs := stmt.Args
-		task.FunctionInNum[stmtIdx] = len(stmtArgs)
+		task.FunctionInNum[stmtIdx] = int32(len(stmtArgs))
 
 		for argIdx := range stmtArgs {
 			var argStmtIdx int
@@ -61,18 +64,18 @@ func createTaskFromStatements(stmts []*Statement, wf *workflow.Workflow) *workfl
 				}
 				if stmtArgs[argIdx].SrcTask != nil { // source is statement
 					stmtArgs[argIdx].SrcTask.ConsumerTasks = append(stmtArgs[argIdx].SrcTask.ConsumerTasks, task)
-					stmtArgs[argIdx].SrcTask.ConsumerDataSrcIdx = append(stmtArgs[argIdx].SrcTask.ConsumerDataSrcIdx, stmtArgs[argIdx].SrcTaskOutIdx)
-					stmtArgs[argIdx].SrcTask.ConsumerDataDstIdx = append(stmtArgs[argIdx].SrcTask.ConsumerDataDstIdx, argStmtOutIdx)
+					stmtArgs[argIdx].SrcTask.ConsumerDataSrcIdx = append(stmtArgs[argIdx].SrcTask.ConsumerDataSrcIdx, int32(stmtArgs[argIdx].SrcTaskOutIdx))
+					stmtArgs[argIdx].SrcTask.ConsumerDataDstIdx = append(stmtArgs[argIdx].SrcTask.ConsumerDataDstIdx, int32(argStmtOutIdx))
 				} else { // source is composition input
 					wf.InitialTasks = append(wf.InitialTasks, task)
-					wf.InitialDataSrcIdx = append(wf.InitialDataSrcIdx, stmtArgs[argIdx].SrcStmtOutIdx)
-					wf.InitialDataDstIdx = append(wf.InitialDataDstIdx, argStmtOutIdx)
+					wf.InitialDataSrcIdx = append(wf.InitialDataSrcIdx, int32(stmtArgs[argIdx].SrcStmtOutIdx))
+					wf.InitialDataDstIdx = append(wf.InitialDataDstIdx, int32(argStmtOutIdx))
 				}
 			} else { // input from inside this task
 				argStmtOutIdx = stmtArgs[argIdx].SrcStmtOutIdx
 			}
 
-			task.FunctionDataFlow = append(task.FunctionDataFlow, argStmtIdx, argStmtOutIdx)
+			task.FunctionDataFlow = append(task.FunctionDataFlow, int32(argStmtIdx), int32(argStmtOutIdx))
 		}
 
 		for retIdx := range stmt.Rets {
@@ -93,18 +96,17 @@ func createTaskFromStatements(stmts []*Statement, wf *workflow.Workflow) *workfl
 					taskOut = append(taskOut, stmtIdx)
 				}
 				wf.OutTasks = append(wf.OutTasks, task)
-				wf.OutDataSrcIdx = append(wf.OutDataSrcIdx, taskOutIdx)
+				wf.OutDataSrcIdx = append(wf.OutDataSrcIdx, int32(taskOutIdx))
 			}
 		}
 	}
 
-	task.NumIn = len(taskIn)
-	task.NumOut = len(taskOut)
+	task.NumIn = uint32(len(taskIn))
+	task.NumOut = uint32(len(taskOut))
 
 	return task
 }
 
-// ConsumerBased combines functions that consume exactly all output from the previous one
 func consumerBased(c *Composition, wf *workflow.Workflow) []*workflow.Task {
 	var tasks []*workflow.Task
 
@@ -159,12 +161,11 @@ func consumerBased(c *Composition, wf *workflow.Workflow) []*workflow.Task {
 		tasks = append(tasks, task)
 	}
 
-	wf.TotalTasks = len(tasks)
+	wf.TotalTasks = uint32(len(tasks))
 
 	return nil
 }
 
-// FullPartition creates a task for every function
 func fullPartition(c *Composition, wf *workflow.Workflow) []*workflow.Task {
 	var tasks []*workflow.Task
 
@@ -174,8 +175,8 @@ func fullPartition(c *Composition, wf *workflow.Workflow) []*workflow.Task {
 		task := &workflow.Task{
 			Name:      fmt.Sprintf("%s-%s", wf.Name, stmt.Name),
 			Functions: []string{stmt.Name},
-			NumIn:     len(stmt.Args),
-			NumOut:    len(stmt.Rets),
+			NumIn:     uint32(len(stmt.Args)),
+			NumOut:    uint32(len(stmt.Rets)),
 		}
 		stmtToTask[stmt.Name] = task
 		tasks = append(tasks, task)
@@ -188,8 +189,8 @@ func fullPartition(c *Composition, wf *workflow.Workflow) []*workflow.Task {
 			for destIdx, dest := range ret.DestStmt {
 				destTask := stmtToTask[dest.Name]
 				task.ConsumerTasks = append(task.ConsumerTasks, destTask)
-				task.ConsumerDataSrcIdx = append(task.ConsumerDataSrcIdx, retIdx)
-				task.ConsumerDataDstIdx = append(task.ConsumerDataDstIdx, ret.DestStmtInIdx[destIdx])
+				task.ConsumerDataSrcIdx = append(task.ConsumerDataSrcIdx, int32(retIdx))
+				task.ConsumerDataDstIdx = append(task.ConsumerDataDstIdx, int32(ret.DestStmtInIdx[destIdx]))
 			}
 		}
 	}
@@ -197,41 +198,40 @@ func fullPartition(c *Composition, wf *workflow.Workflow) []*workflow.Task {
 	// update workflow -> set initial tasks and output tasks
 	for stmtIdx, stmt := range c.Consumers {
 		wf.InitialTasks = append(wf.InitialTasks, stmtToTask[stmt.Name])
-		wf.InitialDataDstIdx = append(wf.InitialDataDstIdx, c.ConsumerArgIdx[stmtIdx])
-		wf.InitialDataSrcIdx = append(wf.InitialDataSrcIdx, c.ConsumerOutIdx[stmtIdx])
+		wf.InitialDataDstIdx = append(wf.InitialDataDstIdx, int32(c.ConsumerArgIdx[stmtIdx]))
+		wf.InitialDataSrcIdx = append(wf.InitialDataSrcIdx, int32(c.ConsumerOutIdx[stmtIdx]))
 	}
 	for stmtIdx, stmt := range c.outStmts {
 		wf.OutTasks = append(wf.OutTasks, stmtToTask[stmt.Name])
-		wf.OutDataSrcIdx = append(wf.OutDataSrcIdx, c.outStmtRetIdx[stmtIdx])
+		wf.OutDataSrcIdx = append(wf.OutDataSrcIdx, int32(c.outStmtRetIdx[stmtIdx]))
 	}
 
-	wf.TotalTasks = len(tasks)
+	wf.TotalTasks = uint32(len(tasks))
 
 	return tasks
 }
 
-// NoPartition combines all functions into a single task
 func noPartition(c *Composition, wf *workflow.Workflow) []*workflow.Task {
 	numStmts := len(c.Statements)
 	task := &workflow.Task{
 		Name:           fmt.Sprintf("%s-noPartition", wf.Name),
 		Functions:      make([]string, numStmts),
-		FunctionOutNum: make([]int, numStmts),
-		FunctionInNum:  make([]int, numStmts),
-		NumIn:          len(c.params),
-		NumOut:         len(c.returns),
+		FunctionOutNum: make([]int32, numStmts),
+		FunctionInNum:  make([]int32, numStmts),
+		NumIn:          uint32(len(c.params)),
+		NumOut:         uint32(len(c.returns)),
 	}
 
 	// add all functions from composition + set internal data flow information
 	fToIdx := make(map[string]int)
 	for stmtIdx, stmt := range c.Statements {
 		task.Functions[stmtIdx] = stmt.Name
-		task.FunctionOutNum[stmtIdx] = len(stmt.Rets)
+		task.FunctionOutNum[stmtIdx] = int32(len(stmt.Rets))
 		fToIdx[stmt.Name] = stmtIdx
 	}
 	for stmtIdx, stmt := range c.Statements {
 		stmtArgs := stmt.Args
-		task.FunctionInNum[stmtIdx] = len(stmtArgs)
+		task.FunctionInNum[stmtIdx] = int32(len(stmtArgs))
 
 		for _, arg := range stmtArgs {
 			var argStmtIdx int
@@ -241,22 +241,22 @@ func noPartition(c *Composition, wf *workflow.Workflow) []*workflow.Task {
 				argStmtIdx = fToIdx[arg.SrcStmt.Name]
 			}
 			argStmtOutIdx := arg.SrcStmtOutIdx
-			task.FunctionDataFlow = append(task.FunctionDataFlow, argStmtIdx, argStmtOutIdx)
+			task.FunctionDataFlow = append(task.FunctionDataFlow, int32(argStmtIdx), int32(argStmtOutIdx))
 		}
 	}
 	for stmtIdx, stmt := range c.outStmts {
 		argStmtIdx := fToIdx[stmt.Name]
 		argStmtOutIdx := c.outStmtRetIdx[stmtIdx]
-		task.FunctionDataFlow = append(task.FunctionDataFlow, argStmtIdx, argStmtOutIdx)
+		task.FunctionDataFlow = append(task.FunctionDataFlow, int32(argStmtIdx), int32(argStmtOutIdx))
 		wf.OutTasks = append(wf.OutTasks, task)
-		wf.OutDataSrcIdx = append(wf.OutDataSrcIdx, stmtIdx)
+		wf.OutDataSrcIdx = append(wf.OutDataSrcIdx, int32(stmtIdx))
 	}
 
 	// update workflow -> set initial task
 	for i := 0; i < len(c.Consumers); i++ {
 		wf.InitialTasks = append(wf.InitialTasks, task)
-		wf.InitialDataSrcIdx = append(wf.InitialDataSrcIdx, c.ConsumerOutIdx[i])
-		wf.InitialDataDstIdx = append(wf.InitialDataSrcIdx, c.ConsumerArgIdx[i])
+		wf.InitialDataSrcIdx = append(wf.InitialDataSrcIdx, int32(c.ConsumerOutIdx[i]))
+		wf.InitialDataDstIdx = append(wf.InitialDataSrcIdx, int32(c.ConsumerArgIdx[i]))
 	}
 
 	wf.TotalTasks = 1

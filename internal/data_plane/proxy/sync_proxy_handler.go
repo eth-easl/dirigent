@@ -47,7 +47,7 @@ func (sps *SyncProxyingService) SetCpApiServer(client proto.CpiInterfaceClient) 
 }
 
 func (sps *SyncProxyingService) StartProxyServer() {
-	startProxy(sps.createInvocationHandler(), sps.createWorkflowHandler(), sps.Context, sps.Host, sps.Port)
+	startProxy(sps.createInvocationHandler(), sps.Context, sps.Host, sps.Port)
 }
 
 func (sps *SyncProxyingService) StartTracingService() {
@@ -61,11 +61,5 @@ func (sps *SyncProxyingService) createInvocationHandler() http.HandlerFunc {
 			serialization:    0,
 			persistenceLayer: 0,
 		}, sps.Context)
-	}
-}
-
-func (sps *SyncProxyingService) createWorkflowHandler() http.HandlerFunc {
-	return func(w http.ResponseWriter, request *http.Request) {
-		workflowHandler(w, request, sps.Context)
 	}
 }

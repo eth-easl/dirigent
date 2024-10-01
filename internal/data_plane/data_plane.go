@@ -4,6 +4,7 @@ import (
 	"cluster_manager/internal/data_plane/function_metadata"
 	"cluster_manager/internal/data_plane/proxy"
 	"cluster_manager/internal/data_plane/proxy/load_balancing"
+	"cluster_manager/internal/data_plane/workflow"
 	"cluster_manager/pkg/config"
 	"cluster_manager/pkg/grpc_helpers"
 	"cluster_manager/pkg/utils"
@@ -101,12 +102,13 @@ func (d *Dataplane) registerDataPlane(cpApiServer proto.CpiInterfaceClient) erro
 	return err
 }
 
+// TODO: probably want to rename deployment to function or functionDeployment
 func (d *Dataplane) AddDeployment(_ context.Context, in *proto.ServiceInfo) (*proto.DeploymentUpdateSuccess, error) {
-	return &proto.DeploymentUpdateSuccess{Success: d.deployments.AddDeployment(in.GetName(), d.dataplaneID)}, nil
+	return &proto.DeploymentUpdateSuccess{Success: d.deployments.AddFunctionDeployment(in.GetName(), d.dataplaneID)}, nil
 }
 
 func (d *Dataplane) UpdateDeployment(_ context.Context, in *proto.ServiceInfo) (*proto.DeploymentUpdateSuccess, error) {
-	deployment, _ := d.deployments.GetDeployment(in.GetName())
+	deployment, _ := d.deployments.GetFunctionDeployment(in.GetName())
 	if deployment == nil {
 		return &proto.DeploymentUpdateSuccess{Success: false}, errors.New("deployment does not exists on the data plane side")
 	}
@@ -121,7 +123,7 @@ func (d *Dataplane) UpdateEndpointList(_ context.Context, patch *proto.Deploymen
 		return &proto.DeploymentUpdateSuccess{Success: true}, nil
 	}
 
-	deployment, _ := d.deployments.GetDeployment(patch.GetService().GetName())
+	deployment, _ := d.deployments.GetFunctionDeployment(patch.GetService().GetName())
 	if deployment == nil {
 		return &proto.DeploymentUpdateSuccess{Success: false}, errors.New("deployment does not exists on the data plane side")
 	}
@@ -131,10 +133,12 @@ func (d *Dataplane) UpdateEndpointList(_ context.Context, patch *proto.Deploymen
 }
 
 func (d *Dataplane) cleanCache() {
-	metadata := d.deployments.ListDeployments()
+	deployments := d.deployments.ListDeployments()
 
-	for _, fm := range metadata {
-		fm.RemoveAllEndpoints()
+	for _, deployment := range deployments {
+		if deployment.GetType() == function_metadata.Function {
+			deployment.GetFunction().RemoveAllEndpoints()
+		}
 	}
 
 	logrus.Info("Successfully cleaned the whole cache initiated by the control plane.")
@@ -211,14 +215,14 @@ func (d *Dataplane) syncDeploymentCache(cpApi *proto.CpiInterfaceClient, deploym
 	}
 
 	for i := 0; i < len(resp.Service); i++ {
-		deployments.AddDeployment(resp.Service[i], d.dataplaneID)
+		deployments.AddFunctionDeployment(resp.Service[i], d.dataplaneID)
 	}
 
 	return nil
 }
 
 func (d *Dataplane) DrainSandbox(_ context.Context, patch *proto.DeploymentEndpointPatch) (*proto.DeploymentUpdateSuccess, error) {
-	deployment, _ := d.deployments.GetDeployment(patch.GetService().GetName())
+	deployment, _ := d.deployments.GetFunctionDeployment(patch.GetService().GetName())
 	if deployment == nil {
 		return &proto.DeploymentUpdateSuccess{Success: false}, errors.New("deployment does not exists on the data plane side")
 	}
@@ -232,4 +236,12 @@ func (d *Dataplane) ResetMeasurements(ctx context.Context, in *emptypb.Empty) (*
 		Success: true,
 		Message: "",
 	}, nil
+}
+
+func (d *Dataplane) AddWorkflowDeployment(_ context.Context, wfInfo *proto.WorkflowInfo) (*proto.DeploymentUpdateSuccess, error) {
+	return &proto.DeploymentUpdateSuccess{Success: d.deployments.AddWorkflowDeployment(wfInfo.Name, workflow.CreateFromWorkflowInfo(wfInfo))}, nil
+}
+
+func (d *Dataplane) DeleteWorkflowDeployment(_ context.Context, id *proto.WorkflowObjectIdentifier) (*proto.DeploymentUpdateSuccess, error) {
+	return &proto.DeploymentUpdateSuccess{Success: d.deployments.DeleteDeployment(id.Name)}, nil
 }

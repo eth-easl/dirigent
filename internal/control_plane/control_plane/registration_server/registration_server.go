@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"cluster_manager/internal/control_plane/control_plane"
 	"cluster_manager/internal/control_plane/control_plane/autoscalers"
+	"cluster_manager/internal/control_plane/workflow"
 	"cluster_manager/internal/control_plane/workflow/dandelion-workflow"
 	"cluster_manager/proto"
 	"errors"
@@ -183,7 +184,6 @@ func workflowRegistrationHandler(cpApi *control_plane.CpApiServer) func(w http.R
 		}
 
 		// Parse request
-		logrus.Infof("Received workflow request.")
 		err := r.ParseForm()
 		if err != nil {
 			http.Error(w, "Failed to parse workflow request.", http.StatusBadRequest)
@@ -210,6 +210,7 @@ func workflowRegistrationHandler(cpApi *control_plane.CpApiServer) func(w http.R
 			http.Error(w, fmt.Sprintf("Invalid workflow (failed to parse: %s).", err), http.StatusBadRequest)
 			return
 		}
+		dwf.Name = name
 
 		// Process workflow
 		wfs, wfTasks, err := dwf.ExportWorkflow(dandelion_workflow.FullPartition)
@@ -219,16 +220,68 @@ func workflowRegistrationHandler(cpApi *control_plane.CpApiServer) func(w http.R
 			return
 		}
 
-		// TODO: register workflow + notify data planes
-		for _, wf := range wfs {
-			logrus.Infof("Successfully parsed and processed workflow '%s'.", wf.Name)
-		}
-		for _, task := range wfTasks {
-			logrus.Infof("Successfully parsed and processed workflow task '%s'.", task.Name)
+		// Register workflow tasks
+		var status *proto.ActionStatus
+		var errIdx int
+		for wfIdx, wf := range wfs {
+			var taskInfoBatch []*proto.WorkflowTaskInfo
+			for _, task := range wfTasks[wfIdx] {
+				taskInfoBatch = append(taskInfoBatch, &proto.WorkflowTaskInfo{
+					Name:               task.Name,
+					NumIn:              task.NumIn,
+					NumOut:             task.NumOut,
+					Functions:          task.Functions,
+					FunctionInNum:      task.FunctionInNum,
+					FunctionOutNum:     task.FunctionOutNum,
+					FunctionDataFlow:   task.FunctionDataFlow,
+					ConsumerTasks:      workflow.TaskToStr(task.ConsumerTasks),
+					ConsumerDataSrcIdx: task.ConsumerDataSrcIdx,
+					ConsumerDataDstIdx: task.ConsumerDataDstIdx,
+				})
+			}
+
+			wfInfo := &proto.WorkflowInfo{
+				Name:              wf.Name,
+				InitialTasks:      workflow.TaskToStr(wf.InitialTasks),
+				InitialDataSrcIdx: wf.InitialDataSrcIdx,
+				InitialDataDstIdx: wf.InitialDataDstIdx,
+				OutTasks:          workflow.TaskToStr(wf.OutTasks),
+				OutDataSrcIdx:     wf.OutDataSrcIdx,
+				Tasks:             taskInfoBatch,
+			}
+
+			if cpApi.LeaderElectionServer.IsLeader() {
+				status, err = cpApi.RegisterWorkflow(r.Context(), wfInfo)
+			} else {
+				status, err = cpApi.LeaderElectionServer.GetLeader().RegisterWorkflow(r.Context(), wfInfo)
+			}
+
+			if !status.Success || err != nil {
+				errIdx = wfIdx
+				break
+			}
 		}
 
+		if errIdx > 0 {
+			wfStr := ""
+			for wfIdx, wf := range wfs[:errIdx] {
+				if wfIdx != len(wfs)-1 {
+					wfStr += fmt.Sprintf("'%s', ", wf.Name)
+				} else {
+					wfStr += fmt.Sprintf("'%s'", wf.Name)
+				}
+			}
+			logrus.Infof("Successfully registered workflow(s) [%s].", wfStr)
+		}
+
+		if !status.Success || err != nil {
+			logrus.Errorf("Failed to register workflow '%s': %v", wfs[errIdx].Name, err)
+			http.Error(w, fmt.Sprintf("Failed to register workflow '%s' (%s).", wfs[errIdx].Name, err), http.StatusConflict)
+			return
+		}
+
+		w.WriteHeader(http.StatusOK)
 	}
-
 }
 
 func GetLoadBalancerAddress(cpApi *control_plane.CpApiServer) string {

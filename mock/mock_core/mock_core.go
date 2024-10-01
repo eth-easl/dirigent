@@ -60,6 +60,21 @@ func (mr *MockDataPlaneInterfaceMockRecorder) AddDeployment(arg0, arg1 any) *gom
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AddDeployment", reflect.TypeOf((*MockDataPlaneInterface)(nil).AddDeployment), arg0, arg1)
 }
 
+// AddWorkflowDeployment mocks base method.
+func (m *MockDataPlaneInterface) AddWorkflowDeployment(arg0 context.Context, arg1 *proto.WorkflowInfo) (*proto.DeploymentUpdateSuccess, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "AddWorkflowDeployment", arg0, arg1)
+	ret0, _ := ret[0].(*proto.DeploymentUpdateSuccess)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// AddWorkflowDeployment indicates an expected call of AddWorkflowDeployment.
+func (mr *MockDataPlaneInterfaceMockRecorder) AddWorkflowDeployment(arg0, arg1 any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AddWorkflowDeployment", reflect.TypeOf((*MockDataPlaneInterface)(nil).AddWorkflowDeployment), arg0, arg1)
+}
+
 // DeleteDeployment mocks base method.
 func (m *MockDataPlaneInterface) DeleteDeployment(arg0 context.Context, arg1 *proto.ServiceInfo) (*proto.DeploymentUpdateSuccess, error) {
 	m.ctrl.T.Helper()
@@ -73,6 +88,21 @@ func (m *MockDataPlaneInterface) DeleteDeployment(arg0 context.Context, arg1 *pr
 func (mr *MockDataPlaneInterfaceMockRecorder) DeleteDeployment(arg0, arg1 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteDeployment", reflect.TypeOf((*MockDataPlaneInterface)(nil).DeleteDeployment), arg0, arg1)
+}
+
+// DeleteWorkflowDeployment mocks base method.
+func (m *MockDataPlaneInterface) DeleteWorkflowDeployment(arg0 context.Context, arg1 *proto.WorkflowObjectIdentifier) (*proto.DeploymentUpdateSuccess, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "DeleteWorkflowDeployment", arg0, arg1)
+	ret0, _ := ret[0].(*proto.DeploymentUpdateSuccess)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// DeleteWorkflowDeployment indicates an expected call of DeleteWorkflowDeployment.
+func (mr *MockDataPlaneInterfaceMockRecorder) DeleteWorkflowDeployment(arg0, arg1 any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteWorkflowDeployment", reflect.TypeOf((*MockDataPlaneInterface)(nil).DeleteWorkflowDeployment), arg0, arg1)
 }
 
 // DrainSandbox mocks base method.

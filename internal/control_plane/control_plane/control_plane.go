@@ -215,6 +215,36 @@ func (c *CpApiServer) DeregisterService(ctx context.Context, serviceInfo *proto.
 	return c.ControlPlane.deregisterService(ctx, serviceInfo)
 }
 
+func (c *CpApiServer) RegisterWorkflow(ctx context.Context, wfInfo *proto.WorkflowInfo) (*proto.ActionStatus, error) {
+	if !c.LeaderElectionServer.IsLeader() {
+		leader := c.LeaderElectionServer.GetLeader()
+
+		if leader != nil {
+			logrus.Warn("Received registerWorkflow call although not the leader. Forwarding the call...")
+			return leader.RegisterWorkflow(ctx, wfInfo)
+		} else {
+			return &proto.ActionStatus{Success: false}, nil
+		}
+	}
+
+	return c.ControlPlane.registerWorkflow(ctx, wfInfo)
+}
+
+func (c *CpApiServer) DeregisterWorkflow(ctx context.Context, id *proto.WorkflowObjectIdentifier) (*proto.ActionStatus, error) {
+	if !c.LeaderElectionServer.IsLeader() {
+		leader := c.LeaderElectionServer.GetLeader()
+
+		if leader != nil {
+			logrus.Warn("Received deregisterWorkflow call although not the leader. Forwarding the call...")
+			return leader.DeregisterWorkflow(ctx, id)
+		} else {
+			return &proto.ActionStatus{Success: false}, nil
+		}
+	}
+
+	return c.ControlPlane.deregisterWorkflow(ctx, id)
+}
+
 func (c *CpApiServer) RegisterDataplane(ctx context.Context, in *proto.DataplaneInfo) (*proto.ActionStatus, error) {
 	if !c.LeaderElectionServer.IsLeader() {
 		leader := c.LeaderElectionServer.GetLeader()

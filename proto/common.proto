@@ -51,6 +51,33 @@ message ServiceList {
   repeated string Service = 1;
 }
 
+message WorkflowObjectIdentifier {
+  string Name = 1;
+}
+
+message WorkflowTaskInfo {
+  string Name = 1;
+  uint32 NumIn = 2;
+  uint32 NumOut = 3;
+  repeated string Functions = 4;
+  repeated int32 FunctionInNum = 5;
+  repeated int32 FunctionOutNum = 6;
+  repeated int32 FunctionDataFlow = 7;
+  repeated string ConsumerTasks = 8;
+  repeated int32 ConsumerDataSrcIdx = 9;
+  repeated int32 ConsumerDataDstIdx = 10;
+}
+
+message WorkflowInfo {
+  string Name = 1;
+  repeated string InitialTasks = 3;
+  repeated int32 InitialDataSrcIdx = 4;
+  repeated int32 InitialDataDstIdx = 5;
+  repeated string OutTasks = 6;
+  repeated int32 OutDataSrcIdx = 7;
+  repeated WorkflowTaskInfo Tasks = 8;
+}
+
 message ActionStatus {
   bool Success = 1;
   string Message = 2;

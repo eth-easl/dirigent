@@ -259,3 +259,33 @@ func (driver *RedisClient) SetLeader(ctx context.Context) error {
 
 	return nil
 }
+
+func (driver *RedisClient) StoreWorkflowTaskInformation(ctx context.Context, wfTaskInfo *proto.WorkflowTaskInfo) error {
+	// TODO: implement
+	return nil
+}
+
+func (driver *RedisClient) DeleteWorkflowTaskInformation(ctx context.Context, name string) error {
+	// TODO: implement
+	return nil
+}
+
+func (driver *RedisClient) GetWorkflowTaskInformation(ctx context.Context) ([]*proto.WorkflowTaskInfo, error) {
+	// TODO: implement
+	return nil, nil
+}
+
+func (driver *RedisClient) StoreWorkflowInformation(ctx context.Context, wfTaskInfo *proto.WorkflowInfo) error {
+	// TODO: implement
+	return nil
+}
+
+func (driver *RedisClient) DeleteWorkflowInformation(ctx context.Context, name string) error {
+	// TODO: implement
+	return nil
+}
+
+func (driver *RedisClient) GetWorkflowInformation(ctx context.Context) ([]*proto.WorkflowInfo, error) {
+	// TODO: implement
+	return nil, nil
+}

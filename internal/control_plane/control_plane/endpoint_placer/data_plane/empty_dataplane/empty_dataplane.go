@@ -26,6 +26,13 @@ func (e emptyDataplane) AddDeployment(ctx context.Context, info *proto.ServiceIn
 	}, nil
 }
 
+func (e emptyDataplane) AddWorkflowDeployment(ctx context.Context, info *proto.WorkflowInfo) (*proto.DeploymentUpdateSuccess, error) {
+	return &proto.DeploymentUpdateSuccess{
+		Success: true,
+		Message: "",
+	}, nil
+}
+
 func (e emptyDataplane) UpdateDeployment(ctx context.Context, info *proto.ServiceInfo) (*proto.DeploymentUpdateSuccess, error) {
 	return &proto.DeploymentUpdateSuccess{
 		Success: true,
@@ -41,6 +48,13 @@ func (e emptyDataplane) UpdateEndpointList(ctx context.Context, patch *proto.Dep
 }
 
 func (e emptyDataplane) DeleteDeployment(ctx context.Context, info *proto.ServiceInfo) (*proto.DeploymentUpdateSuccess, error) {
+	return &proto.DeploymentUpdateSuccess{
+		Success: true,
+		Message: "",
+	}, nil
+}
+
+func (e emptyDataplane) DeleteWorkflowDeployment(ctx context.Context, info *proto.WorkflowObjectIdentifier) (*proto.DeploymentUpdateSuccess, error) {
 	return &proto.DeploymentUpdateSuccess{
 		Success: true,
 		Message: "",

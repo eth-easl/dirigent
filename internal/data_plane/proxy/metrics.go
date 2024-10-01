@@ -12,9 +12,9 @@ func CreateMetricsHandler(deployments *function_metadata.Deployments) func(write
 
 		service := r.URL.Query().Get("service")
 		if service == "" {
-			statistics = function_metadata.AggregateStatistics(deployments.ListDeployments())
+			statistics = function_metadata.AggregateStatistics(deployments.ListFunctions())
 		} else {
-			metadata, _ := deployments.GetDeployment(service)
+			metadata, _ := deployments.GetFunctionDeployment(service)
 			if metadata == nil {
 				writer.WriteHeader(http.StatusBadRequest)
 				return

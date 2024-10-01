@@ -275,7 +275,7 @@ func (dwf *DandelionWorkflow) Process() error {
 	return nil
 }
 
-func (dwf *DandelionWorkflow) ExportWorkflow(method PartitionMethod) ([]*workflow.Workflow, []*workflow.Task, error) {
+func (dwf *DandelionWorkflow) ExportWorkflow(method PartitionMethod) ([]*workflow.Workflow, [][]*workflow.Task, error) {
 	err := dwf.Process()
 	if err != nil {
 		return nil, nil, err
@@ -299,13 +299,15 @@ func (dwf *DandelionWorkflow) ExportWorkflow(method PartitionMethod) ([]*workflo
 
 	logrus.Tracef("Exporting workflow and task objects from dandelion workflow %s using partition method %s", dwf.Name, methodStr)
 	var wfs []*workflow.Workflow
-	var tasks []*workflow.Task
-	for _, c := range dwf.Compositions {
+	var tasks [][]*workflow.Task
+	tasksTotal := 0
+	for i, c := range dwf.Compositions {
 		wf := &workflow.Workflow{Name: fmt.Sprintf("%s-%s", dwf.Name, c.Name)}
-		tasks = append(tasks, partitionFunc(c, wf)...)
+		tasks = append(tasks, partitionFunc(c, wf))
 		wfs = append(wfs, wf)
+		tasksTotal += len(tasks[i])
 	}
-	logrus.Tracef("Exported %d workflows and %d tasks.", len(wfs), len(tasks))
+	logrus.Tracef("Exported %d workflows and %d tasks.", len(wfs), tasksTotal)
 
 	return wfs, tasks, nil
 }

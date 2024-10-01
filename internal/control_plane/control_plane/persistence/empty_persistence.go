@@ -50,3 +50,27 @@ func (e *EmptyPersistence) GetServiceInformation(_ context.Context) ([]*proto.Se
 func (e *EmptyPersistence) SetLeader(_ context.Context) error {
 	return nil
 }
+
+func (e *EmptyPersistence) StoreWorkflowTaskInformation(_ context.Context, _ *proto.WorkflowTaskInfo) error {
+	return nil
+}
+
+func (e *EmptyPersistence) DeleteWorkflowTaskInformation(_ context.Context, _ string) error {
+	return nil
+}
+
+func (e *EmptyPersistence) GetWorkflowTaskInformation(_ context.Context) ([]*proto.WorkflowTaskInfo, error) {
+	return make([]*proto.WorkflowTaskInfo, 0), nil
+}
+
+func (e *EmptyPersistence) StoreWorkflowInformation(_ context.Context, _ *proto.WorkflowInfo) error {
+	return nil
+}
+
+func (e *EmptyPersistence) DeleteWorkflowInformation(_ context.Context, _ string) error {
+	return nil
+}
+
+func (e *EmptyPersistence) GetWorkflowInformation(_ context.Context) ([]*proto.WorkflowInfo, error) {
+	return make([]*proto.WorkflowInfo, 0), nil
+}

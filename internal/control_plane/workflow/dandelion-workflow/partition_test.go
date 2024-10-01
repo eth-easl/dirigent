@@ -37,7 +37,7 @@ func applyFunc(task *workflow.Task, dataTracker map[*workflow.Task][]string) []s
 	out += ")->" + task.Name
 	outData := make([]string, task.NumOut)
 	if task.NumOut > 1 {
-		for i := 0; i < task.NumOut; i++ {
+		for i := 0; i < int(task.NumOut); i++ {
 			outData[i] = fmt.Sprintf("%s[%d]", out, i)
 		}
 	} else if task.NumOut == 1 {
@@ -182,7 +182,7 @@ func TestPartition(t *testing.T) {
 				}
 			}
 
-			if tasksDone != wf.TotalTasks {
+			if tasksDone != int(wf.TotalTasks) {
 				t.Errorf("Not all tasks were run (%d/%d) (partition function #%d)", tasksDone, wf.TotalTasks, partFuncIdx)
 				return
 			}

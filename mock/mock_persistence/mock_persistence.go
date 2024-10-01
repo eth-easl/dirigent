@@ -82,6 +82,34 @@ func (mr *MockPersistenceLayerMockRecorder) DeleteWorkerNodeInformation(ctx, nam
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteWorkerNodeInformation", reflect.TypeOf((*MockPersistenceLayer)(nil).DeleteWorkerNodeInformation), ctx, name)
 }
 
+// DeleteWorkflowInformation mocks base method.
+func (m *MockPersistenceLayer) DeleteWorkflowInformation(ctx context.Context, name string) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "DeleteWorkflowInformation", ctx, name)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// DeleteWorkflowInformation indicates an expected call of DeleteWorkflowInformation.
+func (mr *MockPersistenceLayerMockRecorder) DeleteWorkflowInformation(ctx, name any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteWorkflowInformation", reflect.TypeOf((*MockPersistenceLayer)(nil).DeleteWorkflowInformation), ctx, name)
+}
+
+// DeleteWorkflowTaskInformation mocks base method.
+func (m *MockPersistenceLayer) DeleteWorkflowTaskInformation(ctx context.Context, name string) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "DeleteWorkflowTaskInformation", ctx, name)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// DeleteWorkflowTaskInformation indicates an expected call of DeleteWorkflowTaskInformation.
+func (mr *MockPersistenceLayerMockRecorder) DeleteWorkflowTaskInformation(ctx, name any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteWorkflowTaskInformation", reflect.TypeOf((*MockPersistenceLayer)(nil).DeleteWorkflowTaskInformation), ctx, name)
+}
+
 // GetDataPlaneInformation mocks base method.
 func (m *MockPersistenceLayer) GetDataPlaneInformation(ctx context.Context) ([]*proto.DataplaneInformation, error) {
 	m.ctrl.T.Helper()
@@ -125,6 +153,36 @@ func (m *MockPersistenceLayer) GetWorkerNodeInformation(ctx context.Context) ([]
 func (mr *MockPersistenceLayerMockRecorder) GetWorkerNodeInformation(ctx any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetWorkerNodeInformation", reflect.TypeOf((*MockPersistenceLayer)(nil).GetWorkerNodeInformation), ctx)
+}
+
+// GetWorkflowInformation mocks base method.
+func (m *MockPersistenceLayer) GetWorkflowInformation(ctx context.Context) ([]*proto.WorkflowInfo, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetWorkflowInformation", ctx)
+	ret0, _ := ret[0].([]*proto.WorkflowInfo)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetWorkflowInformation indicates an expected call of GetWorkflowInformation.
+func (mr *MockPersistenceLayerMockRecorder) GetWorkflowInformation(ctx any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetWorkflowInformation", reflect.TypeOf((*MockPersistenceLayer)(nil).GetWorkflowInformation), ctx)
+}
+
+// GetWorkflowTaskInformation mocks base method.
+func (m *MockPersistenceLayer) GetWorkflowTaskInformation(ctx context.Context) ([]*proto.WorkflowTaskInfo, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetWorkflowTaskInformation", ctx)
+	ret0, _ := ret[0].([]*proto.WorkflowTaskInfo)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetWorkflowTaskInformation indicates an expected call of GetWorkflowTaskInformation.
+func (mr *MockPersistenceLayerMockRecorder) GetWorkflowTaskInformation(ctx any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetWorkflowTaskInformation", reflect.TypeOf((*MockPersistenceLayer)(nil).GetWorkflowTaskInformation), ctx)
 }
 
 // SetLeader mocks base method.
@@ -181,4 +239,32 @@ func (m *MockPersistenceLayer) StoreWorkerNodeInformation(ctx context.Context, w
 func (mr *MockPersistenceLayerMockRecorder) StoreWorkerNodeInformation(ctx, workerNodeInfo any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "StoreWorkerNodeInformation", reflect.TypeOf((*MockPersistenceLayer)(nil).StoreWorkerNodeInformation), ctx, workerNodeInfo)
+}
+
+// StoreWorkflowInformation mocks base method.
+func (m *MockPersistenceLayer) StoreWorkflowInformation(ctx context.Context, wfTaskInfo *proto.WorkflowInfo) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "StoreWorkflowInformation", ctx, wfTaskInfo)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// StoreWorkflowInformation indicates an expected call of StoreWorkflowInformation.
+func (mr *MockPersistenceLayerMockRecorder) StoreWorkflowInformation(ctx, wfTaskInfo any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "StoreWorkflowInformation", reflect.TypeOf((*MockPersistenceLayer)(nil).StoreWorkflowInformation), ctx, wfTaskInfo)
+}
+
+// StoreWorkflowTaskInformation mocks base method.
+func (m *MockPersistenceLayer) StoreWorkflowTaskInformation(ctx context.Context, wfTaskInfo *proto.WorkflowTaskInfo) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "StoreWorkflowTaskInformation", ctx, wfTaskInfo)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// StoreWorkflowTaskInformation indicates an expected call of StoreWorkflowTaskInformation.
+func (mr *MockPersistenceLayerMockRecorder) StoreWorkflowTaskInformation(ctx, wfTaskInfo any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "StoreWorkflowTaskInformation", reflect.TypeOf((*MockPersistenceLayer)(nil).StoreWorkflowTaskInformation), ctx, wfTaskInfo)
 }

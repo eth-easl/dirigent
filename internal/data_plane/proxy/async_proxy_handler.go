@@ -117,8 +117,8 @@ func (ps *AsyncProxyingService) submitBufferedRequests() {
 func (ps *AsyncProxyingService) StartProxyServer() {
 	ps.populateResponseStructures()
 
-	go startProxy(ps.createAsyncInvocationHandler(), ps.createWorkflowHandler(), ps.Context, ps.Host, ps.Port)
-	go startProxy(ps.createAsyncResponseHandler(), ps.createWorkflowHandler(), ps.Context, ps.Host, ps.PortRead)
+	go startProxy(ps.createAsyncInvocationHandler(), ps.Context, ps.Host, ps.Port)
+	go startProxy(ps.createAsyncResponseHandler(), ps.Context, ps.Host, ps.PortRead)
 	go ps.asyncRequestHandler()
 
 	ps.submitBufferedRequests()
@@ -273,10 +273,4 @@ func (ps *AsyncProxyingService) garbageCollectorCycle() {
 
 		return true
 	})
-}
-
-func (ps *AsyncProxyingService) createWorkflowHandler() http.HandlerFunc {
-	return func(w http.ResponseWriter, request *http.Request) {
-		workflowHandler(w, request, ps.Context)
-	}
 }

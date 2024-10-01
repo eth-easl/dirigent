@@ -13,9 +13,11 @@ import (
 type DataPlaneInterface interface {
 	InitializeDataPlaneConnection(host string, port string) error
 	AddDeployment(context.Context, *proto.ServiceInfo) (*proto.DeploymentUpdateSuccess, error)
+	AddWorkflowDeployment(context.Context, *proto.WorkflowInfo) (*proto.DeploymentUpdateSuccess, error)
 	UpdateDeployment(context.Context, *proto.ServiceInfo) (*proto.DeploymentUpdateSuccess, error)
 	UpdateEndpointList(context.Context, *proto.DeploymentEndpointPatch) (*proto.DeploymentUpdateSuccess, error)
 	DeleteDeployment(context.Context, *proto.ServiceInfo) (*proto.DeploymentUpdateSuccess, error)
+	DeleteWorkflowDeployment(context.Context, *proto.WorkflowObjectIdentifier) (*proto.DeploymentUpdateSuccess, error)
 	DrainSandbox(context.Context, *proto.DeploymentEndpointPatch) (*proto.DeploymentUpdateSuccess, error)
 	ResetMeasurements(context.Context, *emptypb.Empty) (*proto.ActionStatus, error)
 	GetLastHeartBeat() time.Time

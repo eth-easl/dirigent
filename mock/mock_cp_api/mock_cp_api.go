@@ -122,6 +122,26 @@ func (mr *MockCpiInterfaceClientMockRecorder) DeregisterService(ctx, in any, opt
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeregisterService", reflect.TypeOf((*MockCpiInterfaceClient)(nil).DeregisterService), varargs...)
 }
 
+// DeregisterWorkflow mocks base method.
+func (m *MockCpiInterfaceClient) DeregisterWorkflow(ctx context.Context, in *proto.WorkflowObjectIdentifier, opts ...grpc.CallOption) (*proto.ActionStatus, error) {
+	m.ctrl.T.Helper()
+	varargs := []any{ctx, in}
+	for _, a := range opts {
+		varargs = append(varargs, a)
+	}
+	ret := m.ctrl.Call(m, "DeregisterWorkflow", varargs...)
+	ret0, _ := ret[0].(*proto.ActionStatus)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// DeregisterWorkflow indicates an expected call of DeregisterWorkflow.
+func (mr *MockCpiInterfaceClientMockRecorder) DeregisterWorkflow(ctx, in any, opts ...any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	varargs := append([]any{ctx, in}, opts...)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeregisterWorkflow", reflect.TypeOf((*MockCpiInterfaceClient)(nil).DeregisterWorkflow), varargs...)
+}
+
 // ListServices mocks base method.
 func (m *MockCpiInterfaceClient) ListServices(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*proto.ServiceList, error) {
 	m.ctrl.T.Helper()
@@ -220,6 +240,26 @@ func (mr *MockCpiInterfaceClientMockRecorder) RegisterService(ctx, in any, opts 
 	mr.mock.ctrl.T.Helper()
 	varargs := append([]any{ctx, in}, opts...)
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RegisterService", reflect.TypeOf((*MockCpiInterfaceClient)(nil).RegisterService), varargs...)
+}
+
+// RegisterWorkflow mocks base method.
+func (m *MockCpiInterfaceClient) RegisterWorkflow(ctx context.Context, in *proto.WorkflowInfo, opts ...grpc.CallOption) (*proto.ActionStatus, error) {
+	m.ctrl.T.Helper()
+	varargs := []any{ctx, in}
+	for _, a := range opts {
+		varargs = append(varargs, a)
+	}
+	ret := m.ctrl.Call(m, "RegisterWorkflow", varargs...)
+	ret0, _ := ret[0].(*proto.ActionStatus)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// RegisterWorkflow indicates an expected call of RegisterWorkflow.
+func (mr *MockCpiInterfaceClientMockRecorder) RegisterWorkflow(ctx, in any, opts ...any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	varargs := append([]any{ctx, in}, opts...)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RegisterWorkflow", reflect.TypeOf((*MockCpiInterfaceClient)(nil).RegisterWorkflow), varargs...)
 }
 
 // ReportFailure mocks base method.
@@ -425,6 +465,21 @@ func (mr *MockCpiInterfaceServerMockRecorder) DeregisterService(arg0, arg1 any) 
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeregisterService", reflect.TypeOf((*MockCpiInterfaceServer)(nil).DeregisterService), arg0, arg1)
 }
 
+// DeregisterWorkflow mocks base method.
+func (m *MockCpiInterfaceServer) DeregisterWorkflow(arg0 context.Context, arg1 *proto.WorkflowObjectIdentifier) (*proto.ActionStatus, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "DeregisterWorkflow", arg0, arg1)
+	ret0, _ := ret[0].(*proto.ActionStatus)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// DeregisterWorkflow indicates an expected call of DeregisterWorkflow.
+func (mr *MockCpiInterfaceServerMockRecorder) DeregisterWorkflow(arg0, arg1 any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeregisterWorkflow", reflect.TypeOf((*MockCpiInterfaceServer)(nil).DeregisterWorkflow), arg0, arg1)
+}
+
 // ListServices mocks base method.
 func (m *MockCpiInterfaceServer) ListServices(arg0 context.Context, arg1 *emptypb.Empty) (*proto.ServiceList, error) {
 	m.ctrl.T.Helper()
@@ -498,6 +553,21 @@ func (m *MockCpiInterfaceServer) RegisterService(arg0 context.Context, arg1 *pro
 func (mr *MockCpiInterfaceServerMockRecorder) RegisterService(arg0, arg1 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RegisterService", reflect.TypeOf((*MockCpiInterfaceServer)(nil).RegisterService), arg0, arg1)
+}
+
+// RegisterWorkflow mocks base method.
+func (m *MockCpiInterfaceServer) RegisterWorkflow(arg0 context.Context, arg1 *proto.WorkflowInfo) (*proto.ActionStatus, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "RegisterWorkflow", arg0, arg1)
+	ret0, _ := ret[0].(*proto.ActionStatus)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// RegisterWorkflow indicates an expected call of RegisterWorkflow.
+func (mr *MockCpiInterfaceServerMockRecorder) RegisterWorkflow(arg0, arg1 any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RegisterWorkflow", reflect.TypeOf((*MockCpiInterfaceServer)(nil).RegisterWorkflow), arg0, arg1)
 }
 
 // ReportFailure mocks base method.

@@ -45,6 +45,10 @@ func (d *DataPlaneConnectionInfo) AddDeployment(ctx context.Context, in *proto.S
 	return d.Iface.AddDeployment(ctx, in)
 }
 
+func (d *DataPlaneConnectionInfo) AddWorkflowDeployment(ctx context.Context, in *proto.WorkflowInfo) (*proto.DeploymentUpdateSuccess, error) {
+	return d.Iface.AddWorkflowDeployment(ctx, in)
+}
+
 func (d *DataPlaneConnectionInfo) UpdateDeployment(ctx context.Context, in *proto.ServiceInfo) (*proto.DeploymentUpdateSuccess, error) {
 	return d.Iface.UpdateDeployment(ctx, in)
 }
@@ -55,6 +59,10 @@ func (d *DataPlaneConnectionInfo) UpdateEndpointList(ctx context.Context, in *pr
 
 func (d *DataPlaneConnectionInfo) DeleteDeployment(ctx context.Context, in *proto.ServiceInfo) (*proto.DeploymentUpdateSuccess, error) {
 	return d.Iface.DeleteDeployment(ctx, in)
+}
+
+func (d *DataPlaneConnectionInfo) DeleteWorkflowDeployment(ctx context.Context, in *proto.WorkflowObjectIdentifier) (*proto.DeploymentUpdateSuccess, error) {
+	return d.Iface.DeleteWorkflowDeployment(ctx, in)
 }
 
 func (d *DataPlaneConnectionInfo) DrainSandbox(ctx context.Context, patch *proto.DeploymentEndpointPatch) (*proto.DeploymentUpdateSuccess, error) {

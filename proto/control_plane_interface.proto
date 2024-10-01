@@ -70,6 +70,7 @@ service CpiInterface {
 
   rpc RegisterDataplane(DataplaneInfo) returns (ActionStatus);
   rpc RegisterService(ServiceInfo) returns (ActionStatus);
+  rpc RegisterWorkflow(WorkflowInfo) returns (ActionStatus);
   rpc RegisterNode(NodeInfo) returns (ActionStatus);
   rpc NodeHeartbeat(NodeHeartbeatMessage) returns (ActionStatus);
 
@@ -78,6 +79,7 @@ service CpiInterface {
   rpc DeregisterDataplane(DataplaneInfo) returns (ActionStatus);
   rpc DeregisterNode(NodeInfo) returns (ActionStatus);
   rpc DeregisterService(ServiceInfo) returns (ActionStatus);
+  rpc DeregisterWorkflow(WorkflowObjectIdentifier) returns (ActionStatus);
 
   rpc ResetMeasurements(google.protobuf.Empty) returns (ActionStatus);
 

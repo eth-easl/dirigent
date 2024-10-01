@@ -7,6 +7,7 @@ import (
 	"cluster_manager/internal/control_plane/control_plane/endpoint_placer"
 	"cluster_manager/internal/control_plane/control_plane/function_state"
 	"cluster_manager/internal/control_plane/control_plane/persistence"
+	"cluster_manager/internal/control_plane/workflow"
 	"cluster_manager/pkg/config"
 	_map "cluster_manager/pkg/map"
 	"cluster_manager/pkg/synchronization"
@@ -35,6 +36,7 @@ type ControlPlane struct {
 	DataPlaneConnections synchronization.SyncStructure[string, core.DataPlaneInterface]
 	NIStorage            synchronization.SyncStructure[string, core.WorkerNodeInterface]
 	SIStorage            synchronization.SyncStructure[string, *endpoint_placer.EndpointPlacer]
+	WIStorage            synchronization.SyncStructure[string, *workflow.StorageTacker]
 
 	ColdStartTracing *tracing.TracingService[tracing.ColdStartLogEntry] `json:"-"`
 	PersistenceLayer persistence.PersistenceLayer
@@ -65,6 +67,7 @@ func NewControlPlane(client persistence.PersistenceLayer, outputFile string, dat
 		DataPlaneConnections: synchronization.NewControlPlaneSyncStructure[string, core.DataPlaneInterface](),
 		NIStorage:            synchronization.NewControlPlaneSyncStructure[string, core.WorkerNodeInterface](),
 		SIStorage:            synchronization.NewControlPlaneSyncStructure[string, *endpoint_placer.EndpointPlacer](),
+		WIStorage:            synchronization.NewControlPlaneSyncStructure[string, *workflow.StorageTacker](),
 
 		ColdStartTracing: tracing.NewColdStartTracingService(outputFile),
 		PersistenceLayer: client,
@@ -383,6 +386,151 @@ func (c *ControlPlane) setBackgroundMetrics(_ context.Context, in *proto.Metrics
 	}
 
 	return &proto.ActionStatus{Success: true}, nil
+}
+
+// Workflow functions
+
+func (c *ControlPlane) registerWorkflowTask(ctx context.Context, taskInfo *proto.WorkflowTaskInfo, parentWorkflow string) error {
+
+	if _, present := c.WIStorage.Get(taskInfo.Name); present {
+		logrus.Errorf("Workflow object with name %s is already registered", taskInfo.Name)
+		return errors.New("workflow object is already registered")
+	}
+
+	// TODO: check that functions of task are registered
+
+	err := c.PersistenceLayer.StoreWorkflowTaskInformation(ctx, taskInfo)
+	if err != nil {
+		logrus.Errorf("Failed to store information to persistence layer (error : %s)", err.Error())
+		c.WIStorage.Remove(taskInfo.Name)
+		return err
+	}
+
+	c.WIStorage.Set(taskInfo.Name, workflow.NewTask(parentWorkflow))
+
+	return nil
+}
+
+func (c *ControlPlane) deregisterWorkflowTask(ctx context.Context, taskName string) error {
+	if st, ok := c.WIStorage.Get(taskName); ok && st.IsTask() {
+		err := c.PersistenceLayer.DeleteWorkflowTaskInformation(ctx, taskName)
+		if err != nil {
+			logrus.Errorf("Failed to delete information to persistence layer (error : %s)", err.Error())
+			return err
+		}
+
+		c.WIStorage.Remove(taskName)
+
+		return nil
+	}
+
+	logrus.Errorf("No workflow task with name %s registered", taskName)
+	return errors.New("workflow task is not registered")
+}
+
+func (c *ControlPlane) registerWorkflow(ctx context.Context, wfInfo *proto.WorkflowInfo) (*proto.ActionStatus, error) {
+	logrus.Infof("Received a workflow registration with name : %s", wfInfo.Name)
+
+	c.WIStorage.Lock()
+	defer c.WIStorage.Unlock()
+
+	if _, present := c.WIStorage.Get(wfInfo.Name); present {
+		logrus.Errorf("Workflow object with name %s is already registered", wfInfo.Name)
+		return &proto.ActionStatus{Success: false}, errors.New("workflow object is already registered")
+	}
+
+	// register workflow tasks
+	taskTracker := workflow.NewWorkflow(len(wfInfo.Tasks))
+	var err error
+	var errIdx int
+	for taskIdx, task := range wfInfo.Tasks {
+		err = c.registerWorkflowTask(ctx, task, wfInfo.Name)
+		taskTracker.SetTask(taskIdx, task.Name)
+		if err != nil {
+			errIdx = taskIdx
+			break
+		}
+	}
+
+	// register workflow
+	if err == nil {
+		err = c.PersistenceLayer.StoreWorkflowInformation(ctx, wfInfo)
+		if err != nil {
+			logrus.Errorf("Failed to store information to persistence layer (error : %s)", err.Error())
+			c.WIStorage.Remove(wfInfo.Name)
+			errIdx = len(wfInfo.Tasks)
+		}
+	}
+
+	// cleanup if something failed
+	if err != nil {
+		logrus.Errorf("Failed to register workflow task '%s' (error : %s)", wfInfo.Name, err.Error())
+		for _, task := range wfInfo.Tasks[:errIdx] {
+			err = c.deregisterWorkflowTask(ctx, task.Name)
+			if err != nil {
+				logrus.Errorf("Failed to deregister workflow task '%s' (error : %s)", task.Name, err.Error())
+			}
+		}
+		return &proto.ActionStatus{Success: false}, err
+	}
+
+	// notify dataplane(s)
+	c.DataPlaneConnections.Lock()
+	for _, conn := range c.DataPlaneConnections.GetMap() {
+		_, err = conn.AddWorkflowDeployment(ctx, wfInfo)
+		if err != nil {
+			logrus.Warnf("Failed to add deployment to data plane %s - %v", conn.GetIP(), err)
+		}
+	}
+	c.DataPlaneConnections.Unlock()
+
+	c.WIStorage.Set(wfInfo.Name, taskTracker)
+
+	return &proto.ActionStatus{Success: true}, nil
+}
+
+func (c *ControlPlane) deregisterWorkflow(ctx context.Context, wfId *proto.WorkflowObjectIdentifier) (*proto.ActionStatus, error) {
+	logrus.Infof("Received a workflow deregistration with name : %s", wfId.Name)
+
+	c.WIStorage.Lock()
+	defer c.WIStorage.Unlock()
+
+	if st, ok := c.WIStorage.Get(wfId.Name); ok && st.IsWorkflow() {
+
+		// TODO: improve this (if tasks cannot be deleted they will remain in persistence without a reference)
+		var err error
+		wfTasks := st.GetTasks()
+		for _, task := range wfTasks {
+			tmpErr := c.PersistenceLayer.DeleteWorkflowTaskInformation(ctx, task)
+			if tmpErr != nil {
+				err = tmpErr
+				logrus.Errorf("Failed to delete workflow task information for task '%s' in persistence layer (error : %s)", task, err.Error())
+			}
+		}
+
+		err = c.PersistenceLayer.DeleteWorkflowInformation(ctx, wfId.Name)
+		if err != nil {
+			logrus.Errorf("Failed to delete workflow information for workflow '%s' in persistence layer (error : %s)", wfId.Name, err.Error())
+			return &proto.ActionStatus{Success: false}, err
+		}
+
+		// notify dataplane(s)
+		c.DataPlaneConnections.Lock()
+		for _, conn := range c.DataPlaneConnections.GetMap() {
+			_, err = conn.DeleteWorkflowDeployment(ctx, wfId)
+			if err != nil {
+				logrus.Warnf("Failed to add deployment to data plane %s - %v", conn.GetIP(), err)
+			}
+		}
+		c.DataPlaneConnections.Unlock()
+
+		c.WIStorage.Remove(wfId.Name)
+
+		return &proto.ActionStatus{Success: true}, nil
+	}
+
+	logrus.Errorf("No workflow with name %s registered", wfId.Name)
+	return &proto.ActionStatus{Success: false}, errors.New("workflow is not registered")
 }
 
 // Monitoring
