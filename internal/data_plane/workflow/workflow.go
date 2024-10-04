@@ -10,26 +10,26 @@ type Task struct {
 	NumIn  uint32
 	NumOut uint32
 
-	Functions        []string
-	FunctionInNum    []int32
-	FunctionOutNum   []int32
-	FunctionDataFlow []int32
+	Functions        []string // functions belonging to this task
+	FunctionInNum    []int32  // # args per function (if > 1 function)
+	FunctionOutNum   []int32  // # returns per function (if > 1 function)
+	FunctionDataFlow []int32  // (src func idx, arg idx) for each function input + task outputs describing internal dataflow (if > 1 function)
 
-	ConsumerTasks      []*Task
-	ConsumerDataSrcIdx []int32
-	ConsumerDataDstIdx []int32
+	ConsumerTasks      []*Task // tasks consuming output of this task
+	ConsumerDataSrcIdx []int32 // argument idx in consumer
+	ConsumerDataDstIdx []int32 // return idx of this task
 }
 
 type Workflow struct {
 	Name  string
 	Tasks []*Task
 
-	InitialTasks      []*Task
-	InitialDataSrcIdx []int32
-	InitialDataDstIdx []int32
+	InitialTasks      []*Task // tasks consuming workflow input
+	InitialDataSrcIdx []int32 // argument idx in consumer
+	InitialDataDstIdx []int32 // workflow input idx
 
-	OutTasks      []*Task
-	OutDataSrcIdx []int32
+	OutTasks      []*Task // source tasks for workflow output
+	OutDataSrcIdx []int32 // return idx of source task
 }
 
 func CreateFromWorkflowInfo(wfInfo *proto.WorkflowInfo) *Workflow {

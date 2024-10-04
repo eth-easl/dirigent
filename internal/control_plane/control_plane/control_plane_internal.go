@@ -390,6 +390,7 @@ func (c *ControlPlane) setBackgroundMetrics(_ context.Context, in *proto.Metrics
 
 // Workflow functions
 
+// registerWorkflowTask assumes that a lock on WIStorage was acquired beforehand
 func (c *ControlPlane) registerWorkflowTask(ctx context.Context, taskInfo *proto.WorkflowTaskInfo, parentWorkflow string) error {
 
 	if _, present := c.WIStorage.Get(taskInfo.Name); present {
@@ -411,6 +412,7 @@ func (c *ControlPlane) registerWorkflowTask(ctx context.Context, taskInfo *proto
 	return nil
 }
 
+// deregisterWorkflowTask assumes that a lock on WIStorage was acquired beforehand
 func (c *ControlPlane) deregisterWorkflowTask(ctx context.Context, taskName string) error {
 	if st, ok := c.WIStorage.Get(taskName); ok && st.IsTask() {
 		err := c.PersistenceLayer.DeleteWorkflowTaskInformation(ctx, taskName)

@@ -17,6 +17,8 @@ const (
 	dataplanePrefix string = "dataplane"
 	workerPrefix    string = "worker"
 	servicePrefix   string = "service"
+	taskPrefix      string = "task"
+	workflowPrefix  string = "workflow"
 )
 
 type RedisClient struct {
@@ -261,31 +263,127 @@ func (driver *RedisClient) SetLeader(ctx context.Context) error {
 }
 
 func (driver *RedisClient) StoreWorkflowTaskInformation(ctx context.Context, wfTaskInfo *proto.WorkflowTaskInfo) error {
-	// TODO: implement
-	return nil
+	logrus.Trace("store workflow task information in the database")
+
+	data, err := proto2.Marshal(wfTaskInfo)
+	if err != nil {
+		return err
+	}
+
+	key := fmt.Sprintf("%s:%s", taskPrefix, wfTaskInfo.Name)
+
+	err = driver.RedisClient.HSet(ctx, key, "data", data).Err()
+	if err != nil {
+		return err
+	}
+
+	return driver.WaitForQuorumWrite(ctx).Err()
 }
 
 func (driver *RedisClient) DeleteWorkflowTaskInformation(ctx context.Context, name string) error {
-	// TODO: implement
-	return nil
+	logrus.Trace("delete workflow task information in the database")
+
+	key := fmt.Sprintf("%s:%s", taskPrefix, name)
+
+	err := driver.RedisClient.Del(ctx, key, "data").Err()
+	if err != nil {
+		return err
+	}
+
+	return driver.WaitForQuorumWrite(ctx).Err()
 }
 
 func (driver *RedisClient) GetWorkflowTaskInformation(ctx context.Context) ([]*proto.WorkflowTaskInfo, error) {
-	// TODO: implement
-	return nil, nil
+	logrus.Trace("get workflow task information from the database")
+
+	keys, err := redis_helpers.ScanKeys(ctx, driver.RedisClient, taskPrefix)
+	if err != nil {
+		return nil, err
+	}
+
+	tasks := make([]*proto.WorkflowTaskInfo, 0)
+
+	for _, key := range keys {
+		fields, err := driver.RedisClient.HGetAll(ctx, key).Result()
+		if err != nil {
+			return nil, err
+		}
+
+		taskInfo := &proto.WorkflowTaskInfo{}
+
+		err = proto2.Unmarshal([]byte(fields["data"]), taskInfo)
+
+		if err != nil {
+			panic(err)
+		}
+
+		tasks = append(tasks, taskInfo)
+	}
+
+	logrus.Tracef("Found %d workflow task(s) in the database", len(tasks))
+
+	return tasks, nil
 }
 
-func (driver *RedisClient) StoreWorkflowInformation(ctx context.Context, wfTaskInfo *proto.WorkflowInfo) error {
-	// TODO: implement
-	return nil
+func (driver *RedisClient) StoreWorkflowInformation(ctx context.Context, wfInfo *proto.WorkflowInfo) error {
+	logrus.Trace("store workflow information in the database")
+
+	data, err := proto2.Marshal(wfInfo)
+	if err != nil {
+		return err
+	}
+
+	key := fmt.Sprintf("%s:%s", workflowPrefix, wfInfo.Name)
+
+	err = driver.RedisClient.HSet(ctx, key, "data", data).Err()
+	if err != nil {
+		return err
+	}
+
+	return driver.WaitForQuorumWrite(ctx).Err()
 }
 
 func (driver *RedisClient) DeleteWorkflowInformation(ctx context.Context, name string) error {
-	// TODO: implement
-	return nil
+	logrus.Trace("delete workflow information in the database")
+
+	key := fmt.Sprintf("%s:%s", workflowPrefix, name)
+
+	err := driver.RedisClient.Del(ctx, key, "data").Err()
+	if err != nil {
+		return err
+	}
+
+	return driver.WaitForQuorumWrite(ctx).Err()
 }
 
 func (driver *RedisClient) GetWorkflowInformation(ctx context.Context) ([]*proto.WorkflowInfo, error) {
-	// TODO: implement
-	return nil, nil
+	logrus.Trace("get workflow information from the database")
+
+	keys, err := redis_helpers.ScanKeys(ctx, driver.RedisClient, workflowPrefix)
+	if err != nil {
+		return nil, err
+	}
+
+	workflows := make([]*proto.WorkflowInfo, 0)
+
+	for _, key := range keys {
+		fields, err := driver.RedisClient.HGetAll(ctx, key).Result()
+		if err != nil {
+			return nil, err
+		}
+
+		wfInfo := &proto.WorkflowInfo{}
+
+		err = proto2.Unmarshal([]byte(fields["data"]), wfInfo)
+
+		if err != nil {
+			panic(err)
+		}
+
+		workflows = append(workflows, wfInfo)
+	}
+
+	logrus.Tracef("Found %d workflow(s) in the database", len(workflows))
+
+	return workflows, nil
 }
