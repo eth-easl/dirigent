@@ -109,7 +109,7 @@ func (driver *RedisClient) GetDataPlaneInformation(ctx context.Context) ([]*prot
 		err = proto2.Unmarshal([]byte(fields["data"]), dataPlaneInfo)
 
 		if err != nil {
-			panic(err)
+			logrus.Fatalf("Failed to unmarshal dataplane information: %v", err)
 		}
 
 		dataPlanes = append(dataPlanes, dataPlaneInfo)
@@ -171,7 +171,7 @@ func (driver *RedisClient) GetWorkerNodeInformation(ctx context.Context) ([]*pro
 
 		err = proto2.Unmarshal([]byte(fields["data"]), workerNodeInfo)
 		if err != nil {
-			panic(err)
+			logrus.Fatalf("Failed to unmarshal worker information: %v", err)
 		}
 
 		workers = append(workers, workerNodeInfo)
@@ -234,7 +234,7 @@ func (driver *RedisClient) GetServiceInformation(ctx context.Context) ([]*proto.
 		err = proto2.Unmarshal([]byte(fields["data"]), serviceInfo)
 
 		if err != nil {
-			panic(err)
+			logrus.Fatalf("Failed to unmarshal service information: %v", err)
 		}
 
 		services = append(services, serviceInfo)
@@ -314,7 +314,7 @@ func (driver *RedisClient) GetWorkflowTaskInformation(ctx context.Context) ([]*p
 		err = proto2.Unmarshal([]byte(fields["data"]), taskInfo)
 
 		if err != nil {
-			panic(err)
+			logrus.Fatalf("Failed to unmarshal workflow task information: %v", err)
 		}
 
 		tasks = append(tasks, taskInfo)
@@ -377,7 +377,7 @@ func (driver *RedisClient) GetWorkflowInformation(ctx context.Context) ([]*proto
 		err = proto2.Unmarshal([]byte(fields["data"]), wfInfo)
 
 		if err != nil {
-			panic(err)
+			logrus.Fatalf("Failed to unmarshal workflow information: %v", err)
 		}
 
 		workflows = append(workflows, wfInfo)
