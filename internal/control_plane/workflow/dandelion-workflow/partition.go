@@ -41,6 +41,8 @@ func allTrue(in []bool) bool {
 	}
 	return true
 }
+
+// createTaskFromStatements assumes wf has OutTasks and OutTasksSrcIdx initialized with correct size
 func createTaskFromStatements(stmts []*Statement, wf *workflow.Workflow) *workflow.Task {
 	numStmts := len(stmts)
 	task := &workflow.Task{
@@ -52,6 +54,7 @@ func createTaskFromStatements(stmts []*Statement, wf *workflow.Workflow) *workfl
 	fToIdx := make(map[*Statement]int)
 	var taskIn []*InputDescriptor
 	var taskOut []int
+	var taskOutSrcIdx []int
 	for stmtIdx, stmt := range stmts {
 		task.Functions[stmtIdx] = stmt.Name
 		task.FunctionOutNum[stmtIdx] = int32(len(stmt.Rets))
@@ -92,27 +95,33 @@ func createTaskFromStatements(stmts []*Statement, wf *workflow.Workflow) *workfl
 			task.FunctionDataFlow = append(task.FunctionDataFlow, int32(argStmtIdx), int32(argStmtOutIdx))
 		}
 
-		for retIdx := range stmt.Rets {
+		for retIdx, retDesc := range stmt.Rets {
 			taskOutIdx := -1
-			for destIdx, destStmt := range stmt.Rets[retIdx].DestStmt {
+			for destIdx, destStmt := range retDesc.DestStmt {
 				if !slices.Contains(stmts, destStmt) {
 					if taskOutIdx == -1 {
 						taskOutIdx = len(taskOut)
 						taskOut = append(taskOut, stmtIdx)
+						taskOutSrcIdx = append(taskOutSrcIdx, retIdx)
 					}
-					destStmt.Args[stmt.Rets[retIdx].DestStmtInIdx[destIdx]].SrcTask = task
-					destStmt.Args[stmt.Rets[retIdx].DestStmtInIdx[destIdx]].SrcTaskOutIdx = taskOutIdx
+					destStmt.Args[retDesc.DestStmtInIdx[destIdx]].SrcTask = task
+					destStmt.Args[retDesc.DestStmtInIdx[destIdx]].SrcTaskOutIdx = taskOutIdx
 				}
 			}
-			if stmt.Rets[retIdx].isCompOutput { // return is composition output
+			if retDesc.isCompOutput { // return is composition output
 				if taskOutIdx == -1 {
 					taskOutIdx = len(taskOut)
 					taskOut = append(taskOut, stmtIdx)
+					taskOutSrcIdx = append(taskOutSrcIdx, retIdx)
 				}
-				wf.OutTasks = append(wf.OutTasks, task)
-				wf.OutDataSrcIdx = append(wf.OutDataSrcIdx, int32(taskOutIdx))
+				wf.OutTasks[retDesc.compOutputIdx] = task
+				wf.OutDataSrcIdx[retDesc.compOutputIdx] = int32(taskOutIdx)
 			}
 		}
+	}
+
+	for taskOutIdx, stmtIdx := range taskOut {
+		task.FunctionDataFlow = append(task.FunctionDataFlow, int32(stmtIdx), int32(taskOutSrcIdx[taskOutIdx]))
 	}
 
 	task.NumIn = uint32(len(taskIn))
@@ -123,6 +132,9 @@ func createTaskFromStatements(stmts []*Statement, wf *workflow.Workflow) *workfl
 
 func consumerBased(c *Composition, wf *workflow.Workflow) []*workflow.Task {
 	var tasks []*workflow.Task
+
+	wf.OutTasks = make([]*workflow.Task, len(c.outStmts))
+	wf.OutDataSrcIdx = make([]int32, len(c.outStmts))
 
 	var currTaskStmts []*Statement
 	var stack []*Statement
@@ -271,7 +283,7 @@ func noPartition(c *Composition, wf *workflow.Workflow) []*workflow.Task {
 		if !slices.Contains(wf.InitialDataDstIdx, int32(c.ConsumerArgIdx[i])) {
 			wf.InitialTasks = append(wf.InitialTasks, task)
 			wf.InitialDataSrcIdx = append(wf.InitialDataSrcIdx, int32(c.ConsumerOutIdx[i]))
-			wf.InitialDataDstIdx = append(wf.InitialDataDstIdx, int32(c.ConsumerArgIdx[i]))
+			wf.InitialDataDstIdx = append(wf.InitialDataDstIdx, int32(c.ConsumerOutIdx[i])) // dstIdx = outIdx
 		}
 	}
 

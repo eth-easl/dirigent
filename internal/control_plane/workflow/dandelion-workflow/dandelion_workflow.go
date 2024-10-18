@@ -58,7 +58,9 @@ type OutputDescriptor struct {
 
 	DestStmt      []*Statement
 	DestStmtInIdx []int
+
 	isCompOutput  bool
+	compOutputIdx int
 }
 
 type Statement struct {
@@ -252,10 +254,11 @@ func (dwf *DandelionWorkflow) Process() error {
 		}
 
 		// check that composition returns match a statement output
-		for _, ret := range c.returns {
+		for retIdx, ret := range c.returns {
 			srcDescriptor, ok := funcOutputs[ret]
 			if ok {
 				srcDescriptor.isCompOutput = true
+				srcDescriptor.compOutputIdx = retIdx
 				c.outStmts = append(c.outStmts, srcDescriptor.SrcStmt)
 				c.outStmtRetIdx = append(c.outStmtRetIdx, srcDescriptor.SrcStmtOutIdx)
 			} else {
