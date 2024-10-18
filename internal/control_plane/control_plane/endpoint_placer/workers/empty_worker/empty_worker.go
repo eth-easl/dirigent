@@ -65,6 +65,28 @@ func (e *emptyWorker) DeleteSandbox(ctx context.Context, id *proto.SandboxID, op
 	}, nil
 }
 
+func (e *emptyWorker) CreateTaskSandbox(_ context.Context, _ *proto.WorkflowTaskInfo, _ ...grpc.CallOption) (*proto.SandboxCreationStatus, error) {
+	logrus.Debug("Creation task sandbox")
+	return &proto.SandboxCreationStatus{
+		Success: true,
+		ID:      uuid.New().String(),
+		PortMappings: &proto.PortMapping{
+			HostPort:  0,
+			GuestPort: 0,
+			Protocol:  0,
+		},
+		LatencyBreakdown: &proto.SandboxCreationBreakdown{
+			Total:                &durationpb.Duration{},
+			ImageFetch:           &durationpb.Duration{},
+			SandboxCreate:        &durationpb.Duration{},
+			NetworkSetup:         &durationpb.Duration{},
+			SandboxStart:         &durationpb.Duration{},
+			Iptables:             &durationpb.Duration{},
+			DataplanePropagation: &durationpb.Duration{},
+		},
+	}, nil
+}
+
 func (e *emptyWorker) ListEndpoints(ctx context.Context, empty *emptypb.Empty, option ...grpc.CallOption) (*proto.EndpointsList, error) {
 	return &proto.EndpointsList{}, nil
 }

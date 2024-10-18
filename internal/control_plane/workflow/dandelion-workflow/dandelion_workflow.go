@@ -275,6 +275,15 @@ func (dwf *DandelionWorkflow) Process() error {
 	return nil
 }
 
+func (dwf *DandelionWorkflow) CheckFunctionDeclarations(serviceList []string) bool {
+	for _, decl := range dwf.FunctionDecls {
+		if !slices.Contains(serviceList, decl.name) {
+			return false
+		}
+	}
+	return true
+}
+
 func (dwf *DandelionWorkflow) ExportWorkflow(method PartitionMethod) ([]*workflow.Workflow, [][]*workflow.Task, error) {
 	err := dwf.Process()
 	if err != nil {
@@ -302,7 +311,11 @@ func (dwf *DandelionWorkflow) ExportWorkflow(method PartitionMethod) ([]*workflo
 	var tasks [][]*workflow.Task
 	tasksTotal := 0
 	for i, c := range dwf.Compositions {
-		wf := &workflow.Workflow{Name: fmt.Sprintf("%s-%s", dwf.Name, c.Name)}
+		wf := &workflow.Workflow{
+			Name:   fmt.Sprintf("%s_%s", dwf.Name, c.Name),
+			NumIn:  uint32(len(c.params)),
+			NumOut: uint32(len(c.returns)),
+		}
 		tasks = append(tasks, partitionFunc(c, wf))
 		wfs = append(wfs, wf)
 		tasksTotal += len(tasks[i])

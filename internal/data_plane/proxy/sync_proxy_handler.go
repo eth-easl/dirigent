@@ -1,10 +1,10 @@
 package proxy
 
 import (
-	common "cluster_manager/internal/data_plane/function_metadata"
 	"cluster_manager/internal/data_plane/proxy/load_balancing"
 	"cluster_manager/internal/data_plane/proxy/metrics_collection"
 	"cluster_manager/internal/data_plane/proxy/reverse_proxy"
+	"cluster_manager/internal/data_plane/service_metadata"
 	"cluster_manager/pkg/config"
 	"cluster_manager/pkg/tracing"
 	"cluster_manager/pkg/utils"
@@ -17,7 +17,7 @@ type SyncProxyingService struct {
 	ProxyingService
 }
 
-func NewProxyingService(cfg config.DataPlaneConfig, cache *common.Deployments, cp proto.CpiInterfaceClient, outputFile string, loadBalancingPolicy load_balancing.LoadBalancingPolicy) *SyncProxyingService {
+func NewProxyingService(cfg config.DataPlaneConfig, cache *service_metadata.Deployments, cp proto.CpiInterfaceClient, outputFile string, loadBalancingPolicy load_balancing.LoadBalancingPolicy) *SyncProxyingService {
 	incomingRequestChannel, doneRequestChannel := metrics_collection.NewMetricsCollector(cfg.ControlPlaneNotifyIntervalInMinutes, cp)
 
 	return &SyncProxyingService{
@@ -34,6 +34,7 @@ func NewProxyingService(cfg config.DataPlaneConfig, cache *common.Deployments, c
 				doneRequestChannel:     doneRequestChannel,
 			},
 			reverseProxy: reverse_proxy.CreateReverseProxy(),
+			dpConfig:     &cfg,
 		},
 	}
 }
@@ -60,6 +61,6 @@ func (sps *SyncProxyingService) createInvocationHandler() http.HandlerFunc {
 			start:            time.Now(),
 			serialization:    0,
 			persistenceLayer: 0,
-		}, sps.Context)
+		}, sps.Context, sps.dpConfig)
 	}
 }

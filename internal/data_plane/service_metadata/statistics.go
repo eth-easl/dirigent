@@ -1,4 +1,4 @@
-package function_metadata
+package service_metadata
 
 import (
 	"sync"
@@ -43,13 +43,13 @@ func (fs *FunctionStatistics) DecrementQueueDepth() {
 	atomic.AddInt64(&fs.QueueDepth, -1)
 }
 
-func AggregateStatistics(functions []*FunctionMetadata) *FunctionStatistics {
+func AggregateStatistics(functions []*ServiceMetadata) *FunctionStatistics {
 	aggregate := &FunctionStatistics{}
 	wg := &sync.WaitGroup{}
 
 	wg.Add(len(functions))
 	for _, f := range functions {
-		go func(metadata *FunctionMetadata) {
+		go func(metadata *ServiceMetadata) {
 			defer wg.Done()
 
 			atomic.AddInt64(&aggregate.SuccessfulInvocations, metadata.GetStatistics().GetSuccessfulInvocations())

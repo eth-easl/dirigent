@@ -9,6 +9,7 @@ persistence: true
 reconstruct: true
 autoscaler: "default"
 autoscalingPeriod: "2s"
+defaultWFPartitionMethod: "fullPartition"
 
 # to use HAProxy load balancer put 10.0.1.254:8079, otherwise leave blank
 loadBalancerAddress: "10.0.1.254:8079"

@@ -9,6 +9,7 @@ import (
 type RuntimeInterface interface {
 	CreateSandbox(ctx context.Context, serviceInfo *proto.ServiceInfo) (*proto.SandboxCreationStatus, error)
 	DeleteSandbox(ctx context.Context, in *proto.SandboxID) (*proto.ActionStatus, error)
+	CreateTaskSandbox(ctx context.Context, task *proto.WorkflowTaskInfo) (*proto.SandboxCreationStatus, error)
 	ListEndpoints(ctx context.Context, _ *emptypb.Empty) (*proto.EndpointsList, error)
 	ValidateHostConfig() bool
 }

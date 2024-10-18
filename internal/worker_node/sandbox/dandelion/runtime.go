@@ -14,11 +14,12 @@ import (
 	"google.golang.org/protobuf/types/known/emptypb"
 	"net/http"
 	"os"
+	"slices"
 	"sync"
 	"time"
 )
 
-type registeredFunctions struct {
+type registeredServices struct {
 	data map[string]bool
 	sync.RWMutex
 }
@@ -26,7 +27,8 @@ type registeredFunctions struct {
 type Runtime struct {
 	cpApi               proto.CpiInterfaceClient
 	SandboxManager      *managers.SandboxManager
-	registeredFunctions *registeredFunctions
+	registeredFunctions *registeredServices
+	registeredTasks     *registeredServices
 	dandelionConfig     *config.DandelionConfig
 	httpClient          *http.Client
 }
@@ -35,7 +37,10 @@ func NewDandelionRuntime(cpApi proto.CpiInterfaceClient, sandboxManager *manager
 	return &Runtime{
 		cpApi:          cpApi,
 		SandboxManager: sandboxManager,
-		registeredFunctions: &registeredFunctions{
+		registeredFunctions: &registeredServices{
+			data: make(map[string]bool),
+		},
+		registeredTasks: &registeredServices{
 			data: make(map[string]bool),
 		},
 		dandelionConfig: dandelionConfig,
@@ -68,6 +73,116 @@ func getFailureStatus() *proto.SandboxCreationStatus {
 	}
 }
 
+func (dr *Runtime) registerService(path string, reqBson *bson.D) error {
+	registerRequestBody, err := bson.Marshal(reqBson)
+	if err != nil {
+		return fmt.Errorf("error marshalling request body to BSON - %v", err)
+	}
+
+	registrationURL := fmt.Sprintf("http://localhost:%d%s", dr.dandelionConfig.DaemonPort, path)
+	req, err := http.NewRequest("POST", registrationURL, bytes.NewBuffer(registerRequestBody))
+	if err != nil {
+		return fmt.Errorf("error creating http registration request - %v", err)
+	}
+
+	resp, err := dr.httpClient.Do(req)
+	if err != nil {
+		return fmt.Errorf("call to dandelion failed - %v", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode == http.StatusOK {
+		return nil
+	} else {
+		return fmt.Errorf("registration request failed (status code: %d)", resp.StatusCode)
+	}
+}
+
+func exportFunctionComposition(task *proto.WorkflowTaskInfo) string {
+	if task == nil || len(task.Functions) == 0 {
+		return ""
+	}
+
+	// function declarations and function applications
+	funDecls := ""
+	funAppls := ""
+	var funDeclared []string
+	dfIdx := 0
+	for fIdx, f := range task.Functions {
+
+		// function declaration
+		if !slices.Contains(funDeclared, f) {
+			declIn := ""
+			for i := int32(0); i < task.FunctionInNum[fIdx]; i++ {
+				declIn += fmt.Sprintf("in%d", i)
+				if i != task.FunctionInNum[fIdx]-1 {
+					declIn += " "
+				}
+			}
+			declOut := ""
+			for i := int32(0); i < task.FunctionOutNum[fIdx]; i++ {
+				declOut += fmt.Sprintf("out%d", i)
+				if i != task.FunctionOutNum[fIdx]-1 {
+					declOut += " "
+				}
+			}
+			funDecls += fmt.Sprintf("(:function %s (%s) -> (%s))", f, declIn, declOut)
+			funDeclared = append(funDeclared, f)
+		}
+
+		// function application
+		applIn := ""
+		for inIdx := int32(0); inIdx < task.FunctionInNum[fIdx]; inIdx++ {
+			srcFIdx := task.FunctionDataFlow[dfIdx]
+			srcFDataIdx := task.FunctionDataFlow[dfIdx+1]
+			dfIdx += 2
+			if srcFIdx == -1 {
+				applIn += fmt.Sprintf("(in%d <- cIn%d)", inIdx, srcFDataIdx)
+			} else {
+				applIn += fmt.Sprintf("(in%d <- f%dd%d)", inIdx, srcFIdx, srcFDataIdx)
+			}
+			if inIdx != task.FunctionInNum[fIdx]-1 {
+				applIn += " "
+			}
+		}
+		applOut := ""
+		for outIdx := int32(0); outIdx < task.FunctionOutNum[fIdx]; outIdx++ {
+			applOut += fmt.Sprintf("(f%dd%d := out%d)", fIdx, outIdx, outIdx)
+			if outIdx != task.FunctionOutNum[fIdx]-1 {
+				applOut += " "
+			}
+		}
+		funAppls += fmt.Sprintf("(%s (%s) => (%s))", f, applIn, applOut)
+
+		if fIdx != len(task.Functions)-1 {
+			funAppls += " "
+		}
+	}
+
+	// composition input
+	compIn := ""
+	for inIdx := uint32(0); inIdx < task.NumIn; inIdx++ {
+		compIn += fmt.Sprintf("cIn%d", inIdx)
+		if inIdx != task.NumIn-1 {
+			compIn += " "
+		}
+	}
+
+	// composition output
+	compOut := ""
+	for outIdx := uint32(0); outIdx < task.NumOut; outIdx++ {
+		srcFIdx := task.FunctionDataFlow[dfIdx]
+		srcFDataIdx := task.FunctionDataFlow[dfIdx+1]
+		dfIdx += 2
+		compOut += fmt.Sprintf("f%dd%d", srcFIdx, srcFDataIdx)
+		if outIdx != task.NumOut-1 {
+			compOut += " "
+		}
+	}
+
+	return fmt.Sprintf("%s(:composition %s (%s) -> (%s) (%s))", funDecls, task.Name, compIn, compOut, funAppls)
+}
+
 func (dr *Runtime) CreateSandbox(_ context.Context, in *proto.ServiceInfo) (*proto.SandboxCreationStatus, error) {
 	start := time.Now()
 	logrus.Debug("Create sandbox for service = '", in.Name, "'")
@@ -77,49 +192,39 @@ func (dr *Runtime) CreateSandbox(_ context.Context, in *proto.ServiceInfo) (*pro
 	dr.registeredFunctions.RUnlock()
 
 	if !ok {
-		// send register request to dandelion daemon
-		binaryData, err := os.ReadFile(dr.dandelionConfig.BinaryPath)
+		// load function binary
+		binaryData, err := os.ReadFile(in.Image)
 		logrus.Infof("Using binary file %s (len: %d)", dr.dandelionConfig.BinaryPath, len(binaryData))
 		if err != nil {
 			logrus.Errorf("Error reading binary file - %v", err)
 			return getFailureStatus(), nil
 		}
 
+		// create registration request body
+		inputSets := bson.A{}
+		for i := uint32(0); i < in.NumArgs; i++ { // names do not matter so far
+			inputSets = append(inputSets, bson.A{fmt.Sprintf("input%d", i), nil})
+		}
+		outputSets := bson.A{} // add "stdio" for debugging purpose
+		for i := uint32(0); i < in.NumArgs; i++ {
+			outputSets = append(outputSets, fmt.Sprintf("output%d", i))
+		}
 		registerRequest := bson.D{
 			{Key: "name", Value: in.Name},
 			{Key: "context_size", Value: 0x8020000},
 			{Key: "engine_type", Value: dr.dandelionConfig.EngineType},
 			{Key: "binary", Value: bytesToInts(binaryData)},
-			{Key: "input_sets", Value: bson.A{bson.A{"input", nil}, bson.A{"input", nil}}}, // names do not matter so far
-			{Key: "output_sets", Value: []string{"output"}},                                // add "stdio" for debugging purpose
+			{Key: "input_sets", Value: inputSets},
+			{Key: "output_sets", Value: outputSets},
 		}
 
-		registerRequestBody, err := bson.Marshal(registerRequest)
+		// send registration request to dandelion
+		err = dr.registerService("/register/function", &registerRequest)
 		if err != nil {
-			logrus.Errorf("Error marshalling function binary to BSON - %v", err)
+			logrus.Errorf("Failed to register function '%s' - %v", in.Name, err)
 			return getFailureStatus(), nil
 		}
-
-		registrationURL := fmt.Sprintf("http://localhost:%d/register/function", dr.dandelionConfig.DaemonPort)
-		req, err := http.NewRequest("POST", registrationURL, bytes.NewBuffer(registerRequestBody))
-		if err != nil {
-			logrus.Errorf("Error creating Dandelion function registration request - %v", err)
-			return getFailureStatus(), nil
-		}
-
-		resp, err := dr.httpClient.Do(req)
-		if err != nil {
-			logrus.Debugf("Failed to register function with Dandelion - %v", err)
-			return getFailureStatus(), nil
-		}
-		defer resp.Body.Close()
-
-		if resp.StatusCode == http.StatusOK {
-			logrus.Debugf("Successfully registered function %s", in.Name)
-		} else {
-			logrus.Debugf("Failed to register function %s with Dandelion (status code: %d)", in.Name, resp.StatusCode)
-			return getFailureStatus(), nil
-		}
+		logrus.Debugf("Successfully registered function '%s'", in.Name)
 
 		// Although someone may have registered function in the meantime, this is still fine
 		// as a function can be registered with Dandelion only once
@@ -148,6 +253,52 @@ func (dr *Runtime) CreateSandbox(_ context.Context, in *proto.ServiceInfo) (*pro
 
 func (dr *Runtime) DeleteSandbox(_ context.Context, _ *proto.SandboxID) (*proto.ActionStatus, error) {
 	return &proto.ActionStatus{Success: true}, nil
+}
+
+func (dr *Runtime) CreateTaskSandbox(_ context.Context, task *proto.WorkflowTaskInfo) (*proto.SandboxCreationStatus, error) {
+	start := time.Now()
+	logrus.Debug("Create sandbox for task '", task.Name, "'")
+
+	dr.registeredTasks.RLock()
+	_, ok := dr.registeredTasks.data[task.Name]
+	dr.registeredTasks.RUnlock()
+
+	if !ok {
+		// export composition as dandelion composition description and create registration request body
+		dandelionComposition := exportFunctionComposition(task)
+		registerRequest := bson.D{
+			{Key: "composition", Value: dandelionComposition},
+		}
+
+		// send registration request
+		err := dr.registerService("/register/composition", &registerRequest)
+		if err != nil {
+			logrus.Errorf("Failed to register composition '%s' - %v", task.Name, err)
+			return getFailureStatus(), nil
+		}
+		logrus.Debugf("Created sandbox for task '%s", task.Name)
+
+		// Although someone may have registered the task in the meantime, this is still fine
+		// as a composition can be registered with Dandelion only once
+		dr.registeredTasks.Lock()
+		dr.registeredTasks.data[task.Name] = true
+		dr.registeredTasks.Unlock()
+	}
+
+	logrus.Debug("Sandbox creation took ", time.Since(start).Microseconds(), " μs")
+	sandboxCreationDuration := time.Since(start)
+
+	return &proto.SandboxCreationStatus{
+		Success: true,
+		ID:      uuid.New().String(),
+		PortMappings: &proto.PortMapping{
+			HostPort: int32(dr.dandelionConfig.DaemonPort),
+		},
+		LatencyBreakdown: &proto.SandboxCreationBreakdown{
+			Total:         durationpb.New(sandboxCreationDuration),
+			SandboxCreate: durationpb.New(sandboxCreationDuration),
+		},
+	}, nil
 }
 
 func (dr *Runtime) ListEndpoints(_ context.Context, _ *emptypb.Empty) (*proto.EndpointsList, error) {

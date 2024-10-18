@@ -2,7 +2,7 @@ package predictive_autoscaler
 
 import (
 	"cluster_manager/internal/control_plane/control_plane/autoscalers/predictive_autoscaler/metric_client"
-	"cluster_manager/internal/control_plane/control_plane/function_state"
+	"cluster_manager/internal/control_plane/control_plane/service_state"
 	"cluster_manager/proto"
 	"fmt"
 	"math"
@@ -15,10 +15,10 @@ import (
 
 // autoscaler stores current state of an instance of an autoscaler.
 type autoscaler struct {
-	namespace     string
-	revision      string
-	metricClient  *metric_client.MetricClient
-	functionState *function_state.FunctionState
+	namespace    string
+	revision     string
+	metricClient *metric_client.MetricClient
+	serviceState *service_state.ServiceState
 	// State in panic mode.
 	panicTime    time.Time
 	maxPanicPods int32
@@ -83,7 +83,7 @@ type autoscaler struct {
 
 // New creates a new instance of default autoscaler implementation.
 func New(
-	functionState *function_state.FunctionState,
+	serviceState *service_state.ServiceState,
 	revision string,
 	autoscalingConfiguration *proto.AutoscalingConfiguration,
 	predictionsCh chan ScalingDecisions,
@@ -96,10 +96,10 @@ func New(
 		delayer = max.NewTimeWindow(time.Duration(autoscalingConfiguration.ScaleDownDelay)*time.Second, tickInterval)
 	}
 
-	return newAutoscaler(functionState, revision, delayer, predictionsCh, shiftedScalingCh, startCh, isMu)
+	return newAutoscaler(serviceState, revision, delayer, predictionsCh, shiftedScalingCh, startCh, isMu)
 }
 
-func newAutoscaler(functionState *function_state.FunctionState, revision string,
+func newAutoscaler(serviceState *service_state.ServiceState, revision string,
 	delayWindow *max.TimeWindow, predictionsCh chan ScalingDecisions,
 	shiftedScalingCh chan ScalingDecisions, startCh chan bool, isMu bool) *autoscaler {
 
@@ -109,7 +109,7 @@ func newAutoscaler(functionState *function_state.FunctionState, revision string,
 	// momentarily scale down, and that is not a desired behaviour.
 	// Thus, we're keeping at least the current scale until we
 	// accumulate enough data to make conscious decisions.
-	curC := functionState.GetNumberEndpoint()
+	curC := serviceState.GetNumberEndpoint()
 	var pt time.Time
 	if curC > 1 {
 		pt = time.Now()
@@ -133,10 +133,10 @@ func newAutoscaler(functionState *function_state.FunctionState, revision string,
 	}
 
 	return &autoscaler{
-		functionState: functionState,
-		revision:      revision,
+		serviceState: serviceState,
+		revision:     revision,
 
-		metricClient:         metric_client.NewMetricClient(functionState),
+		metricClient:         metric_client.NewMetricClient(serviceState),
 		invocationsPerMinute: make([]float64, 60),
 
 		delayWindow: delayWindow,
@@ -163,7 +163,7 @@ func newAutoscaler(functionState *function_state.FunctionState, revision string,
 // Scale is not thread safe in regards to panic state, but it's thread safe in
 // regards to acquiring the decider spec.
 func (a *autoscaler) Scale(now time.Time) ScaleResult {
-	originalReadyPodsCount := a.functionState.GetNumberEndpoint()
+	originalReadyPodsCount := a.serviceState.GetNumberEndpoint()
 	// Use 1 if there are zero current pods.
 	readyPodsCount := math.Max(1, float64(originalReadyPodsCount))
 
@@ -193,7 +193,7 @@ func (a *autoscaler) Scale(now time.Time) ScaleResult {
 	// E.g. MSUR=1.1, OCC=3, RPC=2, TV=1 => OCC/TV=3, MSU=2.2 => DSPC=2, while we definitely, need
 	// 3 pods. See the unit test for this scenario in action.
 
-	spec2 := a.functionState.ServiceInfo.AutoscalingConfig
+	spec2 := a.serviceState.GetAutoscalingConfig()
 
 	maxScaleUp := math.Ceil(float64(spec2.MaxScaleUpRate) * readyPodsCount)
 	// Same logic, opposite math applies here.
@@ -219,7 +219,7 @@ func (a *autoscaler) Scale(now time.Time) ScaleResult {
 }
 
 func (a *autoscaler) GetDesiredStateChannel() chan int {
-	return a.functionState.DesiredStateChannel
+	return a.serviceState.DesiredStateChannel
 }
 
 func (a *autoscaler) SharePredictions() {

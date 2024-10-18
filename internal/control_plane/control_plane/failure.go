@@ -27,12 +27,12 @@ func (c *ControlPlane) HandleFailure(failures []*proto.Failure) bool {
 }
 
 func (c *ControlPlane) removeEndpoints(ss *endpoint_placer.EndpointPlacer, endpoints []string) {
-	ss.FunctionState.EndpointLock.Lock()
-	defer ss.FunctionState.EndpointLock.Unlock()
+	ss.ServiceState.EndpointLock.Lock()
+	defer ss.ServiceState.EndpointLock.Unlock()
 
 	toRemove := make(map[*core.Endpoint]struct{})
 	for _, cid := range endpoints {
-		endpoint := searchEndpointByContainerName(ss.FunctionState.Endpoints, cid)
+		endpoint := searchEndpointByContainerName(ss.ServiceState.Endpoints, cid)
 		if endpoint == nil {
 			logrus.Warn("Endpoint ", cid, " not found for removal.")
 			continue
@@ -44,8 +44,8 @@ func (c *ControlPlane) removeEndpoints(ss *endpoint_placer.EndpointPlacer, endpo
 		logrus.Warn("Control plane notified of failure of '", endpoint.SandboxID, "'. Decrementing actual scale and removing the endpoint.")
 	}
 
-	atomic.AddInt64(&ss.FunctionState.ActualScale, -int64(len(toRemove)))
+	atomic.AddInt64(&ss.ServiceState.ActualScale, -int64(len(toRemove)))
 	ss.ExcludeEndpoints(toRemove)
 
-	ss.UpdateEndpoints(ss.PrepareEndpointInfo(ss.FunctionState.Endpoints))
+	ss.UpdateEndpoints(ss.PrepareEndpointInfo(ss.ServiceState.Endpoints))
 }

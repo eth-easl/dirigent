@@ -220,6 +220,15 @@ func (cr *ContainerdRuntime) DeleteSandbox(grpcCtx context.Context, in *proto.Sa
 	return &proto.ActionStatus{Success: true}, nil
 }
 
+func (cr *ContainerdRuntime) CreateTaskSandbox(_ context.Context, _ *proto.WorkflowTaskInfo) (*proto.SandboxCreationStatus, error) {
+	// not supported by the dandelion runtime
+	return &proto.SandboxCreationStatus{
+		Success:          false,
+		ID:               "-1",
+		LatencyBreakdown: &proto.SandboxCreationBreakdown{},
+	}, nil
+}
+
 func (cr *ContainerdRuntime) ListEndpoints(_ context.Context, _ *emptypb.Empty) (*proto.EndpointsList, error) {
 	return cr.SandboxManager.ListEndpoints()
 }

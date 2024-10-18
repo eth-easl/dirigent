@@ -1,7 +1,7 @@
 package proxy
 
 import (
-	common "cluster_manager/internal/data_plane/function_metadata"
+	"cluster_manager/internal/data_plane/service_metadata"
 	"net/http"
 	"sync/atomic"
 )
@@ -11,7 +11,7 @@ func GetServiceName(r *http.Request) string {
 	return r.Host
 }
 
-func giveBackCCCapacity(endpoint *common.UpstreamEndpoint) {
+func giveBackCCCapacity(endpoint *service_metadata.UpstreamEndpoint) {
 	endpointInflight := atomic.AddInt32(&endpoint.InFlight, -1)
 	if atomic.LoadInt32(&endpoint.Drained) != 0 && endpointInflight == 0 {
 		endpoint.DrainingCallback <- struct{}{}
@@ -22,12 +22,12 @@ func giveBackCCCapacity(endpoint *common.UpstreamEndpoint) {
 	}
 }
 
-func contextTerminationHandler(r *http.Request, coldStartChannel chan common.ColdStartChannelStruct) {
+func contextTerminationHandler(r *http.Request, coldStartChannel chan service_metadata.ColdStartChannelStruct) {
 	select {
 	case <-r.Context().Done():
 		if coldStartChannel != nil {
-			coldStartChannel <- common.ColdStartChannelStruct{
-				Outcome:             common.CanceledColdStart,
+			coldStartChannel <- service_metadata.ColdStartChannelStruct{
+				Outcome:             service_metadata.CanceledColdStart,
 				AddEndpointDuration: 0,
 			}
 		}

@@ -5,8 +5,8 @@ import (
 	predictive_autoscaler2 "cluster_manager/internal/control_plane/control_plane/autoscalers/predictive_autoscaler"
 	"cluster_manager/internal/control_plane/control_plane/core"
 	"cluster_manager/internal/control_plane/control_plane/endpoint_placer"
-	"cluster_manager/internal/control_plane/control_plane/function_state"
 	"cluster_manager/internal/control_plane/control_plane/persistence"
+	"cluster_manager/internal/control_plane/control_plane/service_state"
 	"cluster_manager/internal/control_plane/workflow"
 	"cluster_manager/pkg/config"
 	_map "cluster_manager/pkg/map"
@@ -25,7 +25,7 @@ import (
 )
 
 type AutoscalingInterface interface {
-	Create(functionState *function_state.FunctionState)
+	Create(functionState *service_state.ServiceState)
 	PanicPoke(functionName string, previousValue int32)
 	Poke(functionName string, previousValue int32)
 	ForwardDataplaneMetrics(dataplaneMetrics *proto.MetricsPredictiveAutoscaler) error
@@ -95,6 +95,9 @@ func (c *ControlPlane) registerDataplane(ctx context.Context, in *proto.Dataplan
 	key := in.IP
 	dataplaneConnection := c.dataPlaneCreator(dataplaneInfo.Address, dataplaneInfo.ApiPort, dataplaneInfo.ProxyPort)
 
+	c.WIStorage.Lock()
+	defer c.WIStorage.Unlock()
+
 	c.SIStorage.Lock()
 	defer c.SIStorage.Unlock()
 
@@ -132,13 +135,25 @@ func (c *ControlPlane) registerDataplane(ctx context.Context, in *proto.Dataplan
 	c.DataPlaneConnections.Set(key, dataplaneConnection)
 
 	for _, service := range c.SIStorage.GetMap() {
-		if _, err = c.DataPlaneConnections.GetNoCheck(key).AddDeployment(ctx, service.FunctionState.ServiceInfo); err != nil {
-			logrus.Errorf("Failed to add deployement : %s", err.Error())
-			c.DataPlaneConnections.Remove(key)
-			return &proto.ActionStatus{Success: false}, err, false
+		if service.ServiceState.TaskInfo == nil {
+			if _, err = c.DataPlaneConnections.GetNoCheck(key).AddDeployment(ctx, service.ServiceState.FunctionInfo[0]); err != nil {
+				logrus.Errorf("Failed to add deployement : %s", err.Error())
+				c.DataPlaneConnections.Remove(key)
+				return &proto.ActionStatus{Success: false}, err, false
+			}
 		}
 
 		service.SingleThreadUpdateEndpoints(service.PrepareCurrentEndpointInfoList())
+	}
+
+	for _, wfObject := range c.WIStorage.GetMap() {
+		if wfObject.IsWorkflow() {
+			if _, err = c.DataPlaneConnections.GetNoCheck(key).AddWorkflowDeployment(ctx, wfObject.GetWorkflowInfo()); err != nil {
+				logrus.Errorf("Failed to add workflow deployment : %s", err.Error())
+				c.DataPlaneConnections.Remove(key)
+				return &proto.ActionStatus{Success: false}, err, false
+			}
+		}
 	}
 
 	return &proto.ActionStatus{Success: true}, nil, false
@@ -167,7 +182,7 @@ func (c *ControlPlane) deregisterDataplane(ctx context.Context, in *proto.Datapl
 		}
 
 		for _, value := range c.SIStorage.GetMap() {
-			value.FunctionState.RemoveDataplane(in.IP)
+			value.ServiceState.RemoveDataplane(in.IP)
 		}
 
 		c.DataPlaneConnections.Remove(dataplaneInfo.Address)
@@ -342,7 +357,7 @@ func (c *ControlPlane) deregisterService(ctx context.Context, serviceInfo *proto
 			return &proto.ActionStatus{Success: false}, err
 		}
 
-		close(service.FunctionState.DesiredStateChannel)
+		close(service.ServiceState.DesiredStateChannel)
 		c.SIStorage.Remove(serviceInfo.Name)
 
 		c.autoscalingManager.Stop(serviceInfo.Name)
@@ -367,11 +382,11 @@ func (c *ControlPlane) setInvocationsMetrics(_ context.Context, metric *proto.Au
 		return &proto.ActionStatus{Success: false}, nil
 	}
 
-	previousValue := storage.FunctionState.CachedScalingMetrics
+	previousValue := storage.ServiceState.CachedScalingMetrics
 
-	storage.FunctionState.SetCachedScalingMetrics(metric)
+	storage.ServiceState.SetCachedScalingMetrics(metric)
 
-	logrus.Debug("Scaling metric for '", storage.FunctionState.ServiceInfo.Name, "' is ", metric.InflightRequests)
+	logrus.Debug("Scaling metric for '", storage.ServiceState.ServiceName, "' is ", metric.InflightRequests)
 
 	// Notify autoscaler we received metrics
 	c.autoscalingManager.Poke(metric.ServiceName, previousValue)
@@ -398,7 +413,17 @@ func (c *ControlPlane) registerWorkflowTask(ctx context.Context, taskInfo *proto
 		return errors.New("workflow object is already registered")
 	}
 
-	// TODO: check that functions of task are registered
+	c.SIStorage.Lock()
+	defer c.SIStorage.Unlock()
+
+	taskFunctions := make([]*proto.ServiceInfo, len(taskInfo.Functions))
+	for i, taskFuncName := range taskInfo.Functions {
+		taskPlacer, registered := c.SIStorage.Get(taskFuncName)
+		if !registered {
+			return fmt.Errorf("task function with name %s is not registered", taskFuncName)
+		}
+		taskFunctions[i] = taskPlacer.ServiceState.FunctionInfo[0]
+	}
 
 	err := c.PersistenceLayer.StoreWorkflowTaskInformation(ctx, taskInfo)
 	if err != nil {
@@ -406,6 +431,23 @@ func (c *ControlPlane) registerWorkflowTask(ctx context.Context, taskInfo *proto
 		c.WIStorage.Remove(taskInfo.Name)
 		return err
 	}
+
+	functionState := service_state.NewTaskState(taskInfo, taskFunctions)
+	c.autoscalingManager.Create(functionState)
+	placementPolicy, evictionPolicy := parsePlacementEvictionPolicies(c.Config)
+
+	c.SIStorage.Set(taskInfo.Name, &endpoint_placer.EndpointPlacer{
+		ServiceState:            functionState,
+		ColdStartTracingChannel: c.ColdStartTracing.InputChannel,
+		PlacementPolicy:         placementPolicy,
+		EvictionPolicy:          evictionPolicy,
+		PersistenceLayer:        c.PersistenceLayer,
+		NIStorage:               c.NIStorage,
+		DataPlaneConnections:    c.DataPlaneConnections,
+		DandelionNodes:          synchronization.NewControlPlaneSyncStructure[string, bool](),
+	})
+
+	go c.SIStorage.GetNoCheck(taskInfo.Name).ScalingControllerLoop()
 
 	c.WIStorage.Set(taskInfo.Name, workflow.NewTask(parentWorkflow))
 
@@ -420,6 +462,11 @@ func (c *ControlPlane) deregisterWorkflowTask(ctx context.Context, taskName stri
 			logrus.Errorf("Failed to delete information to persistence layer (error : %s)", err.Error())
 			return err
 		}
+
+		taskPlacer := c.SIStorage.GetNoCheck(taskName)
+		close(taskPlacer.ServiceState.DesiredStateChannel)
+		c.SIStorage.Remove(taskName)
+		c.autoscalingManager.Stop(taskName)
 
 		c.WIStorage.Remove(taskName)
 
@@ -442,7 +489,7 @@ func (c *ControlPlane) registerWorkflow(ctx context.Context, wfInfo *proto.Workf
 	}
 
 	// register workflow tasks
-	taskTracker := workflow.NewWorkflow(len(wfInfo.Tasks))
+	taskTracker := workflow.NewWorkflow(wfInfo)
 	var err error
 	var errIdx int
 	for taskIdx, task := range wfInfo.Tasks {
@@ -609,7 +656,7 @@ func (c *ControlPlane) createWorkerNodeFailureEvents(wn core.WorkerNodeInterface
 	for _, value := range c.SIStorage.GetMap() {
 		failureMetadata := &proto.Failure{
 			Type:        proto.FailureType_WORKER_NODE_FAILURE,
-			ServiceName: value.FunctionState.ServiceInfo.Name,
+			ServiceName: value.ServiceState.ServiceName,
 			SandboxIDs:  c.getServicesOnWorkerNode(value, wn),
 		}
 
@@ -656,7 +703,13 @@ func (c *ControlPlane) precreateSnapshots(info *proto.ServiceInfo) {
 		go func(node core.WorkerNodeInterface) {
 			defer wg.Done()
 
-			sandboxInfo, err := node.CreateSandbox(context.Background(), ss.FunctionState.ServiceInfo)
+			var sandboxInfo *proto.SandboxCreationStatus
+			var err error
+			if ss.ServiceState.TaskInfo == nil {
+				sandboxInfo, err = node.CreateSandbox(context.Background(), ss.ServiceState.FunctionInfo[0])
+			} else {
+				sandboxInfo, err = node.CreateTaskSandbox(context.Background(), ss.ServiceState.TaskInfo)
+			}
 			if err != nil {
 				logrus.Warnf("Failed to create a image prewarming sandbox for function %s on node %s.", info.Name, node.GetName())
 				return

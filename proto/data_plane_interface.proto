@@ -12,7 +12,7 @@ message EndpointInfo {
 }
 
 message DeploymentEndpointPatch {
-  ServiceInfo Service = 1;
+  string ServiceName = 1;
   repeated EndpointInfo Endpoints = 2;
 }
 

@@ -2,7 +2,7 @@ package default_autoscaler
 
 import (
 	"cluster_manager/internal/control_plane/control_plane/core"
-	"cluster_manager/internal/control_plane/control_plane/function_state"
+	"cluster_manager/internal/control_plane/control_plane/service_state"
 	"math"
 	"sync/atomic"
 	"time"
@@ -24,13 +24,13 @@ type defaultAutoscaler struct {
 
 	Period time.Duration
 
-	functionState *function_state.FunctionState
+	functionState *service_state.ServiceState
 }
 
-func newDefaultAutoscaler(functionState *function_state.FunctionState, autoscalingPeriod time.Duration) *defaultAutoscaler {
+func newDefaultAutoscaler(serviceState *service_state.ServiceState, autoscalingPeriod time.Duration) *defaultAutoscaler {
 	return &defaultAutoscaler{
 		Period:        autoscalingPeriod,
-		functionState: functionState,
+		functionState: serviceState,
 	}
 }
 
@@ -44,7 +44,6 @@ func (s *defaultAutoscaler) panicPoke() {
 
 func (s *defaultAutoscaler) poke() {
 	if atomic.CompareAndSwapInt32(&s.AutoscalingRunning, 0, 1) {
-		logrus.Warn(s.functionState)
 		s.functionState.StopCh = make(chan struct{})
 		go s.scalingLoop()
 	}
@@ -111,14 +110,14 @@ func (s *defaultAutoscaler) KnativeScaling(isScaleFromZero bool) int {
 
 	desiredScale, _ := s.internalScaleAlgorithm(float64(s.functionState.CachedScalingMetrics))
 
-	autoscalingConfig := s.functionState.ServiceInfo.AutoscalingConfig
+	autoscalingConfig := s.functionState.GetAutoscalingConfig()
 
 	return mathutil.Clamp(desiredScale, int(autoscalingConfig.ScalingLowerBound), int(autoscalingConfig.ScalingUpperBound))
 }
 
 func (s *defaultAutoscaler) internalScaleAlgorithm(scalingMetric float64) (int, float64) {
 	originalReadyPodsCount := s.functionState.ActualScale
-	autoScalingConfig := s.functionState.ServiceInfo.AutoscalingConfig
+	autoScalingConfig := s.functionState.GetAutoscalingConfig()
 
 	// Use 1 if there are zero current pods.
 	readyPodsCount := math.Max(1, float64(originalReadyPodsCount))
@@ -202,7 +201,7 @@ func (s *defaultAutoscaler) internalScaleAlgorithm(scalingMetric float64) (int, 
 }
 
 func (s *defaultAutoscaler) windowAverage(observedStableValue float64) (float64, float64) {
-	autoscalingConfig := s.functionState.ServiceInfo.AutoscalingConfig
+	autoscalingConfig := s.functionState.GetAutoscalingConfig()
 
 	panicBucketCount := int64(autoscalingConfig.PanicWindowWidthSeconds / autoscalingConfig.ScalingPeriodSeconds)
 	stableBucketCount := int64(autoscalingConfig.StableWindowWidthSeconds / autoscalingConfig.ScalingPeriodSeconds)

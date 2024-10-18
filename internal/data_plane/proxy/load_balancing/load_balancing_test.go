@@ -1,7 +1,7 @@
 package load_balancing
 
 import (
-	"cluster_manager/internal/data_plane/function_metadata"
+	"cluster_manager/internal/data_plane/service_metadata"
 	"fmt"
 	"math/rand"
 	"sync"
@@ -14,22 +14,22 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func getTestEndpoints(numberOfEndpoints int, containerConcurrency uint) (*function_metadata.FunctionMetadata, int) {
-	var endpoints []*function_metadata.UpstreamEndpoint
+func getTestEndpoints(numberOfEndpoints int, containerConcurrency uint) (*service_metadata.ServiceMetadata, int) {
+	var endpoints []*service_metadata.UpstreamEndpoint
 	for i := 0; i < numberOfEndpoints; i++ {
-		endpoints = append(endpoints, &function_metadata.UpstreamEndpoint{
+		endpoints = append(endpoints, &service_metadata.UpstreamEndpoint{
 			ID:       fmt.Sprintf("%d", i+1),
 			Capacity: make(chan struct{}, 10),
 		})
 	}
 
-	metadata := function_metadata.NewFunctionMetadata("mockName", "test", containerConcurrency)
+	metadata := service_metadata.NewFunctionMetadata("mockName", "test", containerConcurrency)
 	metadata.SetEndpoints(endpoints)
 
 	return metadata, len(endpoints)
 }
 
-func getTestEndpointWithCapacityAdditions(numberOfEndpoints int, containerConcurrency int) (*function_metadata.FunctionMetadata, int) {
+func getTestEndpointWithCapacityAdditions(numberOfEndpoints int, containerConcurrency int) (*service_metadata.ServiceMetadata, int) {
 	metadata, size := getTestEndpoints(numberOfEndpoints, uint(containerConcurrency))
 	for i := 0; i < size; i++ {
 		for t := 0; t < containerConcurrency; t++ {
@@ -43,7 +43,7 @@ func getTestEndpointWithCapacityAdditions(numberOfEndpoints int, containerConcur
 func TestRandomLoadBalancing(t *testing.T) {
 	metadata, _ := getTestEndpoints(7, 1)
 
-	endpointsMap := make(map[*function_metadata.UpstreamEndpoint]interface{})
+	endpointsMap := make(map[*service_metadata.UpstreamEndpoint]interface{})
 	for _, elem := range metadata.GetUpstreamEndpoints() {
 		endpointsMap[elem] = 0
 	}
@@ -100,7 +100,7 @@ func TestGenerateTwoUniformRandomEndpoints(t *testing.T) {
 func TestBestOfTwoRandoms(t *testing.T) {
 	metadata, _ := getTestEndpoints(7, 1)
 
-	endpointsMap := make(map[*function_metadata.UpstreamEndpoint]interface{})
+	endpointsMap := make(map[*service_metadata.UpstreamEndpoint]interface{})
 	for _, elem := range metadata.GetUpstreamEndpoints() {
 		endpointsMap[elem] = 0
 	}
@@ -217,7 +217,7 @@ func TestLoadBalancingOnXKEndpoints(t *testing.T) {
 						defer wg.Done()
 
 						start := time.Now()
-						var m *function_metadata.UpstreamEndpoint
+						var m *service_metadata.UpstreamEndpoint
 						for m == nil {
 							m = runLoadBalancingAlgorithm(metadata, LOAD_BALANCING_KNATIVE)
 						}

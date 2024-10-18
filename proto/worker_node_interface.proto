@@ -41,5 +41,7 @@ service WorkerNodeInterface {
   rpc CreateSandbox(ServiceInfo) returns (SandboxCreationStatus);
   rpc DeleteSandbox(SandboxID) returns (ActionStatus);
 
+  rpc CreateTaskSandbox(WorkflowTaskInfo) returns (SandboxCreationStatus);
+
   rpc ListEndpoints(google.protobuf.Empty) returns (EndpointsList);
 }

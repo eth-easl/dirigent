@@ -1,4 +1,4 @@
-package function_metadata
+package service_metadata
 
 import (
 	"cluster_manager/internal/data_plane/workflow"
@@ -12,20 +12,21 @@ type DeploymentType int
 
 const (
 	Function DeploymentType = iota
+	Task
 	Workflow
 )
 
 type Deployment struct {
-	dType DeploymentType
-	fPtr  *FunctionMetadata
-	wfPtr *workflow.Workflow
+	dType    DeploymentType
+	metadata *ServiceMetadata
+	wfPtr    *workflow.Workflow
 }
 
 func (d *Deployment) GetType() DeploymentType {
 	return d.dType
 }
-func (d *Deployment) GetFunction() *FunctionMetadata {
-	return d.fPtr
+func (d *Deployment) GetFunction() *ServiceMetadata {
+	return d.metadata
 }
 func (d *Deployment) GetWorkflow() *workflow.Workflow {
 	return d.wfPtr
@@ -53,14 +54,14 @@ func (d *Deployments) AddFunctionDeployment(name string, dataplaneID string) boo
 
 	// TODO: make container concurrency configurable
 	d.data[name] = &Deployment{
-		dType: Function,
-		fPtr:  NewFunctionMetadata(name, dataplaneID, 1),
+		dType:    Function,
+		metadata: NewFunctionMetadata(name, dataplaneID, 1),
 	}
 
-	logrus.Debugf("Function deployment with name %s has been registered.", name)
+	logrus.Debugf("Function deployment with name '%s' has been registered.", name)
 	return true
 }
-func (d *Deployments) AddWorkflowDeployment(name string, wf *workflow.Workflow) bool {
+func (d *Deployments) AddWorkflowDeployment(name string, dataplaneID string, wf *workflow.Workflow) bool {
 	d.Lock()
 	defer d.Unlock()
 
@@ -69,12 +70,22 @@ func (d *Deployments) AddWorkflowDeployment(name string, wf *workflow.Workflow) 
 		return false
 	}
 
+	// TODO: make container concurrency configurable
+	for _, task := range wf.Tasks {
+		if len(task.Functions) > 1 {
+			d.data[task.Name] = &Deployment{
+				dType:    Task,
+				metadata: NewFunctionMetadata(task.Name, dataplaneID, 1),
+			}
+		}
+	}
+
 	d.data[name] = &Deployment{
 		dType: Workflow,
 		wfPtr: wf,
 	}
 
-	logrus.Debugf("Workflow deployment with name %s has been registered.", name)
+	logrus.Debugf("Workflow deployment with name '%s' has been registered.", name)
 	return true
 }
 
@@ -92,7 +103,7 @@ func (d *Deployments) GetDeployment(name string) (*Deployment, time.Duration) {
 		return data, time.Since(start)
 	}
 }
-func (d *Deployments) GetFunctionDeployment(name string) (*FunctionMetadata, time.Duration) {
+func (d *Deployments) GetServiceMetadata(name string) (*ServiceMetadata, time.Duration) {
 	start := time.Now()
 
 	d.RLock()
@@ -100,10 +111,10 @@ func (d *Deployments) GetFunctionDeployment(name string) (*FunctionMetadata, tim
 
 	data, ok := d.data[name]
 
-	if !ok || data.dType != Function {
+	if !ok || data.dType == Workflow {
 		return nil, time.Since(start)
 	} else {
-		return data.fPtr, time.Since(start)
+		return data.metadata, time.Since(start)
 	}
 }
 
@@ -111,8 +122,17 @@ func (d *Deployments) DeleteDeployment(name string) bool {
 	d.Lock()
 	defer d.Unlock()
 
-	if _, ok := d.data[name]; ok {
+	if deployment, ok := d.data[name]; ok {
 		// TODO: implement draining here
+
+		// remove task deployments as well
+		if deployment.dType == Workflow {
+			for _, task := range deployment.wfPtr.Tasks {
+				if len(task.Functions) > 1 {
+					delete(d.data, task.Name)
+				}
+			}
+		}
 
 		delete(d.data, name)
 		return true
@@ -132,14 +152,14 @@ func (d *Deployments) ListDeployments() []*Deployment {
 
 	return result
 }
-func (d *Deployments) ListFunctions() []*FunctionMetadata {
+func (d *Deployments) ListFunctions() []*ServiceMetadata {
 	d.RLock()
 	defer d.RUnlock()
 
-	var result []*FunctionMetadata
+	var result []*ServiceMetadata
 	for _, dep := range d.data {
 		if dep.dType == Function {
-			result = append(result, dep.fPtr)
+			result = append(result, dep.metadata)
 		}
 	}
 

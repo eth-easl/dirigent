@@ -76,6 +76,10 @@ func (w *WorkerNode) DeleteSandbox(ctx context.Context, id *proto.SandboxID, opt
 	return w.wnConnection.DeleteSandbox(ctx, id, option...)
 }
 
+func (w *WorkerNode) CreateTaskSandbox(ctx context.Context, task *proto.WorkflowTaskInfo, option ...grpc.CallOption) (*proto.SandboxCreationStatus, error) {
+	return w.wnConnection.CreateTaskSandbox(ctx, task, option...)
+}
+
 func (w *WorkerNode) ListEndpoints(ctx context.Context, empty *emptypb.Empty, option ...grpc.CallOption) (*proto.EndpointsList, error) {
 	if w.wnConnection != nil {
 		return w.wnConnection.ListEndpoints(ctx, empty, option...)

@@ -69,6 +69,7 @@ func NewWorkerNode(cpApi proto.CpiInterfaceClient, config config.WorkerNodeConfi
 	var runtimeInterface sandbox.RuntimeInterface
 	switch config.CRIType {
 	case "containerd":
+		logrus.Infof("Using containerd runtime.")
 		runtimeInterface = containerd.NewContainerdRuntime(
 			cpApi,
 			config.Containerd,
@@ -76,18 +77,21 @@ func NewWorkerNode(cpApi proto.CpiInterfaceClient, config config.WorkerNodeConfi
 			config.CPUConstaint,
 		)
 	case "firecracker":
+		logrus.Infof("Using firecracker runtime.")
 		runtimeInterface = firecracker.NewFirecrackerRuntime(
 			cpApi,
 			sandboxManager,
 			config.Firecracker,
 		)
 	case "dandelion":
+		logrus.Infof("Using dandelion runtime.")
 		runtimeInterface = dandelion.NewDandelionRuntime(
 			cpApi,
 			sandboxManager,
 			&config.Dandelion,
 		)
 	case "scalability_test":
+		logrus.Infof("Using scalability test runtime.")
 		runtimeInterface = fake_snapshot.NewFakeSnapshotRuntime()
 	default:
 		logrus.Fatal("Unsupported sandbox type.")
@@ -116,6 +120,10 @@ func (w *WorkerNode) CreateSandbox(grpcCtx context.Context, in *proto.ServiceInf
 
 func (w *WorkerNode) DeleteSandbox(grpcCtx context.Context, in *proto.SandboxID) (*proto.ActionStatus, error) {
 	return w.SandboxRuntime.DeleteSandbox(grpcCtx, in)
+}
+
+func (w *WorkerNode) CreateTaskSandbox(grpcCtx context.Context, task *proto.WorkflowTaskInfo) (*proto.SandboxCreationStatus, error) {
+	return w.SandboxRuntime.CreateTaskSandbox(grpcCtx, task)
 }
 
 func (w *WorkerNode) ListEndpoints(grpcCtx context.Context, in *emptypb.Empty) (*proto.EndpointsList, error) {

@@ -2,12 +2,12 @@ package proxy
 
 import (
 	"bytes"
-	common "cluster_manager/internal/data_plane/function_metadata"
 	"cluster_manager/internal/data_plane/proxy/load_balancing"
 	"cluster_manager/internal/data_plane/proxy/metrics_collection"
 	rp "cluster_manager/internal/data_plane/proxy/persistence"
 	"cluster_manager/internal/data_plane/proxy/requests"
 	"cluster_manager/internal/data_plane/proxy/reverse_proxy"
+	"cluster_manager/internal/data_plane/service_metadata"
 	"cluster_manager/pkg/config"
 	"cluster_manager/pkg/tracing"
 	"cluster_manager/pkg/utils"
@@ -43,7 +43,7 @@ func (ps *AsyncProxyingService) SetCpApiServer(client proto.CpiInterfaceClient) 
 	ps.Context.cpInterface = client
 }
 
-func NewAsyncProxyingService(cfg config.DataPlaneConfig, cache *common.Deployments, cp proto.CpiInterfaceClient, outputFile string, loadBalancingPolicy load_balancing.LoadBalancingPolicy) *AsyncProxyingService {
+func NewAsyncProxyingService(cfg config.DataPlaneConfig, cache *service_metadata.Deployments, cp proto.CpiInterfaceClient, outputFile string, loadBalancingPolicy load_balancing.LoadBalancingPolicy) *AsyncProxyingService {
 	var persistenceLayer rp.RequestPersistence
 	var err error
 
@@ -72,6 +72,7 @@ func NewAsyncProxyingService(cfg config.DataPlaneConfig, cache *common.Deploymen
 				incomingRequestChannel: incomingRequestChannel,
 				doneRequestChannel:     doneRequestChannel,
 			},
+			dpConfig: &cfg,
 		},
 
 		PortRead: cfg.PortProxyRead,
@@ -223,6 +224,7 @@ func (ps *AsyncProxyingService) executeRequest(bufferedRequest *requests.Buffere
 			persistenceLayer: bufferedRequest.PersistenceDuration,
 		},
 		ps.Context,
+		ps.dpConfig,
 	)
 	// copy response from the buffer
 	bufferedResponse.Body = httpResponse.Body.String()

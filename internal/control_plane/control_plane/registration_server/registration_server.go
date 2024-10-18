@@ -9,6 +9,7 @@ import (
 	"cluster_manager/proto"
 	"errors"
 	"fmt"
+	"google.golang.org/protobuf/types/known/emptypb"
 	"net/http"
 	"strconv"
 	"strings"
@@ -127,6 +128,26 @@ func functionRegistrationHandler(cpApi *control_plane.CpApiServer) func(w http.R
 			}
 		}
 
+		numArgs := 0
+		bodyNumArgs, ok := r.Form["num_args"]
+		if ok {
+			numArgs, err = strconv.Atoi(bodyNumArgs[0])
+			if err != nil {
+				http.Error(w, "Invalid number of function arguments.", http.StatusBadRequest)
+				return
+			}
+		}
+
+		numRets := 0
+		bodyNumRets, ok := r.Form["num_rets"]
+		if ok {
+			numRets, err = strconv.Atoi(bodyNumRets[0])
+			if err != nil {
+				http.Error(w, "Invalid number of function returns.", http.StatusBadRequest)
+				return
+			}
+		}
+
 		var service *proto.ActionStatus
 		if cpApi.LeaderElectionServer.IsLeader() {
 			service, err = cpApi.RegisterService(r.Context(), &proto.ServiceInfo{
@@ -140,6 +161,8 @@ func functionRegistrationHandler(cpApi *control_plane.CpApiServer) func(w http.R
 					IterationMultiplier: int32(iterationMultiplier),
 					ColdStartBusyLoopMs: int32(coldStartBusyLoopMs),
 				},
+				NumArgs: uint32(numArgs),
+				NumRets: uint32(numRets),
 			})
 		} else {
 			service, err = cpApi.LeaderElectionServer.GetLeader().RegisterService(r.Context(), &proto.ServiceInfo{
@@ -153,6 +176,8 @@ func functionRegistrationHandler(cpApi *control_plane.CpApiServer) func(w http.R
 					IterationMultiplier: int32(iterationMultiplier),
 					ColdStartBusyLoopMs: int32(coldStartBusyLoopMs),
 				},
+				NumArgs: uint32(numArgs),
+				NumRets: uint32(numRets),
 			})
 		}
 		if err != nil {
@@ -189,17 +214,36 @@ func workflowRegistrationHandler(cpApi *control_plane.CpApiServer) func(w http.R
 			http.Error(w, "Failed to parse workflow request.", http.StatusBadRequest)
 			return
 		}
-		name := r.FormValue("name")
+		name := r.FormValue("name") // required
 		if len(name) == 0 {
 			logrus.Errorf("Invalid workflow request (empty workflow name).")
 			http.Error(w, "Invalid workflow name.", http.StatusBadRequest)
 			return
 		}
-		wfString := r.FormValue("workflow")
+		wfString := r.FormValue("workflow") // required
 		if len(wfString) == 0 {
 			logrus.Errorf("Invalid workflow request (empty workflow description).")
 			http.Error(w, "Empty workflow description.", http.StatusBadRequest)
 			return
+		}
+		partMethodString := r.FormValue("partitionMethod") // optional (otherwise use default)
+
+		// Set partition method
+		var partitionMethod dandelion_workflow.PartitionMethod
+		if len(partMethodString) > 0 {
+			partitionMethod = dandelion_workflow.PartitionMethodFromString(partMethodString)
+			if partitionMethod == dandelion_workflow.Invalid {
+				logrus.Errorf("Invalid partition method '%s' in request.", partMethodString)
+				http.Error(w, fmt.Sprintf("Invalid partition method '%s'.", partMethodString), http.StatusBadRequest)
+				return
+			}
+		} else {
+			partitionMethod = dandelion_workflow.PartitionMethodFromString(cpApi.ControlPlane.Config.DefaultWFPartitionMethod)
+			if partitionMethod == dandelion_workflow.Invalid {
+				logrus.Errorf("Invalid default partition method '%s'", cpApi.ControlPlane.Config.DefaultWFPartitionMethod)
+				http.Error(w, "Invalid default partition method.", http.StatusInternalServerError)
+				return
+			}
 		}
 
 		// Parse workflow
@@ -212,8 +256,26 @@ func workflowRegistrationHandler(cpApi *control_plane.CpApiServer) func(w http.R
 		}
 		dwf.Name = name
 
+		// Check that workflow functions are registered
+		var serviceList *proto.ServiceList
+		if cpApi.LeaderElectionServer.IsLeader() {
+			serviceList, err = cpApi.ListServices(r.Context(), &emptypb.Empty{})
+		} else {
+			serviceList, err = cpApi.LeaderElectionServer.GetLeader().ListServices(r.Context(), &emptypb.Empty{})
+		}
+		if err != nil {
+			logrus.Errorf("Failed to get registered services: %v", err)
+			http.Error(w, fmt.Sprintf("Failed to get registered services."), http.StatusInternalServerError)
+			return
+		}
+		if !dwf.CheckFunctionDeclarations(serviceList.Service) {
+			logrus.Errorf("Not all workflow functions are registered.")
+			http.Error(w, fmt.Sprintf("Not all workflow functions are registered."), http.StatusBadRequest)
+			return
+		}
+
 		// Process workflow
-		wfs, wfTasks, err := dwf.ExportWorkflow(dandelion_workflow.FullPartition)
+		wfs, wfTasks, err := dwf.ExportWorkflow(partitionMethod)
 		if err != nil {
 			logrus.Errorf("Failed to process workflow '%s': %v", name, err)
 			http.Error(w, fmt.Sprintf("Invalid workflow (failed to process: %s).", err), http.StatusBadRequest)
@@ -242,6 +304,8 @@ func workflowRegistrationHandler(cpApi *control_plane.CpApiServer) func(w http.R
 
 			wfInfo := &proto.WorkflowInfo{
 				Name:              wf.Name,
+				NumIn:             wf.NumIn,
+				NumOut:            wf.NumOut,
 				InitialTasks:      workflow.TaskToStr(wf.InitialTasks),
 				InitialDataSrcIdx: wf.InitialDataSrcIdx,
 				InitialDataDstIdx: wf.InitialDataDstIdx,
@@ -280,7 +344,21 @@ func workflowRegistrationHandler(cpApi *control_plane.CpApiServer) func(w http.R
 			return
 		}
 
+		// Write successfully registered workflows into response
 		w.WriteHeader(http.StatusOK)
+		wfStr := ""
+		for wfIdx, wf := range wfs {
+			if wfIdx != len(wfs)-1 {
+				wfStr += fmt.Sprintf("%s;", wf.Name)
+			} else {
+				wfStr += fmt.Sprintf("%s", wf.Name)
+			}
+		}
+		_, err = w.Write([]byte(wfStr))
+		if err != nil {
+			logrus.Errorf("Failed to write workfows into response: %v", err)
+		}
+		logrus.Infof("Successfully registered workflow(s) [%s].", wfStr)
 	}
 }
 

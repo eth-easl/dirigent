@@ -1,6 +1,7 @@
 package proxy
 
 import (
+	"cluster_manager/pkg/config"
 	"cluster_manager/proto"
 	"net/http/httputil"
 )
@@ -19,4 +20,5 @@ type ProxyingService struct {
 	Context proxyContext
 
 	reverseProxy *httputil.ReverseProxy
+	dpConfig     *config.DataPlaneConfig
 }

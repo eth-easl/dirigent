@@ -38,8 +38,11 @@ func patchHandler(api *control_plane.CpApiServer) func(w http.ResponseWriter, r 
 			http.Error(w, "Function name does not exist.", http.StatusBadRequest)
 			return
 		}
+		if sis.ServiceState.TaskInfo != nil {
+			http.Error(w, "Cannot patch a task service.", http.StatusBadRequest)
+		}
 
-		config := cloneAutoscalingConfig(sis.FunctionState.ServiceInfo.AutoscalingConfig)
+		config := cloneAutoscalingConfig(sis.ServiceState.GetAutoscalingConfig())
 
 		if err = parseAndApplyArg("scaling_upper_bound", r, &config.ScalingUpperBound, ensurePositive[int32]); err != nil {
 			http.Error(w, fmt.Sprintf("Cannot cast scaling_upper_bound to integer - %v", err), http.StatusBadRequest)
@@ -105,11 +108,11 @@ func patchHandler(api *control_plane.CpApiServer) func(w http.ResponseWriter, r 
 			http.Error(w, fmt.Sprintf("Invalid scale_down_delay - %v", err), http.StatusBadRequest)
 			return
 		}
-		sis.FunctionState.ServiceInfo.AutoscalingConfig = config
+		sis.ServiceState.FunctionInfo[0].AutoscalingConfig = config
 
-		sis.UpdateDeployment(sis.FunctionState.ServiceInfo)
+		sis.UpdateDeployment(sis.ServiceState.FunctionInfo[0])
 
-		if err = api.ControlPlane.PersistenceLayer.StoreServiceInformation(context.Background(), sis.FunctionState.ServiceInfo); err != nil {
+		if err = api.ControlPlane.PersistenceLayer.StoreServiceInformation(context.Background(), sis.ServiceState.FunctionInfo[0]); err != nil {
 			http.Error(w, fmt.Sprintf("Failed to persist patch handler - %v", err), http.StatusInternalServerError)
 			return
 

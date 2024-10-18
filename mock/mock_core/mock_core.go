@@ -304,6 +304,26 @@ func (mr *MockWorkerNodeInterfaceMockRecorder) CreateSandbox(arg0, arg1 any, arg
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateSandbox", reflect.TypeOf((*MockWorkerNodeInterface)(nil).CreateSandbox), varargs...)
 }
 
+// CreateTaskSandbox mocks base method.
+func (m *MockWorkerNodeInterface) CreateTaskSandbox(arg0 context.Context, arg1 *proto.WorkflowTaskInfo, arg2 ...grpc.CallOption) (*proto.SandboxCreationStatus, error) {
+	m.ctrl.T.Helper()
+	varargs := []any{arg0, arg1}
+	for _, a := range arg2 {
+		varargs = append(varargs, a)
+	}
+	ret := m.ctrl.Call(m, "CreateTaskSandbox", varargs...)
+	ret0, _ := ret[0].(*proto.SandboxCreationStatus)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// CreateTaskSandbox indicates an expected call of CreateTaskSandbox.
+func (mr *MockWorkerNodeInterfaceMockRecorder) CreateTaskSandbox(arg0, arg1 any, arg2 ...any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	varargs := append([]any{arg0, arg1}, arg2...)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateTaskSandbox", reflect.TypeOf((*MockWorkerNodeInterface)(nil).CreateTaskSandbox), varargs...)
+}
+
 // DeleteSandbox mocks base method.
 func (m *MockWorkerNodeInterface) DeleteSandbox(arg0 context.Context, arg1 *proto.SandboxID, arg2 ...grpc.CallOption) (*proto.ActionStatus, error) {
 	m.ctrl.T.Helper()

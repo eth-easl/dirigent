@@ -86,36 +86,36 @@ func TestPartition(t *testing.T) {
 	}
 	expectedOutput := [][][]string{
 		{ // full partition
-			{"(A)->wf-c1-FunA"},
+			{"(A)->wf_c1_FunA"},
 			{
-				"((A,B)->wf-c2-FunA[0],(A,B)->wf-c2-FunA[1])->wf-c2-FunB[0]",
-				"(B,(A,B)->wf-c2-FunA[1],((A,B)->wf-c2-FunA[0],(A,B)->wf-c2-FunA[1])->wf-c2-FunB[1],G)->wf-c2-FunC",
+				"((A,B)->wf_c2_FunA[0],(A,B)->wf_c2_FunA[1])->wf_c2_FunB[0]",
+				"(B,(A,B)->wf_c2_FunA[1],((A,B)->wf_c2_FunA[0],(A,B)->wf_c2_FunA[1])->wf_c2_FunB[1],G)->wf_c2_FunC",
 			},
 			{
-				"(((A)->wf-c3-FunA[0],(A)->wf-c3-FunA[1])->wf-c3-FunB[0])->wf-c3-FunC",
-				"(((A)->wf-c3-FunA[0],(A)->wf-c3-FunA[1])->wf-c3-FunB[1])->wf-c3-FunD",
+				"(((A)->wf_c3_FunA[0],(A)->wf_c3_FunA[1])->wf_c3_FunB[0])->wf_c3_FunC",
+				"(((A)->wf_c3_FunA[0],(A)->wf_c3_FunA[1])->wf_c3_FunB[1])->wf_c3_FunD",
 			},
 		},
 		{ // no partition
-			{"(A)->wf-c1-noPartition"},
+			{"(A)->wf_c1_noPartition"},
 			{
-				"(A,B,G)->wf-c2-noPartition[0]",
-				"(A,B,G)->wf-c2-noPartition[1]",
+				"(A,B,G)->wf_c2_task[0]",
+				"(A,B,G)->wf_c2_task[1]",
 			},
 			{
-				"(A)->wf-c3-noPartition[0]",
-				"(A)->wf-c3-noPartition[1]",
+				"(A)->wf_c3_task[0]",
+				"(A)->wf_c3_task[1]",
 			},
 		},
 		{ // transformation based
-			{"(A)->wf-c1-0"},
+			{"(A)->wf_c1_0"},
 			{
-				"((A,B)->wf-c2-0[0],(A,B)->wf-c2-0[1])->wf-c2-1[0]",
-				"(B,(A,B)->wf-c2-0[1],((A,B)->wf-c2-0[0],(A,B)->wf-c2-0[1])->wf-c2-1[1],G)->wf-c2-2",
+				"((A,B)->wf_c2_0[0],(A,B)->wf_c2_0[1])->wf_c2_1[0]",
+				"(B,(A,B)->wf_c2_0[1],((A,B)->wf_c2_0[0],(A,B)->wf_c2_0[1])->wf_c2_1[1],G)->wf_c2_2",
 			},
 			{
-				"((A)->wf-c3-0[1])->wf-c3-1",
-				"((A)->wf-c3-0[0])->wf-c3-2",
+				"((A)->wf_c3_0[1])->wf_c3_1",
+				"((A)->wf_c3_0[0])->wf_c3_2",
 			},
 		},
 	}

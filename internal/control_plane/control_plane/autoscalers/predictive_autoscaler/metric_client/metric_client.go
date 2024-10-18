@@ -1,7 +1,7 @@
 package metric_client
 
 import (
-	"cluster_manager/internal/control_plane/control_plane/function_state"
+	"cluster_manager/internal/control_plane/control_plane/service_state"
 	"math"
 )
 
@@ -13,21 +13,21 @@ const (
 )
 
 type MetricClient struct {
-	functionState *function_state.FunctionState
+	serviceState *service_state.ServiceState
 
 	ScalingMetrics []float64
 	WindowHead     int64
 }
 
-func NewMetricClient(metadata *function_state.FunctionState) *MetricClient {
+func NewMetricClient(metadata *service_state.ServiceState) *MetricClient {
 	return &MetricClient{
-		functionState: metadata,
+		serviceState: metadata,
 	}
 }
 
 func (c *MetricClient) StableAndPanicConcurrency() (float64, float64) {
-	autoscalingConfig := c.functionState.ServiceInfo.AutoscalingConfig
-	observedStableValue := float64(c.functionState.CachedScalingMetrics)
+	autoscalingConfig := c.serviceState.GetAutoscalingConfig()
+	observedStableValue := float64(c.serviceState.CachedScalingMetrics)
 
 	panicBucketCount := int64(autoscalingConfig.PanicWindowWidthSeconds / autoscalingConfig.ScalingPeriodSeconds)
 	stableBucketCount := int64(autoscalingConfig.StableWindowWidthSeconds / autoscalingConfig.ScalingPeriodSeconds)
@@ -108,5 +108,5 @@ func (c *MetricClient) StableAndPanicConcurrency() (float64, float64) {
 }
 
 func (c *MetricClient) StableAndPanicRPS() float64 {
-	return c.functionState.RpsValue
+	return c.serviceState.RpsValue
 }

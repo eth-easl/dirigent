@@ -31,6 +31,7 @@ type WorkerNodeInterface interface {
 	ConnectToWorker() proto.WorkerNodeInterfaceClient
 	CreateSandbox(context.Context, *proto.ServiceInfo, ...grpc.CallOption) (*proto.SandboxCreationStatus, error)
 	DeleteSandbox(context.Context, *proto.SandboxID, ...grpc.CallOption) (*proto.ActionStatus, error)
+	CreateTaskSandbox(context.Context, *proto.WorkflowTaskInfo, ...grpc.CallOption) (*proto.SandboxCreationStatus, error)
 	ListEndpoints(context.Context, *emptypb.Empty, ...grpc.CallOption) (*proto.EndpointsList, error)
 	GetName() string
 	GetLastHeartBeat() time.Time

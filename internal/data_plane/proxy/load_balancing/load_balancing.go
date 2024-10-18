@@ -1,7 +1,7 @@
 package load_balancing
 
 import (
-	"cluster_manager/internal/data_plane/function_metadata"
+	"cluster_manager/internal/data_plane/service_metadata"
 	"math/rand"
 	"net/http"
 	"sync/atomic"
@@ -19,7 +19,7 @@ const (
 	LOAD_BALANCING_KNATIVE
 )
 
-func runLoadBalancingAlgorithm(metadata *function_metadata.FunctionMetadata, loadBalancingPolicy LoadBalancingPolicy) *function_metadata.UpstreamEndpoint {
+func runLoadBalancingAlgorithm(metadata *service_metadata.ServiceMetadata, loadBalancingPolicy LoadBalancingPolicy) *service_metadata.UpstreamEndpoint {
 	metadata.RLock()
 	defer metadata.RUnlock()
 
@@ -28,7 +28,7 @@ func runLoadBalancingAlgorithm(metadata *function_metadata.FunctionMetadata, loa
 		return nil
 	}
 
-	var endpoint *function_metadata.UpstreamEndpoint
+	var endpoint *service_metadata.UpstreamEndpoint
 	switch loadBalancingPolicy {
 	case LOAD_BALANCING_RANDOM:
 		endpoint = randomLoadBalancing(metadata)
@@ -45,10 +45,10 @@ func runLoadBalancingAlgorithm(metadata *function_metadata.FunctionMetadata, loa
 	return endpoint
 }
 
-func DoLoadBalancing(req *http.Request, metadata *function_metadata.FunctionMetadata, loadBalancingPolicy LoadBalancingPolicy) (*function_metadata.UpstreamEndpoint, time.Duration, time.Duration) {
+func DoLoadBalancing(req *http.Request, metadata *service_metadata.ServiceMetadata, loadBalancingPolicy LoadBalancingPolicy) (*service_metadata.UpstreamEndpoint, time.Duration, time.Duration) {
 	lbDuration, ccDuration := time.Duration(0), time.Duration(0)
 
-	var endpoint *function_metadata.UpstreamEndpoint
+	var endpoint *service_metadata.UpstreamEndpoint
 
 	metadata.GetStatistics().IncrementQueueDepth()
 	defer metadata.GetStatistics().DecrementQueueDepth()
@@ -86,7 +86,7 @@ func DoLoadBalancing(req *http.Request, metadata *function_metadata.FunctionMeta
 	return endpoint, lbDuration, ccDuration
 }
 
-func waitForCapacityOrDie(throttler function_metadata.RequestThrottler) (bool, time.Duration) {
+func waitForCapacityOrDie(throttler service_metadata.RequestThrottler) (bool, time.Duration) {
 	start := time.Now()
 
 	select {
@@ -97,16 +97,16 @@ func waitForCapacityOrDie(throttler function_metadata.RequestThrottler) (bool, t
 	}
 }
 
-func randomEndpoint(endpoints []*function_metadata.UpstreamEndpoint) *function_metadata.UpstreamEndpoint {
+func randomEndpoint(endpoints []*service_metadata.UpstreamEndpoint) *service_metadata.UpstreamEndpoint {
 	index := rand.Intn(len(endpoints))
 	return endpoints[index]
 }
 
-func randomLoadBalancing(metadata *function_metadata.FunctionMetadata) *function_metadata.UpstreamEndpoint {
+func randomLoadBalancing(metadata *service_metadata.ServiceMetadata) *service_metadata.UpstreamEndpoint {
 	return randomEndpoint(metadata.GetUpstreamEndpoints())
 }
 
-func roundRobinLoadBalancing(metadata *function_metadata.FunctionMetadata) *function_metadata.UpstreamEndpoint {
+func roundRobinLoadBalancing(metadata *service_metadata.ServiceMetadata) *service_metadata.UpstreamEndpoint {
 	endpoints := metadata.GetUpstreamEndpoints()
 	outputEndpoint := endpoints[metadata.GetRoundRobinCounter()]
 	metadata.IncrementRoundRobinCounter()
@@ -114,7 +114,7 @@ func roundRobinLoadBalancing(metadata *function_metadata.FunctionMetadata) *func
 	return outputEndpoint
 }
 
-func leastProcessedLoadBalancing(metadata *function_metadata.FunctionMetadata) *function_metadata.UpstreamEndpoint {
+func leastProcessedLoadBalancing(metadata *service_metadata.ServiceMetadata) *service_metadata.UpstreamEndpoint {
 	endpoints := metadata.GetUpstreamEndpoints()
 	requestCountPerInstance := metadata.GetRequestCountPerInstance()
 
@@ -133,7 +133,7 @@ func leastProcessedLoadBalancing(metadata *function_metadata.FunctionMetadata) *
 	return minEndpoint
 }
 
-func generateTwoUniformRandomEndpoints(endpoints []*function_metadata.UpstreamEndpoint) (*function_metadata.UpstreamEndpoint, *function_metadata.UpstreamEndpoint) {
+func generateTwoUniformRandomEndpoints(endpoints []*service_metadata.UpstreamEndpoint) (*service_metadata.UpstreamEndpoint, *service_metadata.UpstreamEndpoint) {
 	/*
 		The trick is that we generate from 0 to l-1 and if the generated value is bigger than the first.
 		We increase by one. We get two uniform randoms distributions and the number are different.
@@ -148,10 +148,10 @@ func generateTwoUniformRandomEndpoints(endpoints []*function_metadata.UpstreamEn
 	return endpoints[r1], endpoints[r2]
 }
 
-func bestOfTwoRandoms(metadata *function_metadata.FunctionMetadata) *function_metadata.UpstreamEndpoint {
+func bestOfTwoRandoms(metadata *service_metadata.ServiceMetadata) *service_metadata.UpstreamEndpoint {
 	endpoints := metadata.GetUpstreamEndpoints()
 
-	var output *function_metadata.UpstreamEndpoint
+	var output *service_metadata.UpstreamEndpoint
 
 	if len(endpoints) == 1 {
 		output = endpoints[0]
@@ -167,7 +167,7 @@ func bestOfTwoRandoms(metadata *function_metadata.FunctionMetadata) *function_me
 	return output
 }
 
-func kubernetesFirstAvailableLoadBalancing(metadata *function_metadata.FunctionMetadata) *function_metadata.UpstreamEndpoint {
+func kubernetesFirstAvailableLoadBalancing(metadata *service_metadata.ServiceMetadata) *service_metadata.UpstreamEndpoint {
 	endpoints := metadata.GetUpstreamEndpoints()
 	for _, endpoint := range endpoints {
 		if len(endpoint.Capacity) > 0 {
@@ -181,7 +181,7 @@ func kubernetesFirstAvailableLoadBalancing(metadata *function_metadata.FunctionM
 	return randomEndpoint(endpoints)
 }
 
-func kubernetesRoundRobinLoadBalancing(metadata *function_metadata.FunctionMetadata) *function_metadata.UpstreamEndpoint {
+func kubernetesRoundRobinLoadBalancing(metadata *service_metadata.ServiceMetadata) *service_metadata.UpstreamEndpoint {
 	endpoints := metadata.GetUpstreamEndpoints()
 
 	baseIdx := metadata.GetKubernetesRoundRobinCounter()
@@ -208,10 +208,10 @@ func kubernetesRoundRobinLoadBalancing(metadata *function_metadata.FunctionMetad
 	return randomEndpoint(endpoints)
 }
 
-func kubernetesNativeLoadBalancing(metadata *function_metadata.FunctionMetadata) *function_metadata.UpstreamEndpoint {
+func kubernetesNativeLoadBalancing(metadata *service_metadata.ServiceMetadata) *service_metadata.UpstreamEndpoint {
 	containerConcurrency := metadata.GetSandboxParallelism()
 
-	if containerConcurrency == function_metadata.UnlimitedConcurrency {
+	if containerConcurrency == service_metadata.UnlimitedConcurrency {
 		return bestOfTwoRandoms(metadata)
 	} else if containerConcurrency <= 3 {
 		return kubernetesFirstAvailableLoadBalancing(metadata)

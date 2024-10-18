@@ -26,6 +26,12 @@ func (e emptyInterfaceClient) DeleteSandbox(ctx context.Context, in *proto.Sandb
 	}, nil
 }
 
+func (e emptyInterfaceClient) CreateTaskSandbox(ctx context.Context, in *proto.WorkflowTaskInfo, opts ...grpc.CallOption) (*proto.SandboxCreationStatus, error) {
+	return &proto.SandboxCreationStatus{
+		Success: true,
+	}, nil
+}
+
 func (e emptyInterfaceClient) ListEndpoints(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*proto.EndpointsList, error) {
 	return &proto.EndpointsList{}, nil
 }

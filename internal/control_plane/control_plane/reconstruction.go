@@ -197,13 +197,13 @@ func (c *ControlPlane) reconstructEndpointsState(ctx context.Context) error {
 			}
 			c.SIStorage.RUnlock()
 
-			ss.NIStorage.AtomicGetNoCheck(node.GetName()).GetEndpointMap().AtomicSet(controlPlaneEndpoint, ss.FunctionState.ServiceInfo.Name)
+			ss.NIStorage.AtomicGetNoCheck(node.GetName()).GetEndpointMap().AtomicSet(controlPlaneEndpoint, ss.ServiceState.ServiceName)
 
 			// Add endpoint to the node endpoint_placer
 			ss.AddEndpoint(controlPlaneEndpoint)
 
 			// Inform the autoscaler we are in a reconstruction phase
-			c.autoscalingManager.PanicPoke(endpoint.ServiceName, ss.FunctionState.CachedScalingMetrics)
+			c.autoscalingManager.PanicPoke(endpoint.ServiceName, ss.ServiceState.CachedScalingMetrics)
 		}(e)
 	}
 

@@ -45,6 +45,8 @@ message ServiceInfo {
   PortMapping PortForwarding = 5;
   AutoscalingConfiguration AutoscalingConfig = 6;
   SandboxConfiguration SandboxConfiguration = 7;
+  uint32 NumArgs = 8;
+  uint32 NumRets = 9;
 }
 
 message ServiceList {
@@ -70,12 +72,14 @@ message WorkflowTaskInfo {
 
 message WorkflowInfo {
   string Name = 1;
-  repeated string InitialTasks = 3;
-  repeated int32 InitialDataSrcIdx = 4;
-  repeated int32 InitialDataDstIdx = 5;
-  repeated string OutTasks = 6;
-  repeated int32 OutDataSrcIdx = 7;
-  repeated WorkflowTaskInfo Tasks = 8;
+  uint32 NumIn = 2;
+  uint32 NumOut = 3;
+  repeated string InitialTasks = 4;
+  repeated int32 InitialDataSrcIdx = 5;
+  repeated int32 InitialDataDstIdx = 6;
+  repeated string OutTasks = 7;
+  repeated int32 OutDataSrcIdx = 8;
+  repeated WorkflowTaskInfo Tasks = 9;
 }
 
 message ActionStatus {

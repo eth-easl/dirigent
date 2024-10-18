@@ -6,6 +6,7 @@ portGRPC: "8081"
 verbosity: "trace"
 traceOutputFolder: "data"
 loadBalancingPolicy: "knative"
+workflowDefaultScheduler: "concurrentFifo"
 async:
   enabled: true
   persistRequests: true

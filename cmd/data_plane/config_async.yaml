@@ -6,6 +6,7 @@ portProxyRead: "8082"
 verbosity: "trace"
 traceOutputFolder: "data"
 loadBalancingPolicy: "random"
+workflowDefaultScheduler: "concurrentFifo"
 async:
   enabled: true
   persistRequests: true

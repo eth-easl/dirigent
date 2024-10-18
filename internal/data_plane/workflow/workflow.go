@@ -21,8 +21,10 @@ type Task struct {
 }
 
 type Workflow struct {
-	Name  string
-	Tasks []*Task
+	Name   string
+	Tasks  []*Task
+	NumIn  uint32
+	NumOut uint32
 
 	InitialTasks      []*Task // tasks consuming workflow input
 	InitialDataSrcIdx []int32 // argument idx in consumer
@@ -61,6 +63,8 @@ func CreateFromWorkflowInfo(wfInfo *proto.WorkflowInfo) *Workflow {
 	logrus.Printf("creating workflow %s", wfInfo.Name)
 	wf := &Workflow{
 		Name:              wfInfo.Name,
+		NumIn:             wfInfo.NumIn,
+		NumOut:            wfInfo.NumOut,
 		Tasks:             make([]*Task, len(wfInfo.Tasks)),
 		InitialTasks:      make([]*Task, len(wfInfo.InitialTasks)),
 		InitialDataSrcIdx: wfInfo.InitialDataSrcIdx,

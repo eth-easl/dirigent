@@ -1,7 +1,7 @@
 package default_autoscaler
 
 import (
-	"cluster_manager/internal/control_plane/control_plane/function_state"
+	"cluster_manager/internal/control_plane/control_plane/service_state"
 	"cluster_manager/pkg/synchronization"
 	"cluster_manager/proto"
 	"time"
@@ -19,7 +19,7 @@ func NewMultiscaler(autoscalingPeriod time.Duration) *DefaultMultiscaler {
 	}
 }
 
-func (m *DefaultMultiscaler) Create(functionState *function_state.FunctionState) {
+func (m *DefaultMultiscaler) Create(functionState *service_state.ServiceState) {
 	m.autoscalers.AtomicSet(functionState.ServiceName, newDefaultAutoscaler(functionState, m.autoscalingPeriod))
 }
 

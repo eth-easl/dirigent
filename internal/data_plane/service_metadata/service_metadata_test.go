@@ -1,4 +1,4 @@
-package function_metadata
+package service_metadata
 
 import (
 	"cluster_manager/proto"
@@ -60,7 +60,7 @@ func TestEndpointMerge(t *testing.T) {
 				})
 			}
 
-			metadata := FunctionMetadata{
+			metadata := ServiceMetadata{
 				identifier:        test.testName,
 				upstreamEndpoints: endpoints,
 			}

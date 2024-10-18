@@ -25,6 +25,7 @@ const _ = grpc.SupportPackageIsVersion7
 type WorkerNodeInterfaceClient interface {
 	CreateSandbox(ctx context.Context, in *ServiceInfo, opts ...grpc.CallOption) (*SandboxCreationStatus, error)
 	DeleteSandbox(ctx context.Context, in *SandboxID, opts ...grpc.CallOption) (*ActionStatus, error)
+	CreateTaskSandbox(ctx context.Context, in *WorkflowTaskInfo, opts ...grpc.CallOption) (*SandboxCreationStatus, error)
 	ListEndpoints(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*EndpointsList, error)
 }
 
@@ -54,6 +55,15 @@ func (c *workerNodeInterfaceClient) DeleteSandbox(ctx context.Context, in *Sandb
 	return out, nil
 }
 
+func (c *workerNodeInterfaceClient) CreateTaskSandbox(ctx context.Context, in *WorkflowTaskInfo, opts ...grpc.CallOption) (*SandboxCreationStatus, error) {
+	out := new(SandboxCreationStatus)
+	err := c.cc.Invoke(ctx, "/data_plane.WorkerNodeInterface/CreateTaskSandbox", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 func (c *workerNodeInterfaceClient) ListEndpoints(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*EndpointsList, error) {
 	out := new(EndpointsList)
 	err := c.cc.Invoke(ctx, "/data_plane.WorkerNodeInterface/ListEndpoints", in, out, opts...)
@@ -69,6 +79,7 @@ func (c *workerNodeInterfaceClient) ListEndpoints(ctx context.Context, in *empty
 type WorkerNodeInterfaceServer interface {
 	CreateSandbox(context.Context, *ServiceInfo) (*SandboxCreationStatus, error)
 	DeleteSandbox(context.Context, *SandboxID) (*ActionStatus, error)
+	CreateTaskSandbox(context.Context, *WorkflowTaskInfo) (*SandboxCreationStatus, error)
 	ListEndpoints(context.Context, *emptypb.Empty) (*EndpointsList, error)
 	mustEmbedUnimplementedWorkerNodeInterfaceServer()
 }
@@ -82,6 +93,9 @@ func (UnimplementedWorkerNodeInterfaceServer) CreateSandbox(context.Context, *Se
 }
 func (UnimplementedWorkerNodeInterfaceServer) DeleteSandbox(context.Context, *SandboxID) (*ActionStatus, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method DeleteSandbox not implemented")
+}
+func (UnimplementedWorkerNodeInterfaceServer) CreateTaskSandbox(context.Context, *WorkflowTaskInfo) (*SandboxCreationStatus, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method CreateTaskSandbox not implemented")
 }
 func (UnimplementedWorkerNodeInterfaceServer) ListEndpoints(context.Context, *emptypb.Empty) (*EndpointsList, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method ListEndpoints not implemented")
@@ -135,6 +149,24 @@ func _WorkerNodeInterface_DeleteSandbox_Handler(srv interface{}, ctx context.Con
 	return interceptor(ctx, in, info, handler)
 }
 
+func _WorkerNodeInterface_CreateTaskSandbox_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(WorkflowTaskInfo)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(WorkerNodeInterfaceServer).CreateTaskSandbox(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/data_plane.WorkerNodeInterface/CreateTaskSandbox",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(WorkerNodeInterfaceServer).CreateTaskSandbox(ctx, req.(*WorkflowTaskInfo))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 func _WorkerNodeInterface_ListEndpoints_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(emptypb.Empty)
 	if err := dec(in); err != nil {
@@ -167,6 +199,10 @@ var WorkerNodeInterface_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "DeleteSandbox",
 			Handler:    _WorkerNodeInterface_DeleteSandbox_Handler,
+		},
+		{
+			MethodName: "CreateTaskSandbox",
+			Handler:    _WorkerNodeInterface_CreateTaskSandbox_Handler,
 		},
 		{
 			MethodName: "ListEndpoints",

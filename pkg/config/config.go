@@ -27,6 +27,7 @@ type ControlPlaneConfig struct {
 	PrecreateSnapshots         bool          `mapstructure:"precreateSnapshots"`
 	Autoscaler                 string        `mapstructure:"autoscaler"`
 	AutoscalingPeriod          time.Duration `mapstructure:"autoscalingPeriod"`
+	DefaultWFPartitionMethod   string        `mapstructure:"defaultWFPartitionMethod"`
 }
 
 type DataPlaneConfig struct {
@@ -41,6 +42,7 @@ type DataPlaneConfig struct {
 	Async                               AsyncConf `mapstructure:"async"`
 	RedisConf                           RedisConf `mapstructure:"redis"`
 	ControlPlaneNotifyIntervalInMinutes int       `mapstructure:"controlPlaneNotifyIntervalMinutes"`
+	WorkflowDefaultScheduler            string    `mapstructure:"workflowDefaultScheduler"`
 }
 
 type WorkerNodeConfig struct {

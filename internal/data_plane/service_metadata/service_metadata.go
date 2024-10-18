@@ -1,4 +1,4 @@
-package function_metadata
+package service_metadata
 
 import (
 	"cluster_manager/pkg/atomic_map_counter"
@@ -37,7 +37,7 @@ type LoadBalancingMetadata struct {
 	RequestCountPerInstance     *atomic_map_counter.AtomicMapCounter[*UpstreamEndpoint]
 }
 
-type FunctionMetadata struct {
+type ServiceMetadata struct {
 	sync.RWMutex
 
 	dataPlaneID string
@@ -80,8 +80,8 @@ type ColdStartChannelStruct struct {
 	AddEndpointDuration time.Duration
 }
 
-func NewFunctionMetadata(name string, dataplaneID string, containerConcurrency uint) *FunctionMetadata {
-	return &FunctionMetadata{
+func NewFunctionMetadata(name string, dataplaneID string, containerConcurrency uint) *ServiceMetadata {
+	return &ServiceMetadata{
 		dataPlaneID:        dataplaneID,
 		identifier:         name,
 		sandboxParallelism: containerConcurrency,
@@ -99,53 +99,53 @@ func NewFunctionMetadata(name string, dataplaneID string, containerConcurrency u
 	}
 }
 
-func (m *FunctionMetadata) GetStatistics() *FunctionStatistics {
+func (m *ServiceMetadata) GetStatistics() *FunctionStatistics {
 	return m.scalingMetric.statistics
 }
 
-func (m *FunctionMetadata) GetIdentifier() string {
+func (m *ServiceMetadata) GetIdentifier() string {
 	return m.identifier
 }
 
-func (m *FunctionMetadata) GetUpstreamEndpoints() []*UpstreamEndpoint {
+func (m *ServiceMetadata) GetUpstreamEndpoints() []*UpstreamEndpoint {
 	return m.upstreamEndpoints
 }
 
-func (m *FunctionMetadata) GetSandboxParallelism() uint {
+func (m *ServiceMetadata) GetSandboxParallelism() uint {
 	return m.sandboxParallelism
 }
 
-func (m *FunctionMetadata) PutSandboxParallelism(containerConcurrency uint) {
+func (m *ServiceMetadata) PutSandboxParallelism(containerConcurrency uint) {
 	ptr := (*uint64)(unsafe.Pointer(&m.sandboxParallelism))
 	atomic.SwapUint64(ptr, uint64(containerConcurrency))
 	logrus.Infof("Modified container concurrency for %s to %d", m.identifier, containerConcurrency)
 }
 
-func (m *FunctionMetadata) GetRoundRobinCounter() uint32 {
+func (m *ServiceMetadata) GetRoundRobinCounter() uint32 {
 	return m.loadBalancingMetadata.RoundRobinCounter % uint32(len(m.GetUpstreamEndpoints()))
 }
 
-func (m *FunctionMetadata) IncrementRoundRobinCounter() {
+func (m *ServiceMetadata) IncrementRoundRobinCounter() {
 	atomic.AddUint32(&m.loadBalancingMetadata.RoundRobinCounter, 1)
 }
 
-func (m *FunctionMetadata) GetKubernetesRoundRobinCounter() uint32 {
+func (m *ServiceMetadata) GetKubernetesRoundRobinCounter() uint32 {
 	return m.loadBalancingMetadata.KubernetesRoundRobinCounter % uint32(len(m.GetUpstreamEndpoints()))
 }
 
-func (m *FunctionMetadata) IncrementKubernetesRoundRobinCounter() {
+func (m *ServiceMetadata) IncrementKubernetesRoundRobinCounter() {
 	atomic.AddUint32(&m.loadBalancingMetadata.KubernetesRoundRobinCounter, 1)
 }
 
-func (m *FunctionMetadata) GetRequestCountPerInstance() *atomic_map_counter.AtomicMapCounter[*UpstreamEndpoint] {
+func (m *ServiceMetadata) GetRequestCountPerInstance() *atomic_map_counter.AtomicMapCounter[*UpstreamEndpoint] {
 	return m.loadBalancingMetadata.RequestCountPerInstance
 }
 
-func (m *FunctionMetadata) IncrementRequestCountPerInstance(endpoint *UpstreamEndpoint) {
+func (m *ServiceMetadata) IncrementRequestCountPerInstance(endpoint *UpstreamEndpoint) {
 	m.loadBalancingMetadata.RequestCountPerInstance.AtomicIncrement(endpoint)
 }
 
-func (m *FunctionMetadata) GetLocalQueueLength(endpoint *UpstreamEndpoint) int64 {
+func (m *ServiceMetadata) GetLocalQueueLength(endpoint *UpstreamEndpoint) int64 {
 	return m.loadBalancingMetadata.RequestCountPerInstance.Get(endpoint)
 }
 
@@ -169,7 +169,7 @@ func endpointDelta(oldEndpoints []*UpstreamEndpoint, newEndpoints []*proto.Endpo
 	return mmOld, mmNew, toAdd, toRemove
 }
 
-func (m *FunctionMetadata) addToEndpointList(data []*proto.EndpointInfo) {
+func (m *ServiceMetadata) addToEndpointList(data []*proto.EndpointInfo) {
 	for i := 0; i < len(data); i++ {
 		m.upstreamEndpoints = append(m.upstreamEndpoints, &UpstreamEndpoint{
 			ID:       data[i].ID,
@@ -185,7 +185,7 @@ func (m *FunctionMetadata) addToEndpointList(data []*proto.EndpointInfo) {
 	}
 }
 
-func (m *FunctionMetadata) AddEndpoints(endpoints []*proto.EndpointInfo) {
+func (m *ServiceMetadata) AddEndpoints(endpoints []*proto.EndpointInfo) {
 	timeToAddEndpoint := time.Now()
 
 	m.Lock()
@@ -218,7 +218,7 @@ func (m *FunctionMetadata) AddEndpoints(endpoints []*proto.EndpointInfo) {
 	}
 }
 
-func (m *FunctionMetadata) DrainEndpoints(endpoints []*proto.EndpointInfo) error {
+func (m *ServiceMetadata) DrainEndpoints(endpoints []*proto.EndpointInfo) error {
 	m.Lock()
 	barriers := m.markEndpointsAsDraining(endpoints)
 	m.removeEndpoints(endpoints)
@@ -229,7 +229,7 @@ func (m *FunctionMetadata) DrainEndpoints(endpoints []*proto.EndpointInfo) error
 	return nil
 }
 
-func (m *FunctionMetadata) RemoveAllEndpoints() {
+func (m *ServiceMetadata) RemoveAllEndpoints() {
 	m.Lock()
 	defer m.Unlock()
 
@@ -237,7 +237,7 @@ func (m *FunctionMetadata) RemoveAllEndpoints() {
 	atomic.StoreInt32(&m.activeEndpointCount, 0)
 }
 
-func (m *FunctionMetadata) removeEndpoints(endpoints []*proto.EndpointInfo) {
+func (m *ServiceMetadata) removeEndpoints(endpoints []*proto.EndpointInfo) {
 	for i := 0; i < len(endpoints); i++ {
 		for j := 0; j < len(m.upstreamEndpoints); j++ {
 			if endpoints[i].URL == m.upstreamEndpoints[j].URL {
@@ -254,7 +254,7 @@ func (m *FunctionMetadata) removeEndpoints(endpoints []*proto.EndpointInfo) {
 	}
 }
 
-func (m *FunctionMetadata) markEndpointsAsDraining(endpoints []*proto.EndpointInfo) []chan struct{} {
+func (m *ServiceMetadata) markEndpointsAsDraining(endpoints []*proto.EndpointInfo) []chan struct{} {
 	infos := make(map[string]*proto.EndpointInfo)
 	for _, e := range endpoints {
 		infos[e.ID] = e
@@ -289,7 +289,7 @@ func (m *FunctionMetadata) markEndpointsAsDraining(endpoints []*proto.EndpointIn
 	return callbackBlocks
 }
 
-func (m *FunctionMetadata) waitForDrainingToComplete(barriers []chan struct{}) {
+func (m *ServiceMetadata) waitForDrainingToComplete(barriers []chan struct{}) {
 	if len(barriers) == 0 {
 		return
 	}
@@ -308,11 +308,11 @@ func (m *FunctionMetadata) waitForDrainingToComplete(barriers []chan struct{}) {
 	wg.Wait()
 }
 
-func (m *FunctionMetadata) SetEndpoints(newEndpoints []*UpstreamEndpoint) {
+func (m *ServiceMetadata) SetEndpoints(newEndpoints []*UpstreamEndpoint) {
 	m.upstreamEndpoints = newEndpoints
 }
 
-func (m *FunctionMetadata) TryWarmStart(cp proto.CpiInterfaceClient) (chan ColdStartChannelStruct, time.Duration) {
+func (m *ServiceMetadata) TryWarmStart(cp proto.CpiInterfaceClient) (chan ColdStartChannelStruct, time.Duration) {
 	start := time.Now()
 
 	// per_function_state metric
@@ -337,7 +337,7 @@ func (m *FunctionMetadata) TryWarmStart(cp proto.CpiInterfaceClient) (chan ColdS
 	}
 }
 
-func (m *FunctionMetadata) triggerAutoscaling(cp proto.CpiInterfaceClient) {
+func (m *ServiceMetadata) triggerAutoscaling(cp proto.CpiInterfaceClient) {
 	swapped := false
 	for !swapped {
 		oldValue := atomic.LoadInt32(&m.autoscalingTriggered)
@@ -354,7 +354,7 @@ func (m *FunctionMetadata) triggerAutoscaling(cp proto.CpiInterfaceClient) {
 	}
 }
 
-func (m *FunctionMetadata) sendMetricsToAutoscaler(cp proto.CpiInterfaceClient) {
+func (m *ServiceMetadata) sendMetricsToAutoscaler(cp proto.CpiInterfaceClient) {
 	timer := time.NewTicker(m.scalingMetric.timeWindowSize)
 
 	logrus.Debug("Started metrics loop")

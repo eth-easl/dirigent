@@ -265,6 +265,15 @@ func (fcr *Runtime) DeleteSandbox(_ context.Context, in *proto.SandboxID) (*prot
 	return &proto.ActionStatus{Success: true}, nil
 }
 
+func (fcr *Runtime) CreateTaskSandbox(_ context.Context, _ *proto.WorkflowTaskInfo) (*proto.SandboxCreationStatus, error) {
+	// not supported by the firecracker runtime
+	return &proto.SandboxCreationStatus{
+		Success:          false,
+		ID:               "-1",
+		LatencyBreakdown: &proto.SandboxCreationBreakdown{},
+	}, nil
+}
+
 func (fcr *Runtime) ListEndpoints(_ context.Context, _ *emptypb.Empty) (*proto.EndpointsList, error) {
 	return fcr.SandboxManager.ListEndpoints()
 }

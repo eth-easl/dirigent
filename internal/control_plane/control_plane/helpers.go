@@ -5,7 +5,7 @@ import (
 	"cluster_manager/internal/control_plane/control_plane/endpoint_placer"
 	"cluster_manager/internal/control_plane/control_plane/endpoint_placer/eviction_policy"
 	placement_policy2 "cluster_manager/internal/control_plane/control_plane/endpoint_placer/placement_policy"
-	"cluster_manager/internal/control_plane/control_plane/function_state"
+	"cluster_manager/internal/control_plane/control_plane/service_state"
 	"cluster_manager/pkg/config"
 	"cluster_manager/pkg/synchronization"
 	"cluster_manager/pkg/utils"
@@ -31,14 +31,14 @@ func (c *ControlPlane) notifyDataplanesAndStartScalingLoop(ctx context.Context, 
 	}
 	c.DataPlaneConnections.Unlock()
 
-	functionState := function_state.NewFunctionState(serviceInfo)
+	serviceState := service_state.NewFunctionState(serviceInfo)
 
-	c.autoscalingManager.Create(functionState)
+	c.autoscalingManager.Create(serviceState)
 
 	placementPolicy, evictionPolicy := parsePlacementEvictionPolicies(c.Config)
 
 	c.SIStorage.Set(serviceInfo.Name, &endpoint_placer.EndpointPlacer{
-		FunctionState:           functionState,
+		ServiceState:            serviceState,
 		ColdStartTracingChannel: c.ColdStartTracing.InputChannel,
 		PlacementPolicy:         placementPolicy,
 		EvictionPolicy:          evictionPolicy,
@@ -70,17 +70,17 @@ func (c *ControlPlane) removeEndpointsAssociatedWithNode(nodeID string) {
 	c.SIStorage.Lock()
 	for _, value := range c.SIStorage.GetMap() {
 		toExclude := make(map[*core.Endpoint]struct{})
-		value.FunctionState.EndpointLock.Lock()
-		for _, endpoint := range value.FunctionState.Endpoints {
+		value.ServiceState.EndpointLock.Lock()
+		for _, endpoint := range value.ServiceState.Endpoints {
 			if endpoint.Node.GetName() == nodeID {
 				toExclude[endpoint] = struct{}{}
 			}
 		}
 
 		value.ExcludeEndpoints(toExclude)
-		value.FunctionState.EndpointLock.Unlock()
+		value.ServiceState.EndpointLock.Unlock()
 
-		atomic.AddInt64(&value.FunctionState.ActualScale, int64(-len(toExclude)))
+		atomic.AddInt64(&value.ServiceState.ActualScale, int64(-len(toExclude)))
 	}
 	c.SIStorage.Unlock()
 }

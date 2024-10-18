@@ -40,6 +40,16 @@ func (fsr *Runtime) DeleteSandbox(_ context.Context, _ *proto.SandboxID) (*proto
 	return &proto.ActionStatus{Success: true}, nil
 }
 
+func (fsr *Runtime) CreateTaskSandbox(_ context.Context, _ *proto.WorkflowTaskInfo) (*proto.SandboxCreationStatus, error) {
+	time.Sleep(80 * time.Millisecond)
+	logrus.Debugf("Fake task sandbox created successfully.")
+
+	return &proto.SandboxCreationStatus{
+		Success:          true,
+		LatencyBreakdown: &proto.SandboxCreationBreakdown{},
+	}, nil
+}
+
 func (fsr *Runtime) ListEndpoints(_ context.Context, _ *emptypb.Empty) (*proto.EndpointsList, error) {
 	return &proto.EndpointsList{Endpoint: nil}, nil
 }

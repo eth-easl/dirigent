@@ -1,5 +1,7 @@
 package workflow
 
+import "cluster_manager/proto"
+
 type Task struct {
 	Name   string
 	NumIn  uint32
@@ -18,6 +20,8 @@ type Task struct {
 type Workflow struct {
 	Name       string
 	TotalTasks uint32
+	NumIn      uint32
+	NumOut     uint32
 
 	InitialTasks      []*Task // tasks consuming workflow input
 	InitialDataSrcIdx []int32 // argument idx in consumer
@@ -38,11 +42,13 @@ func TaskToStr(tasks []*Task) []string {
 type StorageTacker struct {
 	parent string
 	tasks  []string
+	wfInfo *proto.WorkflowInfo
 }
 
-func NewWorkflow(numTasks int) *StorageTacker {
+func NewWorkflow(wfInfo *proto.WorkflowInfo) *StorageTacker {
 	return &StorageTacker{
-		tasks: make([]string, numTasks),
+		tasks:  make([]string, len(wfInfo.Tasks)),
+		wfInfo: wfInfo,
 	}
 }
 
@@ -66,4 +72,8 @@ func (s *StorageTacker) SetTask(idx int, t string) {
 
 func (s *StorageTacker) GetTasks() []string {
 	return s.tasks
+}
+
+func (s *StorageTacker) GetWorkflowInfo() *proto.WorkflowInfo {
+	return s.wfInfo
 }
