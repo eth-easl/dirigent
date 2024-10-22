@@ -12,9 +12,10 @@ import (
 type ConcurrentFifoScheduler struct {
 	wf            *workflow.Workflow
 	eg            *errgroup.Group
-	sCtx          context.Context
+	egCtx         context.Context
 	orchestrator  *workflow.TaskOrchestrator
 	tasksFinished atomic.Uint64
+	sCtx          context.Context
 }
 
 func NewConcurrentFifoScheduler(wf *workflow.Workflow) *ConcurrentFifoScheduler {
@@ -22,7 +23,7 @@ func NewConcurrentFifoScheduler(wf *workflow.Workflow) *ConcurrentFifoScheduler 
 	return &ConcurrentFifoScheduler{
 		wf:            wf,
 		eg:            eg,
-		sCtx:          ctx,
+		egCtx:         ctx,
 		tasksFinished: atomic.Uint64{},
 	}
 }
@@ -31,7 +32,7 @@ func (s *ConcurrentFifoScheduler) workStmt(task *workflow.Task, scheduleTask Sch
 	return func() error {
 		// schedule task
 		logrus.Tracef("ConcurrentFifoScheduler: Scheduling task '%s'...", task.Name)
-		err := scheduleTask(s.orchestrator, task)
+		err := scheduleTask(s.orchestrator, task, s.sCtx)
 		if err != nil {
 			return err
 		}
@@ -39,7 +40,7 @@ func (s *ConcurrentFifoScheduler) workStmt(task *workflow.Task, scheduleTask Sch
 		logrus.Tracef("ConcurrentFifoScheduler: Task '%s' finished.", task.Name)
 
 		// check if scheduling context has been cancelled
-		if s.sCtx.Err() != nil {
+		if s.egCtx.Err() != nil {
 			return nil
 		}
 
@@ -52,7 +53,10 @@ func (s *ConcurrentFifoScheduler) workStmt(task *workflow.Task, scheduleTask Sch
 	}
 }
 
-func (s *ConcurrentFifoScheduler) Schedule(scheduleTask ScheduleTaskFunc, inData []*workflow.Data) error {
+func (s *ConcurrentFifoScheduler) Schedule(scheduleTask ScheduleTaskFunc, inData []*workflow.Data, ctx context.Context) error {
+	// set scheduling context
+	s.sCtx = ctx
+
 	// create workers for all initially runnable tasks
 	orchestrator, initTasks, err := workflow.GetInitialRunnable(s.wf, inData)
 	if err != nil {

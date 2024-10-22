@@ -2,6 +2,7 @@ package scheduler
 
 import (
 	"cluster_manager/internal/data_plane/workflow"
+	"context"
 	"fmt"
 	"github.com/sirupsen/logrus"
 )
@@ -15,7 +16,7 @@ func NewSequentialFifoScheduler(wf *workflow.Workflow) *SequentialFifoScheduler 
 	return &SequentialFifoScheduler{wf: wf}
 }
 
-func (s *SequentialFifoScheduler) Schedule(scheduleTask ScheduleTaskFunc, inData []*workflow.Data) error {
+func (s *SequentialFifoScheduler) Schedule(scheduleTask ScheduleTaskFunc, inData []*workflow.Data, ctx context.Context) error {
 	orchestrator, queue, err := workflow.GetInitialRunnable(s.wf, inData)
 	if err != nil {
 		return fmt.Errorf("scheduler failed to get initial runnable tasks: %v", err)
@@ -29,7 +30,7 @@ func (s *SequentialFifoScheduler) Schedule(scheduleTask ScheduleTaskFunc, inData
 
 		// schedule task
 		logrus.Tracef("SequentialFifoScheduler: Scheduling task '%s' (queue depth: %d)...", currTask.Name, len(queue))
-		err = scheduleTask(orchestrator, currTask)
+		err = scheduleTask(orchestrator, currTask, ctx)
 		if err != nil {
 			return fmt.Errorf("scheduler failed to execute task: %v", err)
 		}

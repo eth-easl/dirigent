@@ -12,6 +12,7 @@ import (
 	"cluster_manager/pkg/config"
 	"cluster_manager/pkg/tracing"
 	"cluster_manager/proto"
+	"context"
 	"fmt"
 	"io"
 	"net"
@@ -73,7 +74,7 @@ func handleFunction(proxy *httputil.ReverseProxy, writer http.ResponseWriter, re
 	defer reqMetadata.GetStatistics().DecrementInflight()
 
 	// unblock from cold start if context gets cancelled
-	go contextTerminationHandler(request, coldStartChannel)
+	go contextTerminationHandler(request.Context(), coldStartChannel)
 
 	if coldStartChannel != nil {
 		logrus.Debug("Enqueued invocation for ", serviceName)
@@ -143,7 +144,7 @@ func handleFunction(proxy *httputil.ReverseProxy, writer http.ResponseWriter, re
 }
 
 func scheduleWorkflowFunction(httpClient *http.Client, proxyCtx *proxyContext) scheduler.ScheduleTaskFunc {
-	return func(orchestrator *workflow.TaskOrchestrator, task *workflow.Task) error {
+	return func(orchestrator *workflow.TaskOrchestrator, task *workflow.Task, ctx context.Context) error {
 		var serviceName string
 		if len(task.Functions) > 1 {
 			serviceName = task.Name
@@ -160,6 +161,7 @@ func scheduleWorkflowFunction(httpClient *http.Client, proxyCtx *proxyContext) s
 		// cold/warm start
 		coldStartChannel, _ := metadata.TryWarmStart(proxyCtx.cpInterface)
 		defer metadata.GetStatistics().DecrementInflight()
+		go contextTerminationHandler(ctx, coldStartChannel)
 		if coldStartChannel != nil {
 			logrus.Debug("Enqueued invocation for ", serviceName)
 
@@ -169,7 +171,7 @@ func scheduleWorkflowFunction(httpClient *http.Client, proxyCtx *proxyContext) s
 
 			// TODO: Resend the request in the channel & execute until it works
 			if waitOutcome.Outcome == common.CanceledColdStart {
-				return fmt.Errorf("invocation context canceled for '%s'", serviceName)
+				return fmt.Errorf("invocation context canceled for '%s' (workflow request canceled?)", serviceName)
 			}
 		}
 
@@ -274,7 +276,7 @@ func handleWorkflow(writer http.ResponseWriter, request *http.Request, wf *workf
 	// schedule workflow
 	httpClient := &http.Client{Timeout: 10 * time.Second}
 	wfScheduler := scheduler.NewScheduler(wf, schedulerType)
-	err = wfScheduler.Schedule(scheduleWorkflowFunction(httpClient, proxyCtx), inData)
+	err = wfScheduler.Schedule(scheduleWorkflowFunction(httpClient, proxyCtx), inData, request.Context())
 	if err != nil {
 		logrus.Errorf("Failed while executing workflow %s: %v", wf.Name, err)
 		return &requests.BufferedResponse{

@@ -2,6 +2,7 @@ package scheduler
 
 import (
 	"cluster_manager/internal/data_plane/workflow"
+	"context"
 	"github.com/sirupsen/logrus"
 )
 
@@ -24,10 +25,10 @@ func SchedulerTypeFromString(s string) SchedulerType {
 	}
 }
 
-type ScheduleTaskFunc func(*workflow.TaskOrchestrator, *workflow.Task) error
+type ScheduleTaskFunc func(*workflow.TaskOrchestrator, *workflow.Task, context.Context) error
 
 type Scheduler interface {
-	Schedule(ScheduleTaskFunc, []*workflow.Data) error
+	Schedule(ScheduleTaskFunc, []*workflow.Data, context.Context) error
 	CollectOutput() ([]*workflow.Data, error)
 }
 

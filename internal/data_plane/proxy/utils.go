@@ -2,6 +2,7 @@ package proxy
 
 import (
 	"cluster_manager/internal/data_plane/service_metadata"
+	"context"
 	"net/http"
 	"sync/atomic"
 )
@@ -22,9 +23,9 @@ func giveBackCCCapacity(endpoint *service_metadata.UpstreamEndpoint) {
 	}
 }
 
-func contextTerminationHandler(r *http.Request, coldStartChannel chan service_metadata.ColdStartChannelStruct) {
+func contextTerminationHandler(c context.Context, coldStartChannel chan service_metadata.ColdStartChannelStruct) {
 	select {
-	case <-r.Context().Done():
+	case <-c.Done():
 		if coldStartChannel != nil {
 			coldStartChannel <- service_metadata.ColdStartChannelStruct{
 				Outcome:             service_metadata.CanceledColdStart,
