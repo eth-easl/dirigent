@@ -9,6 +9,7 @@ import (
 	"cluster_manager/pkg/tracing"
 	"cluster_manager/pkg/utils"
 	"cluster_manager/proto"
+	log "github.com/sirupsen/logrus"
 	"net/http"
 	"time"
 )
@@ -57,10 +58,17 @@ func (sps *SyncProxyingService) StartTracingService() {
 
 func (sps *SyncProxyingService) createInvocationHandler() http.HandlerFunc {
 	return func(w http.ResponseWriter, request *http.Request) {
-		proxyHandler(sps.reverseProxy, w, request, requestMetadata{
+		resp := proxyHandler(sps.reverseProxy, w, request, requestMetadata{
 			start:            time.Now(),
 			serialization:    0,
 			persistenceLayer: 0,
 		}, sps.Context, sps.dpConfig)
+		if resp.StatusCode != http.StatusOK {
+			w.WriteHeader(resp.StatusCode)
+			_, err := w.Write([]byte(resp.Body))
+			if err != nil {
+				log.Errorf("Failed to write failure message in response: %v", err)
+			}
+		}
 	}
 }
