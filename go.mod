@@ -10,6 +10,7 @@ require (
 	github.com/coreos/go-iptables v0.6.0
 	github.com/cznic/mathutil v0.0.0-20181122101859-297441e03548
 	github.com/davecgh/go-spew v1.1.1
+	github.com/distribution/reference v0.6.0
 	github.com/fearful-symmetry/garlic v0.3.0
 	github.com/firecracker-microvm/firecracker-go-sdk v1.0.0
 	github.com/golang/protobuf v1.5.4

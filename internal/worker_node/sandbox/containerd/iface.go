@@ -4,6 +4,7 @@ import (
 	"cluster_manager/internal/worker_node/managers"
 	"cluster_manager/proto"
 	"context"
+	"encoding/json"
 	"fmt"
 	"log"
 	"math/rand"
@@ -64,29 +65,73 @@ func composeEnvironmentSetting(cfg *proto.SandboxConfiguration) []string {
 	}
 }
 
+func generateContainerName() string {
+	return fmt.Sprintf("workload-%d", rand.Int())
+}
+
 func CreateContainer(ctx context.Context, client *containerd.Client, image containerd.Image, configuration *proto.ServiceInfo, CPUConstaints bool) (containerd.Container, error, time.Duration) {
 	start := time.Now()
-
-	containerName := fmt.Sprintf("workload-%d", rand.Int())
 
 	options := []oci.SpecOpts{oci.WithImageConfig(image), oci.WithEnv(composeEnvironmentSetting(configuration.SandboxConfiguration))}
 	if CPUConstaints {
 		options = append(options, oci.WithCPUs(strconv.FormatUint(configuration.RequestedCpu, 10)))
 	}
-	//options = append(options, oci.WithEnv(configuration.EnvironmentVariables))
-	//options = append(options, oci.WithProcessArgs(configuration.ProgramArguments))
+	options = append(options, oci.WithEnv(configuration.EnvironmentVariables))
 
+	containerName := generateContainerName()
 	container, err := client.NewContainer(ctx, containerName,
 		containerd.WithImage(image),
 		containerd.WithNewSnapshot(containerName, image),
 		containerd.WithNewSpec(options...),
 	)
-
 	if err != nil {
 		return nil, err, time.Since(start)
 	}
 
+	// For reference see - containerd repo - func WithProcessArgs(config *runtime.ContainerConfig, image *imagespec.ImageConfig) oci.SpecOpts
+	if len(configuration.ProgramArguments) > 1 {
+		newSpec, err := addProcessArgs(ctx, container, configuration.ProgramArguments)
+		if err != nil {
+			return nil, err, time.Since(start)
+		}
+
+		err = container.Delete(ctx)
+		if err != nil {
+			return nil, err, time.Since(start)
+		}
+
+		containerName = generateContainerName()
+		container, err = client.NewContainer(ctx, containerName,
+			containerd.WithImage(image),
+			containerd.WithNewSnapshot(containerName, image),
+			containerd.WithSpec(newSpec),
+		)
+		if err != nil {
+			return nil, err, time.Since(start)
+		}
+	}
+
 	return container, nil, time.Since(start)
+}
+
+func addProcessArgs(ctx context.Context, oldContainer containerd.Container, newArgs []string) (*oci.Spec, error) {
+	info, err := oldContainer.Info(ctx)
+	if err != nil {
+		logrus.Errorf("Failed to extract information from a container spec.")
+		return nil, err
+	}
+
+	var newSpec oci.Spec
+	err = json.Unmarshal(info.Spec.GetValue(), &newSpec)
+	if err != nil {
+		logrus.Errorf("Failed to unmarshall oci.Spec struct.")
+		return nil, err
+	}
+
+	newSpec.Process.Args = append(newSpec.Process.Args, newArgs...)
+	logrus.Debugf("Edited program to %s", newSpec.Process.Args)
+
+	return &newSpec, nil
 }
 
 func StartContainer(ctx context.Context, container containerd.Container, network cni.CNI) (containerd.Task, <-chan containerd.ExitStatus, string, string, error, time.Duration, time.Duration) {

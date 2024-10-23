@@ -160,7 +160,7 @@ func functionRegistrationHandler(cpApi *control_plane.CpApiServer) func(w http.R
 		}
 
 		environmentVars := r.Form["env_vars"]
-		programArgs := "" //, _ := getFormValue(w, r, "program_args")
+		programArgs := r.Form["program_args"]
 
 		serviceInfo := &proto.ServiceInfo{
 			Name:              name,

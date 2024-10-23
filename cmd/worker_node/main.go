@@ -11,9 +11,11 @@ import (
 	"cluster_manager/proto"
 	"flag"
 	"github.com/sirupsen/logrus"
+	"golang.org/x/exp/rand"
 	"google.golang.org/grpc"
 	"os/exec"
 	"strconv"
+	"time"
 )
 
 var (
@@ -22,6 +24,7 @@ var (
 
 func main() {
 	flag.Parse()
+	rand.Seed(uint64(time.Now().UnixNano()))
 
 	if !utils.IsRoot() {
 		logrus.Fatalf("Worker node must be started with sudo")
