@@ -5,16 +5,20 @@ import (
 	cp_workflow "cluster_manager/internal/control_plane/workflow"
 	"cluster_manager/internal/control_plane/workflow/dandelion-workflow"
 	dp_workflow "cluster_manager/internal/data_plane/workflow"
+	"context"
 	"fmt"
 	"strings"
 	"testing"
 	"time"
 )
 
-const testedSchedulerType = ConcurrentFifo
+var testedSchedulers = []SchedulerType{
+	SequentialFifo,
+	ConcurrentFifo,
+}
 
 func dummyScheduleFunc() ScheduleTaskFunc {
-	return func(to *dp_workflow.TaskOrchestrator, task *dp_workflow.Task) error {
+	return func(to *dp_workflow.TaskOrchestrator, task *dp_workflow.Task, _ context.Context) error {
 		inData := to.GetInData(task)
 		out := "("
 		for _, data := range inData {
@@ -90,6 +94,9 @@ func cpToDpWorkflow(cpWf *cp_workflow.Workflow, cpWfTasks []*cp_workflow.Task) *
 	return dpWf
 }
 
+//-------
+// Tests
+
 func TestSimpleChain(t *testing.T) {
 	testWorkflow := `
 		(:function FunA (A) -> (B))
@@ -120,33 +127,31 @@ func TestSimpleChain(t *testing.T) {
 	parser := dandelion_workflow.NewParser(bufio.NewReader(strings.NewReader(testWorkflow)))
 	dwf, err := parser.Parse()
 	if err != nil {
-		t.Errorf("Got error while parsing input: %v", err)
-		return
+		t.Fatalf("Got error while parsing input: %v", err)
 	}
 	dwf.Name = "Wf"
 	wfs, wfTasks, err := dwf.ExportWorkflow(dandelion_workflow.FullPartition)
 	if err != nil {
-		t.Errorf("Got error while exporting workflows: %v", err)
-		return
+		t.Fatalf("Got error while exporting workflows: %v", err)
 	}
 	wf := cpToDpWorkflow(wfs[0], wfTasks[0]) // only one workflow
 
 	inputA := dp_workflow.NewBytesData([]byte("InputA"))
 	inData := []*dp_workflow.Data{inputA}
-	scheduler := NewScheduler(wf, testedSchedulerType)
-	err = scheduler.Schedule(dummyScheduleFunc(), inData)
-	if err != nil {
-		t.Errorf("Got error while scheduling workflow: %v", err)
-		return
-	}
+	for _, sType := range testedSchedulers {
+		scheduler := NewScheduler(wf, sType)
+		err = scheduler.Schedule(dummyScheduleFunc(), inData, context.Background())
+		if err != nil {
+			t.Fatalf("Got error while scheduling workflow (schedulerType: %d): %v", sType, err)
+		}
 
-	outData, err := scheduler.CollectOutput()
-	if err != nil {
-		t.Errorf("Got error while collecting output: %v", err)
-		return
-	}
-	if len(outData) != 1 || string(outData[0].GetBytes()) != "(((InputA)->Wf_Test_FunA0)->Wf_Test_FunB1)->Wf_Test_FunC2" {
-		t.Errorf("Got invalid output: %s", string(outData[0].GetBytes()))
+		outData, err := scheduler.CollectOutput()
+		if err != nil {
+			t.Fatalf("Got error while collecting output (schedulerType: %d): %v", sType, err)
+		}
+		if len(outData) != 1 || string(outData[0].GetBytes()) != "(((InputA)->Wf_Test_FunA0)->Wf_Test_FunB1)->Wf_Test_FunC2" {
+			t.Errorf("Got invalid output (schedulerType: %d): %s", sType, string(outData[0].GetBytes()))
+		}
 	}
 }
 
@@ -188,33 +193,31 @@ func TestSimpleSplit(t *testing.T) {
 	parser := dandelion_workflow.NewParser(bufio.NewReader(strings.NewReader(testWorkflow)))
 	dwf, err := parser.Parse()
 	if err != nil {
-		t.Errorf("Got error while parsing input: %v", err)
-		return
+		t.Fatalf("Got error while parsing input: %v", err)
 	}
 	dwf.Name = "x"
 	wfs, wfTasks, err := dwf.ExportWorkflow(dandelion_workflow.FullPartition)
 	if err != nil {
-		t.Errorf("Got error while exporting workflows: %v", err)
-		return
+		t.Fatalf("Got error while exporting workflows: %v", err)
 	}
 	wf := cpToDpWorkflow(wfs[0], wfTasks[0]) // only one workflow
 
 	inputA := dp_workflow.NewBytesData([]byte("InputA"))
 	inData := []*dp_workflow.Data{inputA}
-	scheduler := NewScheduler(wf, testedSchedulerType)
-	err = scheduler.Schedule(dummyScheduleFunc(), inData)
-	if err != nil {
-		t.Errorf("Got error while scheduling dp_workflow: %v", err)
-		return
-	}
+	for _, sType := range testedSchedulers {
+		scheduler := NewScheduler(wf, sType)
+		err = scheduler.Schedule(dummyScheduleFunc(), inData, context.Background())
+		if err != nil {
+			t.Fatalf("Got error while scheduling dp_workflow (schedulerType: %d): %v", sType, err)
+		}
 
-	outData, err := scheduler.CollectOutput()
-	if err != nil {
-		t.Errorf("Got error while collecting output: %v", err)
-		return
-	}
-	if len(outData) != 1 || string(outData[0].GetBytes()) != "(((InputA)->x_y_FunA0)->x_y_FunB1,((InputA)->x_y_FunA0)->x_y_FunC2)->x_y_FunD3" {
-		t.Errorf("Got invalid output: %s", string(outData[0].GetBytes()))
+		outData, err := scheduler.CollectOutput()
+		if err != nil {
+			t.Fatalf("Got error while collecting output (schedulerType: %d): %v", sType, err)
+		}
+		if len(outData) != 1 || string(outData[0].GetBytes()) != "(((InputA)->x_y_FunA0)->x_y_FunB1,((InputA)->x_y_FunA0)->x_y_FunC2)->x_y_FunD3" {
+			t.Errorf("Got invalid output (schedulerType: %d): %s", sType, string(outData[0].GetBytes()))
+		}
 	}
 }
 
@@ -258,33 +261,31 @@ func TestSimpleExample(t *testing.T) {
 	parser := dandelion_workflow.NewParser(bufio.NewReader(strings.NewReader(testWorkflow)))
 	dwf, err := parser.Parse()
 	if err != nil {
-		t.Errorf("Got error while parsing input: %v", err)
-		return
+		t.Fatalf("Got error while parsing input: %v", err)
 	}
 	dwf.Name = "x"
 	wfs, wfTasks, err := dwf.ExportWorkflow(dandelion_workflow.FullPartition)
 	if err != nil {
-		t.Errorf("Got error while exporting workflows: %v", err)
-		return
+		t.Fatalf("Got error while exporting workflows: %v", err)
 	}
 	wf := cpToDpWorkflow(wfs[0], wfTasks[0]) // only one workflow
 
 	inputA := dp_workflow.NewBytesData([]byte("InputA"))
 	inData := []*dp_workflow.Data{inputA}
-	scheduler := NewScheduler(wf, testedSchedulerType)
-	err = scheduler.Schedule(dummyScheduleFunc(), inData)
-	if err != nil {
-		t.Errorf("Got error while scheduling dp_workflow: %v", err)
-		return
-	}
+	for _, sType := range testedSchedulers {
+		scheduler := NewScheduler(wf, sType)
+		err = scheduler.Schedule(dummyScheduleFunc(), inData, context.Background())
+		if err != nil {
+			t.Fatalf("Got error while scheduling dp_workflow (schedulerType: %d): %v", sType, err)
+		}
 
-	outData, err := scheduler.CollectOutput()
-	if err != nil {
-		t.Errorf("Got error while collecting output: %v", err)
-		return
-	}
-	if len(outData) != 1 || string(outData[0].GetBytes()) != "((((((((InputA)->x_y_FunA0)->x_y_FunB1)->x_y_FunC2)->x_y_FunD3)->x_y_FunE4,(((((InputA)->x_y_FunA0)->x_y_FunB1)->x_y_FunF5)->x_y_FunH7,((((InputA)->x_y_FunA0)->x_y_FunB1)->x_y_FunF5)->x_y_FunG6)->x_y_FunI8)->x_y_FunJ9)->x_y_FunK10)->x_y_FunL11" {
-		t.Errorf("Got invalid output: %s", string(outData[0].GetBytes()))
+		outData, err := scheduler.CollectOutput()
+		if err != nil {
+			t.Fatalf("Got error while collecting output (schedulerType: %d): %v", sType, err)
+		}
+		if len(outData) != 1 || string(outData[0].GetBytes()) != "((((((((InputA)->x_y_FunA0)->x_y_FunB1)->x_y_FunC2)->x_y_FunD3)->x_y_FunE4,(((((InputA)->x_y_FunA0)->x_y_FunB1)->x_y_FunF5)->x_y_FunH7,((((InputA)->x_y_FunA0)->x_y_FunB1)->x_y_FunF5)->x_y_FunG6)->x_y_FunI8)->x_y_FunJ9)->x_y_FunK10)->x_y_FunL11" {
+			t.Errorf("Got invalid output (schedulerType: %d): %s", sType, string(outData[0].GetBytes()))
+		}
 	}
 }
 
@@ -343,31 +344,29 @@ func TestDandelionSimpleExamples(t *testing.T) {
 		parser := dandelion_workflow.NewParser(bufio.NewReader(strings.NewReader(test)))
 		dwf, err := parser.Parse()
 		if err != nil {
-			t.Errorf("Got error while parsing input: %v (testcase %d)", err, i)
-			return
+			t.Fatalf("Got error while parsing input: %v (testcase %d)", err, i)
 		}
 		dwf.Name = "x"
 		wfs, wfTasks, err := dwf.ExportWorkflow(dandelion_workflow.FullPartition)
 		if err != nil {
-			t.Errorf("Got error while exporting workflows: %v", err)
-			return
+			t.Fatalf("Got error while exporting workflows: %v", err)
 		}
 		wf := cpToDpWorkflow(wfs[0], wfTasks[0]) // only one workflow
 
-		scheduler := NewScheduler(wf, testedSchedulerType)
-		err = scheduler.Schedule(dummyScheduleFunc(), inData[i])
-		if err != nil {
-			t.Errorf("Got error while scheduling dp_workflow: %v (testcase %d)", err, i)
-			return
-		}
+		for _, sType := range testedSchedulers {
+			scheduler := NewScheduler(wf, sType)
+			err = scheduler.Schedule(dummyScheduleFunc(), inData[i], context.Background())
+			if err != nil {
+				t.Fatalf("Got error while scheduling dp_workflow (schedulerType: %d): %v (testcase %d)", sType, err, i)
+			}
 
-		outData, err := scheduler.CollectOutput()
-		if err != nil {
-			t.Errorf("Got error while collecting output: %v (testcase %d)", err, i)
-			return
-		}
-		if len(outData) != 1 || string(outData[0].GetBytes()) != expectedOutput[i] {
-			t.Errorf("Got invalid output: %s (testcase %d)", string(outData[0].GetBytes()), i)
+			outData, err := scheduler.CollectOutput()
+			if err != nil {
+				t.Fatalf("Got error while collecting output (schedulerType: %d): %v (testcase %d)", sType, err, i)
+			}
+			if len(outData) != 1 || string(outData[0].GetBytes()) != expectedOutput[i] {
+				t.Errorf("Got invalid output (schedulerType: %d): %s (testcase %d)", sType, string(outData[0].GetBytes()), i)
+			}
 		}
 	}
 }
@@ -449,35 +448,33 @@ func TestDataHandling(t *testing.T) {
 	parser := dandelion_workflow.NewParser(bufio.NewReader(strings.NewReader(testWorkflow)))
 	dwf, err := parser.Parse()
 	if err != nil {
-		t.Errorf("Got error while parsing input: %v", err)
-		return
+		t.Fatalf("Got error while parsing input: %v", err)
 	}
 	dwf.Name = "x"
 	wfs, wfTasks, err := dwf.ExportWorkflow(dandelion_workflow.FullPartition)
 	if err != nil {
-		t.Errorf("Got error while exporting workflows: %v", err)
-		return
+		t.Fatalf("Got error while exporting workflows: %v", err)
 	}
 	wf := cpToDpWorkflow(wfs[0], wfTasks[0]) // only one workflow
 
 	inputA := dp_workflow.NewBytesData([]byte("InputA"))
 	inputB := dp_workflow.NewBytesData([]byte("InputB"))
 	inData := []*dp_workflow.Data{inputA, inputB}
-	scheduler := NewScheduler(wf, testedSchedulerType)
-	err = scheduler.Schedule(dummyScheduleFunc(), inData)
-	if err != nil {
-		t.Errorf("Got error while scheduling dp_workflow: %v", err)
-		return
-	}
+	for _, sType := range testedSchedulers {
+		scheduler := NewScheduler(wf, sType)
+		err = scheduler.Schedule(dummyScheduleFunc(), inData, context.Background())
+		if err != nil {
+			t.Fatalf("Got error while scheduling dp_workflow (schedulerType: %d): %v", sType, err)
+		}
 
-	outData, err := scheduler.CollectOutput()
-	if err != nil {
-		t.Errorf("Got error while collecting output: %v", err)
-		return
-	}
-	if len(outData) != 2 ||
-		string(outData[0].GetBytes()) != "(InputA)->x_y_FunA0[1]" ||
-		string(outData[1].GetBytes()) != "((InputA)->x_y_FunA0[0],InputB)->x_y_FunB1" {
-		t.Errorf("Got invalid output: %s", string(outData[0].GetBytes()))
+		outData, err := scheduler.CollectOutput()
+		if err != nil {
+			t.Fatalf("Got error while collecting output (schedulerType: %d): %v", sType, err)
+		}
+		if len(outData) != 2 ||
+			string(outData[0].GetBytes()) != "(InputA)->x_y_FunA0[1]" ||
+			string(outData[1].GetBytes()) != "((InputA)->x_y_FunA0[0],InputB)->x_y_FunB1" {
+			t.Errorf("Got invalid output (schedulerType: %d): %s", sType, string(outData[0].GetBytes()))
+		}
 	}
 }
