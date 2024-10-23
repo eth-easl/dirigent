@@ -7,6 +7,11 @@ import (
 	"slices"
 )
 
+// functions provided by the dandelion runtime
+var commonDandelionFunctions = [...]FunctionDecl{
+	{"HTTP", []string{"request"}, []string{"response", "body"}},
+}
+
 type Sharding int
 
 const (
@@ -131,32 +136,40 @@ func (s *Statement) hasOneParent() bool {
 	return true
 }
 
-func (s *Statement) checkFunctionDecl(functionDecls []*FunctionDecl) bool {
+func (s *Statement) checkFunctionDecl(fd *FunctionDecl) bool {
+	if len(fd.params) != len(s.Args) {
+		return false
+	}
+	if len(fd.returns) != len(s.Rets) {
+		return false
+	}
+	for argIdx, arg := range s.Args {
+		if fd.params[argIdx] != arg.name {
+			return false
+		}
+	}
+	for retIdx, ret := range s.Rets {
+		if fd.returns[retIdx] != ret.name {
+			return false
+		}
+	}
+	return true
+}
+func (s *Statement) checkWithFunctionDecls(functionDecls []*FunctionDecl) bool {
 	if s.kind == FunctionAppl {
 		for _, fd := range functionDecls {
 			if fd.name == s.Name {
-				if len(fd.params) != len(s.Args) {
-					return false
-				}
-				if len(fd.returns) != len(s.Rets) {
-					return false
-				}
-				for _, arg := range s.Args {
-					if !slices.Contains(fd.params, arg.name) {
-						return false
-					}
-				}
-				for _, ret := range s.Rets {
-					if !slices.Contains(fd.returns, ret.name) {
-						return false
-					}
-				}
-				return true
+				return s.checkFunctionDecl(fd)
+			}
+		}
+		for _, dandelionFD := range commonDandelionFunctions {
+			if dandelionFD.name == s.Name {
+				return s.checkFunctionDecl(&dandelionFD)
 			}
 		}
 	} else {
 		for _, loopStmt := range s.statements {
-			if loopStmt.checkFunctionDecl(functionDecls) {
+			if !loopStmt.checkWithFunctionDecls(functionDecls) {
 				return false
 			}
 		}
@@ -199,6 +212,15 @@ func (dwf *DandelionWorkflow) Process() error {
 		return nil
 	}
 
+	// check no common dandelion function gets redeclared
+	for _, fd := range dwf.FunctionDecls {
+		for _, commonFD := range commonDandelionFunctions {
+			if fd.name == commonFD.name {
+				return fmt.Errorf("redeclaration of common dandelion function '%s'", commonFD.name)
+			}
+		}
+	}
+
 	// validate workflow semantics and set Consumers
 	for _, c := range dwf.Compositions {
 		logrus.Tracef("Processing composition %s", c.Name)
@@ -206,7 +228,7 @@ func (dwf *DandelionWorkflow) Process() error {
 
 		for _, stmt := range c.Statements {
 			// compare functions against the function declarations
-			if !stmt.checkFunctionDecl(dwf.FunctionDecls) {
+			if !stmt.checkWithFunctionDecls(dwf.FunctionDecls) {
 				return fmt.Errorf("function %s not declared doesn't match declaration", stmt.Name)
 			}
 

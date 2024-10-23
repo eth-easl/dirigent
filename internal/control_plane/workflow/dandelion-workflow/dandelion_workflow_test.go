@@ -34,8 +34,15 @@ func TestDeclarationMismatch(t *testing.T) {
 			(FunA ((A <- InputA)) => ((OutputB := B))) ; <- Missing declaration
 		))
 	`
+	redeclarationCommonFunction := `
+		(:function HTTP (request) -> (response body)) ; <- should not declare common dandelion function
 
-	tests := []string{wrongFunctionParam, wrongParamNumber, wrongRetNumber, missingDeclaration}
+		(:composition Test (Req) -> (Resp Body) (
+			(HTTP ((request <- Req)) => ((Resp := response) (Body := body)))
+		))
+	`
+
+	tests := []string{wrongFunctionParam, wrongParamNumber, wrongRetNumber, missingDeclaration, redeclarationCommonFunction}
 
 	for i, test := range tests {
 		parser := NewParser(bufio.NewReader(strings.NewReader(test)))
@@ -273,4 +280,28 @@ func TestDataMapping(t *testing.T) {
 		}
 	}
 
+}
+
+func TestCommonDandelionFunctions(t *testing.T) {
+	httpFunc := `
+		; do not need to declare function
+		(:composition Test (Req) -> (Resp Body) (
+			(HTTP ((request <- Req)) => ((Resp := response) (Body := body)))
+		))
+	`
+
+	tests := []string{httpFunc}
+
+	for i, test := range tests {
+		parser := NewParser(bufio.NewReader(strings.NewReader(test)))
+		wf, err := parser.Parse()
+		if err != nil {
+			t.Fatalf("Got error while parsing input: %v (testcase %d)", err, i)
+		}
+
+		err = wf.Process()
+		if err != nil {
+			t.Errorf("Got error while processing input (testcase %d): %v", i, err)
+		}
+	}
 }
