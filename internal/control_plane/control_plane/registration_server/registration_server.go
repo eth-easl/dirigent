@@ -18,6 +18,18 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
+func getFormValue(w http.ResponseWriter, r *http.Request, key string) (string, error) {
+	val := r.FormValue(key)
+	if len(val) == 0 {
+		msg := fmt.Sprintf("Invalid function %s.", key)
+
+		http.Error(w, msg, http.StatusBadRequest)
+		return "", errors.New(msg)
+	}
+
+	return val, nil
+}
+
 func functionRegistrationHandler(cpApi *control_plane.CpApiServer) func(w http.ResponseWriter, r *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodPost {
@@ -31,14 +43,13 @@ func functionRegistrationHandler(cpApi *control_plane.CpApiServer) func(w http.R
 			return
 		}
 
-		name := r.FormValue("name")
-		if len(name) == 0 {
-			http.Error(w, "Invalid function name.", http.StatusBadRequest)
+		var name string
+		if name, err = getFormValue(w, r, "name"); err != nil {
 			return
 		}
-		image := r.FormValue("image")
-		if len(image) == 0 {
-			http.Error(w, "Invalid function image.", http.StatusBadRequest)
+
+		var image string
+		if image, err = getFormValue(w, r, "image"); err != nil {
 			return
 		}
 
@@ -148,37 +159,31 @@ func functionRegistrationHandler(cpApi *control_plane.CpApiServer) func(w http.R
 			}
 		}
 
+		environmentVars := r.Form["env_vars"]
+		programArgs := "" //, _ := getFormValue(w, r, "program_args")
+
+		serviceInfo := &proto.ServiceInfo{
+			Name:              name,
+			Image:             image,
+			RequestedCpu:      uint64(cpu),
+			RequestedMemory:   uint64(memory),
+			PortForwarding:    portMapping,
+			AutoscalingConfig: autoscalingConfig,
+			SandboxConfiguration: &proto.SandboxConfiguration{
+				IterationMultiplier: int32(iterationMultiplier),
+				ColdStartBusyLoopMs: int32(coldStartBusyLoopMs),
+			},
+			NumArgs:              uint32(numArgs),
+			NumRets:              uint32(numRets),
+			EnvironmentVariables: environmentVars,
+			ProgramArguments:     programArgs,
+		}
+
 		var service *proto.ActionStatus
 		if cpApi.LeaderElectionServer.IsLeader() {
-			service, err = cpApi.RegisterService(r.Context(), &proto.ServiceInfo{
-				Name:              name,
-				Image:             image,
-				PortForwarding:    portMapping,
-				AutoscalingConfig: autoscalingConfig,
-				RequestedCpu:      uint64(cpu),
-				RequestedMemory:   uint64(memory),
-				SandboxConfiguration: &proto.SandboxConfiguration{
-					IterationMultiplier: int32(iterationMultiplier),
-					ColdStartBusyLoopMs: int32(coldStartBusyLoopMs),
-				},
-				NumArgs: uint32(numArgs),
-				NumRets: uint32(numRets),
-			})
+			service, err = cpApi.RegisterService(r.Context(), serviceInfo)
 		} else {
-			service, err = cpApi.LeaderElectionServer.GetLeader().RegisterService(r.Context(), &proto.ServiceInfo{
-				Name:              name,
-				Image:             image,
-				PortForwarding:    portMapping,
-				AutoscalingConfig: autoscalingConfig,
-				RequestedCpu:      uint64(cpu),
-				RequestedMemory:   uint64(memory),
-				SandboxConfiguration: &proto.SandboxConfiguration{
-					IterationMultiplier: int32(iterationMultiplier),
-					ColdStartBusyLoopMs: int32(coldStartBusyLoopMs),
-				},
-				NumArgs: uint32(numArgs),
-				NumRets: uint32(numRets),
-			})
+			service, err = cpApi.LeaderElectionServer.GetLeader().RegisterService(r.Context(), serviceInfo)
 		}
 		if err != nil {
 			return

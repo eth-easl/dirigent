@@ -152,7 +152,7 @@ func (fcr *Runtime) CreateSandbox(ctx context.Context, in *proto.ServiceInfo) (*
 	logrus.Debug("Worker node part: ", time.Since(start).Milliseconds(), " ms")
 
 	// blocking call
-	timeToPass, passed := managers.SendReadinessProbe(fmt.Sprintf("localhost:%d", metadata.HostPort))
+	timeToPass, passed := managers.SendReadinessProbe(fmt.Sprintf(managers.ProbeURLFormat, metadata.HostPort))
 
 	// create a snapshot for the service if it does not exist
 	startSnapshotCreation := time.Now()

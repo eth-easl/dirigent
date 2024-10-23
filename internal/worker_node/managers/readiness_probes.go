@@ -10,6 +10,8 @@ import (
 	"time"
 )
 
+const ProbeURLFormat = "localhost:%d"
+
 func createProbingDialer(network, addr string) (net.Conn, error) {
 	dialer := &net.Dialer{
 		DualStack: true,

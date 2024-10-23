@@ -23,3 +23,5 @@ scripts/invitro_traces/rps/*
 .venv
 ssh-dirigent
 ssh-dirigent.pub
+
+workload/no_timer_cpp/cmake-build-debug

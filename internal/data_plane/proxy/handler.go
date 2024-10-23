@@ -318,7 +318,6 @@ func handleWorkflow(writer http.ResponseWriter, request *http.Request, wf *workf
 
 func proxyHandler(proxy *httputil.ReverseProxy, writer http.ResponseWriter, request *http.Request, requestMetadata requestMetadata, proxyContext proxyContext, dpConfig *config.DataPlaneConfig) *requests.BufferedResponse {
 	// fetch metadata
-	// TODO: why use Host attribute of request and not the body?
 	serviceName := GetServiceName(request)
 	deployment, durationGetDeployment := proxyContext.cache.GetDeployment(serviceName)
 	if deployment == nil {

@@ -30,6 +30,5 @@ func CreateMetricsHandler(deployments *service_metadata.Deployments) func(writer
 		}
 
 		_, _ = writer.Write(data)
-		writer.WriteHeader(http.StatusOK)
 	}
 }

@@ -47,6 +47,8 @@ message ServiceInfo {
   SandboxConfiguration SandboxConfiguration = 7;
   uint32 NumArgs = 8;
   uint32 NumRets = 9;
+  repeated string EnvironmentVariables = 10;
+  string ProgramArguments = 11;
 }
 
 message ServiceList {

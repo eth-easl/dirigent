@@ -73,6 +73,8 @@ func CreateContainer(ctx context.Context, client *containerd.Client, image conta
 	if CPUConstaints {
 		options = append(options, oci.WithCPUs(strconv.FormatUint(configuration.RequestedCpu, 10)))
 	}
+	//options = append(options, oci.WithEnv(configuration.EnvironmentVariables))
+	//options = append(options, oci.WithProcessArgs(configuration.ProgramArguments))
 
 	container, err := client.NewContainer(ctx, containerName,
 		containerd.WithImage(image),

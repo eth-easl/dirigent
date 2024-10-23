@@ -44,3 +44,15 @@ trace_container:
 		-f Dockerfile \
 		-t cvetkovic/dirigent_trace_function .
 	docker push cvetkovic/dirigent_trace_function:latest
+
+grpc_function:
+	protoc --go_out=workload/timer_grpc \
+		   --go_opt=paths=source_relative \
+		   --go-grpc_out=workload/timer_grpc \
+		   --go-grpc_opt=paths=source_relative \
+		   --proto_path=workload/timer_grpc \
+		   workload/timer_grpc/*.proto
+	cd workload/timer_grpc && docker build \
+		-f Dockerfile \
+		-t cvetkovic/dirigent_grpc_function .
+	docker push cvetkovic/dirigent_grpc_function

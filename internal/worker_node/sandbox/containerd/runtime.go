@@ -165,7 +165,7 @@ func (cr *ContainerdRuntime) CreateSandbox(grpcCtx context.Context, in *proto.Se
 	})
 
 	// blocking call
-	timeToPass, passed := managers.SendReadinessProbe(fmt.Sprintf("localhost:%d", metadata.HostPort))
+	timeToPass, passed := managers.SendReadinessProbe(fmt.Sprintf(managers.ProbeURLFormat, metadata.HostPort))
 
 	if passed {
 		return &proto.SandboxCreationStatus{
