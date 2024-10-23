@@ -41,7 +41,7 @@ func dummyScheduleFunc() ScheduleTaskFunc {
 			return err
 		}
 
-		time.Sleep(100 * time.Millisecond)
+		time.Sleep(20 * time.Millisecond) // forces concurrent jobs to run in parallel if supported by scheduler
 		return nil
 	}
 }
@@ -250,7 +250,7 @@ func TestSimpleExample(t *testing.T) {
 			(FunF ((C <- InterC)) => ((InterG := G)))
 			(FunG ((G <- InterG)) => ((InterH := H)))
 			(FunH ((G <- InterG)) => ((InterI := I)))
-			(FunI ((I <- InterI) (H <- InterH)) => ((InterJ := J)))
+			(FunI ((H <- InterH) (I <- InterI)) => ((InterJ := J)))
 
 			(FunJ ((F <- InterF) (J <- InterJ)) => ((InterK := K)))
 			(FunK ((K <- InterK)) => ((InterL := L)))
@@ -283,7 +283,7 @@ func TestSimpleExample(t *testing.T) {
 		if err != nil {
 			t.Fatalf("Got error while collecting output (schedulerType: %d): %v", sType, err)
 		}
-		if len(outData) != 1 || string(outData[0].GetBytes()) != "((((((((InputA)->x_y_FunA0)->x_y_FunB1)->x_y_FunC2)->x_y_FunD3)->x_y_FunE4,(((((InputA)->x_y_FunA0)->x_y_FunB1)->x_y_FunF5)->x_y_FunH7,((((InputA)->x_y_FunA0)->x_y_FunB1)->x_y_FunF5)->x_y_FunG6)->x_y_FunI8)->x_y_FunJ9)->x_y_FunK10)->x_y_FunL11" {
+		if len(outData) != 1 || string(outData[0].GetBytes()) != "((((((((InputA)->x_y_FunA0)->x_y_FunB1)->x_y_FunC2)->x_y_FunD3)->x_y_FunE4,(((((InputA)->x_y_FunA0)->x_y_FunB1)->x_y_FunF5)->x_y_FunG6,((((InputA)->x_y_FunA0)->x_y_FunB1)->x_y_FunF5)->x_y_FunH7)->x_y_FunI8)->x_y_FunJ9)->x_y_FunK10)->x_y_FunL11" {
 			t.Errorf("Got invalid output (schedulerType: %d): %s", sType, string(outData[0].GetBytes()))
 		}
 	}
