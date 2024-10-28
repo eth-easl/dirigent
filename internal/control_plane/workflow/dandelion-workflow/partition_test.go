@@ -22,6 +22,25 @@ type testRunner struct {
 	dataTaskOut map[*workflow.Task][]string
 }
 
+func inputToWorkflow(input string, partitionFunc PartitionMethod) (*workflow.Workflow, error) {
+	parser := NewParser(bufio.NewReader(strings.NewReader(input)))
+	dwf, err := parser.Parse()
+	if err != nil {
+		return nil, fmt.Errorf("Got error while parsing input: %v", err)
+	}
+	dwf.Name = "wf"
+	wfs, _, err := dwf.ExportWorkflow(partitionFunc)
+	if err != nil {
+		return nil, fmt.Errorf("Got error while exporting workflow: %v", err)
+	}
+
+	if len(wfs) != 1 {
+		return nil, fmt.Errorf("Expected to get only 1 workflow got %d", len(wfs))
+	}
+
+	return wfs[0], nil
+}
+
 func newTestRunner(taskOnly bool) *testRunner {
 	return &testRunner{
 		taskOnly:    taskOnly,
@@ -218,6 +237,9 @@ func TestFunctionRunner(t *testing.T) {
 
 }
 
+//-------
+// Tests
+
 func TestPartition(t *testing.T) {
 	inputs := []string{
 		`
@@ -279,7 +301,7 @@ func TestPartition(t *testing.T) {
 				"task(a)[1]",
 			},
 		},
-		{ // transformation based
+		{ // consumer based
 			{"0(a)"},
 			{
 				"1(0(a,b)[0],0(a,b)[1])[0]",
@@ -305,24 +327,11 @@ func TestPartition(t *testing.T) {
 
 	for partFuncIdx, partitionFunc := range partitionFunctions() {
 		for i := 0; i < len(inputs); i++ {
-			parser := NewParser(bufio.NewReader(strings.NewReader(inputs[i])))
-			dwf, err := parser.Parse()
+			// load and partition workflow
+			wf, err := inputToWorkflow(inputs[i], partitionFunc)
 			if err != nil {
-				t.Errorf("Got error while parsing input: %v", err)
-				return
+				t.Fatalf(err.Error())
 			}
-			dwf.Name = "wf"
-			wfs, _, err := dwf.ExportWorkflow(partitionFunc)
-			if err != nil {
-				t.Errorf("Got error while exporting workflow: %v", err)
-				return
-			}
-
-			if len(wfs) != 1 {
-				t.Errorf("Expected to get only 1 workflow got %d", len(wfs))
-				return
-			}
-			wf := wfs[0]
 
 			// check partitioned tasks
 			trTasks := newTestRunner(true)
@@ -353,6 +362,201 @@ func TestPartition(t *testing.T) {
 						"Got unexpected output: %v (expected: %v) (testcase #%d, partition function #%d)",
 						wfOutData[idx], expected, i, partFuncIdx,
 					)
+				}
+			}
+		}
+	}
+}
+
+func TestParallelPartitionSingleInput(t *testing.T) {
+	keywords := []string{":all", ":keyed", ":each"}
+	inputs := make([]string, 0, len(keywords)*len(keywords))
+	for _, keyword1 := range keywords {
+		for _, keyword2 := range keywords {
+			input := fmt.Sprintf(
+				`
+				(:function FunA (A) -> (B))
+				(:composition c1 (In) -> (Out) (
+					(FunA ((%s A <- In)) => ((Inter := B)))
+					(FunA ((%s A <- Inter)) => ((Out := B)))
+				))`,
+				keyword1, keyword2,
+			)
+			inputs = append(inputs, input)
+		}
+	}
+	expectedTaskSharding := [][][]workflow.Sharding{
+		{ // full partition
+			{workflow.ShardingAll, workflow.ShardingAll},
+			{workflow.ShardingAll, workflow.ShardingKeyed},
+			{workflow.ShardingAll, workflow.ShardingEach},
+			{workflow.ShardingKeyed, workflow.ShardingAll},
+			{workflow.ShardingKeyed, workflow.ShardingKeyed},
+			{workflow.ShardingKeyed, workflow.ShardingEach},
+			{workflow.ShardingEach, workflow.ShardingAll},
+			{workflow.ShardingEach, workflow.ShardingKeyed},
+			{workflow.ShardingEach, workflow.ShardingEach},
+		},
+		{ // no partition
+			{workflow.ShardingAll},
+			{workflow.ShardingAll},
+			{workflow.ShardingAll},
+			{workflow.ShardingAll},
+			{workflow.ShardingAll},
+			{workflow.ShardingKeyed},
+			{workflow.ShardingAll},
+			{workflow.ShardingAll},
+			{workflow.ShardingEach},
+		},
+		{ // consumer based
+			{workflow.ShardingAll},
+			{workflow.ShardingAll, workflow.ShardingKeyed},
+			{workflow.ShardingAll, workflow.ShardingEach},
+			{workflow.ShardingKeyed, workflow.ShardingAll},
+			{workflow.ShardingKeyed, workflow.ShardingKeyed},
+			{workflow.ShardingKeyed},
+			{workflow.ShardingEach, workflow.ShardingAll},
+			{workflow.ShardingEach, workflow.ShardingKeyed},
+			{workflow.ShardingEach},
+		},
+	}
+
+	for partFuncIdx, partitionFunc := range partitionFunctions() {
+		for tcIdx := 0; tcIdx < len(inputs); tcIdx++ {
+			// load and partition workflow
+			wf, err := inputToWorkflow(inputs[tcIdx], partitionFunc)
+			if err != nil {
+				t.Fatalf(err.Error())
+			}
+
+			// check number of tasks
+			if int(wf.TotalTasks) != len(expectedTaskSharding[partFuncIdx][tcIdx]) {
+				t.Errorf(
+					"Got wrong number of total tasks: expected %d, got %d (test case #%d, partition function #%d)",
+					len(expectedTaskSharding[partFuncIdx][tcIdx]), int(wf.TotalTasks), tcIdx, partFuncIdx,
+				)
+				continue
+			}
+
+			// check sharding
+			nextTask := wf.InitialTasks[0]
+			for taskNum, expected := range expectedTaskSharding[partFuncIdx][tcIdx] {
+				if nextTask.InputSharding[0] != expected {
+					t.Errorf(
+						"Got unexpected task sharding: expected %d, got %d (task #%d, test case #%d, partition function #%d)",
+						expected, nextTask.InputSharding[0], taskNum, tcIdx, partFuncIdx,
+					)
+					continue
+				}
+				if taskNum != len(expectedTaskSharding[partFuncIdx][tcIdx])-1 {
+					nextTask = nextTask.ConsumerTasks[0]
+				}
+			}
+		}
+	}
+}
+
+func TestParallelPartitionMultiInput(t *testing.T) {
+	keywords := []string{":all", ":keyed", ":each"}
+	inputs := make([]string, 0, len(keywords)*len(keywords)*len(keywords)*len(keywords))
+	for _, f1in1Keyword := range keywords {
+		for _, f1in2Keyword := range keywords {
+			for _, f2in1Keyword := range keywords {
+				for _, f2in2Keyword := range keywords {
+					input := fmt.Sprintf(
+						`
+						(:function FunA (A B) -> (C D))
+						(:composition c1 (InA InB) -> (OutC OutD) (
+							(FunA ((%s A <- InA) (%s B <- InB)) => ((InterA := C) (InterB := D)))
+							(FunA ((%s A <- InterA) (%s B <- InterB)) => ((OutC := C) (OutD := D)))
+						))`,
+						f1in1Keyword, f1in2Keyword, f2in1Keyword, f2in2Keyword,
+					)
+					inputs = append(inputs, input)
+				}
+			}
+		}
+	}
+	sharding := []workflow.Sharding{workflow.ShardingAll, workflow.ShardingKeyed, workflow.ShardingEach}
+	expectedTaskSharding := make([][][][]workflow.Sharding, 3)
+	expectedTaskSharding[0] = make([][][]workflow.Sharding, 0, len(keywords)*len(keywords)*len(keywords)*len(keywords))
+	expectedTaskSharding[1] = make([][][]workflow.Sharding, 0, len(keywords)*len(keywords)*len(keywords)*len(keywords))
+	expectedTaskSharding[2] = make([][][]workflow.Sharding, 0, len(keywords)*len(keywords)*len(keywords)*len(keywords))
+	for _, f1in1Sharding := range sharding {
+		for _, f1in2Sharding := range sharding {
+			for _, f2in1Sharding := range sharding {
+				for _, f2in2Sharding := range sharding {
+					// general case
+					fullPartitionSharding := [][]workflow.Sharding{
+						{f1in1Sharding, f1in2Sharding}, {f2in1Sharding, f2in2Sharding},
+					}
+					noPartitionSharding := [][]workflow.Sharding{
+						{workflow.ShardingAll, workflow.ShardingAll},
+					}
+					consumerBasedPartitionSharding := [][]workflow.Sharding{
+						{f1in1Sharding, f1in2Sharding}, {f2in1Sharding, f2in2Sharding},
+					}
+
+					// special cases
+					if f2in1Sharding == workflow.ShardingEach && f2in2Sharding == workflow.ShardingEach {
+						noPartitionSharding[0] = []workflow.Sharding{f1in1Sharding, f1in2Sharding}
+						if f1in1Sharding != workflow.ShardingAll || f1in2Sharding != workflow.ShardingAll {
+							consumerBasedPartitionSharding = [][]workflow.Sharding{
+								{f1in1Sharding, f1in2Sharding},
+							}
+						}
+					}
+
+					expectedTaskSharding[0] = append(expectedTaskSharding[0], fullPartitionSharding)
+					expectedTaskSharding[1] = append(expectedTaskSharding[1], noPartitionSharding)
+					expectedTaskSharding[2] = append(expectedTaskSharding[2], consumerBasedPartitionSharding)
+				}
+			}
+		}
+	}
+	expectedTaskSharding[2][0] = [][]workflow.Sharding{{workflow.ShardingAll, workflow.ShardingAll}}
+
+	for partFuncIdx, partitionFunc := range partitionFunctions() {
+		if partFuncIdx != 2 {
+			continue
+		}
+		for tcIdx := 16; tcIdx < len(inputs); tcIdx++ {
+			// load and partition workflow
+			wf, err := inputToWorkflow(inputs[tcIdx], partitionFunc)
+			if err != nil {
+				t.Fatalf(err.Error())
+			}
+
+			// check number of tasks
+			if int(wf.TotalTasks) != len(expectedTaskSharding[partFuncIdx][tcIdx]) {
+				t.Errorf(
+					"Got wrong number of total tasks: expected %d, got %d (test case #%d, partition function #%d)",
+					len(expectedTaskSharding[partFuncIdx][tcIdx]), int(wf.TotalTasks), tcIdx, partFuncIdx,
+				)
+				continue
+			}
+
+			// check sharding
+			nextTask := wf.InitialTasks[0]
+			for taskNum, expected := range expectedTaskSharding[partFuncIdx][tcIdx] {
+				if len(nextTask.InputSharding) != len(expected) {
+					t.Errorf(
+						"Got unexpected input sharding size: expected %d, got %d (task #%d, test case #%d, partition function #%d)",
+						len(expected), len(nextTask.InputSharding), taskNum, tcIdx, partFuncIdx,
+					)
+					continue
+				}
+				for i := 0; i < len(expected); i++ {
+					if nextTask.InputSharding[i] != expected[i] {
+						t.Errorf(
+							"Got unexpected task sharding for input #%d: expected %d, got %d (task #%d, test case #%d, partition function #%d)",
+							i, expected[0], nextTask.InputSharding[0], taskNum, tcIdx, partFuncIdx,
+						)
+						continue
+					}
+				}
+				if taskNum != len(expectedTaskSharding[partFuncIdx][tcIdx])-1 {
+					nextTask = nextTask.ConsumerTasks[0]
 				}
 			}
 		}

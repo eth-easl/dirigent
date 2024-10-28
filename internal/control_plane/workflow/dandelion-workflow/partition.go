@@ -52,14 +52,19 @@ func createTaskFromStatements(stmts []*Statement, wf *workflow.Workflow) *workfl
 	}
 
 	fToIdx := make(map[*Statement]int)
-	var taskIn []*InputDescriptor
+	var taskIn []string
 	var taskOut []int
 	var taskOutSrcIdx []int
+	totalFuncInputs := 0
 	for stmtIdx, stmt := range stmts {
 		task.Functions[stmtIdx] = stmt.Name
 		task.FunctionOutNum[stmtIdx] = int32(len(stmt.Rets))
 		fToIdx[stmt] = stmtIdx
+		totalFuncInputs += len(stmt.Args)
 	}
+	task.FunctionDataFlow = make([]int32, 0, totalFuncInputs) // + # taskOut (but this is unknown at this point)
+	task.FunctionInSharding = make([]workflow.Sharding, 0, totalFuncInputs)
+	task.InputSharding = make([]workflow.Sharding, 0, len(stmts[0].Args)) // may have more inputs (but this is unknown at this point)
 	for stmtIdx, stmt := range stmts {
 		stmtArgs := stmt.Args
 		task.FunctionInNum[stmtIdx] = int32(len(stmtArgs))
@@ -74,10 +79,11 @@ func createTaskFromStatements(stmts []*Statement, wf *workflow.Workflow) *workfl
 
 			if !ok { // input from outside this task
 				argStmtIdx = -1
-				argStmtOutIdx = slices.Index(taskIn, &stmtArgs[argIdx])
+				argStmtOutIdx = slices.Index(taskIn, stmtArgs[argIdx].src)
 				if argStmtOutIdx == -1 { // not yet a task input
 					argStmtOutIdx = len(taskIn)
-					taskIn = append(taskIn, &stmtArgs[argIdx])
+					taskIn = append(taskIn, stmtArgs[argIdx].src)
+					task.InputSharding = append(task.InputSharding, stmtArgs[argIdx].sharding)
 				}
 				if stmtArgs[argIdx].SrcTask != nil { // source is statement
 					stmtArgs[argIdx].SrcTask.ConsumerTasks = append(stmtArgs[argIdx].SrcTask.ConsumerTasks, task)
@@ -93,6 +99,7 @@ func createTaskFromStatements(stmts []*Statement, wf *workflow.Workflow) *workfl
 			}
 
 			task.FunctionDataFlow = append(task.FunctionDataFlow, int32(argStmtIdx), int32(argStmtOutIdx))
+			task.FunctionInSharding = append(task.FunctionInSharding, stmtArgs[argIdx].sharding)
 		}
 
 		for retIdx, retDesc := range stmt.Rets {
@@ -136,7 +143,6 @@ func consumerBased(c *Composition, wf *workflow.Workflow) []*workflow.Task {
 	wf.OutTasks = make([]*workflow.Task, len(c.outStmts))
 	wf.OutDataSrcIdx = make([]int32, len(c.outStmts))
 
-	var currTaskStmts []*Statement
 	var stack []*Statement
 	for stmtIdx, stmt := range c.Consumers {
 		stmt.parentProcessed[c.ConsumerArgIdx[stmtIdx]] = true
@@ -146,6 +152,8 @@ func consumerBased(c *Composition, wf *workflow.Workflow) []*workflow.Task {
 	}
 	stackSize := len(stack)
 
+	var currTaskStmts []*Statement
+	var currTaskDataParallel bool
 	for stackSize > 0 {
 		stmt := stack[stackSize-1]
 		stackSize--
@@ -153,8 +161,9 @@ func consumerBased(c *Composition, wf *workflow.Workflow) []*workflow.Task {
 
 		if len(currTaskStmts) == 0 {
 			currTaskStmts = append(currTaskStmts, stmt)
+			currTaskDataParallel = stmt.isDataParallel()
 		} else {
-			if !stmt.hasOneParent() {
+			if !stmt.hasOneParentAndSameParallelization(currTaskDataParallel) {
 				task := createTaskFromStatements(currTaskStmts, wf)
 				task.Name = fmt.Sprintf("%s_%d", wf.Name, len(tasks))
 				tasks = append(tasks, task)
@@ -199,10 +208,11 @@ func fullPartition(c *Composition, wf *workflow.Workflow) []*workflow.Task {
 	stmtToTask := make(map[*Statement]*workflow.Task)
 	for stmtIdx, stmt := range c.Statements {
 		task := &workflow.Task{
-			Name:      fmt.Sprintf("%s_%s%d", wf.Name, stmt.Name, stmtIdx),
-			Functions: []string{stmt.Name},
-			NumIn:     uint32(len(stmt.Args)),
-			NumOut:    uint32(len(stmt.Rets)),
+			Name:          fmt.Sprintf("%s_%s%d", wf.Name, stmt.Name, stmtIdx),
+			Functions:     []string{stmt.Name},
+			NumIn:         uint32(len(stmt.Args)),
+			NumOut:        uint32(len(stmt.Rets)),
+			InputSharding: shardingFromInDescList(stmt.Args),
 		}
 		stmtToTask[stmt] = task
 		tasks = append(tasks, task)
@@ -246,15 +256,22 @@ func noPartition(c *Composition, wf *workflow.Workflow) []*workflow.Task {
 		FunctionInNum:  make([]int32, numStmts),
 		NumIn:          uint32(len(c.params)),
 		NumOut:         uint32(len(c.returns)),
+		InputSharding:  make([]workflow.Sharding, len(c.params)),
 	}
 
 	// add all functions from composition + set internal data flow information
 	fToIdx := make(map[*Statement]int)
+	totalFuncInputs := 0
 	for stmtIdx, stmt := range c.Statements {
 		task.Functions[stmtIdx] = stmt.Name
 		task.FunctionOutNum[stmtIdx] = int32(len(stmt.Rets))
 		fToIdx[stmt] = stmtIdx
+		totalFuncInputs += len(stmt.Args)
 	}
+	allowDataParallelisation := true
+	inputUsed := make([]bool, len(c.params))
+	task.FunctionDataFlow = make([]int32, 0, totalFuncInputs+len(c.outStmts))
+	task.FunctionInSharding = make([]workflow.Sharding, 0, totalFuncInputs)
 	for stmtIdx, stmt := range c.Statements {
 		stmtArgs := stmt.Args
 		task.FunctionInNum[stmtIdx] = int32(len(stmtArgs))
@@ -263,11 +280,23 @@ func noPartition(c *Composition, wf *workflow.Workflow) []*workflow.Task {
 			var argStmtIdx int
 			if arg.SrcStmt == nil {
 				argStmtIdx = -1
+				if inputUsed[arg.SrcStmtOutIdx] { // if input is used multiple times it must always use the same sharding
+					if task.InputSharding[arg.SrcStmtOutIdx] != arg.sharding {
+						allowDataParallelisation = false
+					}
+				} else {
+					task.InputSharding[arg.SrcStmtOutIdx] = arg.sharding
+					inputUsed[arg.SrcStmtOutIdx] = true
+				}
 			} else {
 				argStmtIdx = fToIdx[arg.SrcStmt]
+				if arg.sharding != workflow.ShardingEach {
+					allowDataParallelisation = false
+				}
 			}
 			argStmtOutIdx := arg.SrcStmtOutIdx
 			task.FunctionDataFlow = append(task.FunctionDataFlow, int32(argStmtIdx), int32(argStmtOutIdx))
+			task.FunctionInSharding = append(task.FunctionInSharding, arg.sharding)
 		}
 	}
 	for stmtIdx, stmt := range c.outStmts {
@@ -284,6 +313,13 @@ func noPartition(c *Composition, wf *workflow.Workflow) []*workflow.Task {
 			wf.InitialTasks = append(wf.InitialTasks, task)
 			wf.InitialDataSrcIdx = append(wf.InitialDataSrcIdx, int32(c.ConsumerOutIdx[i]))
 			wf.InitialDataDstIdx = append(wf.InitialDataDstIdx, int32(c.ConsumerOutIdx[i])) // dstIdx = outIdx
+		}
+	}
+
+	// check input sharding
+	if !allowDataParallelisation {
+		for i := 0; i < int(task.NumIn); i++ {
+			task.InputSharding[i] = workflow.ShardingAll
 		}
 	}
 

@@ -44,7 +44,7 @@ type FunctionDecl struct {
 type InputDescriptor struct {
 	name     string
 	src      string
-	sharding Sharding
+	sharding workflow.Sharding
 	loopCond LoopCond
 
 	SrcStmt       *Statement
@@ -121,19 +121,42 @@ func (s *Statement) hasOneConsumer() bool {
 	}
 	return true
 }
-func (s *Statement) hasOneParent() bool {
+func (s *Statement) hasOneParentAndSameParallelization(targetParallel bool) bool {
 	if len(s.Args) == 0 {
 		return false
 	}
+
 	var parent *Statement
+	parentSet := false
 	for _, arg := range s.Args {
-		if parent == nil {
+		// check data parallelism
+		if targetParallel {
+			if arg.sharding != workflow.ShardingEach {
+				return false
+			}
+		} else {
+			if arg.sharding != workflow.ShardingAll {
+				return false
+			}
+		}
+		// check parent is unique
+		if !parentSet {
 			parent = arg.SrcStmt
+			parentSet = true
 		} else if parent != arg.SrcStmt {
 			return false
 		}
 	}
+
 	return true
+}
+func (s *Statement) isDataParallel() bool {
+	for _, arg := range s.Args {
+		if arg.sharding != workflow.ShardingAll {
+			return true
+		}
+	}
+	return false
 }
 
 func (s *Statement) checkFunctionDecl(fd *FunctionDecl) bool {
@@ -307,6 +330,14 @@ func (dwf *DandelionWorkflow) CheckFunctionDeclarations(serviceList []string) bo
 		}
 	}
 	return true
+}
+
+func shardingFromInDescList(inDesc []InputDescriptor) []workflow.Sharding {
+	out := make([]workflow.Sharding, len(inDesc))
+	for i, d := range inDesc {
+		out[i] = d.sharding
+	}
+	return out
 }
 
 func (dwf *DandelionWorkflow) ExportWorkflow(method PartitionMethod) ([]*workflow.Workflow, [][]*workflow.Task, error) {

@@ -2,6 +2,7 @@ package dandelion_workflow
 
 import (
 	"bufio"
+	"cluster_manager/internal/control_plane/workflow"
 	"fmt"
 	"github.com/sirupsen/logrus"
 )
@@ -90,7 +91,7 @@ func (p *Parser) parseInputDescriptor() (InputDescriptor, error) {
 	}
 
 	// sharding (:all, :keyed, :each, none)
-	var sharding Sharding
+	var sharding workflow.Sharding
 	shardingProvided := true
 	if loopCond != LoopCondNone {
 		t, s, err = p.l.SafeScanIgnoreSpace()
@@ -100,13 +101,13 @@ func (p *Parser) parseInputDescriptor() (InputDescriptor, error) {
 	}
 	switch t {
 	case ALL:
-		sharding = ShardingAll
+		sharding = workflow.ShardingAll
 	case KEYED:
-		sharding = ShardingKeyed
+		sharding = workflow.ShardingKeyed
 	case EACH:
-		sharding = ShardingEach
+		sharding = workflow.ShardingEach
 	default: // use :all when none is provided
-		sharding = ShardingAll
+		sharding = workflow.ShardingAll
 		shardingProvided = false
 	}
 

@@ -61,13 +61,15 @@ message WorkflowTaskInfo {
   string Name = 1;
   uint32 NumIn = 2;
   uint32 NumOut = 3;
-  repeated string Functions = 4;
-  repeated int32 FunctionInNum = 5;
-  repeated int32 FunctionOutNum = 6;
-  repeated int32 FunctionDataFlow = 7;
-  repeated string ConsumerTasks = 8;
-  repeated int32 ConsumerDataSrcIdx = 9;
-  repeated int32 ConsumerDataDstIdx = 10;
+  repeated uint32 InputSharding = 4;
+  repeated string Functions = 5;
+  repeated int32 FunctionInNum = 6;
+  repeated int32 FunctionOutNum = 7;
+  repeated int32 FunctionDataFlow = 8;
+  repeated uint32 FunctionInSharding = 9;
+  repeated string ConsumerTasks = 10;
+  repeated int32 ConsumerDataSrcIdx = 11;
+  repeated int32 ConsumerDataDstIdx = 12;
 }
 
 message WorkflowInfo {
