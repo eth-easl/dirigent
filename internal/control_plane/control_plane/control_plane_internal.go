@@ -223,8 +223,8 @@ func (c *ControlPlane) registerNode(ctx context.Context, in *proto.NodeInfo) (*p
 		Name:   in.NodeID,
 		IP:     in.IP,
 		Port:   strconv.Itoa(int(in.Port)),
-		Cpu:    in.CpuCores,
-		Memory: in.MemorySize,
+		Cpu:    in.Cpu,
+		Memory: in.Memory,
 	})
 
 	c.NIStorage.Lock()
@@ -238,11 +238,11 @@ func (c *ControlPlane) registerNode(ctx context.Context, in *proto.NodeInfo) (*p
 	}
 
 	err := c.PersistenceLayer.StoreWorkerNodeInformation(ctx, &proto.WorkerNodeInformation{
-		Name:     in.NodeID,
-		Ip:       in.IP,
-		Port:     strconv.Itoa(int(in.Port)),
-		CpuCores: in.CpuCores,
-		Memory:   in.MemorySize,
+		Name:   in.NodeID,
+		Ip:     in.IP,
+		Port:   strconv.Itoa(int(in.Port)),
+		Cpu:    in.Cpu,
+		Memory: in.Memory,
 	})
 	if err != nil {
 		logrus.Errorf("Failed to store information to persistence layer (error : %s)", err.Error())
@@ -302,11 +302,11 @@ func (c *ControlPlane) nodeHeartbeat(_ context.Context, in *proto.NodeHeartbeatM
 	}
 
 	c.NIStorage.GetMap()[in.NodeID].UpdateLastHearBeat()
-	c.NIStorage.GetMap()[in.NodeID].SetCpuUsed(in.CpuUsage)
-	c.NIStorage.GetMap()[in.NodeID].SetMemoryUsed(in.MemoryUsage)
+	c.NIStorage.GetMap()[in.NodeID].SetCpuUsed(in.CpuUsed)
+	c.NIStorage.GetMap()[in.NodeID].SetMemoryUsed(in.MemoryUsed)
 	c.NIStorage.GetMap()[in.NodeID].SetSchedulability(true)
 
-	logrus.Tracef("Heartbeat received from %s with %d milli-CPU used and %d MiB memory used", in.NodeID, in.CpuUsage, in.MemoryUsage)
+	logrus.Tracef("Heartbeat received from %s with %d milli-CPU used and %d MiB memory used", in.NodeID, in.CpuUsed, in.MemoryUsed)
 
 	return &proto.ActionStatus{Success: true}, nil
 }
@@ -736,10 +736,10 @@ func (c *ControlPlane) precreateSnapshots(info *proto.ServiceInfo) {
 			}
 
 			c.imageStorage.Lock()
-			err = c.imageStorage.RegisterWithFetch(ss.FunctionState.ServiceInfo.Image, node)
+			err = c.imageStorage.RegisterWithFetch(ss.ServiceState.FunctionInfo[0].Image, node)
 			c.imageStorage.Unlock()
 			if err != nil {
-				logrus.Warnf("Failed to fetch image size for %s on node %s while precreating snapshots: %s", ss.FunctionState.ServiceInfo.Image, node.GetName(), err.Error())
+				logrus.Warnf("Failed to fetch image size for %s on node %s while precreating snapshots: %s", ss.ServiceState.FunctionInfo[0].Image, node.GetName(), err.Error())
 			}
 			msg, err := node.DeleteSandbox(context.Background(), &proto.SandboxID{
 				ID:       sandboxInfo.ID,
