@@ -115,7 +115,7 @@ func TestExportFunctionCompositionSharding(t *testing.T) {
 		"(a ((in0 <- cIn0) (in1 <- cIn1)) => ((f0d0 := out0))) " +
 		"(a ((:keyed in0 <- f0d0) (in1 <- cIn1)) => ((f1d0 := out0))) " +
 		"(b ((:each in0 <- f1d0)) => ((f2d0 := out0))) " +
-		"(c ((in0 <- f2d0)) => ((f3d0 := out0))) " +
+		"(c ((in0 <- f2d0)) => ((f3d0 := out0)))" +
 		"))"
 
 	if export != expected {
