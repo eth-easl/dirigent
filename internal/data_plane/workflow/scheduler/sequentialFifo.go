@@ -27,27 +27,31 @@ func (s *SequentialFifoScheduler) Schedule(scheduleTask ScheduleTaskFunc, inData
 
 	for len(queue) > 0 {
 		currTask := queue[0]
+		queue = queue[1:]
 
 		// schedule task
-		logrus.Tracef("SequentialFifoScheduler: Scheduling task '%s' (queue depth: %d)...", currTask.Name, len(queue))
+		logrus.Tracef("SequentialFifoScheduler: Scheduling task '%s' (queue depth: %d)...", currTask.GetTask().Name, len(queue))
 		err = scheduleTask(orchestrator, currTask, ctx)
 		if err != nil {
 			return fmt.Errorf("scheduler failed to execute task: %v", err)
 		}
 
-		tasksFinished++
-		queue = queue[1:]
-		logrus.Tracef("SequentialFifoScheduler: Task finished (%d/%d).", tasksFinished, tasksTotal)
+		// check if task is done
+		taskDone, nextSchedulerTasks := orchestrator.SetDone(currTask)
+		if taskDone {
+			logrus.Tracef("SequentialFifoScheduler: Task finished (%d/%d).", tasksFinished, tasksTotal)
+			tasksFinished++
 
-		if tasksTotal == tasksFinished {
-			if len(queue) > 0 {
-				return fmt.Errorf("expected number of tasks were executed but queue is not empty")
+			if tasksTotal == tasksFinished {
+				if len(queue) > 0 {
+					return fmt.Errorf("expected number of tasks were executed but queue is not empty")
+				}
+				break
 			}
-			break
 		}
 
 		// add statements that are now runnable
-		queue = append(queue, orchestrator.SetDone(currTask)...)
+		queue = append(queue, nextSchedulerTasks...)
 	}
 
 	if tasksFinished < tasksTotal {

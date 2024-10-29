@@ -144,7 +144,8 @@ func handleFunction(proxy *httputil.ReverseProxy, writer http.ResponseWriter, re
 }
 
 func scheduleWorkflowFunction(httpClient *http.Client, proxyCtx *proxyContext) scheduler.ScheduleTaskFunc {
-	return func(orchestrator *workflow.TaskOrchestrator, task *workflow.Task, ctx context.Context) error {
+	return func(orchestrator *workflow.TaskOrchestrator, schedulerTask *workflow.SchedulerTask, ctx context.Context) error {
+		task := schedulerTask.GetTask()
 		var serviceName string
 		if len(task.Functions) > 1 {
 			serviceName = task.Name
@@ -176,7 +177,7 @@ func scheduleWorkflowFunction(httpClient *http.Client, proxyCtx *proxyContext) s
 		}
 
 		// create function invocation request
-		funcReqBody, err := workflow.InvocationBody(serviceName, orchestrator.GetInData(task))
+		funcReqBody, err := workflow.InvocationBody(serviceName, orchestrator.GetInData(schedulerTask))
 		if err != nil {
 			return fmt.Errorf("failed to get input data for task '%s': %v", serviceName, err)
 		}
@@ -217,7 +218,7 @@ func scheduleWorkflowFunction(httpClient *http.Client, proxyCtx *proxyContext) s
 		if err != nil {
 			return err
 		}
-		err = orchestrator.SetOutData(task, outData)
+		err = orchestrator.SetOutData(schedulerTask, outData)
 		if err != nil {
 			return err
 		}

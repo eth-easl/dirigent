@@ -2,8 +2,11 @@ package workflow
 
 import (
 	"fmt"
+	"github.com/sirupsen/logrus"
 	"go.mongodb.org/mongo-driver/bson"
 )
+
+// dandelion data structure
 
 type InputItem struct {
 	Identifier string `bson:"identifier"`
@@ -14,19 +17,56 @@ type InputSet struct {
 	Identifier string      `bson:"identifier"`
 	Items      []InputItem `bson:"items"`
 }
-type RequestBody struct {
-	Name string     `bson:"name"`
-	Sets []InputSet `bson:"sets"`
-}
-type ResponseBody struct {
-	Sets []InputSet `bson:"sets"`
-}
 
 func EmptyInputSet() InputSet {
 	return InputSet{
 		Identifier: "empty",
 		Items:      []InputItem{},
 	}
+}
+
+func (s *InputSet) GetDataParallelism(sharding Sharding) [][]int {
+	switch sharding {
+	case ShardingAll:
+		return [][]int{}
+	case ShardingKeyed: // item keys: [0, 1, 0, 2] -> [[0,2],[1],[3]]
+		keyMap := make(map[int64][]int)
+		for itmIdx, itm := range s.Items {
+			keyMap[itm.Key] = append(keyMap[itm.Key], itmIdx)
+		}
+		out := make([][]int, 0, len(keyMap))
+		for _, key := range keyMap {
+			out = append(out, key)
+		}
+		return out
+	case ShardingEach: // -> [[0],[1],...]
+		out := make([][]int, 0, len(s.Items))
+		for i := 0; i < len(s.Items); i++ {
+			out = append(out, []int{i})
+		}
+	default:
+
+	}
+	logrus.Errorf("Got invalid sharding value %d.", sharding)
+	return nil
+}
+
+func (s *InputSet) GetItemsWithIdx(indexes []int) []InputItem {
+	items := make([]InputItem, len(indexes))
+	for itmIdx, idx := range indexes {
+		items[itmIdx] = s.Items[idx]
+	}
+	return items
+}
+
+// dandelion requests / responses
+
+type RequestBody struct {
+	Name string     `bson:"name"`
+	Sets []InputSet `bson:"sets"`
+}
+type ResponseBody struct {
+	Sets []InputSet `bson:"sets"`
 }
 
 func InvocationBody(funcName string, data []*Data) ([]byte, error) {

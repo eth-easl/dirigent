@@ -25,7 +25,7 @@ func SchedulerTypeFromString(s string) SchedulerType {
 	}
 }
 
-type ScheduleTaskFunc func(*workflow.TaskOrchestrator, *workflow.Task, context.Context) error
+type ScheduleTaskFunc func(*workflow.TaskOrchestrator, *workflow.SchedulerTask, context.Context) error
 
 type Scheduler interface {
 	Schedule(ScheduleTaskFunc, []*workflow.Data, context.Context) error

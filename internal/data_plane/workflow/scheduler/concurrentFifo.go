@@ -28,16 +28,21 @@ func NewConcurrentFifoScheduler(wf *workflow.Workflow) *ConcurrentFifoScheduler 
 	}
 }
 
-func (s *ConcurrentFifoScheduler) workStmt(task *workflow.Task, scheduleTask ScheduleTaskFunc) func() error {
+func (s *ConcurrentFifoScheduler) workTask(sTask *workflow.SchedulerTask, scheduleTask ScheduleTaskFunc) func() error {
 	return func() error {
-		// schedule task
-		logrus.Tracef("ConcurrentFifoScheduler: Scheduling task '%s'...", task.Name)
-		err := scheduleTask(s.orchestrator, task, s.sCtx)
+		// schedule (sub)task
+		logrus.Tracef("ConcurrentFifoScheduler: Scheduling task '%s'...", sTask.GetTask().Name)
+		err := scheduleTask(s.orchestrator, sTask, s.sCtx)
 		if err != nil {
 			return err
 		}
-		s.tasksFinished.Add(1)
-		logrus.Tracef("ConcurrentFifoScheduler: Task '%s' finished.", task.Name)
+
+		// check if task is done
+		taskDone, nextSchedulerTasks := s.orchestrator.SetDone(sTask)
+		if taskDone {
+			logrus.Tracef("ConcurrentFifoScheduler: Task '%s' finished.", sTask.GetTask().Name)
+			s.tasksFinished.Add(1)
+		}
 
 		// check if scheduling context has been cancelled
 		if s.egCtx.Err() != nil {
@@ -45,8 +50,8 @@ func (s *ConcurrentFifoScheduler) workStmt(task *workflow.Task, scheduleTask Sch
 		}
 
 		// enqueue next runnable tasks
-		for _, nextTask := range s.orchestrator.SetDone(task) {
-			s.eg.Go(s.workStmt(nextTask, scheduleTask))
+		for _, nextTask := range nextSchedulerTasks {
+			s.eg.Go(s.workTask(nextTask, scheduleTask))
 		}
 
 		return nil
@@ -64,11 +69,11 @@ func (s *ConcurrentFifoScheduler) Schedule(scheduleTask ScheduleTaskFunc, inData
 	}
 	s.orchestrator = orchestrator
 	for _, task := range initTasks {
-		s.eg.Go(s.workStmt(task, scheduleTask))
+		s.eg.Go(s.workTask(task, scheduleTask))
 	}
 	tasksTotal := uint64(len(s.wf.Tasks))
 
-	// wait for workers orchestrator finish
+	// wait for workers to finish
 	err = s.eg.Wait()
 	if err != nil {
 		return fmt.Errorf("scheduler failed to schedule tasks: %v", err)

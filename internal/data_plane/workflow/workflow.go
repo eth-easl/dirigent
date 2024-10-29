@@ -5,15 +5,25 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-type Task struct {
-	Name   string
-	NumIn  uint32
-	NumOut uint32
+type Sharding uint32
 
-	Functions        []string // functions belonging to this task
-	FunctionInNum    []int32  // # args per function (if > 1 function)
-	FunctionOutNum   []int32  // # returns per function (if > 1 function)
-	FunctionDataFlow []int32  // (src func idx, arg idx) for each function input + task outputs describing internal dataflow (if > 1 function)
+const (
+	ShardingAll Sharding = iota
+	ShardingKeyed
+	ShardingEach
+)
+
+type Task struct {
+	Name          string
+	NumIn         uint32
+	NumOut        uint32
+	InputSharding []Sharding
+
+	Functions          []string   // functions belonging to this task
+	FunctionInNum      []int32    // # args per function (if > 1 function)
+	FunctionOutNum     []int32    // # returns per function (if > 1 function)
+	FunctionDataFlow   []int32    // (src func idx, arg idx) for each function input + task outputs describing internal dataflow (if > 1 function)
+	FunctionInSharding []Sharding // sharding for each function input
 
 	ConsumerTasks      []*Task // tasks consuming output of this task
 	ConsumerDataSrcIdx []int32 // argument idx in consumer
@@ -34,6 +44,14 @@ type Workflow struct {
 	OutDataSrcIdx []int32 // return idx of source task
 }
 
+func toShardingArray(x []uint32) []Sharding {
+	out := make([]Sharding, len(x))
+	for i, xi := range x {
+		out[i] = Sharding(xi)
+	}
+	return out
+}
+
 func CreateFromWorkflowInfo(wfInfo *proto.WorkflowInfo) *Workflow {
 	nameToTask := make(map[string]*Task)
 
@@ -47,10 +65,12 @@ func CreateFromWorkflowInfo(wfInfo *proto.WorkflowInfo) *Workflow {
 		task.Name = tInfo.Name
 		task.NumIn = tInfo.NumIn
 		task.NumOut = tInfo.NumOut
+		task.InputSharding = toShardingArray(tInfo.InputSharding)
 		task.Functions = tInfo.Functions
 		task.FunctionInNum = tInfo.FunctionInNum
 		task.FunctionOutNum = tInfo.FunctionOutNum
 		task.FunctionDataFlow = tInfo.FunctionDataFlow
+		task.FunctionInSharding = toShardingArray(tInfo.FunctionInSharding)
 		task.ConsumerDataSrcIdx = tInfo.ConsumerDataSrcIdx
 		task.ConsumerDataDstIdx = tInfo.ConsumerDataDstIdx
 
