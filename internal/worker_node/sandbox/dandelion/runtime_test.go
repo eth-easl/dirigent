@@ -22,6 +22,7 @@ func TestExportFunctionComposition(t *testing.T) {
 			5, 3, 5, 2, // g
 			2, 0, 4, 0, 5, 1, // composition out
 		},
+		FunctionInSharding: make([]uint32, 11),
 	}
 
 	export := exportFunctionComposition(&testTask)
@@ -62,6 +63,7 @@ func TestExportFunctionCompositionMultiUse(t *testing.T) {
 			1, 0, // b
 			2, 0, // c
 		},
+		FunctionInSharding: make([]uint32, 5),
 	}
 
 	export := exportFunctionComposition(&testTask)
@@ -74,6 +76,46 @@ func TestExportFunctionCompositionMultiUse(t *testing.T) {
 		"(b ((in0 <- f0d0)) => ((f1d0 := out0))) " +
 		"(b ((in0 <- f1d0)) => ((f2d0 := out0))) " +
 		"(c ((in0 <- f2d0)) => ())" +
+		"))"
+
+	if export != expected {
+		t.Errorf("Export does not match the expectation: \nexport:   %s\nexpected: %s", export, expected)
+	}
+}
+
+func TestExportFunctionCompositionSharding(t *testing.T) {
+	testTask := proto.WorkflowTaskInfo{
+		Name:           "Test",
+		NumIn:          2,
+		NumOut:         1,
+		Functions:      []string{"a", "a", "b", "c"},
+		FunctionInNum:  []int32{2, 2, 1, 1},
+		FunctionOutNum: []int32{1, 1, 1, 1},
+		FunctionDataFlow: []int32{ // pair {src function, src data idx} for every input
+			-1, 0, -1, 1, // a
+			0, 0, -1, 1, // a
+			1, 0, // b
+			2, 0, // c
+			3, 0, // composition out
+		},
+		FunctionInSharding: []uint32{ // value for every input
+			0, 0, // a
+			1, 0, // a
+			2, // b
+			0, // c
+		},
+	}
+
+	export := exportFunctionComposition(&testTask)
+
+	expected := "(:function a (in0 in1) -> (out0))" +
+		"(:function b (in0) -> (out0))" +
+		"(:function c (in0) -> (out0))" +
+		"(:composition Test (cIn0 cIn1) -> (f3d0) (" +
+		"(a ((in0 <- cIn0) (in1 <- cIn1)) => ((f0d0 := out0))) " +
+		"(a ((:keyed in0 <- f0d0) (in1 <- cIn1)) => ((f1d0 := out0))) " +
+		"(b ((:each in0 <- f1d0)) => ((f2d0 := out0))) " +
+		"(c ((in0 <- f2d0)) => ((f3d0 := out0))) " +
 		"))"
 
 	if export != expected {

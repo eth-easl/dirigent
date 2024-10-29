@@ -98,6 +98,16 @@ func (dr *Runtime) registerService(path string, reqBson *bson.D) error {
 	}
 }
 
+func shardingStr(s uint32) string {
+	switch s {
+	case 1:
+		return ":keyed "
+	case 2:
+		return ":each "
+	default:
+		return "" // empty is equal to :all
+	}
+}
 func exportFunctionComposition(task *proto.WorkflowTaskInfo) string {
 	if task == nil || len(task.Functions) == 0 {
 		return ""
@@ -108,6 +118,7 @@ func exportFunctionComposition(task *proto.WorkflowTaskInfo) string {
 	funAppls := ""
 	var funDeclared []string
 	dfIdx := 0
+	shIdx := 0
 	for fIdx, f := range task.Functions {
 
 		// function declaration
@@ -135,11 +146,13 @@ func exportFunctionComposition(task *proto.WorkflowTaskInfo) string {
 		for inIdx := int32(0); inIdx < task.FunctionInNum[fIdx]; inIdx++ {
 			srcFIdx := task.FunctionDataFlow[dfIdx]
 			srcFDataIdx := task.FunctionDataFlow[dfIdx+1]
+			srcSharding := shardingStr(task.FunctionInSharding[shIdx])
 			dfIdx += 2
+			shIdx++
 			if srcFIdx == -1 {
-				applIn += fmt.Sprintf("(in%d <- cIn%d)", inIdx, srcFDataIdx)
+				applIn += fmt.Sprintf("(%sin%d <- cIn%d)", srcSharding, inIdx, srcFDataIdx)
 			} else {
-				applIn += fmt.Sprintf("(in%d <- f%dd%d)", inIdx, srcFIdx, srcFDataIdx)
+				applIn += fmt.Sprintf("(%sin%d <- f%dd%d)", srcSharding, inIdx, srcFIdx, srcFDataIdx)
 			}
 			if inIdx != task.FunctionInNum[fIdx]-1 {
 				applIn += " "
