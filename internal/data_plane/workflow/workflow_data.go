@@ -136,7 +136,7 @@ func (d *Data) GetItems(idx []int) *Data {
 			Items:      make([]InputItem, len(idx)),
 		}
 		for i := 0; i < len(idx); i++ {
-			outSet.Items[idx[i]] = d.dData.Items[idx[i]]
+			outSet.Items[i] = d.dData.Items[idx[i]]
 		}
 		return NewDandelionData(outSet)
 

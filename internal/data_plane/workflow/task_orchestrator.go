@@ -176,6 +176,7 @@ func (to *TaskOrchestrator) SetOutData(st *SchedulerTask, data []*Data) error {
 					taskData[i] = NewEmptyData(to.dataType)
 				}
 			}
+			to.taskData[st.taskPtr].outData = taskData
 		}
 	} else { // -> multiple contexts for the same task (dataParallelism > 1)
 		// check outData is initialized

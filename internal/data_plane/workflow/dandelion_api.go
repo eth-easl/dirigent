@@ -44,8 +44,7 @@ func (s *InputSet) GetDataParallelism(sharding Sharding) [][]int {
 		for i := 0; i < len(s.Items); i++ {
 			out = append(out, []int{i})
 		}
-	default:
-
+		return out
 	}
 	logrus.Errorf("Got invalid sharding value %d.", sharding)
 	return nil
