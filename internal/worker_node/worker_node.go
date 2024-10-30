@@ -6,6 +6,7 @@ import (
 	"cluster_manager/internal/worker_node/sandbox/containerd"
 	"cluster_manager/internal/worker_node/sandbox/dandelion"
 	"cluster_manager/internal/worker_node/sandbox/fake_snapshot"
+	"cluster_manager/internal/worker_node/sandbox/fcctr"
 	"cluster_manager/internal/worker_node/sandbox/firecracker"
 	"cluster_manager/pkg/config"
 	"cluster_manager/pkg/grpc_helpers"
@@ -89,6 +90,14 @@ func NewWorkerNode(cpApi proto.CpiInterfaceClient, config config.WorkerNodeConfi
 			cpApi,
 			sandboxManager,
 			&config.Dandelion,
+		)
+	case "fcctr":
+		logrus.Infof("Using firecracker-containerd runtime.")
+		runtimeInterface = fcctr.NewRuntime(
+			cpApi,
+			sandboxManager,
+			config.Firecracker,
+			config.Verbosity,
 		)
 	case "scalability_test":
 		logrus.Infof("Using scalability test runtime.")

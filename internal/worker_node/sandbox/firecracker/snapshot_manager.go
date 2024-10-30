@@ -11,6 +11,8 @@ type SnapshotManager struct {
 type SnapshotMetadata struct {
 	MemoryPath   string
 	SnapshotPath string
+	// For firecracker-containerd
+	ContainerSnapshotPath string
 }
 
 func NewFirecrackerSnapshotManager() *SnapshotManager {
