@@ -60,7 +60,7 @@ function CloneDandelion() {
         else
             echo -e "${color_red}WARNING: ${color_cyan}\$DANDELION_DIR${color_white} is not a valid directory!"
             echo "If you wish to clone Dandelion, please set it to a valid directory."
-            echo -e "If you do not wish to see this warning, set ${color_cyan}$DANDELION_DIR${color_white} to empty.${color_reset}"
+            echo -e "If you do not wish to see this warning, set ${color_cyan}\$DANDELION_DIR${color_white} to empty.${color_reset}"
         fi
     fi
 }
@@ -68,9 +68,10 @@ function CloneDandelion() {
 function SetupNode() {
     CloneDirigent $1
     CloneDandelion $1
+    CopyToRemote "$DIR/setup.cfg" "$1:~/cluster_manager/scripts/setup.cfg"
     CopyToRemote "$DIR/setup_node.sh" "$1:~/cluster_manager/scripts/setup_node.sh"
     strict_mode=$([[ "$-" == *e* ]] && echo "bash -e" || echo "bash")
-    RemoteExec $1 "$strict_mode ~/cluster_manager/scripts/setup_node.sh $2 $FIRECRACKER_VERSION"
+    RemoteExec $1 "$strict_mode ~/cluster_manager/scripts/setup_node.sh $2"
     # LFS pull for VM kernel image and rootfs
     RemoteExec $1 'cd ~/cluster_manager; git pull; git lfs pull'
     RemoteExec $1 'sudo cp -r ~/cluster_manager/ /cluster_manager'

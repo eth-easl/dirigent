@@ -1,0 +1,13 @@
+[Unit]
+After=multi-user.target
+Description=firecracker-containerd enables containerd to manage containers as Firecracker microVMs
+Documentation=https://github.com/firecracker-microvm/firecracker-containerd
+
+[Service]
+Type=simple
+ExecStart=/usr/local/bin/firecracker-containerd --config /etc/firecracker-containerd/config.toml
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

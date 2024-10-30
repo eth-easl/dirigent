@@ -79,37 +79,45 @@ function SetupWorkerNodes() {
     function internal_setup() {
         # LFS pull for VM kernel image and rootfs
         RemoteExec $1 "cd ~/cluster_manager; git pull; git lfs pull"
-        RemoteExec $1 "if [ -d ~/dandelion ]; then cd ~/dandelion; git pull; git lfs pull; fi"
 
         # Compile worker node daemon
         RemoteExec $1 "sudo mkdir -p /cluster_manager/cmd/worker_node"
         RemoteExec $1 "cd ~/cluster_manager/cmd/worker_node/; /usr/local/go/bin/go build main.go"
         RemoteExec $1 "sudo cp ~/cluster_manager/cmd/worker_node/main /cluster_manager/cmd/worker_node/"
+        RemoteExec $1 "yq -i '.criType = \"$RUNTIME\"' ~/cluster_manager/cmd/worker_node/config_cluster$2.yaml"
         RemoteExec $1 "sudo cp ~/cluster_manager/cmd/worker_node/config_cluster$2.yaml /cluster_manager/cmd/worker_node/config_cluster.yaml"
 
-        # Start Dandelion
-        RUNTIME=$(RemoteExec $1 "cat /cluster_manager/cmd/worker_node/config_cluster.yaml | yq '.criType'")
-        if [ "$RUNTIME" == "dandelion" ]
+        if [ "$RUNTIME" = "containerd" ]
         then
+            # Remove old containers and network
+            RemoteExec $1 "source ~/cluster_manager/scripts/common.sh; WipeContainerdCNI"
+        elif [ "$RUNTIME" = "firecracker" ]
+        then
+            # Remove old snapshots
+            RemoteExec $1 "sudo rm -rf /tmp/snapshots"
+        elif [ "$RUNTIME" = "dandelion" ]
+        then
+            # Compile Dandelion and run it in the background
             if RemoteExec $1 "[ -d ~/dandelion ]"
             then
-                RemoteExec $1 "cd ~/dandelion; RUSTFLAGS='-C target-feature=+crt-static' cargo build --bin mmu_worker --features mmu --target \$(arch)-unknown-linux-gnu"
+                RemoteExec $1 "cd ~/dandelion; git pull; git lfs pull; RUSTFLAGS='-C target-feature=+crt-static' cargo build --bin mmu_worker --features mmu --target \$(arch)-unknown-linux-gnu"
                 RemoteExec $1 "tmux new -s dandelion -d"
                 RemoteExec $1 "tmux send-keys -t dandelion 'cd ~/dandelion; RUST_LOG=debug cargo run --bin dandelion_server -F mmu,reqwest_io' ENTER"
             else
                 echo -e "${color_red}WARNING:${color_white} Dandelion has not been cloned. Please rerun ${color_cyan}remote_install.sh${color_white} with the correct ${color_cyan}\$DANDELION_DIR${color_white} setting.${color_reset}"
             fi
+        elif [ "$RUNTIME" = "fcctr" ]
+        then
+            # Start firecracker-containerd
+            RemoteExec $1 "sudo systemctl restart firecracker-containerd"
+            # Remove old snapshots
+            RemoteExec $1 "sudo rm -rf /tmp/snapshots"
         fi
 
         # For readiness probe
         RemoteExec $1 "sudo sysctl -w net.ipv4.conf.all.route_localnet=1"
         # For reachability of sandboxes from other cluster nodes
         RemoteExec $1 "sudo sysctl -w net.ipv4.ip_forward=1"
-
-        # Remove old snapshots
-        RemoteExec $1 "sudo rm -rf /tmp/snapshots"
-        # Remove old containers and network
-        RemoteExec $1 "source ~/cluster_manager/scripts/common.sh; WipeContainerdCNI"
 
         # Remove old logs
         RemoteExec $1 "sudo journalctl --vacuum-time=1s && sudo journalctl --vacuum-time=1d"
