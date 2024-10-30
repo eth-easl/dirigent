@@ -42,11 +42,17 @@ func GetCNIClient(configFile string) cni.CNI {
 	return network
 }
 
-func FetchImage(ctx context.Context, client *containerd.Client, imageURL string) (containerd.Image, error) {
+func FetchImage(ctx context.Context, client *containerd.Client, imageURL string, opts ...containerd.RemoteOpt) (containerd.Image, error) {
+	image, err := client.GetImage(ctx, imageURL)
+	if err == nil {
+		// Image already pulled
+		return image, nil
+	}
 	resolver := docker.NewResolver(docker.ResolverOptions{
 		PlainHTTP: true,
 	})
-	image, err := client.Pull(ctx, imageURL, containerd.WithPullUnpack, containerd.WithResolver(resolver))
+	finalOpts := append(opts, containerd.WithPullUnpack, containerd.WithResolver(resolver))
+	image, err = client.Pull(ctx, imageURL, finalOpts...)
 	if err != nil {
 		return nil, err
 	}

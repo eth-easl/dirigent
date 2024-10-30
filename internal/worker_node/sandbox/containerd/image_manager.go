@@ -20,7 +20,7 @@ func NewContainerdImageManager() *ImageManager {
 	return &ImageManager{}
 }
 
-func (m *ImageManager) GetImage(ctx context.Context, containerdClient *containerd.Client, url string) (containerd.Image, error, time.Duration) {
+func (m *ImageManager) GetImage(ctx context.Context, containerdClient *containerd.Client, url string, opts ...containerd.RemoteOpt) (containerd.Image, error, time.Duration) {
 	start := time.Now()
 
 	image, ok := m.Get(url)
@@ -52,7 +52,7 @@ func (m *ImageManager) GetImage(ctx context.Context, containerdClient *container
 			// Nobody else is fetching the image right now, so let's fetch it.
 			defer m.fetching.RemoveKey(url)
 			logrus.Debugf("Fetching image %s...", url)
-			image, err = FetchImage(ctx, containerdClient, url)
+			image, err = FetchImage(ctx, containerdClient, url, opts...)
 
 			if err != nil {
 				// Let everyone else know there has been an error while
