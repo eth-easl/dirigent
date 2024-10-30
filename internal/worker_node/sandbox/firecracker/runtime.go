@@ -95,7 +95,8 @@ func createMetadata(in *proto.ServiceInfo, vmcs *VMControlStructure) *managers.M
 			VMCS: vmcs,
 		},
 
-		IP:        vmcs.NetworkConfiguration.TapInternalIP,
+		IP:        vmcs.NetworkConfiguration.ExposedIP,
+		HostPort:  containerd.AssignRandomPort(),
 		GuestPort: int(in.PortForwarding.GuestPort),
 
 		ExitStatusChannel: make(chan uint32),
@@ -122,8 +123,6 @@ func (fcr *Runtime) CreateSandbox(ctx context.Context, in *proto.ServiceInfo) (*
 
 	startConfigureMonitoring := time.Now()
 	metadata := createMetadata(in, vmcs)
-	metadata.HostPort = containerd.AssignRandomPort()
-	metadata.IP = vmcs.NetworkConfiguration.ExposedIP
 
 	// VM process monitoring
 	vmPID, err := vmcs.VM.PID()
