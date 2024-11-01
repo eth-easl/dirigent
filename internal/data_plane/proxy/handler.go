@@ -229,7 +229,7 @@ func scheduleWorkflowFunction(httpClient *http.Client, proxyCtx *proxyContext) s
 	}
 }
 
-func handleWorkflow(writer http.ResponseWriter, request *http.Request, wf *workflow.Workflow, proxyCtx *proxyContext, defaultSchedulerType string) *requests.BufferedResponse {
+func handleWorkflow(writer http.ResponseWriter, request *http.Request, wf *workflow.Workflow, proxyCtx *proxyContext, dpConfig *config.DataPlaneConfig) *requests.BufferedResponse {
 	// parse request
 	err := request.ParseForm()
 	if err != nil {
@@ -254,9 +254,9 @@ func handleWorkflow(writer http.ResponseWriter, request *http.Request, wf *workf
 			}
 		}
 	} else {
-		schedulerType = scheduler.SchedulerTypeFromString(defaultSchedulerType)
+		schedulerType = scheduler.SchedulerTypeFromString(dpConfig.WorkflowDefaultScheduler)
 		if schedulerType == scheduler.Invalid {
-			logrus.Errorf("Invalid default scheduler type '%s'.", defaultSchedulerType)
+			logrus.Errorf("Invalid default scheduler type '%s'.", dpConfig.WorkflowDefaultScheduler)
 			return &requests.BufferedResponse{
 				StatusCode: http.StatusInternalServerError,
 				Body:       "Invalid default scheduler type.",
@@ -277,7 +277,7 @@ func handleWorkflow(writer http.ResponseWriter, request *http.Request, wf *workf
 	// schedule workflow
 	httpClient := &http.Client{Timeout: 10 * time.Second}
 	wfScheduler := scheduler.NewScheduler(wf, schedulerType)
-	err = wfScheduler.Schedule(scheduleWorkflowFunction(httpClient, proxyCtx), inData, request.Context())
+	err = wfScheduler.Schedule(scheduleWorkflowFunction(httpClient, proxyCtx), inData, dpConfig, request.Context())
 	if err != nil {
 		logrus.Errorf("Failed while executing workflow %s: %v", wf.Name, err)
 		return &requests.BufferedResponse{
@@ -355,7 +355,7 @@ func proxyHandler(proxy *httputil.ReverseProxy, writer http.ResponseWriter, requ
 		}
 	case service_metadata.Workflow:
 		logrus.Tracef("Invocation for workflow '%s' has been received.", serviceName)
-		resp = handleWorkflow(writer, request, deployment.GetWorkflow(), &proxyContext, dpConfig.WorkflowDefaultScheduler)
+		resp = handleWorkflow(writer, request, deployment.GetWorkflow(), &proxyContext, dpConfig)
 	default:
 		resp = &requests.BufferedResponse{
 			StatusCode: http.StatusInternalServerError,

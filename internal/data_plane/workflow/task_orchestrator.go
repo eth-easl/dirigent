@@ -1,6 +1,7 @@
 package workflow
 
 import (
+	"cluster_manager/pkg/config"
 	"fmt"
 	"github.com/sirupsen/logrus"
 	"sync"
@@ -27,6 +28,7 @@ type TaskOrchestrator struct {
 	wf       *Workflow
 	taskData map[*Task]*TaskData
 	dataType DataType
+	pWorker  int // preferred worker parallelism
 }
 
 func (s *SchedulerTask) GetTask() *Task {
@@ -36,63 +38,111 @@ func (s *SchedulerTask) GetDataParallelism() int {
 	return s.dataParallelism
 }
 
-func getSchedulerTasks(t *Task, inData []*Data) ([]*SchedulerTask, error) {
-	setMap := make([][][]int, t.NumIn)
+// getSchedulerTasks collects data parallelism information for each input data object and creates a scheduler task
+// for all parallel data object item combinations (cartesian product) while also best-effort combining some items
+// to allow for parallelism on the worker runtime
+func getSchedulerTasks(t *Task, inData []*Data, pWorker int) ([]*SchedulerTask, error) {
+	// collect data item index mappings
+	dataIdxMap := make([][][]int, t.NumIn)
 	numCombinations := 1
 	for i := int(t.NumIn) - 1; i >= 0; i-- {
-		setMap[i] = inData[i].GetDataParallelism(t.InputSharding[i])
-		if setMap[i] == nil {
+		dataIdxMap[i] = inData[i].GetDataParallelism(t.InputSharding[i])
+		if dataIdxMap[i] == nil {
 			return nil, fmt.Errorf("failed to get data parallelism for input #%d of task %s", i, t.Name)
 		}
-		numCombinations *= max(len(setMap[i]), 1)
+		numCombinations *= max(len(dataIdxMap[i]), 1)
 	}
 
-	setItemIdx := make([]int, t.NumIn)
-	for i := 0; i < len(setItemIdx); i++ {
-		setItemIdx[i] = 0
+	// find best index over which we combine different data item indexes (-> allows for parallelization on worker)
+	combIdx := -1
+	combSetP := 0
+	for i := 0; i < int(t.NumIn); i++ {
+		currSetP := len(dataIdxMap[i])
+		if currSetP == 0 {
+			continue
+		}
+		if currSetP%pWorker == 0 {
+			combIdx = i
+			combSetP = currSetP
+			break
+		}
+		if currSetP > combSetP {
+			combIdx = i
+			combSetP = currSetP
+		}
+	}
+
+	// get number of splits over the combined index and total number of scheduler tasks
+	combSetNumSplits := 1
+	numSchedulerTasks := 1
+	if combIdx != -1 {
+		combSetNumSplits = combSetP / pWorker
+		if combSetP%pWorker != 0 {
+			combSetNumSplits++
+		}
+		numSchedulerTasks = numCombinations / combSetP * combSetNumSplits
 	}
 
 	subtaskCounter := atomic.Int32{}
 	subtaskCounter.Store(int32(numCombinations))
-	outTasks := make([]*SchedulerTask, numCombinations)
-	for i := 0; i < numCombinations; i++ {
-		// create new scheduler task for this combination
-		currDataIdxs := make([][]int, t.NumIn)
-		for setIdx := 0; setIdx < int(t.NumIn); setIdx++ {
-			currSetMap := setMap[setIdx]
-			if len(currSetMap) == 0 {
-				currDataIdxs[setIdx] = nil
-			} else {
-				currDataIdxs[setIdx] = currSetMap[setItemIdx[setIdx]]
-			}
-
-		}
-		outTasks[i] = &SchedulerTask{
+	outTasks := make([]*SchedulerTask, numSchedulerTasks)
+	for setIdx := 0; setIdx < numSchedulerTasks; setIdx++ {
+		outTasks[setIdx] = &SchedulerTask{
 			taskPtr:         t,
 			subtasksLeft:    &subtaskCounter,
-			dataIdxs:        currDataIdxs,
+			dataIdxs:        make([][]int, t.NumIn),
 			dataParallelism: numCombinations,
-			SubtaskIdx:      i,
-		}
-
-		// update setItemIdx
-		for j := int(t.NumIn) - 1; j >= 0; j-- {
-			if len(setMap[j]) == 0 {
-				continue
-			}
-			setItemIdx[j]++
-			if setItemIdx[j] == len(setMap[j]) {
-				setItemIdx[j] = 0
-			} else {
-				break
-			}
+			SubtaskIdx:      setIdx,
 		}
 	}
+	repeat := 1
+	for setIdx := 0; setIdx < int(t.NumIn); setIdx++ {
+		if len(dataIdxMap[setIdx]) == 0 { // no parallelization of this set
+			continue
+		}
 
+		// set over which some items are combined
+		if setIdx == combIdx {
+			combSetIdxMap := make([][]int, combSetNumSplits)
+			idx := 0
+			for i := 0; i < combSetNumSplits; i++ {
+				for j := 0; j < pWorker; j++ {
+					if idx == combSetP {
+						break
+					}
+					combSetIdxMap[i] = append(combSetIdxMap[i], dataIdxMap[setIdx][idx]...)
+					idx++
+				}
+			}
+			sTaskIdx := 0
+			for sTaskIdx < numSchedulerTasks {
+				for cIdx := 0; cIdx < len(combSetIdxMap); cIdx++ {
+					for i := 0; i < repeat; i++ {
+						outTasks[sTaskIdx].dataIdxs[setIdx] = combSetIdxMap[cIdx]
+						sTaskIdx++
+					}
+				}
+			}
+			repeat *= combSetNumSplits
+			continue
+		}
+
+		// default case
+		sTaskIdx := 0
+		for sTaskIdx < numSchedulerTasks {
+			for setMapIdx := 0; setMapIdx < len(dataIdxMap[setIdx]); setMapIdx++ {
+				for i := 0; i < repeat; i++ {
+					outTasks[sTaskIdx].dataIdxs[setIdx] = dataIdxMap[setIdx][setMapIdx]
+					sTaskIdx++
+				}
+			}
+		}
+		repeat *= len(dataIdxMap[setIdx])
+	}
 	return outTasks, nil
 }
 
-func GetInitialRunnable(wf *Workflow, inData []*Data) (*TaskOrchestrator, []*SchedulerTask, error) {
+func GetInitialRunnable(wf *Workflow, inData []*Data, dpConfig *config.DataPlaneConfig) (*TaskOrchestrator, []*SchedulerTask, error) {
 	if len(inData) != int(wf.NumIn) {
 		return nil, nil, fmt.Errorf("got %d input data objects, composition has %d params", len(inData), wf.NumIn)
 	}
@@ -112,6 +162,7 @@ func GetInitialRunnable(wf *Workflow, inData []*Data) (*TaskOrchestrator, []*Sch
 		wf:       wf,
 		taskData: taskData,
 		dataType: dataType,
+		pWorker:  dpConfig.WorkflowPreferredWorkerParallelism,
 	}
 
 	// get initial runnable tasks
@@ -127,7 +178,7 @@ func GetInitialRunnable(wf *Workflow, inData []*Data) (*TaskOrchestrator, []*Sch
 			}
 		}
 		if allTrue {
-			nextTasks, err := getSchedulerTasks(initTask, to.taskData[initTask].inData)
+			nextTasks, err := getSchedulerTasks(initTask, to.taskData[initTask].inData, to.pWorker)
 			if err != nil {
 				return nil, nil, fmt.Errorf("error getting scheduler tasks: %v", err)
 			}
@@ -231,7 +282,7 @@ func (to *TaskOrchestrator) SetDone(st *SchedulerTask) (bool, []*SchedulerTask) 
 			}
 		}
 		if allTrue {
-			nextTasks, err := getSchedulerTasks(consumer, to.taskData[consumer].inData)
+			nextTasks, err := getSchedulerTasks(consumer, to.taskData[consumer].inData, to.pWorker)
 			if err != nil {
 				logrus.Errorf("error getting scheduler tasks: %v", err)
 			}

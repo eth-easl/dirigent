@@ -45,6 +45,7 @@ type DataPlaneConfig struct {
 	RedisConf                           RedisConf `mapstructure:"redis"`
 	ControlPlaneNotifyIntervalInMinutes int       `mapstructure:"controlPlaneNotifyIntervalMinutes"`
 	WorkflowDefaultScheduler            string    `mapstructure:"workflowDefaultScheduler"`
+	WorkflowPreferredWorkerParallelism  int       `mapstructure:"workflowPreferredWorkerParallelism"`
 }
 
 type WorkerNodeConfig struct {

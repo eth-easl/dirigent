@@ -5,6 +5,7 @@ import (
 	cp_workflow "cluster_manager/internal/control_plane/workflow"
 	"cluster_manager/internal/control_plane/workflow/dandelion-workflow"
 	dp_workflow "cluster_manager/internal/data_plane/workflow"
+	"cluster_manager/pkg/config"
 	"context"
 	"fmt"
 	"sort"
@@ -273,7 +274,8 @@ func TestSimple(t *testing.T) {
 		}
 		for _, sType := range testedSchedulers {
 			scheduler := NewScheduler(wf, sType)
-			err = scheduler.Schedule(dummyScheduleFunc(), inData, context.Background())
+			mockDPConfig := &config.DataPlaneConfig{WorkflowPreferredWorkerParallelism: 1}
+			err = scheduler.Schedule(dummyScheduleFunc(), inData, mockDPConfig, context.Background())
 			if err != nil {
 				t.Fatalf("Got error while scheduling workflow (testIdx: %d, schedulerType: %d): %v", testIdx, sType, err)
 			}
@@ -363,7 +365,8 @@ func TestDataParallelism(t *testing.T) {
 		}
 		for _, sType := range testedSchedulers {
 			scheduler := NewScheduler(wf, sType)
-			err = scheduler.Schedule(dummyScheduleFunc(), inData, context.Background())
+			mockDPConfig := &config.DataPlaneConfig{WorkflowPreferredWorkerParallelism: 1}
+			err = scheduler.Schedule(dummyScheduleFunc(), inData, mockDPConfig, context.Background())
 			if err != nil {
 				t.Fatalf("Got error while scheduling workflow (testIdx: %d, schedulerType: %d): %v", testIdx, sType, err)
 			}
