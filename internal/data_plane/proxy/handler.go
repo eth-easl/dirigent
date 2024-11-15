@@ -344,7 +344,7 @@ func proxyHandler(proxy *httputil.ReverseProxy, writer http.ResponseWriter, requ
 		logEntry, resp = handleFunction(proxy, writer, request, deployment.GetFunction(), proxyContext)
 
 		// extend log entry and send it to the tracing service
-		if resp.StatusCode != http.StatusOK {
+		if resp.StatusCode == http.StatusOK {
 			logEntry.GetMetadata = durationGetDeployment
 			logEntry.StartTime = requestMetadata.start
 			logEntry.Total = time.Since(requestMetadata.start)
