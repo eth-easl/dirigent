@@ -362,12 +362,19 @@ sudo go test -v ./...
 ## Citation 
 
 ```
-@misc{cvetković2024dirigent,
-      title={Dirigent: Lightweight Serverless Orchestration}, 
-      author={Lazar Cvetković and François Costa and Mihajlo Djokic and Michal Friedman and Ana Klimovic},
-      year={2024},
-      eprint={2404.16393},
-      archivePrefix={arXiv},
-      primaryClass={cs.DC}
+@inproceedings{10.1145/3694715.3695966,
+author = {Cvetkovi\'{c}, Lazar and Costa, Fran\c{c}ois and Djokic, Mihajlo and Friedman, Michal and Klimovic, Ana},
+title = {Dirigent: Lightweight Serverless Orchestration},
+year = {2024},
+isbn = {9798400712517},
+publisher = {Association for Computing Machinery},
+address = {New York, NY, USA},
+url = {https://doi.org/10.1145/3694715.3695966},
+doi = {10.1145/3694715.3695966},
+booktitle = {Proceedings of the ACM SIGOPS 30th Symposium on Operating Systems Principles},
+pages = {369–384},
+numpages = {16},
+location = {Austin, TX, USA},
+series = {SOSP '24}
 }
 ```
