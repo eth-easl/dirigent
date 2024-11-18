@@ -209,7 +209,7 @@ func (dr *Runtime) CreateSandbox(_ context.Context, in *proto.ServiceInfo) (*pro
 	if !ok {
 		// load function binary
 		binaryData, err := os.ReadFile(in.Image)
-		logrus.Infof("Using binary file %s (len: %d)", dr.dandelionConfig.BinaryPath, len(binaryData))
+		logrus.Infof("Using binary file %s (len: %d)", in.Image, len(binaryData))
 		if err != nil {
 			logrus.Errorf("Error reading binary file - %v", err)
 			return getFailureStatus(), nil
@@ -320,7 +320,7 @@ func (dr *Runtime) ListEndpoints(_ context.Context, _ *emptypb.Empty) (*proto.En
 	return dr.SandboxManager.ListEndpoints()
 }
 
-func (dr *Runtime) PrepullImage(grpcCtx context.Context, imageInfo *proto.ImageInfo) (*proto.ActionStatus, error) {
+func (dr *Runtime) PrepullImage(_ context.Context, _ *proto.ImageInfo) (*proto.ActionStatus, error) {
 	// TODO: Implement Firecracker image fetching.
 	return &proto.ActionStatus{
 		Success: false,
@@ -328,7 +328,7 @@ func (dr *Runtime) PrepullImage(grpcCtx context.Context, imageInfo *proto.ImageI
 	}, nil
 }
 
-func (dr *Runtime) GetImages(grpcCtx context.Context) ([]*proto.ImageInfo, error) {
+func (dr *Runtime) GetImages(_ context.Context) ([]*proto.ImageInfo, error) {
 	// TODO: Implement Firecracker image fetching.
 	return []*proto.ImageInfo{}, errors.New("image pulling in Dandelion not implemented yet")
 }

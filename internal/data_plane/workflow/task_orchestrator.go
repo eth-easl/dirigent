@@ -84,14 +84,14 @@ func getSchedulerTasks(t *Task, inData []*Data, pWorker int) ([]*SchedulerTask, 
 	}
 
 	subtaskCounter := atomic.Int32{}
-	subtaskCounter.Store(int32(numCombinations))
+	subtaskCounter.Store(int32(numSchedulerTasks))
 	outTasks := make([]*SchedulerTask, numSchedulerTasks)
 	for setIdx := 0; setIdx < numSchedulerTasks; setIdx++ {
 		outTasks[setIdx] = &SchedulerTask{
 			taskPtr:         t,
 			subtasksLeft:    &subtaskCounter,
 			dataIdxs:        make([][]int, t.NumIn),
-			dataParallelism: numCombinations,
+			dataParallelism: numSchedulerTasks,
 			SubtaskIdx:      setIdx,
 		}
 	}

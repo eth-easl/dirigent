@@ -142,7 +142,7 @@ func (w *WorkerNode) RegisterNodeWithControlPlane(config config.WorkerNodeConfig
 
 	err := w.sendInstructionToControlPlane(ctx, config, cpApi, RegisterAction)
 	if err != nil {
-		logrus.Fatal("Failed to register from the control plane")
+		logrus.Fatalf("Failed to register from the control plane: %v", err)
 	}
 
 	logrus.Info("Successfully registered the node with the control plane")
@@ -179,7 +179,7 @@ func (w *WorkerNode) SetupHeartbeatLoop(cfg *config.WorkerNodeConfig) {
 func (w *WorkerNode) sendInstructionToControlPlane(ctx context.Context, config config.WorkerNodeConfig, cpi *proto.CpiInterfaceClient, action int) error {
 	images, err := w.SandboxRuntime.GetImages(ctx)
 	if err != nil {
-		return err
+		logrus.Warnf("Error fetching images: %v", err)
 	}
 	pollErr := wait.PollUntilContextCancel(ctx, 5*time.Second, true,
 		func(ctx context.Context) (done bool, err error) {

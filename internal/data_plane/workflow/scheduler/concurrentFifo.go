@@ -32,7 +32,7 @@ func NewConcurrentFifoScheduler(wf *workflow.Workflow) *ConcurrentFifoScheduler 
 func (s *ConcurrentFifoScheduler) workTask(sTask *workflow.SchedulerTask, scheduleTask ScheduleTaskFunc) func() error {
 	return func() error {
 		// schedule (sub)task
-		logrus.Tracef("ConcurrentFifoScheduler: Scheduling task '%s'...", sTask.GetTask().Name)
+		logrus.Tracef("ConcurrentFifoScheduler: Scheduling task %s-%d (p=%d)...", sTask.GetTask().Name, sTask.SubtaskIdx, sTask.GetDataParallelism())
 		err := scheduleTask(s.orchestrator, sTask, s.sCtx)
 		if err != nil {
 			return err
@@ -43,6 +43,8 @@ func (s *ConcurrentFifoScheduler) workTask(sTask *workflow.SchedulerTask, schedu
 		if taskDone {
 			logrus.Tracef("ConcurrentFifoScheduler: Task '%s' finished.", sTask.GetTask().Name)
 			s.tasksFinished.Add(1)
+		} else {
+			logrus.Tracef("SequentialFifoScheduler: Subtask %s-%d finished.", sTask.GetTask().Name, sTask.SubtaskIdx)
 		}
 
 		// check if scheduling context has been cancelled

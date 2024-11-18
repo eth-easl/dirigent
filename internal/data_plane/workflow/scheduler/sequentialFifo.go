@@ -31,7 +31,7 @@ func (s *SequentialFifoScheduler) Schedule(scheduleTask ScheduleTaskFunc, inData
 		queue = queue[1:]
 
 		// schedule task
-		logrus.Tracef("SequentialFifoScheduler: Scheduling task '%s' (queue depth: %d)...", currTask.GetTask().Name, len(queue))
+		logrus.Tracef("SequentialFifoScheduler: Scheduling task %s-%d (p=%d) (queue depth: %d)...", currTask.GetTask().Name, currTask.SubtaskIdx, currTask.GetDataParallelism(), len(queue))
 		err = scheduleTask(orchestrator, currTask, ctx)
 		if err != nil {
 			return fmt.Errorf("scheduler failed to execute task: %v", err)
@@ -49,6 +49,8 @@ func (s *SequentialFifoScheduler) Schedule(scheduleTask ScheduleTaskFunc, inData
 				}
 				break
 			}
+		} else {
+			logrus.Tracef("SequentialFifoScheduler: Subtask %s-%d finished.", currTask.GetTask().Name, currTask.SubtaskIdx)
 		}
 
 		// add statements that are now runnable
