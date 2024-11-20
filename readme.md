@@ -353,7 +353,7 @@ If you just want to generate images of a specific size without any specific cont
 ### Run the tests
 
 ```bash
-sudo go test -v ./...
+sudo go test -ldflags='-extldflags=-Wl,-z,lazy' -v ./...
 ```
 
 ## Contact

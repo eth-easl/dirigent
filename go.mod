@@ -12,6 +12,7 @@ replace (
 replace github.com/firecracker-microvm/firecracker-containerd => github.com/vhive-serverless/firecracker-containerd v0.0.0-20230912063208-ad6383f05e45
 
 require (
+	github.com/NVIDIA/go-nvml v0.12.4-1
 	github.com/containerd/containerd v1.6.20
 	github.com/containerd/go-cni v1.1.9
 	github.com/coreos/go-iptables v0.6.0
@@ -34,7 +35,7 @@ require (
 	github.com/shirou/gopsutil v3.21.11+incompatible
 	github.com/sirupsen/logrus v1.9.2
 	github.com/spf13/viper v1.8.1
-	github.com/stretchr/testify v1.8.4
+	github.com/stretchr/testify v1.10.0
 	go.mongodb.org/mongo-driver v1.10.0
 	go.opencensus.io v0.24.0
 	go.uber.org/mock v0.2.0

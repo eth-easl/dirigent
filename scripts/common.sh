@@ -82,7 +82,7 @@ function SetupWorkerNodes() {
 
         # Compile worker node daemon
         RemoteExec $1 "sudo mkdir -p /cluster_manager/cmd/worker_node"
-        RemoteExec $1 "cd ~/cluster_manager/cmd/worker_node/; /usr/local/go/bin/go build main.go"
+        RemoteExec $1 "cd ~/cluster_manager/cmd/worker_node/; /usr/local/go/bin/go build -ldflags='-extldflags=-Wl,-z,lazy' main.go"
         RemoteExec $1 "sudo cp ~/cluster_manager/cmd/worker_node/main /cluster_manager/cmd/worker_node/"
         RemoteExec $1 "yq -i '.criType = \"$RUNTIME\"' ~/cluster_manager/cmd/worker_node/config_cluster$2.yaml"
         RemoteExec $1 "sudo cp ~/cluster_manager/cmd/worker_node/config_cluster$2.yaml /cluster_manager/cmd/worker_node/config_cluster.yaml"

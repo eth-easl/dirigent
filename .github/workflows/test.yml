@@ -24,11 +24,11 @@ jobs:
         run: sudo apt-get update && sudo apt-get install haproxy && sudo cp ./configs/haproxy.cfg /etc/haproxy/haproxy.cfg
 
       - name: Build
-        run: go build ./...
+        run: go build -ldflags='-extldflags=-Wl,-z,lazy' ./...
 
       - name: Test
         run: |
           curl -L -o cni-plugins.tgz https://github.com/containernetworking/plugins/releases/download/v0.8.1/cni-plugins-linux-amd64-v0.8.1.tgz
           sudo mkdir -p /opt/cni/bin
           sudo tar -C /opt/cni/bin -xzf cni-plugins.tgz
-          sudo go test -v ./...
+          sudo go test -ldflags='-extldflags=-Wl,-z,lazy' -v ./...
