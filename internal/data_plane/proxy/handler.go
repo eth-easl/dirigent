@@ -318,6 +318,15 @@ func handleWorkflow(writer http.ResponseWriter, request *http.Request, wf *workf
 }
 
 func proxyHandler(proxy *httputil.ReverseProxy, writer http.ResponseWriter, request *http.Request, requestMetadata requestMetadata, proxyContext proxyContext, dpConfig *config.DataPlaneConfig) *requests.BufferedResponse {
+	if request.Method != "POST" {
+		logrus.Trace("Invalid HTTP method.")
+		return &requests.BufferedResponse{
+			StatusCode: http.StatusMethodNotAllowed,
+			Body:       "Invalid HTTP method.",
+			E2ELatency: time.Since(requestMetadata.start),
+		}
+	}
+
 	// fetch metadata
 	serviceName := GetServiceName(request)
 	deployment, durationGetDeployment := proxyContext.cache.GetDeployment(serviceName)
@@ -334,7 +343,7 @@ func proxyHandler(proxy *httputil.ReverseProxy, writer http.ResponseWriter, requ
 	var resp *requests.BufferedResponse
 	switch deployment.GetType() {
 	case service_metadata.Function:
-		logrus.Tracef("Invocation for function '%s' has been received.", serviceName)
+		logrus.Tracef("Invocation for function '%s' has been received (input size: %d B (%.2f MB)).", serviceName, request.ContentLength, float64(request.ContentLength/(1024.0*1024.0)))
 
 		// notify metric collector we got a request
 		proxyContext.incomingRequestChannel <- serviceName
