@@ -58,6 +58,7 @@ message ServiceInfo {
   repeated string EnvironmentVariables = 10;
   repeated string ProgramArguments = 11;
   PrepullMode PrepullConfig = 12;
+  uint64 RequestedGpu = 13;
 }
 
 message ServiceList {

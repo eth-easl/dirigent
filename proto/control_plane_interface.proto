@@ -16,6 +16,7 @@ message NodeInfo {
   uint64 Memory = 5;
   repeated ImageInfo Images = 6;
   string CIDR = 7;
+  uint64 GPUs = 8;
 }
 
 message NodeHeartbeatMessage {
