@@ -5,16 +5,17 @@ import (
 	"cluster_manager/internal/control_plane/control_plane"
 	"cluster_manager/internal/control_plane/control_plane/autoscalers"
 	"cluster_manager/internal/control_plane/workflow"
-	"cluster_manager/internal/control_plane/workflow/dandelion-workflow"
+	dandelion_workflow "cluster_manager/internal/control_plane/workflow/dandelion-workflow"
 	"cluster_manager/proto"
 	"context"
 	"errors"
 	"fmt"
-	"google.golang.org/protobuf/types/known/emptypb"
 	"net/http"
 	"strconv"
 	"strings"
 	"time"
+
+	"google.golang.org/protobuf/types/known/emptypb"
 
 	"github.com/sirupsen/logrus"
 )
@@ -114,6 +115,16 @@ func functionRegistrationHandler(cpApi *control_plane.CpApiServer) func(w http.R
 			}
 		}
 
+		gpu := 0
+		gpuSpec, ok := r.Form["requested_gpu"]
+		if ok {
+			gpu, err = strconv.Atoi(gpuSpec[0])
+			if err != nil {
+				http.Error(w, "Invalid GPU value", http.StatusBadRequest)
+				return
+			}
+		}
+
 		prepullConfig := proto.PrepullMode_NONE
 		prepullMode, ok := r.Form["prepull_mode"]
 		if ok {
@@ -190,6 +201,7 @@ func functionRegistrationHandler(cpApi *control_plane.CpApiServer) func(w http.R
 			Image:             image,
 			RequestedCpu:      uint64(cpu),
 			RequestedMemory:   uint64(memory),
+			RequestedGpu:      uint64(gpu),
 			PortForwarding:    portMapping,
 			AutoscalingConfig: autoscalingConfig,
 			SandboxConfiguration: &proto.SandboxConfiguration{
