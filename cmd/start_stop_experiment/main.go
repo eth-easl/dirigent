@@ -36,13 +36,14 @@ func startStopSandbox(ctx context.Context, r sandbox.RuntimeInterface, serviceIn
 
 func createRuntime(runtime string, useSnapshots bool) (sandbox.RuntimeInterface, sandbox.PostRegistrationCallback) {
 	sandboxManager := managers.NewSandboxManager("test")
+	gpuManager := managers.NewGPUManager()
 	switch runtime {
 	case "containerd":
 		return containerd.NewContainerdRuntime(nil, config.ContainerdConfig{
 			CRIPath:       "/run/containerd/containerd.sock",
 			CNIConfigPath: "configs/cni.conf",
 			PrefetchImage: false,
-		}, sandboxManager, false), sandbox.ContainerdPostRegistrationCallback
+		}, sandboxManager, gpuManager, false), sandbox.ContainerdPostRegistrationCallback
 	case "firecracker":
 		return firecracker.NewFirecrackerRuntime(nil, sandboxManager, &config.FirecrackerConfig{
 			Kernel:           "configs/firecracker/vmlinux-4.14.bin",

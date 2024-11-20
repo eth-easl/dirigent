@@ -41,6 +41,7 @@ type Runtime struct {
 	ImageManager   *ImageManager
 	SandboxManager *managers.SandboxManager
 	ProcessMonitor *managers.ProcessMonitor
+	gpuManager     *managers.GPUManager
 	CPUConstraints bool
 }
 
@@ -51,7 +52,7 @@ type Metadata struct {
 	Container containerd.Container
 }
 
-func NewContainerdRuntime(cpApi proto.CpiInterfaceClient, config config.ContainerdConfig, sandboxManager *managers.SandboxManager, CPUConstraints bool) *Runtime {
+func NewContainerdRuntime(cpApi proto.CpiInterfaceClient, config config.ContainerdConfig, sandboxManager *managers.SandboxManager, gpuManager *managers.GPUManager, CPUConstraints bool) *Runtime {
 	containerdClient := GetContainerdClient(config.CRIPath)
 
 	imageManager := NewContainerdImageManager()
@@ -86,6 +87,7 @@ func NewContainerdRuntime(cpApi proto.CpiInterfaceClient, config config.Containe
 		SandboxManager: sandboxManager,
 		ProcessMonitor: managers.NewProcessMonitor(),
 		CPUConstraints: CPUConstraints,
+		gpuManager:     gpuManager,
 	}
 }
 
@@ -148,7 +150,7 @@ func (cr *Runtime) CreateSandbox(grpcCtx context.Context, in *proto.ServiceInfo)
 		}, err
 	}
 
-	container, err, durationContainerCreation := CreateContainer(ctx, cr.ContainerdClient, image, in, cr.CPUConstraints)
+	container, err, durationContainerCreation := CreateContainer(ctx, cr.ContainerdClient, image, in, cr.gpuManager, cr.CPUConstraints)
 	if err != nil {
 		logrus.Warn("Failed creating a container - ", err)
 		return &proto.SandboxCreationStatus{

@@ -14,6 +14,7 @@ import (
 
 	"github.com/containerd/containerd"
 	"github.com/containerd/containerd/cio"
+	"github.com/containerd/containerd/contrib/nvidia"
 	"github.com/containerd/containerd/oci"
 	"github.com/containerd/containerd/remotes/docker"
 	"github.com/containerd/go-cni"
@@ -66,7 +67,7 @@ func generateContainerName() string {
 	return fmt.Sprintf("workload-%d", rand.Int())
 }
 
-func CreateContainer(ctx context.Context, client *containerd.Client, image containerd.Image, configuration *proto.ServiceInfo, CPUConstraints bool) (containerd.Container, error, time.Duration) {
+func CreateContainer(ctx context.Context, client *containerd.Client, image containerd.Image, configuration *proto.ServiceInfo, gpuManager *managers.GPUManager, CPUConstraints bool) (containerd.Container, error, time.Duration) {
 	start := time.Now()
 
 	options := []oci.SpecOpts{oci.WithImageConfig(image), oci.WithEnv(composeEnvironmentSetting(configuration.SandboxConfiguration))}
@@ -74,6 +75,20 @@ func CreateContainer(ctx context.Context, client *containerd.Client, image conta
 		options = append(options, oci.WithCPUs(strconv.FormatUint(configuration.RequestedCpu, 10)))
 	}
 	options = append(options, oci.WithEnv(configuration.EnvironmentVariables))
+	asksGpu := configuration.RequestedGpu
+	if asksGpu > 0 {
+		hasGpu := gpuManager.NumGPUs()
+		if hasGpu < asksGpu {
+			return nil, fmt.Errorf("Not enough GPUs available: requested %d but have %d", asksGpu, hasGpu), time.Since(start)
+		}
+		// TODO: Introduce GPU scheduling
+		usedGpuIndex := rand.Intn(int(hasGpu))
+		logrus.Debugf("Requested %d GPUs, assigning GPU %d", asksGpu, usedGpuIndex)
+		options = append(options, nvidia.WithGPUs(
+			nvidia.WithDeviceUUIDs(gpuManager.UUID(usedGpuIndex)),
+			nvidia.WithCapabilities(nvidia.Utility, nvidia.Compute),
+		))
+	}
 
 	containerName := generateContainerName()
 	container, err := client.NewContainer(ctx, containerName,

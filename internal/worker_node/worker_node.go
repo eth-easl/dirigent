@@ -37,10 +37,10 @@ type WorkerNode struct {
 	cpApi          proto.CpiInterfaceClient
 	SandboxRuntime sandbox.RuntimeInterface
 
-	ImageManager   *containerd.ImageManager
 	SandboxManager *managers.SandboxManager
 	ProcessMonitor *managers.ProcessMonitor
 	RouteManager   *connectivity.RouteManager
+	gpuManager     *managers.GPUManager
 
 	Name string
 	CIDR string
@@ -59,6 +59,7 @@ func NewWorkerNode(cpApi proto.CpiInterfaceClient, config config.WorkerNodeConfi
 	// If CRIType is not "scalability_test", then allow only one daemon per physical node
 	nodeName := hostName
 	sandboxManager := managers.NewSandboxManager(nodeName)
+	gpuManager := managers.NewGPUManager()
 
 	if !utils.IsRoot() {
 		logrus.Fatal("Cannot create a worker daemon without sudo.")
@@ -74,6 +75,7 @@ func NewWorkerNode(cpApi proto.CpiInterfaceClient, config config.WorkerNodeConfi
 			cpApi,
 			config.Containerd,
 			sandboxManager,
+			gpuManager,
 			config.CPUConstraints,
 		), sandbox.ContainerdPostRegistrationCallback
 	case "firecracker":
@@ -121,6 +123,7 @@ func NewWorkerNode(cpApi proto.CpiInterfaceClient, config config.WorkerNodeConfi
 
 		SandboxManager: sandboxManager,
 		RouteManager:   connectivity.NewRouteManager(),
+		gpuManager:     gpuManager,
 
 		Name: nodeName,
 	}
@@ -207,6 +210,7 @@ func (w *WorkerNode) sendInstructionToControlPlane(ctx context.Context, config c
 				Port:   int32(config.Port),
 				Cpu:    hardware.GetNumberCpus() * 1000,
 				Memory: hardware.GetMemory() / 1024 / 1024,
+				GPUs:   w.gpuManager.NumGPUs(),
 				Images: images,
 				CIDR:   w.CIDR,
 			}
