@@ -54,7 +54,7 @@ type WorkerNodeConfig struct {
 	Port                int               `mapstructure:"port"`
 	Verbosity           string            `mapstructure:"verbosity"`
 	CRIType             string            `mapstructure:"criType"`
-	CPUConstaint        bool              `mapstructure:"cpuConstaint"`
+	CPUConstraints      bool              `mapstructure:"cpuConstraints"`
 	Containerd          ContainerdConfig  `mapstructure:"containerd"`
 	Firecracker         FirecrackerConfig `mapstructure:"firecracker"`
 	Dandelion           DandelionConfig   `mapstructure:"dandelion"`
@@ -174,8 +174,8 @@ func ReadWorkedNodeConfiguration(configPath string) (WorkerNodeConfig, error) {
 		return WorkerNodeConfig{}, err
 	}
 
-	if workerNodeConfig.CPUConstaint && workerNodeConfig.CRIType != "containerd" {
-		logrus.Fatal("Only containerd supports CPU Constaints")
+	if workerNodeConfig.CPUConstraints && workerNodeConfig.CRIType != "containerd" {
+		logrus.Fatal("Only containerd supports CPU Constraints")
 	}
 
 	return workerNodeConfig, nil

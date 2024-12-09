@@ -75,7 +75,7 @@ func NewWorkerNode(cpApi proto.CpiInterfaceClient, config config.WorkerNodeConfi
 			cpApi,
 			config.Containerd,
 			sandboxManager,
-			config.CPUConstaint,
+			config.CPUConstraints,
 		)
 	case "firecracker":
 		logrus.Infof("Using firecracker runtime.")

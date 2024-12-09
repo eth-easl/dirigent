@@ -75,11 +75,11 @@ func generateContainerName() string {
 	return fmt.Sprintf("workload-%d", rand.Int())
 }
 
-func CreateContainer(ctx context.Context, client *containerd.Client, image containerd.Image, configuration *proto.ServiceInfo, CPUConstaints bool) (containerd.Container, error, time.Duration) {
+func CreateContainer(ctx context.Context, client *containerd.Client, image containerd.Image, configuration *proto.ServiceInfo, CPUConstraints bool) (containerd.Container, error, time.Duration) {
 	start := time.Now()
 
 	options := []oci.SpecOpts{oci.WithImageConfig(image), oci.WithEnv(composeEnvironmentSetting(configuration.SandboxConfiguration))}
-	if CPUConstaints {
+	if CPUConstraints {
 		options = append(options, oci.WithCPUs(strconv.FormatUint(configuration.RequestedCpu, 10)))
 	}
 	options = append(options, oci.WithEnv(configuration.EnvironmentVariables))
