@@ -33,15 +33,6 @@ func GetContainerdClient(containerdSocket string) *containerd.Client {
 	return client
 }
 
-func GetCNIClient(configFile string) cni.CNI {
-	network, err := cni.New(cni.WithConfFile(configFile))
-	if err != nil {
-		logrus.Fatal("Failed to create a CNI client - ", err)
-	}
-
-	return network
-}
-
 func FetchImage(ctx context.Context, client *containerd.Client, imageURL string, opts ...containerd.RemoteOpt) (containerd.Image, error) {
 	image, err := client.GetImage(ctx, imageURL)
 	if err == nil {
@@ -207,7 +198,7 @@ func WatchExitChannel(cpApi proto.CpiInterfaceClient, metadata *managers.Metadat
 }
 
 func DeleteContainer(ctx context.Context, network cni.CNI, metadata *managers.Metadata) error {
-	containerMetadata := (*metadata).RuntimeMetadata.(ContainerdMetadata)
+	containerMetadata := (*metadata).RuntimeMetadata.(Metadata)
 
 	// TODO: what happens with CNI and container metadata if the container fails -- memory leak
 	if err := network.Remove(ctx, containerMetadata.Container.ID(), metadata.NetNs); err != nil {

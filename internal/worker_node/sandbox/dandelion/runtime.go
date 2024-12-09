@@ -75,6 +75,8 @@ func getFailureStatus() *proto.SandboxCreationStatus {
 	}
 }
 
+func (dr *Runtime) ConfigureNetwork(string) {}
+
 func (dr *Runtime) registerService(path string, reqBson *bson.D) error {
 	registerRequestBody, err := bson.Marshal(reqBson)
 	if err != nil {

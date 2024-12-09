@@ -53,7 +53,6 @@ type ControlPlane struct {
 }
 
 func NewControlPlane(client persistence.PersistenceLayer, outputFile string, dataplaneCreator core.DataplaneFactory, workerNodeCreator core.WorkerNodeFactory, cfg *config.ControlPlaneConfig) *ControlPlane {
-
 	if !isValidAutoscaler(cfg.Autoscaler) {
 		logrus.Fatalf("Invalid autoscaler type %s", cfg.Autoscaler)
 	}

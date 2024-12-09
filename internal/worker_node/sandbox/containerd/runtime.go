@@ -8,6 +8,8 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"os"
+	"strings"
 	"time"
 
 	"github.com/containerd/containerd"
@@ -23,12 +25,13 @@ const (
 	containerdNamespace = "cm"
 )
 
-type ContainerdRuntime struct {
+type Runtime struct {
 	sandbox.RuntimeInterface
 
 	cpApi proto.CpiInterfaceClient
 
 	ContainerdClient *containerd.Client
+	cniTemplatePath  string
 	CNIClient        cni.CNI
 	IPT              *iptables.IPTables
 
@@ -38,18 +41,17 @@ type ContainerdRuntime struct {
 	CPUConstraints bool
 }
 
-type ContainerdMetadata struct {
+type Metadata struct {
 	managers.RuntimeMetadata
 
 	Task      containerd.Task
 	Container containerd.Container
 }
 
-func NewContainerdRuntime(cpApi proto.CpiInterfaceClient, config config.ContainerdConfig, sandboxManager *managers.SandboxManager, CPUConstraints bool) *ContainerdRuntime {
+func NewContainerdRuntime(cpApi proto.CpiInterfaceClient, config config.ContainerdConfig, sandboxManager *managers.SandboxManager, CPUConstraints bool) *Runtime {
 	containerdClient := GetContainerdClient(config.CRIPath)
 
 	imageManager := NewContainerdImageManager()
-	cniClient := GetCNIClient(config.CNIConfigPath)
 	ipt, err := managers.NewIptablesUtil()
 
 	if err != nil {
@@ -70,11 +72,11 @@ func NewContainerdRuntime(cpApi proto.CpiInterfaceClient, config config.Containe
 		}
 	}
 
-	return &ContainerdRuntime{
+	return &Runtime{
 		cpApi: cpApi,
 
 		ContainerdClient: containerdClient,
-		CNIClient:        cniClient,
+		cniTemplatePath:  config.CNIConfigPath,
 		IPT:              ipt,
 
 		ImageManager:   imageManager,
@@ -84,7 +86,23 @@ func NewContainerdRuntime(cpApi proto.CpiInterfaceClient, config config.Containe
 	}
 }
 
-func (cr *ContainerdRuntime) CreateSandbox(grpcCtx context.Context, in *proto.ServiceInfo) (*proto.SandboxCreationStatus, error) {
+func (cr *Runtime) ConfigureNetwork(cidr string) {
+	rawData, err := os.ReadFile(cr.cniTemplatePath)
+	if err != nil {
+		logrus.Fatal("Could not read CNI configuration template.")
+	}
+
+	finalCNIConfig := strings.Replace(string(rawData), "$SUBNET", cidr, -1)
+
+	network, err := cni.New(cni.WithConf([]byte(finalCNIConfig)))
+	if err != nil {
+		logrus.Fatal("Failed to create a CNI client - ", err)
+	}
+
+	cr.CNIClient = network
+}
+
+func (cr *Runtime) CreateSandbox(grpcCtx context.Context, in *proto.ServiceInfo) (*proto.SandboxCreationStatus, error) {
 	logrus.Debug("Create sandbox for service = '", in.Name, "'")
 
 	start := time.Now()
@@ -135,7 +153,7 @@ func (cr *ContainerdRuntime) CreateSandbox(grpcCtx context.Context, in *proto.Se
 	metadata := &managers.Metadata{
 		ServiceName: in.Name,
 
-		RuntimeMetadata: ContainerdMetadata{
+		RuntimeMetadata: Metadata{
 			Task:      task,
 			Container: container,
 		},
@@ -165,7 +183,7 @@ func (cr *ContainerdRuntime) CreateSandbox(grpcCtx context.Context, in *proto.Se
 	in.PortForwarding.HostPort = int32(metadata.HostPort)
 
 	go WatchExitChannel(cr.cpApi, metadata, func(metadata *managers.Metadata) string {
-		return metadata.RuntimeMetadata.(ContainerdMetadata).Container.ID()
+		return metadata.RuntimeMetadata.(Metadata).Container.ID()
 	})
 
 	// blocking call
@@ -194,7 +212,7 @@ func (cr *ContainerdRuntime) CreateSandbox(grpcCtx context.Context, in *proto.Se
 	}
 }
 
-func (cr *ContainerdRuntime) DeleteSandbox(grpcCtx context.Context, in *proto.SandboxID) (*proto.ActionStatus, error) {
+func (cr *Runtime) DeleteSandbox(grpcCtx context.Context, in *proto.SandboxID) (*proto.ActionStatus, error) {
 	logrus.Debug("RemoveKey sandbox with ID = '", in.ID, "'")
 
 	ctx := namespaces.WithNamespace(grpcCtx, containerdNamespace)
@@ -224,7 +242,7 @@ func (cr *ContainerdRuntime) DeleteSandbox(grpcCtx context.Context, in *proto.Sa
 	return &proto.ActionStatus{Success: true}, nil
 }
 
-func (cr *ContainerdRuntime) CreateTaskSandbox(_ context.Context, _ *proto.WorkflowTaskInfo) (*proto.SandboxCreationStatus, error) {
+func (cr *Runtime) CreateTaskSandbox(_ context.Context, _ *proto.WorkflowTaskInfo) (*proto.SandboxCreationStatus, error) {
 	// not supported by the dandelion runtime
 	return &proto.SandboxCreationStatus{
 		Success:          false,
@@ -233,11 +251,11 @@ func (cr *ContainerdRuntime) CreateTaskSandbox(_ context.Context, _ *proto.Workf
 	}, nil
 }
 
-func (cr *ContainerdRuntime) ListEndpoints(_ context.Context, _ *emptypb.Empty) (*proto.EndpointsList, error) {
+func (cr *Runtime) ListEndpoints(_ context.Context, _ *emptypb.Empty) (*proto.EndpointsList, error) {
 	return cr.SandboxManager.ListEndpoints()
 }
 
-func (cr *ContainerdRuntime) PrepullImage(grpcCtx context.Context, imageInfo *proto.ImageInfo) (*proto.ActionStatus, error) {
+func (cr *Runtime) PrepullImage(grpcCtx context.Context, imageInfo *proto.ImageInfo) (*proto.ActionStatus, error) {
 	logrus.Debugf("PrepullImage with image = '%s'", imageInfo.URL)
 
 	ctx := namespaces.WithNamespace(grpcCtx, containerdNamespace)
@@ -248,7 +266,7 @@ func (cr *ContainerdRuntime) PrepullImage(grpcCtx context.Context, imageInfo *pr
 	return &proto.ActionStatus{Success: true}, nil
 }
 
-func (cr *ContainerdRuntime) GetImages(grpcCtx context.Context) ([]*proto.ImageInfo, error) {
+func (cr *Runtime) GetImages(grpcCtx context.Context) ([]*proto.ImageInfo, error) {
 	ctx := namespaces.WithNamespace(grpcCtx, containerdNamespace)
 	images, err := cr.ContainerdClient.ListImages(ctx)
 	if err != nil {
@@ -268,6 +286,6 @@ func (cr *ContainerdRuntime) GetImages(grpcCtx context.Context) ([]*proto.ImageI
 	return imageList, nil
 }
 
-func (cr *ContainerdRuntime) ValidateHostConfig() bool {
+func (cr *Runtime) ValidateHostConfig() bool {
 	return true
 }

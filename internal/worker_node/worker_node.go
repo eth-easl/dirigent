@@ -49,7 +49,7 @@ func isUserRoot() (int, bool) {
 	return uid, uid == 0
 }
 
-func NewWorkerNode(cpApi proto.CpiInterfaceClient, config config.WorkerNodeConfig, name ...string) *WorkerNode {
+func NewWorkerNode(cpApi proto.CpiInterfaceClient, config config.WorkerNodeConfig, name ...string) (*WorkerNode, sandbox.PostRegistrationCallback) {
 	hostName, err := os.Hostname()
 	if err != nil {
 		logrus.Warn("Error fetching host name.")
@@ -68,15 +68,17 @@ func NewWorkerNode(cpApi proto.CpiInterfaceClient, config config.WorkerNodeConfi
 	}
 
 	var runtimeInterface sandbox.RuntimeInterface
+	postRegistrationCallback := sandbox.EmptyPostRegistrationCallback
+
 	switch config.CRIType {
 	case "containerd":
 		logrus.Infof("Using containerd runtime.")
-		runtimeInterface = containerd.NewContainerdRuntime(
+		runtimeInterface, postRegistrationCallback = containerd.NewContainerdRuntime(
 			cpApi,
 			config.Containerd,
 			sandboxManager,
 			config.CPUConstraints,
-		)
+		), sandbox.ContainerdPostRegistrationCallback
 	case "firecracker":
 		logrus.Infof("Using firecracker runtime.")
 		runtimeInterface = firecracker.NewFirecrackerRuntime(
@@ -104,7 +106,7 @@ func NewWorkerNode(cpApi proto.CpiInterfaceClient, config config.WorkerNodeConfi
 		runtimeInterface = fake_snapshot.NewFakeSnapshotRuntime()
 	default:
 		logrus.Fatal("Unsupported sandbox type.")
-		return nil
+		return nil, postRegistrationCallback
 	}
 
 	if !runtimeInterface.ValidateHostConfig() {
@@ -120,7 +122,7 @@ func NewWorkerNode(cpApi proto.CpiInterfaceClient, config config.WorkerNodeConfi
 		Name: nodeName,
 	}
 
-	return workerNode
+	return workerNode, postRegistrationCallback
 }
 
 func (w *WorkerNode) CreateSandbox(grpcCtx context.Context, in *proto.ServiceInfo) (*proto.SandboxCreationStatus, error) {

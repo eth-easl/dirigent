@@ -20,6 +20,8 @@ func NewFakeSnapshotRuntime() *Runtime {
 	return &Runtime{}
 }
 
+func (fsr *Runtime) ConfigureNetwork(string) {}
+
 func (fsr *Runtime) CreateSandbox(_ context.Context, in *proto.ServiceInfo) (*proto.SandboxCreationStatus, error) {
 	time.Sleep(40 * time.Millisecond)
 	logrus.Debugf("Fake sandbox created successfully.")

@@ -49,7 +49,7 @@ func TestCreateAContainer(t *testing.T) {
 	logrus.Info("Poke container - ", time.Since(start).Microseconds(), "μs")
 
 	sm := &managers.Metadata{
-		RuntimeMetadata: ContainerdMetadata{
+		RuntimeMetadata: Metadata{
 			Task:      task,
 			Container: container,
 		},
@@ -59,7 +59,7 @@ func TestCreateAContainer(t *testing.T) {
 	}
 
 	go WatchExitChannel(nil, sm, func(metadata *managers.Metadata) string {
-		return metadata.RuntimeMetadata.(ContainerdMetadata).Container.ID()
+		return metadata.RuntimeMetadata.(Metadata).Container.ID()
 	})
 
 	err = DeleteContainer(ctx, network, sm)
@@ -96,7 +96,7 @@ func TestParallelCreation(t *testing.T) {
 				assert.NoError(t, err, "Failed to start a container")
 
 				sm := &managers.Metadata{
-					RuntimeMetadata: ContainerdMetadata{
+					RuntimeMetadata: Metadata{
 						Task:      task,
 						Container: container,
 					},
@@ -151,7 +151,7 @@ func TestContainerFailureHandlerTriggering(t *testing.T) {
 	logrus.Info("Poke container - ", time.Since(start).Microseconds(), "μs")
 
 	sm := &managers.Metadata{
-		RuntimeMetadata: ContainerdMetadata{
+		RuntimeMetadata: Metadata{
 			Task:      task,
 			Container: container,
 		},
@@ -164,7 +164,7 @@ func TestContainerFailureHandlerTriggering(t *testing.T) {
 	pm.AddChannel(task.Pid(), sm.ExitStatusChannel)
 
 	go WatchExitChannel(nil, sm, func(metadata *managers.Metadata) string {
-		return metadata.RuntimeMetadata.(ContainerdMetadata).Container.ID()
+		return metadata.RuntimeMetadata.(Metadata).Container.ID()
 	})
 
 	// wait until 'WatchExitChannel' is ready

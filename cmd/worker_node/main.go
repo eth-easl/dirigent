@@ -48,7 +48,7 @@ func main() {
 		logrus.Fatalf("Failed to initialize control plane connection (error : %s)", err.Error())
 	}
 
-	workerNode := worker_node.NewWorkerNode(cpApi, cfg)
+	workerNode, afterRegistrationCallback := worker_node.NewWorkerNode(cpApi, cfg)
 
 	go grpc_helpers.CreateGRPCServer(strconv.Itoa(cfg.Port), func(sr grpc.ServiceRegistrar) {
 		proto.RegisterWorkerNodeInterfaceServer(sr, workerNode)
@@ -56,6 +56,9 @@ func main() {
 
 	workerNode.RegisterNodeWithControlPlane(cfg, &cpApi)
 	defer workerNode.DeregisterNodeFromControlPlane(cfg, &cpApi)
+
+	// TODO: make CIDR be dynamical - receive it on node registration
+	afterRegistrationCallback(workerNode.SandboxRuntime, "100.22.0.0/16")
 
 	go workerNode.SetupHeartbeatLoop(&cfg)
 	defer resetIPTables()

@@ -46,7 +46,6 @@ type FirecrackerMetadata struct {
 }
 
 func NewFirecrackerRuntime(cpApi proto.CpiInterfaceClient, sandboxManager *managers.SandboxManager, config config.FirecrackerConfig) *Runtime {
-
 	DeleteAllSnapshots()
 	err := DeleteUnusedNetworkDevices()
 	if err != nil {
@@ -75,6 +74,8 @@ func NewFirecrackerRuntime(cpApi proto.CpiInterfaceClient, sandboxManager *manag
 		IPT:             ipt,
 	}
 }
+
+func (fcr *Runtime) ConfigureNetwork(string) {}
 
 func (fcr *Runtime) createVMCS() *VMControlStructure {
 	return &VMControlStructure{
