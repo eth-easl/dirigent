@@ -4,17 +4,29 @@ import (
 	"fmt"
 	"strconv"
 
-	"github.com/sirupsen/logrus"
-
 	"github.com/coreos/go-iptables/iptables"
+	"github.com/sirupsen/logrus"
 )
 
 func NewIptablesUtil() (*iptables.IPTables, error) {
-	return iptables.New()
+	ipt, err := iptables.New()
+	if err != nil {
+		logrus.Fatal("Error creating Golang iptables binding.")
+	}
+
+	err = ipt.ChangePolicy("filter", "FORWARD", "ACCEPT")
+	if err != nil {
+		logrus.Fatalf("Error changing iptables filter table FORWARD policy to ACCEPT - %s", err.Error())
+	}
+	logrus.Debugf("iptables filter FORWARD policy set to ACCEPT")
+
+	return ipt, err
 }
 
 func AddRules(ipt *iptables.IPTables, sourcePort int, destIP string, destPort int) {
-	err := ipt.Append(
+	// For cluster setup
+	// E.g., map ipv4_packet(src: data_plane, dst: this_node:random_port) to ipv4_packet(src: data_plane, dst: sandbox_ip:sandbox_port)
+	err := ipt.AppendUnique(
 		"nat",
 		"PREROUTING",
 		"-p", "tcp", "--dport", strconv.Itoa(sourcePort), "-j", "DNAT",
@@ -25,7 +37,9 @@ func AddRules(ipt *iptables.IPTables, sourcePort int, destIP string, destPort in
 	}
 	logrus.Debugf("Added IP table rule for external traffic any:%d -> %s:%d", sourcePort, destIP, destPort)
 
-	err = ipt.Append(
+	// For local development setup
+	// E.g., map ipv4_packet(src: data_plane, dst: this_node:random_port) to ipv4_packet(src: data_plane, dst: sandbox_ip:sandbox_port)
+	err = ipt.AppendUnique(
 		"nat",
 		"OUTPUT",
 		"-p", "tcp", "-o", "lo", "--dport", strconv.Itoa(sourcePort), "-j", "DNAT",
@@ -36,6 +50,7 @@ func AddRules(ipt *iptables.IPTables, sourcePort int, destIP string, destPort in
 	}
 	logrus.Debugf("Added IP table rule for localhost traffic any:%d -> %s:%d", sourcePort, destIP, destPort)
 
+	// This is so that the packets know the way out. Source IP:port will become the node local.
 	err = ipt.AppendUnique(
 		"nat",
 		"POSTROUTING",
@@ -44,13 +59,7 @@ func AddRules(ipt *iptables.IPTables, sourcePort int, destIP string, destPort in
 	if err != nil {
 		logrus.Errorf("Error adding a POSTROUTING MASQUERADE - %s", err.Error())
 	}
-	logrus.Debugf("Added a POSTROUTING MASQUERADE")
-
-	err = ipt.ChangePolicy("filter", "FORWARD", "ACCEPT")
-	if err != nil {
-		logrus.Errorf("Error changing IP routing policy FORWARD ACCEPT - %s", err.Error())
-	}
-	logrus.Debugf("Changing IP routing policy FORWARD ACCEPT")
+	logrus.Debugf("Added a POSTROUTING MASQUERADE if not existed.")
 }
 
 func DeleteRules(ipt *iptables.IPTables, sourcePort int, destIP string, destPort int) {

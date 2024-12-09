@@ -26,8 +26,8 @@ func main() {
 	flag.Parse()
 	rand.Seed(uint64(time.Now().UnixNano()))
 
-	if !utils.IsRoot() {
-		logrus.Fatalf("Worker node must be started with sudo")
+	if !utils.PassesWorkerNodeConfigurationChecks() {
+		logrus.Fatal("Worker node configuration checks failed. Terminating...")
 	}
 
 	logrus.Debugf("Configuration path is : %s", *configPath)

@@ -49,7 +49,7 @@ func NewNetworkPoolManager(internalPrefix, externalPrefix string, networkPoolSiz
 	externalIPManager := managers.NewIPManager(externalPrefix)
 
 	// NetworkPoolSize should be divisible by 16
-	networkPoolSize -= (networkPoolSize % 16)
+	networkPoolSize -= networkPoolSize % 16
 	if networkPoolSize < 16 {
 		networkPoolSize = 16
 	}
@@ -202,18 +202,10 @@ func (np *NetworkPoolManager) createVETHPair(config *NetworkConfig, guestTAP str
 	//guestTAP := "169.254.0.2"
 	//exposedIP := "192.168.0.3"
 
-	// create a vETH pair - both created in the netNS namespace
-	err := exec.Command("sudo", "ip", "netns", "exec", config.NetNS, "ip", "link", "add", hostSidePairName, "type", "veth", "peer", "name", guestSidePairName).Run()
+	// create a vETH pair - host-side in root namespace (1), guest-side in config.NetNS
+	err := exec.Command("sudo", "ip", "link", "add", hostSidePairName, "netns", "1", "type", "veth", "peer", "name", guestSidePairName, "netns", config.NetNS).Run()
 	if err != nil {
 		logrus.Error("Error creating a virtual Ethernet pair - ", err)
-		deleteNetworkNamespaceByName(config.NetNS)
-		return exposedIP, hostSideIpAddress, workloadIpAddress, err
-	}
-
-	// move the host-side of te pair to the root namespace
-	err = exec.Command("sudo", "ip", "netns", "exec", config.NetNS, "ip", "link", "set", hostSidePairName, "netns", "1").Run()
-	if err != nil {
-		logrus.Error("Error moving host-side of the pair to the root namespace - ", err)
 		deleteNetworkNamespaceByName(config.NetNS)
 		return exposedIP, hostSideIpAddress, workloadIpAddress, err
 	}
