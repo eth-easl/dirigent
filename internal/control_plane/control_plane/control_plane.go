@@ -156,7 +156,7 @@ func (c *CpApiServer) HasService(ctx context.Context, service *proto.ServiceIden
 	return c.ControlPlane.hasService(ctx, service)
 }
 
-func (c *CpApiServer) RegisterNode(ctx context.Context, info *proto.NodeInfo) (*proto.ActionStatus, error) {
+func (c *CpApiServer) RegisterNode(ctx context.Context, info *proto.NodeInfo) (*proto.NodeRegistrationStatus, error) {
 	if !c.LeaderElectionServer.IsLeader() {
 		leader := c.LeaderElectionServer.GetLeader()
 
@@ -164,14 +164,14 @@ func (c *CpApiServer) RegisterNode(ctx context.Context, info *proto.NodeInfo) (*
 			logrus.Warn("Received registerNode call although not the leader. Forwarding the call...")
 			return leader.RegisterNode(ctx, info)
 		} else {
-			return &proto.ActionStatus{Success: false}, nil
+			return &proto.NodeRegistrationStatus{Success: false}, nil
 		}
 	}
 
 	return c.ControlPlane.registerNode(ctx, info)
 }
 
-func (c *CpApiServer) DeregisterNode(ctx context.Context, info *proto.NodeInfo) (*proto.ActionStatus, error) {
+func (c *CpApiServer) DeregisterNode(ctx context.Context, info *proto.NodeInfo) (*proto.NodeRegistrationStatus, error) {
 	if !c.LeaderElectionServer.IsLeader() {
 		leader := c.LeaderElectionServer.GetLeader()
 
@@ -179,7 +179,7 @@ func (c *CpApiServer) DeregisterNode(ctx context.Context, info *proto.NodeInfo) 
 			logrus.Warn("Received deregisterNode call although not the leader. Forwarding the call...")
 			return leader.DeregisterNode(ctx, info)
 		} else {
-			return &proto.ActionStatus{Success: false}, nil
+			return &proto.NodeRegistrationStatus{Success: false}, nil
 		}
 	}
 
@@ -295,7 +295,7 @@ func (c *CpApiServer) DeregisterDataplane(ctx context.Context, in *proto.Datapla
 	}
 
 	status, err := c.ControlPlane.deregisterDataplane(ctx, in)
-	if status.Success && err == nil {
+	if err == nil && status.Success {
 		c.HAProxyAPI.RemoveDataplane(in.IP, int(in.ProxyPort), true)
 		c.DisseminateHAProxyConfig()
 	}

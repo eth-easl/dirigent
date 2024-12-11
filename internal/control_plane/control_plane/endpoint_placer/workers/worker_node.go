@@ -18,6 +18,7 @@ type WorkerNode struct {
 	Name string
 	IP   string
 	Port string
+	CIDR string
 
 	// In milli-CPU
 	CpuUsed      uint64
@@ -62,6 +63,7 @@ func (w *WorkerNode) GetWorkerNodeConfiguration() core.WorkerNodeConfiguration {
 		Port:   w.Port,
 		Cpu:    w.CpuAvailable,
 		Memory: w.MemoryAvailable,
+		CIDR:   w.CIDR,
 	}
 }
 
@@ -153,6 +155,10 @@ func (w *WorkerNode) GetMemoryUsed() uint64 {
 
 func (w *WorkerNode) GetEndpointMap() synchronization.SyncStructure[*core.Endpoint, string] {
 	return w.endpointMap
+}
+
+func (w *WorkerNode) GetCIDR() string {
+	return w.CIDR
 }
 
 func (w *WorkerNode) AddImage(image string) bool {

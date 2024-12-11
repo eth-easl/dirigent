@@ -57,8 +57,7 @@ func main() {
 	workerNode.RegisterNodeWithControlPlane(cfg, &cpApi)
 	defer workerNode.DeregisterNodeFromControlPlane(cfg, &cpApi)
 
-	// TODO: make CIDR be dynamical - receive it on node registration
-	afterRegistrationCallback(workerNode.SandboxRuntime, "100.22.0.0/16")
+	afterRegistrationCallback(workerNode.SandboxRuntime, workerNode.CIDR)
 
 	go workerNode.SetupHeartbeatLoop(&cfg)
 	defer resetIPTables()

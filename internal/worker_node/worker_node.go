@@ -41,12 +41,7 @@ type WorkerNode struct {
 	ProcessMonitor *managers.ProcessMonitor
 
 	Name string
-}
-
-func isUserRoot() (int, bool) {
-	uid := os.Getuid()
-
-	return uid, uid == 0
+	CIDR string
 }
 
 func NewWorkerNode(cpApi proto.CpiInterfaceClient, config config.WorkerNodeConfig, name ...string) (*WorkerNode, sandbox.PostRegistrationCallback) {
@@ -63,7 +58,7 @@ func NewWorkerNode(cpApi proto.CpiInterfaceClient, config config.WorkerNodeConfi
 
 	sandboxManager := managers.NewSandboxManager(nodeName)
 
-	if _, isRoot := isUserRoot(); !isRoot {
+	if !utils.IsRoot() {
 		logrus.Fatal("Cannot create a worker daemon without sudo.")
 	}
 
@@ -155,6 +150,9 @@ func (w *WorkerNode) RegisterNodeWithControlPlane(config config.WorkerNodeConfig
 	if err != nil {
 		logrus.Fatalf("Failed to register from the control plane: %v", err)
 	}
+	if len(w.CIDR) == 0 {
+		logrus.Fatal("Failed to register worker node with the control plane which return empty CIDR range.")
+	}
 
 	logrus.Info("Successfully registered the node with the control plane")
 }
@@ -192,21 +190,20 @@ func (w *WorkerNode) sendInstructionToControlPlane(ctx context.Context, config c
 	if err != nil {
 		logrus.Warnf("Error fetching images: %v", err)
 	}
+
 	pollErr := wait.PollUntilContextCancel(ctx, 5*time.Second, true,
 		func(ctx context.Context) (done bool, err error) {
-			milliCpu := hardware.GetNumberCpus() * 1000
-			memoryMiB := hardware.GetMemory() / 1024 / 1024
 			nodeInfo := &proto.NodeInfo{
 				NodeID: w.Name,
 				IP:     config.WorkerNodeIP,
 				Port:   int32(config.Port),
-				Cpu:    milliCpu,
-				Memory: memoryMiB,
+				Cpu:    hardware.GetNumberCpus() * 1000,
+				Memory: hardware.GetMemory() / 1024 / 1024,
 				Images: images,
+				CIDR:   w.CIDR,
 			}
 
-			var resp *proto.ActionStatus
-
+			var resp *proto.NodeRegistrationStatus
 			if action == RegisterAction {
 				resp, err = (*cpi).RegisterNode(context.Background(), nodeInfo)
 			} else if action == DeregisterAction {
@@ -217,6 +214,9 @@ func (w *WorkerNode) sendInstructionToControlPlane(ctx context.Context, config c
 				logrus.Warn("Retrying to register the node with the control plane in 5 seconds")
 				return false, nil
 			}
+
+			// on register will set CIDR; on deregister will set it to blank
+			w.CIDR = resp.CIDR
 
 			return resp.Success, nil
 		},

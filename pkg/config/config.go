@@ -30,6 +30,7 @@ type ControlPlaneConfig struct {
 	AutoscalingPeriod          time.Duration `mapstructure:"autoscalingPeriod"`
 	DefaultWFPartitionMethod   string        `mapstructure:"defaultWFPartitionMethod"`
 	ImageStorage               string        `mapstructure:"imageStorage"`
+	CIDR                       string        `mapstructure:"cidr"`
 }
 
 type DataPlaneConfig struct {

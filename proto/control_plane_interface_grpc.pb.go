@@ -51,11 +51,11 @@ type CpiInterfaceClient interface {
 	RegisterDataplane(ctx context.Context, in *DataplaneInfo, opts ...grpc.CallOption) (*ActionStatus, error)
 	RegisterService(ctx context.Context, in *ServiceInfo, opts ...grpc.CallOption) (*ActionStatus, error)
 	RegisterWorkflow(ctx context.Context, in *WorkflowInfo, opts ...grpc.CallOption) (*ActionStatus, error)
-	RegisterNode(ctx context.Context, in *NodeInfo, opts ...grpc.CallOption) (*ActionStatus, error)
+	RegisterNode(ctx context.Context, in *NodeInfo, opts ...grpc.CallOption) (*NodeRegistrationStatus, error)
 	NodeHeartbeat(ctx context.Context, in *NodeHeartbeatMessage, opts ...grpc.CallOption) (*ActionStatus, error)
 	ReportFailure(ctx context.Context, in *Failure, opts ...grpc.CallOption) (*ActionStatus, error)
 	DeregisterDataplane(ctx context.Context, in *DataplaneInfo, opts ...grpc.CallOption) (*ActionStatus, error)
-	DeregisterNode(ctx context.Context, in *NodeInfo, opts ...grpc.CallOption) (*ActionStatus, error)
+	DeregisterNode(ctx context.Context, in *NodeInfo, opts ...grpc.CallOption) (*NodeRegistrationStatus, error)
 	DeregisterService(ctx context.Context, in *ServiceInfo, opts ...grpc.CallOption) (*ActionStatus, error)
 	DeregisterWorkflow(ctx context.Context, in *WorkflowObjectIdentifier, opts ...grpc.CallOption) (*ActionStatus, error)
 	ResetMeasurements(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*ActionStatus, error)
@@ -137,8 +137,8 @@ func (c *cpiInterfaceClient) RegisterWorkflow(ctx context.Context, in *WorkflowI
 	return out, nil
 }
 
-func (c *cpiInterfaceClient) RegisterNode(ctx context.Context, in *NodeInfo, opts ...grpc.CallOption) (*ActionStatus, error) {
-	out := new(ActionStatus)
+func (c *cpiInterfaceClient) RegisterNode(ctx context.Context, in *NodeInfo, opts ...grpc.CallOption) (*NodeRegistrationStatus, error) {
+	out := new(NodeRegistrationStatus)
 	err := c.cc.Invoke(ctx, CpiInterface_RegisterNode_FullMethodName, in, out, opts...)
 	if err != nil {
 		return nil, err
@@ -173,8 +173,8 @@ func (c *cpiInterfaceClient) DeregisterDataplane(ctx context.Context, in *Datapl
 	return out, nil
 }
 
-func (c *cpiInterfaceClient) DeregisterNode(ctx context.Context, in *NodeInfo, opts ...grpc.CallOption) (*ActionStatus, error) {
-	out := new(ActionStatus)
+func (c *cpiInterfaceClient) DeregisterNode(ctx context.Context, in *NodeInfo, opts ...grpc.CallOption) (*NodeRegistrationStatus, error) {
+	out := new(NodeRegistrationStatus)
 	err := c.cc.Invoke(ctx, CpiInterface_DeregisterNode_FullMethodName, in, out, opts...)
 	if err != nil {
 		return nil, err
@@ -247,11 +247,11 @@ type CpiInterfaceServer interface {
 	RegisterDataplane(context.Context, *DataplaneInfo) (*ActionStatus, error)
 	RegisterService(context.Context, *ServiceInfo) (*ActionStatus, error)
 	RegisterWorkflow(context.Context, *WorkflowInfo) (*ActionStatus, error)
-	RegisterNode(context.Context, *NodeInfo) (*ActionStatus, error)
+	RegisterNode(context.Context, *NodeInfo) (*NodeRegistrationStatus, error)
 	NodeHeartbeat(context.Context, *NodeHeartbeatMessage) (*ActionStatus, error)
 	ReportFailure(context.Context, *Failure) (*ActionStatus, error)
 	DeregisterDataplane(context.Context, *DataplaneInfo) (*ActionStatus, error)
-	DeregisterNode(context.Context, *NodeInfo) (*ActionStatus, error)
+	DeregisterNode(context.Context, *NodeInfo) (*NodeRegistrationStatus, error)
 	DeregisterService(context.Context, *ServiceInfo) (*ActionStatus, error)
 	DeregisterWorkflow(context.Context, *WorkflowObjectIdentifier) (*ActionStatus, error)
 	ResetMeasurements(context.Context, *emptypb.Empty) (*ActionStatus, error)
@@ -288,7 +288,7 @@ func (UnimplementedCpiInterfaceServer) RegisterService(context.Context, *Service
 func (UnimplementedCpiInterfaceServer) RegisterWorkflow(context.Context, *WorkflowInfo) (*ActionStatus, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method RegisterWorkflow not implemented")
 }
-func (UnimplementedCpiInterfaceServer) RegisterNode(context.Context, *NodeInfo) (*ActionStatus, error) {
+func (UnimplementedCpiInterfaceServer) RegisterNode(context.Context, *NodeInfo) (*NodeRegistrationStatus, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method RegisterNode not implemented")
 }
 func (UnimplementedCpiInterfaceServer) NodeHeartbeat(context.Context, *NodeHeartbeatMessage) (*ActionStatus, error) {
@@ -300,7 +300,7 @@ func (UnimplementedCpiInterfaceServer) ReportFailure(context.Context, *Failure) 
 func (UnimplementedCpiInterfaceServer) DeregisterDataplane(context.Context, *DataplaneInfo) (*ActionStatus, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method DeregisterDataplane not implemented")
 }
-func (UnimplementedCpiInterfaceServer) DeregisterNode(context.Context, *NodeInfo) (*ActionStatus, error) {
+func (UnimplementedCpiInterfaceServer) DeregisterNode(context.Context, *NodeInfo) (*NodeRegistrationStatus, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method DeregisterNode not implemented")
 }
 func (UnimplementedCpiInterfaceServer) DeregisterService(context.Context, *ServiceInfo) (*ActionStatus, error) {

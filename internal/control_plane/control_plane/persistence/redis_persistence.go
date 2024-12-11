@@ -120,7 +120,7 @@ func (driver *RedisClient) GetDataPlaneInformation(ctx context.Context) ([]*prot
 	return dataPlanes, nil
 }
 
-func (driver *RedisClient) StoreWorkerNodeInformation(ctx context.Context, workerNodeInfo *proto.WorkerNodeInformation) error {
+func (driver *RedisClient) StoreWorkerNodeInformation(ctx context.Context, workerNodeInfo *proto.NodeInfo) error {
 	logrus.Trace("store worker node information in the database")
 
 	data, err := proto2.Marshal(workerNodeInfo)
@@ -128,7 +128,7 @@ func (driver *RedisClient) StoreWorkerNodeInformation(ctx context.Context, worke
 		return err
 	}
 
-	key := fmt.Sprintf("%s:%s", workerPrefix, workerNodeInfo.Name)
+	key := fmt.Sprintf("%s:%s", workerPrefix, workerNodeInfo.NodeID)
 
 	err = driver.RedisClient.HSet(ctx, key, "data", data).Err()
 	if err != nil {
@@ -151,7 +151,7 @@ func (driver *RedisClient) DeleteWorkerNodeInformation(ctx context.Context, name
 	return driver.WaitForQuorumWrite(ctx).Err()
 }
 
-func (driver *RedisClient) GetWorkerNodeInformation(ctx context.Context) ([]*proto.WorkerNodeInformation, error) {
+func (driver *RedisClient) GetWorkerNodeInformation(ctx context.Context) ([]*proto.NodeInfo, error) {
 	logrus.Trace("get workers information from the database")
 
 	keys, err := redis_helpers.ScanKeys(ctx, driver.RedisClient, workerPrefix)
@@ -159,7 +159,7 @@ func (driver *RedisClient) GetWorkerNodeInformation(ctx context.Context) ([]*pro
 		return nil, err
 	}
 
-	workers := make([]*proto.WorkerNodeInformation, 0)
+	workers := make([]*proto.NodeInfo, 0)
 
 	for _, key := range keys {
 		fields, err := driver.RedisClient.HGetAll(ctx, key).Result()
@@ -167,7 +167,7 @@ func (driver *RedisClient) GetWorkerNodeInformation(ctx context.Context) ([]*pro
 			return nil, err
 		}
 
-		workerNodeInfo := &proto.WorkerNodeInformation{}
+		workerNodeInfo := &proto.NodeInfo{}
 
 		err = proto2.Unmarshal([]byte(fields["data"]), workerNodeInfo)
 		if err != nil {

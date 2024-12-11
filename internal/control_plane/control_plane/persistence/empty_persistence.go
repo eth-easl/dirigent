@@ -23,7 +23,7 @@ func (e *EmptyPersistence) GetDataPlaneInformation(_ context.Context) ([]*proto.
 	return make([]*proto.DataplaneInformation, 0), nil
 }
 
-func (e *EmptyPersistence) StoreWorkerNodeInformation(_ context.Context, _ *proto.WorkerNodeInformation) error {
+func (e *EmptyPersistence) StoreWorkerNodeInformation(_ context.Context, _ *proto.NodeInfo) error {
 	return nil
 }
 
@@ -31,8 +31,8 @@ func (e *EmptyPersistence) DeleteWorkerNodeInformation(_ context.Context, _ stri
 	return nil
 }
 
-func (e *EmptyPersistence) GetWorkerNodeInformation(_ context.Context) ([]*proto.WorkerNodeInformation, error) {
-	return make([]*proto.WorkerNodeInformation, 0), nil
+func (e *EmptyPersistence) GetWorkerNodeInformation(_ context.Context) ([]*proto.NodeInfo, error) {
+	return make([]*proto.NodeInfo, 0), nil
 }
 
 func (e *EmptyPersistence) StoreServiceInformation(_ context.Context, _ *proto.ServiceInfo) error {

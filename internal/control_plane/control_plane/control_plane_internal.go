@@ -6,6 +6,7 @@ import (
 	"cluster_manager/internal/control_plane/control_plane/core"
 	"cluster_manager/internal/control_plane/control_plane/endpoint_placer"
 	"cluster_manager/internal/control_plane/control_plane/image_storage"
+	"cluster_manager/internal/control_plane/control_plane/networking/ipam"
 	"cluster_manager/internal/control_plane/control_plane/persistence"
 	"cluster_manager/internal/control_plane/control_plane/service_state"
 	"cluster_manager/internal/control_plane/workflow"
@@ -50,6 +51,7 @@ type ControlPlane struct {
 	Config *config.ControlPlaneConfig
 
 	autoscalingManager AutoscalingInterface
+	ipam               ipam.CIDRManager
 }
 
 func NewControlPlane(client persistence.PersistenceLayer, outputFile string, dataplaneCreator core.DataplaneFactory, workerNodeCreator core.WorkerNodeFactory, cfg *config.ControlPlaneConfig) *ControlPlane {
@@ -81,6 +83,7 @@ func NewControlPlane(client persistence.PersistenceLayer, outputFile string, dat
 		Config: cfg,
 
 		autoscalingManager: autoscalingManager,
+		ipam:               ipam.NewIPAM(cfg.CIDR),
 	}
 }
 
@@ -215,8 +218,35 @@ func (c *ControlPlane) getHAProxyConfig() *proto.HAProxyConfig {
 	}
 }
 
-func (c *ControlPlane) registerNode(ctx context.Context, in *proto.NodeInfo) (*proto.ActionStatus, error) {
+func (c *ControlPlane) registerNode(ctx context.Context, in *proto.NodeInfo) (*proto.NodeRegistrationStatus, error) {
 	logrus.Infof("Received a node registration with name : %s", in.NodeID)
+
+	c.NIStorage.Lock()
+	defer c.NIStorage.Unlock()
+
+	if _, present := c.NIStorage.Get(in.NodeID); present {
+		return &proto.NodeRegistrationStatus{Success: false}, errors.New("node registration failed. Node with the same name already exists")
+	}
+
+	cidr, err := c.ipam.ReserveCIDR()
+	if err != nil {
+		logrus.Errorf("Failed to obtain a CIDR range for node %s.", in.NodeID)
+		return &proto.NodeRegistrationStatus{Success: false}, errors.New("failed to obtain a CIDR range for a node")
+	}
+
+	err = c.PersistenceLayer.StoreWorkerNodeInformation(ctx, &proto.NodeInfo{
+		NodeID: in.NodeID,
+		IP:     in.IP,
+		Port:   in.Port,
+		Cpu:    in.Cpu,
+		Memory: in.Memory,
+		CIDR:   cidr,
+	})
+	if err != nil {
+		logrus.Errorf("Failed to store information to persistence layer (error : %s)", err.Error())
+		c.ipam.ReleaseCIDR(cidr)
+		return &proto.NodeRegistrationStatus{Success: false}, err
+	}
 
 	wn := c.workerNodeCreator(core.WorkerNodeConfiguration{
 		Name:   in.NodeID,
@@ -224,30 +254,9 @@ func (c *ControlPlane) registerNode(ctx context.Context, in *proto.NodeInfo) (*p
 		Port:   strconv.Itoa(int(in.Port)),
 		Cpu:    in.Cpu,
 		Memory: in.Memory,
+		CIDR:   cidr,
 	})
 
-	c.NIStorage.Lock()
-	defer c.NIStorage.Unlock()
-
-	if _, present := c.NIStorage.Get(in.NodeID); present {
-		return &proto.ActionStatus{
-			Success: false,
-			Message: "Node registration failed. Node with the same name already exists.",
-		}, nil
-	}
-
-	err := c.PersistenceLayer.StoreWorkerNodeInformation(ctx, &proto.WorkerNodeInformation{
-		Name:   in.NodeID,
-		Ip:     in.IP,
-		Port:   strconv.Itoa(int(in.Port)),
-		Cpu:    in.Cpu,
-		Memory: in.Memory,
-	})
-	if err != nil {
-		logrus.Errorf("Failed to store information to persistence layer (error : %s)", err.Error())
-		c.NIStorage.Remove(in.NodeID)
-		return &proto.ActionStatus{Success: false}, err
-	}
 	c.imageStorage.Lock()
 	for _, image := range in.Images {
 		c.imageStorage.RegisterNoFetch(image.URL, image.Size, wn)
@@ -259,13 +268,12 @@ func (c *ControlPlane) registerNode(ctx context.Context, in *proto.NodeInfo) (*p
 	wn.ConnectToWorker()
 	wn.SetSchedulability(true)
 
-	logrus.Infof("Node %s has been successfully registered with the control plane and cluster has %d nodes", in.NodeID, c.NIStorage.Len())
-
-	return &proto.ActionStatus{Success: true}, nil
+	logrus.Infof("Node %s has joined the cluster (CIDR: %s; node count: %d)", in.NodeID, cidr, c.NIStorage.Len())
+	return &proto.NodeRegistrationStatus{Success: true, CIDR: cidr}, nil
 }
 
-func (c *ControlPlane) deregisterNode(_ context.Context, in *proto.NodeInfo) (*proto.ActionStatus, error) {
-	logrus.Infof("Received a node deregistration with name : %s", in.NodeID)
+func (c *ControlPlane) deregisterNode(_ context.Context, in *proto.NodeInfo) (*proto.NodeRegistrationStatus, error) {
+	logrus.Infof("Received a node deregistration request for %s", in.NodeID)
 
 	c.NIStorage.Lock()
 	defer c.NIStorage.Unlock()
@@ -274,20 +282,20 @@ func (c *ControlPlane) deregisterNode(_ context.Context, in *proto.NodeInfo) (*p
 		err := c.PersistenceLayer.DeleteWorkerNodeInformation(context.Background(), in.NodeID)
 		if err != nil {
 			logrus.Errorf("Failed to disconnect registered worker (error : %s)", err.Error())
-			return &proto.ActionStatus{Success: false}, err
+			return &proto.NodeRegistrationStatus{Success: false}, err
 		}
 
 		c.removeEndpointsAssociatedWithNode(in.NodeID)
 		c.NIStorage.Remove(in.NodeID)
 
-		logrus.Info("Node '", in.NodeID, "' has been successfully deregistered with the control plane")
-		return &proto.ActionStatus{Success: true}, nil
+		c.ipam.ReleaseCIDR(in.CIDR)
+		logrus.Infof("CIDR %s given back to the pool.", in.CIDR)
+
+		logrus.Infof("Node %s has left the cluster (node count=%d)", in.NodeID, c.NIStorage.Len())
+		return &proto.NodeRegistrationStatus{Success: true}, nil
 	}
 
-	return &proto.ActionStatus{
-		Success: false,
-		Message: "Node registration failed. Node doesn't exists.",
-	}, nil
+	return &proto.NodeRegistrationStatus{Success: false}, errors.New("node registration failed. Node doesn't exists")
 }
 
 func (c *ControlPlane) nodeHeartbeat(_ context.Context, in *proto.NodeHeartbeatMessage) (*proto.ActionStatus, error) {

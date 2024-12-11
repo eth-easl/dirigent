@@ -15,6 +15,7 @@ message NodeInfo {
   uint64 Cpu = 4;
   uint64 Memory = 5;
   repeated ImageInfo Images = 6;
+  string CIDR = 7;
 }
 
 message NodeHeartbeatMessage {
@@ -71,6 +72,11 @@ message HasServiceResult {
   bool HasService = 2;
 }
 
+message NodeRegistrationStatus {
+  bool Success = 1;
+  string CIDR = 2;
+}
+
 service CpiInterface {
   rpc SetInvocationsMetrics(AutoscalingMetric) returns (ActionStatus);
   rpc SetBackgroundMetrics(MetricsPredictiveAutoscaler) returns (ActionStatus);
@@ -81,13 +87,13 @@ service CpiInterface {
   rpc RegisterDataplane(DataplaneInfo) returns (ActionStatus);
   rpc RegisterService(ServiceInfo) returns (ActionStatus);
   rpc RegisterWorkflow(WorkflowInfo) returns (ActionStatus);
-  rpc RegisterNode(NodeInfo) returns (ActionStatus);
+  rpc RegisterNode(NodeInfo) returns (NodeRegistrationStatus);
   rpc NodeHeartbeat(NodeHeartbeatMessage) returns (ActionStatus);
 
   rpc ReportFailure(Failure) returns (ActionStatus);
 
   rpc DeregisterDataplane(DataplaneInfo) returns (ActionStatus);
-  rpc DeregisterNode(NodeInfo) returns (ActionStatus);
+  rpc DeregisterNode(NodeInfo) returns (NodeRegistrationStatus);
   rpc DeregisterService(ServiceInfo) returns (ActionStatus);
   rpc DeregisterWorkflow(WorkflowObjectIdentifier) returns (ActionStatus);
 

@@ -95,11 +95,12 @@ func (c *ControlPlane) reconstructWorkersState(ctx context.Context) error {
 
 	for _, worker := range workers {
 		wn := c.workerNodeCreator(core.WorkerNodeConfiguration{
-			Name:   worker.Name,
-			IP:     worker.Ip,
-			Port:   worker.Port,
+			Name:   worker.NodeID,
+			IP:     worker.IP,
+			Port:   string(worker.Port),
 			Cpu:    worker.Cpu,
 			Memory: worker.Memory,
+			CIDR:   worker.CIDR,
 		})
 
 		go func() {
