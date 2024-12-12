@@ -1,8 +1,6 @@
 module cluster_manager
 
-go 1.21
-
-toolchain go1.22.2
+go 1.23.4
 
 // Copied from vHive, which copied it from firecracker-containerd
 replace (
@@ -19,7 +17,6 @@ require (
 	github.com/coreos/go-iptables v0.6.0
 	github.com/cznic/mathutil v0.0.0-20181122101859-297441e03548
 	github.com/davecgh/go-spew v1.1.1
-	github.com/distribution/reference v0.6.0
 	github.com/fearful-symmetry/garlic v0.3.0
 	github.com/firecracker-microvm/firecracker-containerd v0.0.0-00010101000000-000000000000
 	github.com/firecracker-microvm/firecracker-go-sdk v1.0.0
@@ -31,6 +28,7 @@ require (
 	github.com/mjibson/go-dsp v0.0.0-20180508042940-11479a337f12
 	github.com/montanaflynn/stats v0.0.0-20171201202039-1bf9dbcd8cbe
 	github.com/openacid/slimarray v0.1.3
+	github.com/opencontainers/image-spec v1.1.0-rc2.0.20221005185240-3a7f492d3f1b
 	github.com/pbnjay/memory v0.0.0-20210728143218-7b4eea64cf58
 	github.com/redis/go-redis/v9 v9.0.5
 	github.com/shirou/gopsutil v3.21.11+incompatible
@@ -44,7 +42,7 @@ require (
 	golang.org/x/net v0.25.0
 	golang.org/x/sync v0.7.0
 	golang.org/x/sys v0.20.0
-	google.golang.org/grpc v1.47.0
+	google.golang.org/grpc v1.64.1
 	google.golang.org/protobuf v1.34.2
 	k8s.io/apimachinery v0.29.2
 	knative.dev/pkg v0.0.0-20230224205330-75da922ef055
@@ -108,7 +106,6 @@ require (
 	github.com/modern-go/reflect2 v1.0.2 // indirect
 	github.com/oklog/ulid v1.3.1 // indirect
 	github.com/opencontainers/go-digest v1.0.0 // indirect
-	github.com/opencontainers/image-spec v1.1.0-rc2.0.20221005185240-3a7f492d3f1b // indirect
 	github.com/opencontainers/runc v1.1.7 // indirect
 	github.com/opencontainers/runtime-spec v1.1.0-rc.1 // indirect
 	github.com/opencontainers/selinux v1.11.0 // indirect
