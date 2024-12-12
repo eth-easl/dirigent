@@ -6,6 +6,7 @@ import (
 	"cluster_manager/internal/data_plane/service_metadata"
 	"cluster_manager/internal/data_plane/workflow"
 	"cluster_manager/pkg/config"
+	"cluster_manager/pkg/connectivity"
 	"cluster_manager/pkg/grpc_helpers"
 	"cluster_manager/pkg/utils"
 	"cluster_manager/proto"
@@ -27,8 +28,9 @@ import (
 type Dataplane struct {
 	proto.UnimplementedDpiInterfaceServer
 
-	config      config.DataPlaneConfig
-	deployments *service_metadata.Deployments
+	config       config.DataPlaneConfig
+	deployments  *service_metadata.Deployments
+	routeManager *connectivity.RouteManager
 
 	dataplaneID string
 }
@@ -42,9 +44,10 @@ func NewDataplane(config config.DataPlaneConfig) *Dataplane {
 	nodeName := fmt.Sprintf("%s-%d", hostName, rand.Int())
 
 	return &Dataplane{
-		config:      config,
-		deployments: service_metadata.NewDeploymentList(),
-		dataplaneID: nodeName,
+		config:       config,
+		deployments:  service_metadata.NewDeploymentList(),
+		routeManager: connectivity.NewRouteManager(),
+		dataplaneID:  nodeName,
 	}
 }
 
@@ -230,11 +233,8 @@ func (d *Dataplane) DrainSandbox(_ context.Context, patch *proto.DeploymentEndpo
 	return &proto.DeploymentUpdateSuccess{Success: true}, err
 }
 
-func (d *Dataplane) ResetMeasurements(ctx context.Context, in *emptypb.Empty) (*proto.ActionStatus, error) {
-	return &proto.ActionStatus{
-		Success: true,
-		Message: "",
-	}, nil
+func (d *Dataplane) ResetMeasurements(_ context.Context, _ *emptypb.Empty) (*proto.ActionStatus, error) {
+	return &proto.ActionStatus{Success: true, Message: ""}, nil
 }
 
 func (d *Dataplane) AddWorkflowDeployment(_ context.Context, wfInfo *proto.WorkflowInfo) (*proto.DeploymentUpdateSuccess, error) {
@@ -243,4 +243,8 @@ func (d *Dataplane) AddWorkflowDeployment(_ context.Context, wfInfo *proto.Workf
 
 func (d *Dataplane) DeleteWorkflowDeployment(_ context.Context, id *proto.WorkflowObjectIdentifier) (*proto.DeploymentUpdateSuccess, error) {
 	return &proto.DeploymentUpdateSuccess{Success: d.deployments.DeleteDeployment(id.Name)}, nil
+}
+
+func (d *Dataplane) ReceiveRouteUpdate(_ context.Context, update *proto.RouteUpdate) (*proto.ActionStatus, error) {
+	return connectivity.RouteUpdateHandler(d.routeManager, update)
 }

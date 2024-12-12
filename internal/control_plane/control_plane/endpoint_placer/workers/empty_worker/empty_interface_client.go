@@ -29,6 +29,10 @@ func (e emptyInterfaceClient) CreateTaskSandbox(ctx context.Context, in *proto.W
 	}, nil
 }
 
+func (e emptyInterfaceClient) ReceiveRouteUpdate(ctx context.Context, in *proto.RouteUpdate, opts ...grpc.CallOption) (*proto.ActionStatus, error) {
+	return &proto.ActionStatus{Success: true}, nil
+}
+
 func (e emptyInterfaceClient) ListEndpoints(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*proto.EndpointsList, error) {
 	return &proto.EndpointsList{}, nil
 }

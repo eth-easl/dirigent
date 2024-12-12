@@ -8,7 +8,9 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"net"
 	"os"
+	"os/exec"
 	"strings"
 	"time"
 
@@ -22,6 +24,7 @@ import (
 )
 
 const (
+	bridgeName          = "cni0"
 	containerdNamespace = "cm"
 )
 
@@ -86,13 +89,36 @@ func NewContainerdRuntime(cpApi proto.CpiInterfaceClient, config config.Containe
 	}
 }
 
+func tearDownDefaultBridge() {
+	interfaces, err := net.Interfaces()
+	if err != nil {
+		logrus.Fatal("Failed to list network interfaces on this system.")
+	}
+
+	for _, iface := range interfaces {
+		if iface.Name == bridgeName {
+			err = exec.Command("sudo", "ip", "link", "del", iface.Name).Run()
+			if err != nil {
+				logrus.Fatal("Failed to delete network interface %s - %v", iface.Name, err)
+			} else {
+				logrus.Infof("Successfully deleted network interface %s", iface.Name)
+			}
+
+			break
+		}
+	}
+}
+
 func (cr *Runtime) ConfigureNetwork(cidr string) {
+	tearDownDefaultBridge()
+
 	rawData, err := os.ReadFile(cr.cniTemplatePath)
 	if err != nil {
 		logrus.Fatal("Could not read CNI configuration template.")
 	}
 
 	finalCNIConfig := strings.Replace(string(rawData), "$SUBNET", cidr, -1)
+	finalCNIConfig = strings.Replace(finalCNIConfig, "$BRIDGE_NAME", bridgeName, -1)
 
 	network, err := cni.New(cni.WithConf([]byte(finalCNIConfig)))
 	if err != nil {
@@ -100,6 +126,7 @@ func (cr *Runtime) ConfigureNetwork(cidr string) {
 	}
 
 	cr.CNIClient = network
+	logrus.Infof("Configured CNI network to use CIDR %s", cidr)
 }
 
 func (cr *Runtime) CreateSandbox(grpcCtx context.Context, in *proto.ServiceInfo) (*proto.SandboxCreationStatus, error) {

@@ -23,6 +23,7 @@ const (
 	DpiInterface_AddDeployment_FullMethodName            = "/data_plane.DpiInterface/AddDeployment"
 	DpiInterface_DeleteDeployment_FullMethodName         = "/data_plane.DpiInterface/DeleteDeployment"
 	DpiInterface_UpdateDeployment_FullMethodName         = "/data_plane.DpiInterface/UpdateDeployment"
+	DpiInterface_ReceiveRouteUpdate_FullMethodName       = "/data_plane.DpiInterface/ReceiveRouteUpdate"
 	DpiInterface_AddWorkflowDeployment_FullMethodName    = "/data_plane.DpiInterface/AddWorkflowDeployment"
 	DpiInterface_DeleteWorkflowDeployment_FullMethodName = "/data_plane.DpiInterface/DeleteWorkflowDeployment"
 	DpiInterface_UpdateEndpointList_FullMethodName       = "/data_plane.DpiInterface/UpdateEndpointList"
@@ -37,6 +38,7 @@ type DpiInterfaceClient interface {
 	AddDeployment(ctx context.Context, in *ServiceInfo, opts ...grpc.CallOption) (*DeploymentUpdateSuccess, error)
 	DeleteDeployment(ctx context.Context, in *ServiceInfo, opts ...grpc.CallOption) (*DeploymentUpdateSuccess, error)
 	UpdateDeployment(ctx context.Context, in *ServiceInfo, opts ...grpc.CallOption) (*DeploymentUpdateSuccess, error)
+	ReceiveRouteUpdate(ctx context.Context, in *RouteUpdate, opts ...grpc.CallOption) (*ActionStatus, error)
 	AddWorkflowDeployment(ctx context.Context, in *WorkflowInfo, opts ...grpc.CallOption) (*DeploymentUpdateSuccess, error)
 	DeleteWorkflowDeployment(ctx context.Context, in *WorkflowObjectIdentifier, opts ...grpc.CallOption) (*DeploymentUpdateSuccess, error)
 	UpdateEndpointList(ctx context.Context, in *DeploymentEndpointPatch, opts ...grpc.CallOption) (*DeploymentUpdateSuccess, error)
@@ -73,6 +75,15 @@ func (c *dpiInterfaceClient) DeleteDeployment(ctx context.Context, in *ServiceIn
 func (c *dpiInterfaceClient) UpdateDeployment(ctx context.Context, in *ServiceInfo, opts ...grpc.CallOption) (*DeploymentUpdateSuccess, error) {
 	out := new(DeploymentUpdateSuccess)
 	err := c.cc.Invoke(ctx, DpiInterface_UpdateDeployment_FullMethodName, in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *dpiInterfaceClient) ReceiveRouteUpdate(ctx context.Context, in *RouteUpdate, opts ...grpc.CallOption) (*ActionStatus, error) {
+	out := new(ActionStatus)
+	err := c.cc.Invoke(ctx, DpiInterface_ReceiveRouteUpdate_FullMethodName, in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -131,6 +142,7 @@ type DpiInterfaceServer interface {
 	AddDeployment(context.Context, *ServiceInfo) (*DeploymentUpdateSuccess, error)
 	DeleteDeployment(context.Context, *ServiceInfo) (*DeploymentUpdateSuccess, error)
 	UpdateDeployment(context.Context, *ServiceInfo) (*DeploymentUpdateSuccess, error)
+	ReceiveRouteUpdate(context.Context, *RouteUpdate) (*ActionStatus, error)
 	AddWorkflowDeployment(context.Context, *WorkflowInfo) (*DeploymentUpdateSuccess, error)
 	DeleteWorkflowDeployment(context.Context, *WorkflowObjectIdentifier) (*DeploymentUpdateSuccess, error)
 	UpdateEndpointList(context.Context, *DeploymentEndpointPatch) (*DeploymentUpdateSuccess, error)
@@ -151,6 +163,9 @@ func (UnimplementedDpiInterfaceServer) DeleteDeployment(context.Context, *Servic
 }
 func (UnimplementedDpiInterfaceServer) UpdateDeployment(context.Context, *ServiceInfo) (*DeploymentUpdateSuccess, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method UpdateDeployment not implemented")
+}
+func (UnimplementedDpiInterfaceServer) ReceiveRouteUpdate(context.Context, *RouteUpdate) (*ActionStatus, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method ReceiveRouteUpdate not implemented")
 }
 func (UnimplementedDpiInterfaceServer) AddWorkflowDeployment(context.Context, *WorkflowInfo) (*DeploymentUpdateSuccess, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method AddWorkflowDeployment not implemented")
@@ -230,6 +245,24 @@ func _DpiInterface_UpdateDeployment_Handler(srv interface{}, ctx context.Context
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(DpiInterfaceServer).UpdateDeployment(ctx, req.(*ServiceInfo))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _DpiInterface_ReceiveRouteUpdate_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(RouteUpdate)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(DpiInterfaceServer).ReceiveRouteUpdate(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: DpiInterface_ReceiveRouteUpdate_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(DpiInterfaceServer).ReceiveRouteUpdate(ctx, req.(*RouteUpdate))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -342,6 +375,10 @@ var DpiInterface_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "UpdateDeployment",
 			Handler:    _DpiInterface_UpdateDeployment_Handler,
+		},
+		{
+			MethodName: "ReceiveRouteUpdate",
+			Handler:    _DpiInterface_ReceiveRouteUpdate_Handler,
 		},
 		{
 			MethodName: "AddWorkflowDeployment",

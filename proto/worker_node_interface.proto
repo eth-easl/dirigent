@@ -40,6 +40,7 @@ message EndpointsList {
 service WorkerNodeInterface {
   rpc CreateSandbox(ServiceInfo) returns (SandboxCreationStatus);
   rpc DeleteSandbox(SandboxID) returns (ActionStatus);
+  rpc ReceiveRouteUpdate(RouteUpdate) returns (ActionStatus);
 
   rpc CreateTaskSandbox(WorkflowTaskInfo) returns (SandboxCreationStatus);
 

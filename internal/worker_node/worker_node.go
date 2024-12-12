@@ -9,6 +9,7 @@ import (
 	"cluster_manager/internal/worker_node/sandbox/fcctr"
 	"cluster_manager/internal/worker_node/sandbox/firecracker"
 	"cluster_manager/pkg/config"
+	"cluster_manager/pkg/connectivity"
 	"cluster_manager/pkg/grpc_helpers"
 	"cluster_manager/pkg/hardware"
 	"cluster_manager/pkg/utils"
@@ -39,6 +40,7 @@ type WorkerNode struct {
 	ImageManager   *containerd.ImageManager
 	SandboxManager *managers.SandboxManager
 	ProcessMonitor *managers.ProcessMonitor
+	RouteManager   *connectivity.RouteManager
 
 	Name string
 	CIDR string
@@ -113,6 +115,7 @@ func NewWorkerNode(cpApi proto.CpiInterfaceClient, config config.WorkerNodeConfi
 		SandboxRuntime: runtimeInterface,
 
 		SandboxManager: sandboxManager,
+		RouteManager:   connectivity.NewRouteManager(),
 
 		Name: nodeName,
 	}
@@ -290,4 +293,8 @@ func (w *WorkerNode) sendHeartbeatLoop(cfg *config.WorkerNodeConfig) {
 	} else {
 		logrus.Debug("Sent heartbeat to the control plane")
 	}
+}
+
+func (w *WorkerNode) ReceiveRouteUpdate(_ context.Context, update *proto.RouteUpdate) (*proto.ActionStatus, error) {
+	return connectivity.RouteUpdateHandler(w.RouteManager, update)
 }

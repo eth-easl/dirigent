@@ -20,11 +20,12 @@ import (
 const _ = grpc.SupportPackageIsVersion7
 
 const (
-	WorkerNodeInterface_CreateSandbox_FullMethodName     = "/data_plane.WorkerNodeInterface/CreateSandbox"
-	WorkerNodeInterface_DeleteSandbox_FullMethodName     = "/data_plane.WorkerNodeInterface/DeleteSandbox"
-	WorkerNodeInterface_CreateTaskSandbox_FullMethodName = "/data_plane.WorkerNodeInterface/CreateTaskSandbox"
-	WorkerNodeInterface_ListEndpoints_FullMethodName     = "/data_plane.WorkerNodeInterface/ListEndpoints"
-	WorkerNodeInterface_PrepullImage_FullMethodName      = "/data_plane.WorkerNodeInterface/PrepullImage"
+	WorkerNodeInterface_CreateSandbox_FullMethodName      = "/data_plane.WorkerNodeInterface/CreateSandbox"
+	WorkerNodeInterface_DeleteSandbox_FullMethodName      = "/data_plane.WorkerNodeInterface/DeleteSandbox"
+	WorkerNodeInterface_ReceiveRouteUpdate_FullMethodName = "/data_plane.WorkerNodeInterface/ReceiveRouteUpdate"
+	WorkerNodeInterface_CreateTaskSandbox_FullMethodName  = "/data_plane.WorkerNodeInterface/CreateTaskSandbox"
+	WorkerNodeInterface_ListEndpoints_FullMethodName      = "/data_plane.WorkerNodeInterface/ListEndpoints"
+	WorkerNodeInterface_PrepullImage_FullMethodName       = "/data_plane.WorkerNodeInterface/PrepullImage"
 )
 
 // WorkerNodeInterfaceClient is the client API for WorkerNodeInterface service.
@@ -33,6 +34,7 @@ const (
 type WorkerNodeInterfaceClient interface {
 	CreateSandbox(ctx context.Context, in *ServiceInfo, opts ...grpc.CallOption) (*SandboxCreationStatus, error)
 	DeleteSandbox(ctx context.Context, in *SandboxID, opts ...grpc.CallOption) (*ActionStatus, error)
+	ReceiveRouteUpdate(ctx context.Context, in *RouteUpdate, opts ...grpc.CallOption) (*ActionStatus, error)
 	CreateTaskSandbox(ctx context.Context, in *WorkflowTaskInfo, opts ...grpc.CallOption) (*SandboxCreationStatus, error)
 	ListEndpoints(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*EndpointsList, error)
 	PrepullImage(ctx context.Context, in *ImageInfo, opts ...grpc.CallOption) (*ActionStatus, error)
@@ -58,6 +60,15 @@ func (c *workerNodeInterfaceClient) CreateSandbox(ctx context.Context, in *Servi
 func (c *workerNodeInterfaceClient) DeleteSandbox(ctx context.Context, in *SandboxID, opts ...grpc.CallOption) (*ActionStatus, error) {
 	out := new(ActionStatus)
 	err := c.cc.Invoke(ctx, WorkerNodeInterface_DeleteSandbox_FullMethodName, in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *workerNodeInterfaceClient) ReceiveRouteUpdate(ctx context.Context, in *RouteUpdate, opts ...grpc.CallOption) (*ActionStatus, error) {
+	out := new(ActionStatus)
+	err := c.cc.Invoke(ctx, WorkerNodeInterface_ReceiveRouteUpdate_FullMethodName, in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -97,6 +108,7 @@ func (c *workerNodeInterfaceClient) PrepullImage(ctx context.Context, in *ImageI
 type WorkerNodeInterfaceServer interface {
 	CreateSandbox(context.Context, *ServiceInfo) (*SandboxCreationStatus, error)
 	DeleteSandbox(context.Context, *SandboxID) (*ActionStatus, error)
+	ReceiveRouteUpdate(context.Context, *RouteUpdate) (*ActionStatus, error)
 	CreateTaskSandbox(context.Context, *WorkflowTaskInfo) (*SandboxCreationStatus, error)
 	ListEndpoints(context.Context, *emptypb.Empty) (*EndpointsList, error)
 	PrepullImage(context.Context, *ImageInfo) (*ActionStatus, error)
@@ -112,6 +124,9 @@ func (UnimplementedWorkerNodeInterfaceServer) CreateSandbox(context.Context, *Se
 }
 func (UnimplementedWorkerNodeInterfaceServer) DeleteSandbox(context.Context, *SandboxID) (*ActionStatus, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method DeleteSandbox not implemented")
+}
+func (UnimplementedWorkerNodeInterfaceServer) ReceiveRouteUpdate(context.Context, *RouteUpdate) (*ActionStatus, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method ReceiveRouteUpdate not implemented")
 }
 func (UnimplementedWorkerNodeInterfaceServer) CreateTaskSandbox(context.Context, *WorkflowTaskInfo) (*SandboxCreationStatus, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method CreateTaskSandbox not implemented")
@@ -167,6 +182,24 @@ func _WorkerNodeInterface_DeleteSandbox_Handler(srv interface{}, ctx context.Con
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(WorkerNodeInterfaceServer).DeleteSandbox(ctx, req.(*SandboxID))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _WorkerNodeInterface_ReceiveRouteUpdate_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(RouteUpdate)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(WorkerNodeInterfaceServer).ReceiveRouteUpdate(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: WorkerNodeInterface_ReceiveRouteUpdate_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(WorkerNodeInterfaceServer).ReceiveRouteUpdate(ctx, req.(*RouteUpdate))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -239,6 +272,10 @@ var WorkerNodeInterface_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "DeleteSandbox",
 			Handler:    _WorkerNodeInterface_DeleteSandbox_Handler,
+		},
+		{
+			MethodName: "ReceiveRouteUpdate",
+			Handler:    _WorkerNodeInterface_ReceiveRouteUpdate_Handler,
 		},
 		{
 			MethodName: "CreateTaskSandbox",

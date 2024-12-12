@@ -118,3 +118,14 @@ message ImageInfo {
   string URL = 1;
   uint64 Size = 2;
 }
+
+enum RouteUpdateAction {
+  ROUTE_INSTALL = 0;
+  ROUTE_DELETE = 1;
+}
+
+message RouteUpdate {
+  RouteUpdateAction Action = 1;
+  string CIDR = 2;
+  string Gateway = 3;
+}

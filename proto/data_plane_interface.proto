@@ -26,6 +26,8 @@ service DpiInterface {
   rpc DeleteDeployment(ServiceInfo) returns (DeploymentUpdateSuccess);
   rpc UpdateDeployment(ServiceInfo) returns (DeploymentUpdateSuccess);
 
+  rpc ReceiveRouteUpdate(RouteUpdate) returns (ActionStatus);
+
   rpc AddWorkflowDeployment(WorkflowInfo) returns (DeploymentUpdateSuccess);
   rpc DeleteWorkflowDeployment(WorkflowObjectIdentifier) returns (DeploymentUpdateSuccess);
 
