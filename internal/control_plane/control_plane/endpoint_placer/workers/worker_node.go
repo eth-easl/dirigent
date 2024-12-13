@@ -47,6 +47,7 @@ func NewWorkerNode(workerNodeConfiguration core.WorkerNodeConfiguration) core.Wo
 	return &WorkerNode{
 		Name:            workerNodeConfiguration.Name,
 		IP:              workerNodeConfiguration.IP,
+		CIDR:            workerNodeConfiguration.CIDR,
 		Port:            workerNodeConfiguration.Port,
 		CpuAvailable:    workerNodeConfiguration.Cpu,
 		MemoryAvailable: workerNodeConfiguration.Memory,

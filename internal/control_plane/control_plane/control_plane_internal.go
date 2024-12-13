@@ -836,12 +836,20 @@ func (c *ControlPlane) reviseDataplanesInLB(callback func([]string) bool) bool {
 }
 
 func propagateRoute(ctx context.Context, wnis []core.WorkerNodeInterface, routes []*proto.Route, action connectivity.RouteUpdate) {
+	if len(routes) == 0 {
+		return
+	}
+
 	for _, wni := range wnis {
 		routing.SendRoutes(wni.ReceiveRouteUpdate, ctx, action, routes, "node "+wni.GetName())
 	}
 }
 
 func (c *ControlPlane) propagateRouteToDataplanes(ctx context.Context, routes []*proto.Route, action connectivity.RouteUpdate) {
+	if len(routes) == 0 {
+		return
+	}
+
 	c.DataPlaneConnections.RLock()
 	defer c.DataPlaneConnections.RUnlock()
 

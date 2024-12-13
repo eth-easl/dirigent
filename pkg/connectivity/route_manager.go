@@ -66,3 +66,16 @@ func RouteUpdateHandler(rm *RouteManager, update *proto.RouteUpdate) (*proto.Act
 
 	return &proto.ActionStatus{Success: true}, nil
 }
+
+func RouteActionToString(action RouteUpdate) string {
+	switch action {
+	case RouteInstall:
+		return "RouteInstall"
+	case RouteRemove:
+		return "RouteRemove"
+	default:
+		logrus.Fatal("Unsupported RouteAction type for parsing to string.")
+		return ""
+	}
+
+}
