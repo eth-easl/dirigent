@@ -8,7 +8,8 @@ import (
 
 type RouteUpdate int
 
-const RoutingTableName = "dirigent"
+const ipRulePriority = "1"
+const ipRouteTableName = "dirigent"
 
 const (
 	RouteInstall RouteUpdate = iota
@@ -40,14 +41,24 @@ func (rm *RouteManager) HandleRouteUpdate(action RouteUpdate, cidr string, gatew
 }
 
 func (rm *RouteManager) installRoute(cidr string, gateway string) {
-	err := exec.Command("sudo", "ip", "route", "add", cidr, "via", gateway, "table", RoutingTableName).Run()
+	err := exec.Command("sudo", "ip", "rule", "add", "to", cidr, "lookup", ipRouteTableName, "priority", ipRulePriority).Run()
 	if err != nil {
-		logrus.Errorf("Failed to install route for %s via %s - %v", cidr, gateway, err)
+		logrus.Errorf("Failed to install IP rule for %s - %v", cidr, err)
+	}
+
+	err = exec.Command("sudo", "ip", "route", "add", cidr, "via", gateway, "table", ipRouteTableName).Run()
+	if err != nil {
+		logrus.Errorf("Failed to install IP route for %s via %s - %v", cidr, gateway, err)
 	}
 }
 
 func (rm *RouteManager) deleteRoute(cidr string) {
-	err := exec.Command("sudo", "ip", "route", "delete", cidr, "table", RoutingTableName).Run()
+	err := exec.Command("sudo", "ip", "rule", "delete", "to", cidr, "lookup", ipRouteTableName, "priority", ipRulePriority).Run()
+	if err != nil {
+		logrus.Errorf("Failed to delete rule for %s - %v", cidr, err)
+	}
+
+	err = exec.Command("sudo", "ip", "route", "delete", cidr, "table", ipRouteTableName).Run()
 	if err != nil {
 		logrus.Errorf("Failed to delete route for %s - %v", cidr, err)
 	}
@@ -82,7 +93,7 @@ func RouteActionToString(action RouteUpdate) string {
 }
 
 func FlushIPRoutes() {
-	err := exec.Command("sudo", "ip", "route", "flush", "table", RoutingTableName).Run()
+	err := exec.Command("sudo", "ip", "route", "flush", "table", ipRouteTableName).Run()
 	if err != nil {
 		logrus.Errorf("Error flush ip route table Dirigent - %v", err.Error())
 	}
