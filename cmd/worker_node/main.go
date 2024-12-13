@@ -4,6 +4,7 @@ import (
 	"cluster_manager/internal/worker_node"
 	"cluster_manager/internal/worker_node/sandbox/firecracker"
 	"cluster_manager/pkg/config"
+	"cluster_manager/pkg/connectivity"
 	"cluster_manager/pkg/grpc_helpers"
 	"cluster_manager/pkg/logger"
 	"cluster_manager/pkg/network"
@@ -26,7 +27,7 @@ func main() {
 	flag.Parse()
 	rand.Seed(uint64(time.Now().UnixNano()))
 
-	flushIPRoutes()
+	connectivity.FlushIPRoutes()
 
 	if !utils.PassesWorkerNodeConfigurationChecks() {
 		logrus.Fatal("Worker node configuration checks failed. Terminating...")
@@ -73,13 +74,6 @@ func main() {
 			logrus.Warn("Interruption received, but failed to delete leftover network devices.")
 		}
 	})
-}
-
-func flushIPRoutes() {
-	err := exec.Command("sudo", "ip", "route", "flush", "table", "dirigent").Run()
-	if err != nil {
-		logrus.Errorf("Error flush ip route table Dirigent - %v", err.Error())
-	}
 }
 
 func resetIPTables() {

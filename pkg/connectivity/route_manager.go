@@ -80,3 +80,10 @@ func RouteActionToString(action RouteUpdate) string {
 		return ""
 	}
 }
+
+func FlushIPRoutes() {
+	err := exec.Command("sudo", "ip", "route", "flush", "table", RoutingTableName).Run()
+	if err != nil {
+		logrus.Errorf("Error flush ip route table Dirigent - %v", err.Error())
+	}
+}

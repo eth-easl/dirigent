@@ -3,6 +3,7 @@ package main
 import (
 	"cluster_manager/internal/data_plane"
 	"cluster_manager/pkg/config"
+	"cluster_manager/pkg/connectivity"
 	"cluster_manager/pkg/grpc_helpers"
 	"cluster_manager/pkg/logger"
 	"cluster_manager/pkg/utils"
@@ -20,6 +21,8 @@ func main() {
 	flag.Parse()
 
 	logrus.Debugf("Configuration path is : %s", *configPath)
+
+	connectivity.FlushIPRoutes()
 
 	cfg, err := config.ReadDataPlaneConfiguration(*configPath)
 	if err != nil {

@@ -178,6 +178,8 @@ Before firing an invocation, two parameters from the sysctl configuration need t
 sudo sysctl -w net.ipv4.conf.all.route_localnet=1
 # For reachability of sandboxes from other cluster nodes
 sudo sysctl -w net.ipv4.ip_forward=1
+# Create table alias for ip routing table (dirigent table ID is 48)
+echo '48 dirigent' | sudo tee -a /etc/iproute2/rt_tables
 ```
 
 Starting the master node, data plane and worker nodes is easy
