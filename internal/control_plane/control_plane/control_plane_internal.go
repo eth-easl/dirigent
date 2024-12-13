@@ -278,9 +278,9 @@ func (c *ControlPlane) registerNode(ctx context.Context, in *proto.NodeInfo) (*p
 
 func (c *ControlPlane) routeUpdateOnNodeRegistration(ctx context.Context, route *proto.Route, newNode core.WorkerNodeInterface, allOtherNodes []core.WorkerNodeInterface) {
 	// send to the newly-registered node all routes
-	propagateRoute(ctx, []core.WorkerNodeInterface{newNode}, routing.ExtractRoutes(allOtherNodes), connectivity.RouteInstall)
+	c.propagateRoute(ctx, []core.WorkerNodeInterface{newNode}, routing.ExtractRoutes(allOtherNodes), connectivity.RouteInstall)
 	// inform all other worker nodes to add a route to the newly-registered node
-	propagateRoute(ctx, allOtherNodes, []*proto.Route{route}, connectivity.RouteInstall)
+	c.propagateRoute(ctx, allOtherNodes, []*proto.Route{route}, connectivity.RouteInstall)
 	// inform all data planes to add a route to the newly-registered node
 	c.propagateRouteToDataplanes(ctx, []*proto.Route{route}, connectivity.RouteInstall)
 }
@@ -316,11 +316,11 @@ func (c *ControlPlane) deregisterNode(ctx context.Context, in *proto.NodeInfo) (
 
 func (c *ControlPlane) routeUpdateOnNodeDeregistration(ctx context.Context, route *proto.Route, affectedNode core.WorkerNodeInterface, allOtherNodes []core.WorkerNodeInterface) {
 	// inform all other nodes to remove routes to the node who just deregistered
-	propagateRoute(ctx, allOtherNodes, []*proto.Route{route}, connectivity.RouteRemove)
+	c.propagateRoute(ctx, allOtherNodes, []*proto.Route{route}, connectivity.RouteRemove)
 	// inform all data planes to remove route to the node who just deregistered
 	c.propagateRouteToDataplanes(ctx, []*proto.Route{route}, connectivity.RouteRemove)
 	// inform the node who just deregistered to delete all routes - async since the deregistration cause might be a node failure
-	go propagateRoute(ctx, []core.WorkerNodeInterface{affectedNode}, routing.ExtractRoutes(allOtherNodes), connectivity.RouteRemove)
+	go c.propagateRoute(ctx, []core.WorkerNodeInterface{affectedNode}, routing.ExtractRoutes(allOtherNodes), connectivity.RouteRemove)
 }
 
 func (c *ControlPlane) nodeHeartbeat(_ context.Context, in *proto.NodeHeartbeatMessage) (*proto.ActionStatus, error) {
@@ -695,7 +695,7 @@ func (c *ControlPlane) removeRoutesDueToUnschedulability(allOtherNodes []core.Wo
 	ctx := context.Background()
 
 	// inform all worker nodes to remove the route to the non-responsive node
-	propagateRoute(ctx, allOtherNodes, route, connectivity.RouteRemove)
+	c.propagateRoute(ctx, allOtherNodes, route, connectivity.RouteRemove)
 	// inform all data planes to remove the route to the non-responsive node
 	c.propagateRouteToDataplanes(ctx, route, connectivity.RouteRemove)
 }
@@ -835,8 +835,8 @@ func (c *ControlPlane) reviseDataplanesInLB(callback func([]string) bool) bool {
 	return callback(dataplanes)
 }
 
-func propagateRoute(ctx context.Context, wnis []core.WorkerNodeInterface, routes []*proto.Route, action connectivity.RouteUpdate) {
-	if len(routes) == 0 {
+func (c *ControlPlane) propagateRoute(ctx context.Context, wnis []core.WorkerNodeInterface, routes []*proto.Route, action connectivity.RouteUpdate) {
+	if len(routes) == 0 || c.ipam.IsStatic() {
 		return
 	}
 
@@ -846,7 +846,7 @@ func propagateRoute(ctx context.Context, wnis []core.WorkerNodeInterface, routes
 }
 
 func (c *ControlPlane) propagateRouteToDataplanes(ctx context.Context, routes []*proto.Route, action connectivity.RouteUpdate) {
-	if len(routes) == 0 {
+	if len(routes) == 0 || c.ipam.IsStatic() {
 		return
 	}
 

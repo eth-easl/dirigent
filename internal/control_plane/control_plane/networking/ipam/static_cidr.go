@@ -15,3 +15,7 @@ func (s *StaticCIDRManager) ReserveCIDR() (string, error) {
 }
 
 func (s *StaticCIDRManager) ReleaseCIDR(_ string) {}
+
+func (s *StaticCIDRManager) IsStatic() bool {
+	return true
+}

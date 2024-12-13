@@ -32,8 +32,10 @@ func NewRouteManager() *RouteManager {
 func (rm *RouteManager) HandleRouteUpdate(action RouteUpdate, cidr string, gateway string) {
 	switch action {
 	case RouteInstall:
+		logrus.Debugf("Installing route for %s via %s.", cidr, gateway)
 		rm.installRoute(cidr, gateway)
 	case RouteRemove:
+		logrus.Debugf("Deleting route for %s.", cidr)
 		rm.deleteRoute(cidr)
 	default:
 		logrus.Errorf("Unsupported route update operation.")

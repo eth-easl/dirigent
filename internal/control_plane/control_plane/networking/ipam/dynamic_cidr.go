@@ -78,3 +78,7 @@ func (m *DynamicCIDRManager) ReleaseCIDR(cidr string) {
 	m.pool.PushFront(cidr)
 	m.inUse--
 }
+
+func (s *DynamicCIDRManager) IsStatic() bool {
+	return false
+}
