@@ -103,6 +103,8 @@ sudo cp -a ~/cluster_manager/scripts/systemd/* /etc/systemd/system/
 sudo sysctl -w net.ipv4.conf.all.route_localnet=1
 # For reachability of sandboxes from other cluster nodes
 sudo sysctl -w net.ipv4.ip_forward=1
+# Create table alias for ip routing table (dirigent table ID is 48)
+echo '48 dirigent' | sudo tee -a /etc/iproute2/rt_tables
 
 readonly NODE_PURPOSE=$1
 if [ "$NODE_PURPOSE" = "CONTROL_PLANE" ]; then

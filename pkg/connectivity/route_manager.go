@@ -4,10 +4,11 @@ import (
 	"cluster_manager/proto"
 	"github.com/sirupsen/logrus"
 	"os/exec"
-	"strings"
 )
 
 type RouteUpdate int
+
+const RoutingTableName = "dirigent"
 
 const (
 	RouteInstall RouteUpdate = iota
@@ -38,32 +39,15 @@ func (rm *RouteManager) HandleRouteUpdate(action RouteUpdate, cidr string, gatew
 	}
 }
 
-func (rm *RouteManager) rouseExists(cidr string) bool {
-	out, err := exec.Command("sudo", "ip", "route", "show", cidr).Output()
-	if err != nil {
-		logrus.Errorf("Failed to check if route for %s exists - %v", cidr, err)
-	}
-
-	if strings.Contains(string(out), cidr) {
-		return true
-	} else {
-		return false
-	}
-}
-
 func (rm *RouteManager) installRoute(cidr string, gateway string) {
-	if rm.rouseExists(cidr) {
-		rm.deleteRoute(cidr)
-	}
-
-	err := exec.Command("sudo", "ip", "route", "add", cidr, "via", gateway).Run()
+	err := exec.Command("sudo", "ip", "route", "add", cidr, "via", gateway, "table", RoutingTableName).Run()
 	if err != nil {
 		logrus.Errorf("Failed to install route for %s via %s - %v", cidr, gateway, err)
 	}
 }
 
 func (rm *RouteManager) deleteRoute(cidr string) {
-	err := exec.Command("sudo", "ip", "route", "delete", cidr).Run()
+	err := exec.Command("sudo", "ip", "route", "delete", cidr, "table", RoutingTableName).Run()
 	if err != nil {
 		logrus.Errorf("Failed to delete route for %s - %v", cidr, err)
 	}
@@ -95,5 +79,4 @@ func RouteActionToString(action RouteUpdate) string {
 		logrus.Fatal("Unsupported RouteAction type for parsing to string.")
 		return ""
 	}
-
 }

@@ -26,6 +26,8 @@ func main() {
 	flag.Parse()
 	rand.Seed(uint64(time.Now().UnixNano()))
 
+	flushIPRoutes()
+
 	if !utils.PassesWorkerNodeConfigurationChecks() {
 		logrus.Fatal("Worker node configuration checks failed. Terminating...")
 	}
@@ -73,8 +75,15 @@ func main() {
 	})
 }
 
+func flushIPRoutes() {
+	err := exec.Command("sudo", "ip", "route", "flush", "table", "dirigent").Run()
+	if err != nil {
+		logrus.Errorf("Error flush ip route table Dirigent - %v", err.Error())
+	}
+}
+
 func resetIPTables() {
-	err := exec.Command("sudo", "iptables", "-t", "nat", "-FileSystem").Run()
+	err := exec.Command("sudo", "iptables", "-t", "nat", "-F").Run()
 	if err != nil {
 		logrus.Errorf("Error reseting IP tables - %v", err.Error())
 	}
