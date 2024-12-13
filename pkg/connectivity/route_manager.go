@@ -92,7 +92,18 @@ func RouteActionToString(action RouteUpdate) string {
 	}
 }
 
+func flushIpRules() {
+	for {
+		err := exec.Command("sudo", "ip", "rule", "delete", "lookup", ipRouteTableName).Run()
+		if err != nil {
+			break
+		}
+	}
+}
+
 func FlushIPRoutes() {
+	flushIpRules()
+
 	err := exec.Command("sudo", "ip", "route", "flush", "table", ipRouteTableName).Run()
 	if err != nil {
 		logrus.Errorf("Error flush ip route table Dirigent - %v", err.Error())
