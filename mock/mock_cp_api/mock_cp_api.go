@@ -23,6 +23,7 @@ import (
 type MockCpiInterfaceClient struct {
 	ctrl     *gomock.Controller
 	recorder *MockCpiInterfaceClientMockRecorder
+	isgomock struct{}
 }
 
 // MockCpiInterfaceClientMockRecorder is the mock recorder for MockCpiInterfaceClient.
@@ -83,14 +84,14 @@ func (mr *MockCpiInterfaceClientMockRecorder) DeregisterDataplane(ctx, in any, o
 }
 
 // DeregisterNode mocks base method.
-func (m *MockCpiInterfaceClient) DeregisterNode(ctx context.Context, in *proto.NodeInfo, opts ...grpc.CallOption) (*proto.ActionStatus, error) {
+func (m *MockCpiInterfaceClient) DeregisterNode(ctx context.Context, in *proto.NodeInfo, opts ...grpc.CallOption) (*proto.NodeRegistrationStatus, error) {
 	m.ctrl.T.Helper()
 	varargs := []any{ctx, in}
 	for _, a := range opts {
 		varargs = append(varargs, a)
 	}
 	ret := m.ctrl.Call(m, "DeregisterNode", varargs...)
-	ret0, _ := ret[0].(*proto.ActionStatus)
+	ret0, _ := ret[0].(*proto.NodeRegistrationStatus)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -223,14 +224,14 @@ func (mr *MockCpiInterfaceClientMockRecorder) RegisterDataplane(ctx, in any, opt
 }
 
 // RegisterNode mocks base method.
-func (m *MockCpiInterfaceClient) RegisterNode(ctx context.Context, in *proto.NodeInfo, opts ...grpc.CallOption) (*proto.ActionStatus, error) {
+func (m *MockCpiInterfaceClient) RegisterNode(ctx context.Context, in *proto.NodeInfo, opts ...grpc.CallOption) (*proto.NodeRegistrationStatus, error) {
 	m.ctrl.T.Helper()
 	varargs := []any{ctx, in}
 	for _, a := range opts {
 		varargs = append(varargs, a)
 	}
 	ret := m.ctrl.Call(m, "RegisterNode", varargs...)
-	ret0, _ := ret[0].(*proto.ActionStatus)
+	ret0, _ := ret[0].(*proto.NodeRegistrationStatus)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -406,6 +407,7 @@ func (mr *MockCpiInterfaceClientMockRecorder) SetInvocationsMetrics(ctx, in any,
 type MockCpiInterfaceServer struct {
 	ctrl     *gomock.Controller
 	recorder *MockCpiInterfaceServerMockRecorder
+	isgomock struct{}
 }
 
 // MockCpiInterfaceServerMockRecorder is the mock recorder for MockCpiInterfaceServer.
@@ -456,10 +458,10 @@ func (mr *MockCpiInterfaceServerMockRecorder) DeregisterDataplane(arg0, arg1 any
 }
 
 // DeregisterNode mocks base method.
-func (m *MockCpiInterfaceServer) DeregisterNode(arg0 context.Context, arg1 *proto.NodeInfo) (*proto.ActionStatus, error) {
+func (m *MockCpiInterfaceServer) DeregisterNode(arg0 context.Context, arg1 *proto.NodeInfo) (*proto.NodeRegistrationStatus, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "DeregisterNode", arg0, arg1)
-	ret0, _ := ret[0].(*proto.ActionStatus)
+	ret0, _ := ret[0].(*proto.NodeRegistrationStatus)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -561,10 +563,10 @@ func (mr *MockCpiInterfaceServerMockRecorder) RegisterDataplane(arg0, arg1 any) 
 }
 
 // RegisterNode mocks base method.
-func (m *MockCpiInterfaceServer) RegisterNode(arg0 context.Context, arg1 *proto.NodeInfo) (*proto.ActionStatus, error) {
+func (m *MockCpiInterfaceServer) RegisterNode(arg0 context.Context, arg1 *proto.NodeInfo) (*proto.NodeRegistrationStatus, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "RegisterNode", arg0, arg1)
-	ret0, _ := ret[0].(*proto.ActionStatus)
+	ret0, _ := ret[0].(*proto.NodeRegistrationStatus)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -711,6 +713,7 @@ func (mr *MockCpiInterfaceServerMockRecorder) mustEmbedUnimplementedCpiInterface
 type MockUnsafeCpiInterfaceServer struct {
 	ctrl     *gomock.Controller
 	recorder *MockUnsafeCpiInterfaceServerMockRecorder
+	isgomock struct{}
 }
 
 // MockUnsafeCpiInterfaceServerMockRecorder is the mock recorder for MockUnsafeCpiInterfaceServer.

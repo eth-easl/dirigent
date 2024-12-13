@@ -86,6 +86,10 @@ func (e *emptyWorker) CreateTaskSandbox(_ context.Context, _ *proto.WorkflowTask
 	}, nil
 }
 
+func (e *emptyWorker) ReceiveRouteUpdate(ctx context.Context, update *proto.RouteUpdate, option ...grpc.CallOption) (*proto.ActionStatus, error) {
+	return &proto.ActionStatus{Success: true}, nil
+}
+
 func (e *emptyWorker) ListEndpoints(ctx context.Context, empty *emptypb.Empty, option ...grpc.CallOption) (*proto.EndpointsList, error) {
 	return &proto.EndpointsList{}, nil
 }
@@ -139,6 +143,10 @@ func (e *emptyWorker) GetIP() string {
 }
 
 func (e *emptyWorker) GetPort() string {
+	return ""
+}
+
+func (e *emptyWorker) GetCIDR() string {
 	return ""
 }
 

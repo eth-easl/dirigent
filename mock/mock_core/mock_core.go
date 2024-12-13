@@ -26,6 +26,7 @@ import (
 type MockDataPlaneInterface struct {
 	ctrl     *gomock.Controller
 	recorder *MockDataPlaneInterfaceMockRecorder
+	isgomock struct{}
 }
 
 // MockDataPlaneInterfaceMockRecorder is the mock recorder for MockDataPlaneInterface.
@@ -190,6 +191,26 @@ func (mr *MockDataPlaneInterfaceMockRecorder) InitializeDataPlaneConnection(host
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "InitializeDataPlaneConnection", reflect.TypeOf((*MockDataPlaneInterface)(nil).InitializeDataPlaneConnection), host, port)
 }
 
+// ReceiveRouteUpdate mocks base method.
+func (m *MockDataPlaneInterface) ReceiveRouteUpdate(arg0 context.Context, arg1 *proto.RouteUpdate, arg2 ...grpc.CallOption) (*proto.ActionStatus, error) {
+	m.ctrl.T.Helper()
+	varargs := []any{arg0, arg1}
+	for _, a := range arg2 {
+		varargs = append(varargs, a)
+	}
+	ret := m.ctrl.Call(m, "ReceiveRouteUpdate", varargs...)
+	ret0, _ := ret[0].(*proto.ActionStatus)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// ReceiveRouteUpdate indicates an expected call of ReceiveRouteUpdate.
+func (mr *MockDataPlaneInterfaceMockRecorder) ReceiveRouteUpdate(arg0, arg1 any, arg2 ...any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	varargs := append([]any{arg0, arg1}, arg2...)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ReceiveRouteUpdate", reflect.TypeOf((*MockDataPlaneInterface)(nil).ReceiveRouteUpdate), varargs...)
+}
+
 // ResetMeasurements mocks base method.
 func (m *MockDataPlaneInterface) ResetMeasurements(arg0 context.Context, arg1 *emptypb.Empty) (*proto.ActionStatus, error) {
 	m.ctrl.T.Helper()
@@ -251,6 +272,7 @@ func (mr *MockDataPlaneInterfaceMockRecorder) UpdateHeartBeat() *gomock.Call {
 type MockWorkerNodeInterface struct {
 	ctrl     *gomock.Controller
 	recorder *MockWorkerNodeInterfaceMockRecorder
+	isgomock struct{}
 }
 
 // MockWorkerNodeInterfaceMockRecorder is the mock recorder for MockWorkerNodeInterface.
@@ -368,6 +390,20 @@ func (mr *MockWorkerNodeInterfaceMockRecorder) DeleteSandbox(arg0, arg1 any, arg
 	mr.mock.ctrl.T.Helper()
 	varargs := append([]any{arg0, arg1}, arg2...)
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteSandbox", reflect.TypeOf((*MockWorkerNodeInterface)(nil).DeleteSandbox), varargs...)
+}
+
+// GetCIDR mocks base method.
+func (m *MockWorkerNodeInterface) GetCIDR() string {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetCIDR")
+	ret0, _ := ret[0].(string)
+	return ret0
+}
+
+// GetCIDR indicates an expected call of GetCIDR.
+func (mr *MockWorkerNodeInterfaceMockRecorder) GetCIDR() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetCIDR", reflect.TypeOf((*MockWorkerNodeInterface)(nil).GetCIDR))
 }
 
 // GetCpuAvailable mocks base method.
@@ -578,6 +614,26 @@ func (mr *MockWorkerNodeInterfaceMockRecorder) PrepullImage(arg0, arg1 any, arg2
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "PrepullImage", reflect.TypeOf((*MockWorkerNodeInterface)(nil).PrepullImage), varargs...)
 }
 
+// ReceiveRouteUpdate mocks base method.
+func (m *MockWorkerNodeInterface) ReceiveRouteUpdate(arg0 context.Context, arg1 *proto.RouteUpdate, arg2 ...grpc.CallOption) (*proto.ActionStatus, error) {
+	m.ctrl.T.Helper()
+	varargs := []any{arg0, arg1}
+	for _, a := range arg2 {
+		varargs = append(varargs, a)
+	}
+	ret := m.ctrl.Call(m, "ReceiveRouteUpdate", varargs...)
+	ret0, _ := ret[0].(*proto.ActionStatus)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// ReceiveRouteUpdate indicates an expected call of ReceiveRouteUpdate.
+func (mr *MockWorkerNodeInterfaceMockRecorder) ReceiveRouteUpdate(arg0, arg1 any, arg2 ...any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	varargs := append([]any{arg0, arg1}, arg2...)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ReceiveRouteUpdate", reflect.TypeOf((*MockWorkerNodeInterface)(nil).ReceiveRouteUpdate), varargs...)
+}
+
 // RemoveImage mocks base method.
 func (m *MockWorkerNodeInterface) RemoveImage(arg0 string) bool {
 	m.ctrl.T.Helper()
@@ -644,6 +700,7 @@ func (mr *MockWorkerNodeInterfaceMockRecorder) UpdateLastHearBeat() *gomock.Call
 type MockAutoscalingInterface struct {
 	ctrl     *gomock.Controller
 	recorder *MockAutoscalingInterfaceMockRecorder
+	isgomock struct{}
 }
 
 // MockAutoscalingInterfaceMockRecorder is the mock recorder for MockAutoscalingInterface.

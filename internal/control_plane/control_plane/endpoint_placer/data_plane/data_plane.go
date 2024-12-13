@@ -5,6 +5,7 @@ import (
 	"cluster_manager/pkg/grpc_helpers"
 	"cluster_manager/proto"
 	"context"
+	"google.golang.org/grpc"
 	"time"
 
 	"google.golang.org/protobuf/types/known/emptypb"
@@ -63,6 +64,10 @@ func (d *DataPlaneConnectionInfo) DeleteDeployment(ctx context.Context, in *prot
 
 func (d *DataPlaneConnectionInfo) DeleteWorkflowDeployment(ctx context.Context, in *proto.WorkflowObjectIdentifier) (*proto.DeploymentUpdateSuccess, error) {
 	return d.Iface.DeleteWorkflowDeployment(ctx, in)
+}
+
+func (d *DataPlaneConnectionInfo) ReceiveRouteUpdate(ctx context.Context, update *proto.RouteUpdate, option ...grpc.CallOption) (*proto.ActionStatus, error) {
+	return d.Iface.ReceiveRouteUpdate(ctx, update, option...)
 }
 
 func (d *DataPlaneConnectionInfo) DrainSandbox(ctx context.Context, patch *proto.DeploymentEndpointPatch) (*proto.DeploymentUpdateSuccess, error) {

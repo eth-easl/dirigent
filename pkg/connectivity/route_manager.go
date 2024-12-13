@@ -52,14 +52,16 @@ func (rm *RouteManager) deleteRoute(cidr string) {
 }
 
 func RouteUpdateHandler(rm *RouteManager, update *proto.RouteUpdate) (*proto.ActionStatus, error) {
-	switch update.Action {
-	case proto.RouteUpdateAction_ROUTE_INSTALL:
-		rm.HandleRouteUpdate(RouteInstall, update.CIDR, update.Gateway)
-	case proto.RouteUpdateAction_ROUTE_DELETE:
-		rm.HandleRouteUpdate(RouteRemove, update.CIDR, update.Gateway) // last parameter irrelevant
-	default:
-		logrus.Errorf("Unsupported type of action in ReceiveRouteUpdat RPC.")
-		return &proto.ActionStatus{Success: false}, nil
+	for _, route := range update.Routes {
+		switch update.Action {
+		case proto.RouteUpdateAction_ROUTE_INSTALL:
+			rm.HandleRouteUpdate(RouteInstall, route.CIDR, route.Gateway)
+		case proto.RouteUpdateAction_ROUTE_DELETE:
+			rm.HandleRouteUpdate(RouteRemove, route.CIDR, route.Gateway) // last parameter irrelevant
+		default:
+			logrus.Errorf("Unsupported type of action in ReceiveRouteUpdat RPC.")
+			return &proto.ActionStatus{Success: false}, nil
+		}
 	}
 
 	return &proto.ActionStatus{Success: true}, nil

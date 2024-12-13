@@ -4,6 +4,7 @@ import (
 	"cluster_manager/internal/control_plane/control_plane/core"
 	"cluster_manager/proto"
 	"context"
+	"google.golang.org/grpc"
 	"time"
 
 	"google.golang.org/protobuf/types/known/emptypb"
@@ -59,6 +60,10 @@ func (e emptyDataplane) DeleteWorkflowDeployment(ctx context.Context, info *prot
 		Success: true,
 		Message: "",
 	}, nil
+}
+
+func (e emptyDataplane) ReceiveRouteUpdate(ctx context.Context, update *proto.RouteUpdate, option ...grpc.CallOption) (*proto.ActionStatus, error) {
+	return &proto.ActionStatus{Success: true}, nil
 }
 
 func (e emptyDataplane) DrainSandbox(context.Context, *proto.DeploymentEndpointPatch) (*proto.DeploymentUpdateSuccess, error) {

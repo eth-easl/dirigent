@@ -87,6 +87,10 @@ func (w *WorkerNode) CreateTaskSandbox(ctx context.Context, task *proto.Workflow
 	return w.wnConnection.CreateTaskSandbox(ctx, task, option...)
 }
 
+func (w *WorkerNode) ReceiveRouteUpdate(ctx context.Context, update *proto.RouteUpdate, option ...grpc.CallOption) (*proto.ActionStatus, error) {
+	return w.wnConnection.ReceiveRouteUpdate(ctx, update, option...)
+}
+
 func (w *WorkerNode) ListEndpoints(ctx context.Context, empty *emptypb.Empty, option ...grpc.CallOption) (*proto.EndpointsList, error) {
 	if w.wnConnection != nil {
 		return w.wnConnection.ListEndpoints(ctx, empty, option...)

@@ -7,10 +7,12 @@ import (
 	"cluster_manager/internal/control_plane/control_plane/endpoint_placer"
 	"cluster_manager/internal/control_plane/control_plane/image_storage"
 	"cluster_manager/internal/control_plane/control_plane/networking/ipam"
+	"cluster_manager/internal/control_plane/control_plane/networking/routing"
 	"cluster_manager/internal/control_plane/control_plane/persistence"
 	"cluster_manager/internal/control_plane/control_plane/service_state"
 	"cluster_manager/internal/control_plane/workflow"
 	"cluster_manager/pkg/config"
+	"cluster_manager/pkg/connectivity"
 	_map "cluster_manager/pkg/map"
 	"cluster_manager/pkg/synchronization"
 	"cluster_manager/pkg/tracing"
@@ -263,22 +265,33 @@ func (c *ControlPlane) registerNode(ctx context.Context, in *proto.NodeInfo) (*p
 	}
 	c.imageStorage.Unlock()
 
+	allOtherNodes := c.NIStorage.GetValues()
 	c.NIStorage.Set(in.NodeID, wn)
 
 	wn.ConnectToWorker()
 	wn.SetSchedulability(true)
+	c.routeUpdateOnNodeRegistration(ctx, routing.CreateRoute(cidr, in.IP), wn, allOtherNodes)
 
 	logrus.Infof("Node %s has joined the cluster (CIDR: %s; node count: %d)", in.NodeID, cidr, c.NIStorage.Len())
 	return &proto.NodeRegistrationStatus{Success: true, CIDR: cidr}, nil
 }
 
-func (c *ControlPlane) deregisterNode(_ context.Context, in *proto.NodeInfo) (*proto.NodeRegistrationStatus, error) {
+func (c *ControlPlane) routeUpdateOnNodeRegistration(ctx context.Context, route *proto.Route, newNode core.WorkerNodeInterface, allOtherNodes []core.WorkerNodeInterface) {
+	// send to the newly-registered node all routes
+	propagateRoute(ctx, []core.WorkerNodeInterface{newNode}, routing.ExtractRoutes(allOtherNodes), connectivity.RouteInstall)
+	// inform all other worker nodes to add a route to the newly-registered node
+	propagateRoute(ctx, allOtherNodes, []*proto.Route{route}, connectivity.RouteInstall)
+	// inform all data planes to add a route to the newly-registered node
+	c.propagateRouteToDataplanes(ctx, []*proto.Route{route}, connectivity.RouteInstall)
+}
+
+func (c *ControlPlane) deregisterNode(ctx context.Context, in *proto.NodeInfo) (*proto.NodeRegistrationStatus, error) {
 	logrus.Infof("Received a node deregistration request for %s", in.NodeID)
 
 	c.NIStorage.Lock()
 	defer c.NIStorage.Unlock()
 
-	if _, present := c.NIStorage.Get(in.NodeID); present {
+	if node, present := c.NIStorage.Get(in.NodeID); present {
 		err := c.PersistenceLayer.DeleteWorkerNodeInformation(context.Background(), in.NodeID)
 		if err != nil {
 			logrus.Errorf("Failed to disconnect registered worker (error : %s)", err.Error())
@@ -288,6 +301,9 @@ func (c *ControlPlane) deregisterNode(_ context.Context, in *proto.NodeInfo) (*p
 		c.removeEndpointsAssociatedWithNode(in.NodeID)
 		c.NIStorage.Remove(in.NodeID)
 
+		allOtherNodes := c.NIStorage.GetValues()
+		c.routeUpdateOnNodeDeregistration(ctx, routing.CreateRoute(in.CIDR, in.IP), node, allOtherNodes)
+
 		c.ipam.ReleaseCIDR(in.CIDR)
 		logrus.Infof("CIDR %s given back to the pool.", in.CIDR)
 
@@ -296,6 +312,15 @@ func (c *ControlPlane) deregisterNode(_ context.Context, in *proto.NodeInfo) (*p
 	}
 
 	return &proto.NodeRegistrationStatus{Success: false}, errors.New("node registration failed. Node doesn't exists")
+}
+
+func (c *ControlPlane) routeUpdateOnNodeDeregistration(ctx context.Context, route *proto.Route, affectedNode core.WorkerNodeInterface, allOtherNodes []core.WorkerNodeInterface) {
+	// inform all other nodes to remove routes to the node who just deregistered
+	propagateRoute(ctx, allOtherNodes, []*proto.Route{route}, connectivity.RouteRemove)
+	// inform all data planes to remove route to the node who just deregistered
+	c.propagateRouteToDataplanes(ctx, []*proto.Route{route}, connectivity.RouteRemove)
+	// inform the node who just deregistered to delete all routes - async since the deregistration cause might be a node failure
+	go propagateRoute(ctx, []core.WorkerNodeInterface{affectedNode}, routing.ExtractRoutes(allOtherNodes), connectivity.RouteRemove)
 }
 
 func (c *ControlPlane) nodeHeartbeat(_ context.Context, in *proto.NodeHeartbeatMessage) (*proto.ActionStatus, error) {
@@ -618,6 +643,20 @@ func (c *ControlPlane) startNodeMonitoring() chan struct{} {
 	return stopCh
 }
 
+// allOtherNodesExceptArg assumes lock on NIStorage that has been previously acquired by the function caller
+func (c *ControlPlane) allOtherNodesExceptArg(nodeName string) []core.WorkerNodeInterface {
+	var result []core.WorkerNodeInterface
+	for k, v := range c.NIStorage.GetMap() {
+		if k == nodeName {
+			continue
+		}
+
+		result = append(result, v)
+	}
+
+	return result
+}
+
 func (c *ControlPlane) checkPeriodicallyWorkerNodes(stopCh chan struct{}) {
 	for {
 		select {
@@ -633,6 +672,9 @@ func (c *ControlPlane) checkPeriodicallyWorkerNodes(stopCh chan struct{}) {
 					events = append(events, c.createWorkerNodeFailureEvents(workerNode)...)
 					workerNode.SetSchedulability(false)
 
+					allOtherNodes := c.allOtherNodesExceptArg(workerNode.GetName())
+					c.removeRoutesDueToUnschedulability(allOtherNodes, []*proto.Route{routing.CreateRoute(workerNode.GetCIDR(), workerNode.GetIP())})
+
 					logrus.Warnf("Node %s is unschedulable", workerNode.GetName())
 				}
 			}
@@ -647,6 +689,15 @@ func (c *ControlPlane) checkPeriodicallyWorkerNodes(stopCh chan struct{}) {
 			return
 		}
 	}
+}
+
+func (c *ControlPlane) removeRoutesDueToUnschedulability(allOtherNodes []core.WorkerNodeInterface, route []*proto.Route) {
+	ctx := context.Background()
+
+	// inform all worker nodes to remove the route to the non-responsive node
+	propagateRoute(ctx, allOtherNodes, route, connectivity.RouteRemove)
+	// inform all data planes to remove the route to the non-responsive node
+	c.propagateRouteToDataplanes(ctx, route, connectivity.RouteRemove)
 }
 
 func (c *ControlPlane) checkPeriodicallyDataplanes() {
@@ -767,7 +818,7 @@ func (c *ControlPlane) stopAllScalingLoops() {
 	c.SIStorage.Lock()
 	defer c.SIStorage.Unlock()
 
-	for name, _ := range c.SIStorage.GetMap() {
+	for name := range c.SIStorage.GetMap() {
 		c.autoscalingManager.Stop(name)
 	}
 }
@@ -782,4 +833,19 @@ func (c *ControlPlane) reviseDataplanesInLB(callback func([]string) bool) bool {
 	}
 
 	return callback(dataplanes)
+}
+
+func propagateRoute(ctx context.Context, wnis []core.WorkerNodeInterface, routes []*proto.Route, action connectivity.RouteUpdate) {
+	for _, wni := range wnis {
+		routing.SendRoutes(wni.ReceiveRouteUpdate, ctx, action, routes, "node "+wni.GetName())
+	}
+}
+
+func (c *ControlPlane) propagateRouteToDataplanes(ctx context.Context, routes []*proto.Route, action connectivity.RouteUpdate) {
+	c.DataPlaneConnections.RLock()
+	defer c.DataPlaneConnections.RUnlock()
+
+	for _, dpi := range c.DataPlaneConnections.GetMap() {
+		routing.SendRoutes(dpi.ReceiveRouteUpdate, ctx, action, routes, "data plane at "+dpi.GetIP())
+	}
 }

@@ -124,8 +124,12 @@ enum RouteUpdateAction {
   ROUTE_DELETE = 1;
 }
 
+message Route {
+  string CIDR = 1;
+  string Gateway = 2;
+}
+
 message RouteUpdate {
   RouteUpdateAction Action = 1;
-  string CIDR = 2;
-  string Gateway = 3;
+  repeated Route Routes = 2;
 }

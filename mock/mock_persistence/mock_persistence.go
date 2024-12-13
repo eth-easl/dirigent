@@ -21,6 +21,7 @@ import (
 type MockPersistenceLayer struct {
 	ctrl     *gomock.Controller
 	recorder *MockPersistenceLayerMockRecorder
+	isgomock struct{}
 }
 
 // MockPersistenceLayerMockRecorder is the mock recorder for MockPersistenceLayer.
@@ -141,10 +142,10 @@ func (mr *MockPersistenceLayerMockRecorder) GetServiceInformation(ctx any) *gomo
 }
 
 // GetWorkerNodeInformation mocks base method.
-func (m *MockPersistenceLayer) GetWorkerNodeInformation(ctx context.Context) ([]*proto.WorkerNodeInformation, error) {
+func (m *MockPersistenceLayer) GetWorkerNodeInformation(ctx context.Context) ([]*proto.NodeInfo, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetWorkerNodeInformation", ctx)
-	ret0, _ := ret[0].([]*proto.WorkerNodeInformation)
+	ret0, _ := ret[0].([]*proto.NodeInfo)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -228,7 +229,7 @@ func (mr *MockPersistenceLayerMockRecorder) StoreServiceInformation(ctx, service
 }
 
 // StoreWorkerNodeInformation mocks base method.
-func (m *MockPersistenceLayer) StoreWorkerNodeInformation(ctx context.Context, workerNodeInfo *proto.WorkerNodeInformation) error {
+func (m *MockPersistenceLayer) StoreWorkerNodeInformation(ctx context.Context, workerNodeInfo *proto.NodeInfo) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "StoreWorkerNodeInformation", ctx, workerNodeInfo)
 	ret0, _ := ret[0].(error)

@@ -18,6 +18,7 @@ type DataPlaneInterface interface {
 	UpdateEndpointList(context.Context, *proto.DeploymentEndpointPatch) (*proto.DeploymentUpdateSuccess, error)
 	DeleteDeployment(context.Context, *proto.ServiceInfo) (*proto.DeploymentUpdateSuccess, error)
 	DeleteWorkflowDeployment(context.Context, *proto.WorkflowObjectIdentifier) (*proto.DeploymentUpdateSuccess, error)
+	ReceiveRouteUpdate(context.Context, *proto.RouteUpdate, ...grpc.CallOption) (*proto.ActionStatus, error)
 	DrainSandbox(context.Context, *proto.DeploymentEndpointPatch) (*proto.DeploymentUpdateSuccess, error)
 	ResetMeasurements(context.Context, *emptypb.Empty) (*proto.ActionStatus, error)
 	GetLastHeartBeat() time.Time
@@ -34,6 +35,7 @@ type WorkerNodeInterface interface {
 	CreateTaskSandbox(context.Context, *proto.WorkflowTaskInfo, ...grpc.CallOption) (*proto.SandboxCreationStatus, error)
 	ListEndpoints(context.Context, *emptypb.Empty, ...grpc.CallOption) (*proto.EndpointsList, error)
 	PrepullImage(context.Context, *proto.ImageInfo, ...grpc.CallOption) (*proto.ActionStatus, error)
+	ReceiveRouteUpdate(context.Context, *proto.RouteUpdate, ...grpc.CallOption) (*proto.ActionStatus, error)
 	GetName() string
 	GetLastHeartBeat() time.Time
 	GetWorkerNodeConfiguration() WorkerNodeConfiguration
@@ -47,6 +49,7 @@ type WorkerNodeInterface interface {
 	GetMemoryUsed() uint64
 	GetIP() string
 	GetPort() string
+	GetCIDR() string
 	GetEndpointMap() synchronization.SyncStructure[*Endpoint, string]
 	SetSchedulability(bool)
 	GetSchedulability() bool
