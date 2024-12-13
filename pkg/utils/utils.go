@@ -52,7 +52,7 @@ func SysctlCheck(path string, expectedValue string) bool {
 	}
 
 	data := strings.TrimSpace(string(b))
-	if data != "1" {
+	if data != expectedValue {
 		logrus.Errorf("Dirigent cannot operate without %s enabled. Make sure to persist this setting over restarts.", path)
 	}
 

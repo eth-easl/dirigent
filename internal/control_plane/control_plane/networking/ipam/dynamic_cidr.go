@@ -79,6 +79,6 @@ func (m *DynamicCIDRManager) ReleaseCIDR(cidr string) {
 	m.inUse--
 }
 
-func (s *DynamicCIDRManager) IsStatic() bool {
+func (m *DynamicCIDRManager) IsStatic() bool {
 	return false
 }

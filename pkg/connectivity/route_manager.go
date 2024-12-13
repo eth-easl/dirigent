@@ -21,9 +21,7 @@ type Route struct {
 	Gateway string
 }
 
-type RouteManager struct {
-	routes []Route
-}
+type RouteManager struct{}
 
 func NewRouteManager() *RouteManager {
 	return &RouteManager{}
@@ -108,6 +106,6 @@ func FlushIPRoutes() {
 
 	err := exec.Command("sudo", "ip", "route", "flush", "table", ipRouteTableName).Run()
 	if err != nil {
-		logrus.Errorf("Error flush ip route table Dirigent - %v", err.Error())
+		logrus.Errorf("Error flushing IP route table Dirigent - %v", err.Error())
 	}
 }
