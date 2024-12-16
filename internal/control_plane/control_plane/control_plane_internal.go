@@ -226,8 +226,16 @@ func (c *ControlPlane) registerNode(ctx context.Context, in *proto.NodeInfo) (*p
 	c.NIStorage.Lock()
 	defer c.NIStorage.Unlock()
 
-	if _, present := c.NIStorage.Get(in.NodeID); present {
-		return &proto.NodeRegistrationStatus{Success: false}, errors.New("node registration failed. Node with the same name already exists")
+	if node, present := c.NIStorage.Get(in.NodeID); present {
+		if node.GetSchedulability() {
+			// Something happened on the worker node with the daemon process. Consider registration as a heartbeat
+			logrus.Infof("Node %s has already been registered, but is schedulable. Responding positively to the registration request.", in.NodeID)
+			node.UpdateLastHearBeat()
+
+			return &proto.NodeRegistrationStatus{Success: true, CIDR: node.GetCIDR()}, nil
+		} else {
+			return &proto.NodeRegistrationStatus{Success: false}, errors.New("node registration failed. Node with the same name already exists")
+		}
 	}
 
 	cidr, err := c.ipam.ReserveCIDR()
@@ -320,7 +328,8 @@ func (c *ControlPlane) routeUpdateOnNodeDeregistration(ctx context.Context, rout
 	// inform all data planes to remove route to the node who just deregistered
 	c.propagateRouteToDataplanes(ctx, []*proto.Route{route}, connectivity.RouteRemove)
 	// inform the node who just deregistered to delete all routes - async since the deregistration cause might be a node failure
-	go c.propagateRoute(ctx, []core.WorkerNodeInterface{affectedNode}, routing.ExtractRoutes(allOtherNodes), connectivity.RouteRemove)
+	// ----> there is no need for this, since on a worker node daemon restart, there will be a complete wipeout of Dirigent's routing tables
+	//go c.propagateRoute(ctx, []core.WorkerNodeInterface{affectedNode}, routing.ExtractRoutes(allOtherNodes), connectivity.RouteRemove)
 }
 
 func (c *ControlPlane) nodeHeartbeat(_ context.Context, in *proto.NodeHeartbeatMessage) (*proto.ActionStatus, error) {
