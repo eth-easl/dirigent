@@ -16,19 +16,22 @@ import (
 
 type emptyWorker struct {
 	name              string
+	schedulability    bool
 	workerEndPointMap synchronization.SyncStructure[*core.Endpoint, string]
 }
 
 func (e *emptyWorker) SetSchedulability(b bool) {
+	e.schedulability = b
 }
 
 func (e *emptyWorker) GetSchedulability() bool {
-	return true
+	return e.schedulability
 }
 
 func NewEmptyWorkerNode(workerNodeConfiguration core.WorkerNodeConfiguration) core.WorkerNodeInterface {
 	return &emptyWorker{
 		name:              workerNodeConfiguration.Name,
+		schedulability:    true,
 		workerEndPointMap: synchronization.NewControlPlaneSyncStructure[*core.Endpoint, string](),
 	}
 }

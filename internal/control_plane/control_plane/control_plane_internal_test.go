@@ -120,6 +120,9 @@ func TestRegisterWorker(t *testing.T) {
 
 		assert.Equal(t, i, controlPlane.GetNumberConnectedWorkers())
 
+		// to circumvent registration as a heartbeat on worker daemon process crash
+		controlPlane.NIStorage.GetNoCheck(name).SetSchedulability(false)
+
 		status, err = controlPlane.registerNode(context.Background(), &proto.NodeInfo{
 			NodeID: name,
 		})
@@ -270,6 +273,9 @@ func TestDeregisterWorker(t *testing.T) {
 		assert.NoError(t, err, "error should not be nil")
 
 		assert.Equal(t, i, controlPlane.GetNumberConnectedWorkers())
+
+		// to circumvent registration as a heartbeat on worker daemon process crash
+		controlPlane.NIStorage.GetNoCheck(name).SetSchedulability(false)
 
 		status, err = controlPlane.registerNode(context.Background(), &proto.NodeInfo{
 			NodeID: name,
