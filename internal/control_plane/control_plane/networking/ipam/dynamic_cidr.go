@@ -6,7 +6,7 @@ import (
 	"sync"
 )
 
-// MaximumClusterSize Maximum number of CIDRs - [11.0.X.X/16, 99.0.X.X/16]
+// MaximumClusterSize Maximum number of CIDRs - [11.0.X.X/16, 99.255.X.X/16]
 const MaximumClusterSize = 89 * 256
 const Offset = 11
 

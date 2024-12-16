@@ -56,8 +56,8 @@ func NewWorkerNode(cpApi proto.CpiInterfaceClient, config config.WorkerNodeConfi
 		hostName = name[0]
 	}
 
-	nodeName := fmt.Sprintf("%s-%d", hostName, rand.Int())
-
+	// If CRIType is not "scalability_test", then allow only one daemon per physical node
+	nodeName := hostName
 	sandboxManager := managers.NewSandboxManager(nodeName)
 
 	if !utils.IsRoot() {
@@ -100,6 +100,9 @@ func NewWorkerNode(cpApi proto.CpiInterfaceClient, config config.WorkerNodeConfi
 		)
 	case "scalability_test":
 		logrus.Infof("Using scalability test runtime.")
+
+		nodeName = fmt.Sprintf("%s-%d", nodeName, rand.Int())
+		sandboxManager = managers.NewSandboxManager(nodeName)
 		runtimeInterface = fake_snapshot.NewFakeSnapshotRuntime()
 	default:
 		logrus.Fatal("Unsupported sandbox type.")
