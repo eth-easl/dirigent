@@ -4,6 +4,8 @@ import (
 	"cluster_manager/pkg/synchronization"
 	"cluster_manager/proto"
 	"context"
+	"github.com/sirupsen/logrus"
+	"strconv"
 	"time"
 
 	"google.golang.org/grpc"
@@ -62,4 +64,21 @@ type AutoscalingInterface interface {
 	PanicPoke(functionName string, previousValue int32)
 	Poke(functionName string, previousValue int32)
 	Stop(functionName string)
+}
+
+func WNIToNodeInfo(wni WorkerNodeInterface) *proto.NodeInfo {
+	port, err := strconv.Atoi(wni.GetPort())
+	if err != nil {
+		logrus.Errorf("Error converting core.WorkerNodeInterface to proto.NodeInfo")
+		return nil
+	}
+
+	return &proto.NodeInfo{
+		NodeID: wni.GetName(),
+		IP:     wni.GetIP(),
+		Port:   int32(port),
+		Cpu:    wni.GetCpuAvailable(),
+		Memory: wni.GetMemoryAvailable(),
+		CIDR:   wni.GetCIDR(),
+	}
 }

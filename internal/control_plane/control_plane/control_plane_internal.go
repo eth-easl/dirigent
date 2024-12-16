@@ -676,6 +676,14 @@ func (c *ControlPlane) checkPeriodicallyWorkerNodes(stopCh chan struct{}) {
 					c.removeRoutesDueToUnschedulability(allOtherNodes, []*proto.Route{routing.CreateRoute(workerNode.GetCIDR(), workerNode.GetIP())})
 
 					logrus.Warnf("Node %s is unschedulable", workerNode.GetName())
+
+					go func() {
+						// async since c.deregisterNode(...) requires an exclusive lock on NIStorage which has been acquired in this method
+						_, err := c.deregisterNode(context.Background(), core.WNIToNodeInfo(workerNode))
+						if err != nil {
+							logrus.Errorf("Error while deregistering node %s asynchronously due to unschedulability - %v", workerNode.GetName(), err)
+						}
+					}()
 				}
 			}
 			c.NIStorage.Unlock()
