@@ -305,7 +305,7 @@ func (c *ControlPlane) deregisterNode(ctx context.Context, in *proto.NodeInfo) (
 		c.routeUpdateOnNodeDeregistration(ctx, routing.CreateRoute(in.CIDR, in.IP), node, allOtherNodes)
 
 		c.ipam.ReleaseCIDR(in.CIDR)
-		logrus.Infof("CIDR %s given back to the pool.", in.CIDR)
+		logrus.Infof("CIDR %s has been given back to the pool.", in.CIDR)
 
 		logrus.Infof("Node %s has left the cluster (node count=%d)", in.NodeID, c.NIStorage.Len())
 		return &proto.NodeRegistrationStatus{Success: true}, nil
@@ -597,7 +597,6 @@ func (c *ControlPlane) deregisterWorkflow(ctx context.Context, wfId *proto.Workf
 	defer c.WIStorage.Unlock()
 
 	if st, ok := c.WIStorage.Get(wfId.Name); ok && st.IsWorkflow() {
-
 		// TODO: improve this (if tasks cannot be deleted they will remain in persistence without a reference)
 		var err error
 		wfTasks := st.GetTasks()
@@ -643,53 +642,41 @@ func (c *ControlPlane) startNodeMonitoring() chan struct{} {
 	return stopCh
 }
 
-// allOtherNodesExceptArg assumes lock on NIStorage that has been previously acquired by the function caller
-func (c *ControlPlane) allOtherNodesExceptArg(nodeName string) []core.WorkerNodeInterface {
-	var result []core.WorkerNodeInterface
-	for k, v := range c.NIStorage.GetMap() {
-		if k == nodeName {
-			continue
-		}
+func (c *ControlPlane) checkForUnschedulability() []*proto.Failure {
+	var events []*proto.Failure
 
-		result = append(result, v)
+	c.NIStorage.Lock()
+	defer c.NIStorage.Unlock()
+
+	for _, workerNode := range c.NIStorage.GetMap() {
+		workerNode.SetSchedulability(true)
+
+		if time.Since(workerNode.GetLastHeartBeat()) > utils.TolerateHeartbeatMisses*utils.HeartbeatInterval {
+			// Propagate endpoint removal from the data planes
+			events = append(events, c.createWorkerNodeFailureEvents(workerNode)...)
+			workerNode.SetSchedulability(false)
+
+			logrus.Warnf("Node %s is unschedulable", workerNode.GetName())
+
+			go func() {
+				// async since c.deregisterNode(...) requires an exclusive lock on NIStorage which has been acquired in this method
+				_, err := c.deregisterNode(context.Background(), core.WNIToNodeInfo(workerNode))
+				if err != nil {
+					logrus.Errorf("Error while deregistering node %s asynchronously due to unschedulability - %v", workerNode.GetName(), err)
+				}
+			}()
+		}
 	}
 
-	return result
+	return events
 }
 
 func (c *ControlPlane) checkPeriodicallyWorkerNodes(stopCh chan struct{}) {
 	for {
 		select {
 		case <-time.After(utils.HeartbeatInterval):
-			var events []*proto.Failure
-
-			c.NIStorage.Lock()
-			for _, workerNode := range c.NIStorage.GetMap() {
-				workerNode.SetSchedulability(true)
-
-				if time.Since(workerNode.GetLastHeartBeat()) > utils.TolerateHeartbeatMisses*utils.HeartbeatInterval {
-					// Propagate endpoint removal from the data planes
-					events = append(events, c.createWorkerNodeFailureEvents(workerNode)...)
-					workerNode.SetSchedulability(false)
-
-					allOtherNodes := c.allOtherNodesExceptArg(workerNode.GetName())
-					c.removeRoutesDueToUnschedulability(allOtherNodes, []*proto.Route{routing.CreateRoute(workerNode.GetCIDR(), workerNode.GetIP())})
-
-					logrus.Warnf("Node %s is unschedulable", workerNode.GetName())
-
-					go func() {
-						// async since c.deregisterNode(...) requires an exclusive lock on NIStorage which has been acquired in this method
-						_, err := c.deregisterNode(context.Background(), core.WNIToNodeInfo(workerNode))
-						if err != nil {
-							logrus.Errorf("Error while deregistering node %s asynchronously due to unschedulability - %v", workerNode.GetName(), err)
-						}
-					}()
-				}
-			}
-			c.NIStorage.Unlock()
-
-			// the following call requires a lock on NIStorage
-			c.HandleFailure(events)
+			failureEvents := c.checkForUnschedulability()
+			c.HandleFailure(failureEvents)
 		case <-stopCh:
 			logrus.Infof("Stopping node monitoring from the previous leader's term.")
 			close(stopCh)
@@ -697,15 +684,6 @@ func (c *ControlPlane) checkPeriodicallyWorkerNodes(stopCh chan struct{}) {
 			return
 		}
 	}
-}
-
-func (c *ControlPlane) removeRoutesDueToUnschedulability(allOtherNodes []core.WorkerNodeInterface, route []*proto.Route) {
-	ctx := context.Background()
-
-	// inform all worker nodes to remove the route to the non-responsive node
-	c.propagateRoute(ctx, allOtherNodes, route, connectivity.RouteRemove)
-	// inform all data planes to remove the route to the non-responsive node
-	c.propagateRouteToDataplanes(ctx, route, connectivity.RouteRemove)
 }
 
 func (c *ControlPlane) checkPeriodicallyDataplanes() {
@@ -755,7 +733,7 @@ func (c *ControlPlane) createWorkerNodeFailureEvents(wn core.WorkerNodeInterface
 }
 
 func (c *ControlPlane) getServicesOnWorkerNode(_ *endpoint_placer.EndpointPlacer, wn core.WorkerNodeInterface) []string {
-	toRemove, ok := c.NIStorage.AtomicGet(wn.GetName())
+	toRemove, ok := c.NIStorage.Get(wn.GetName())
 	if !ok {
 		return []string{}
 	}

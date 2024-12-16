@@ -9,6 +9,9 @@ import (
 )
 
 func (c *ControlPlane) HandleFailure(failures []*proto.Failure) bool {
+	c.SIStorage.Lock()
+	defer c.SIStorage.Unlock()
+
 	for _, failure := range failures {
 		switch failure.Type {
 		case proto.FailureType_SANDBOX_FAILURE, proto.FailureType_WORKER_NODE_FAILURE:

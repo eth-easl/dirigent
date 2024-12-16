@@ -45,6 +45,7 @@ func SendRoutes(f RouteUpdateGRPC, ctx context.Context, action connectivity.Rout
 
 	if err != nil || !status.Success {
 		logrus.Errorf("Error for %v action for %v with %s - %v", connectivity.RouteActionToString(action), routes, componentName, err)
+		return
 	}
 
 	logrus.Debugf("Successfully instructed %v action for %v to %s.", connectivity.RouteActionToString(action), routes, componentName)
