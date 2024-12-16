@@ -99,7 +99,7 @@ func tearDownDefaultBridge() {
 		if iface.Name == bridgeName {
 			err = exec.Command("sudo", "ip", "link", "del", iface.Name).Run()
 			if err != nil {
-				logrus.Fatal("Failed to delete network interface %s - %v", iface.Name, err)
+				logrus.Fatalf("Failed to delete network interface %s - %v", iface.Name, err)
 			} else {
 				logrus.Infof("Successfully deleted network interface %s", iface.Name)
 			}

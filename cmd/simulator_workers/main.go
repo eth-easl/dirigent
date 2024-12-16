@@ -91,7 +91,8 @@ func main() {
 		workers := make([]*worker_node.WorkerNode, 0)
 
 		for i := 0; i < *nbWorkers; i++ {
-			workers = append(workers, worker_node.NewWorkerNode(cpApi, cfg, "mockWorker:"+strconv.Itoa(i)))
+			wn, _ := worker_node.NewWorkerNode(cpApi, cfg, "mockWorker:"+strconv.Itoa(i))
+			workers = append(workers, wn)
 		}
 
 		for i := 0; i < *nbWorkers; i++ {

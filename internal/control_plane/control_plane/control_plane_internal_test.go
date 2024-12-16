@@ -48,8 +48,8 @@ func simplePersistenceLayer(t *testing.T) (*mock_persistence.MockPersistenceLaye
 
 	persistenceLayer := mock_persistence.NewMockPersistenceLayer(ctrl)
 
-	persistenceLayer.EXPECT().GetWorkerNodeInformation(gomock.Any()).DoAndReturn(func(_ context.Context) ([]*proto.WorkerNodeInformation, error) {
-		return make([]*proto.WorkerNodeInformation, 0), nil
+	persistenceLayer.EXPECT().GetWorkerNodeInformation(gomock.Any()).DoAndReturn(func(_ context.Context) ([]*proto.NodeInfo, error) {
+		return make([]*proto.NodeInfo, 0), nil
 	}).Times(1)
 
 	persistenceLayer.EXPECT().GetServiceInformation(gomock.Any()).DoAndReturn(func(_ context.Context) ([]*proto.ServiceInfo, error) {
@@ -94,7 +94,7 @@ func TestRegisterWorker(t *testing.T) {
 
 	nbRegistrations := 100
 
-	persistenceLayer.EXPECT().StoreWorkerNodeInformation(gomock.Any(), gomock.Any()).DoAndReturn(func(_ context.Context, _ *proto.WorkerNodeInformation) error {
+	persistenceLayer.EXPECT().StoreWorkerNodeInformation(gomock.Any(), gomock.Any()).DoAndReturn(func(_ context.Context, _ *proto.NodeInfo) error {
 		return nil
 	}).Times(nbRegistrations)
 
@@ -125,7 +125,7 @@ func TestRegisterWorker(t *testing.T) {
 		})
 
 		assert.False(t, status.Success, "status should be unsuccessful")
-		assert.NoError(t, err, "error should not be nil")
+		assert.Error(t, err, "error should not be nil")
 
 		assert.Equal(t, i, controlPlane.GetNumberConnectedWorkers())
 	}
@@ -241,7 +241,7 @@ func TestDeregisterWorker(t *testing.T) {
 
 	nbRegistrations := 100
 
-	persistenceLayer.EXPECT().StoreWorkerNodeInformation(gomock.Any(), gomock.Any()).DoAndReturn(func(_ context.Context, _ *proto.WorkerNodeInformation) error {
+	persistenceLayer.EXPECT().StoreWorkerNodeInformation(gomock.Any(), gomock.Any()).DoAndReturn(func(_ context.Context, _ *proto.NodeInfo) error {
 		return nil
 	}).Times(nbRegistrations)
 
@@ -276,7 +276,7 @@ func TestDeregisterWorker(t *testing.T) {
 		})
 
 		assert.False(t, status.Success, "status should be unsuccessful")
-		assert.NoError(t, err, "error should not be nil")
+		assert.Error(t, err, "error should not be nil")
 
 		assert.Equal(t, i, controlPlane.GetNumberConnectedWorkers())
 	}
@@ -298,7 +298,7 @@ func TestDeregisterWorker(t *testing.T) {
 		})
 
 		assert.False(t, status.Success, "status should be unsuccessful")
-		assert.NoError(t, err, "error should not be nil")
+		assert.Error(t, err, "error should not be nil")
 
 		assert.Equal(t, i-1, controlPlane.GetNumberConnectedWorkers())
 	}
@@ -478,8 +478,8 @@ func TestReconstructionService(t *testing.T) {
 
 	persistenceLayer := mock_persistence.NewMockPersistenceLayer(ctrl)
 
-	persistenceLayer.EXPECT().GetWorkerNodeInformation(gomock.Any()).DoAndReturn(func(_ context.Context) ([]*proto.WorkerNodeInformation, error) {
-		return make([]*proto.WorkerNodeInformation, 0), nil
+	persistenceLayer.EXPECT().GetWorkerNodeInformation(gomock.Any()).DoAndReturn(func(_ context.Context) ([]*proto.NodeInfo, error) {
+		return make([]*proto.NodeInfo, 0), nil
 	}).Times(1)
 
 	persistenceLayer.EXPECT().GetServiceInformation(gomock.Any()).DoAndReturn(func(_ context.Context) ([]*proto.ServiceInfo, error) {
@@ -550,29 +550,29 @@ func TestReconstructionWorkers(t *testing.T) {
 
 	persistenceLayer := mock_persistence.NewMockPersistenceLayer(ctrl)
 
-	persistenceLayer.EXPECT().GetWorkerNodeInformation(gomock.Any()).DoAndReturn(func(_ context.Context) ([]*proto.WorkerNodeInformation, error) {
-		wi := make([]*proto.WorkerNodeInformation, 0)
+	persistenceLayer.EXPECT().GetWorkerNodeInformation(gomock.Any()).DoAndReturn(func(_ context.Context) ([]*proto.NodeInfo, error) {
+		wi := make([]*proto.NodeInfo, 0)
 
-		wi = append(wi, &proto.WorkerNodeInformation{
-			Name:   "w1",
-			Ip:     "",
-			Port:   "",
+		wi = append(wi, &proto.NodeInfo{
+			NodeID: "w1",
+			IP:     "",
+			Port:   0,
 			Cpu:    0,
 			Memory: 0,
 		})
 
-		wi = append(wi, &proto.WorkerNodeInformation{
-			Name:   "w2",
-			Ip:     "",
-			Port:   "",
+		wi = append(wi, &proto.NodeInfo{
+			NodeID: "w2",
+			IP:     "",
+			Port:   0,
 			Cpu:    0,
 			Memory: 0,
 		})
 
-		wi = append(wi, &proto.WorkerNodeInformation{
-			Name:   "w3",
-			Ip:     "",
-			Port:   "",
+		wi = append(wi, &proto.NodeInfo{
+			NodeID: "w3",
+			IP:     "",
+			Port:   0,
 			Cpu:    0,
 			Memory: 0,
 		})
@@ -617,8 +617,8 @@ func TestReconstructionDataplanes(t *testing.T) {
 
 	persistenceLayer := mock_persistence.NewMockPersistenceLayer(ctrl)
 
-	persistenceLayer.EXPECT().GetWorkerNodeInformation(gomock.Any()).DoAndReturn(func(_ context.Context) ([]*proto.WorkerNodeInformation, error) {
-		return make([]*proto.WorkerNodeInformation, 0), nil
+	persistenceLayer.EXPECT().GetWorkerNodeInformation(gomock.Any()).DoAndReturn(func(_ context.Context) ([]*proto.NodeInfo, error) {
+		return make([]*proto.NodeInfo, 0), nil
 	}).Times(1)
 
 	persistenceLayer.EXPECT().GetServiceInformation(gomock.Any()).DoAndReturn(func(_ context.Context) ([]*proto.ServiceInfo, error) {
@@ -726,7 +726,7 @@ func TestStressRegisterNodes(t *testing.T) {
 
 	size := 100
 
-	persistenceLayer.EXPECT().StoreWorkerNodeInformation(gomock.Any(), gomock.Any()).DoAndReturn(func(ctx context.Context, workerNodeInfo *proto.WorkerNodeInformation) error {
+	persistenceLayer.EXPECT().StoreWorkerNodeInformation(gomock.Any(), gomock.Any()).DoAndReturn(func(ctx context.Context, workerNodeInfo *proto.NodeInfo) error {
 		return nil
 	}).Times(size)
 
@@ -822,7 +822,7 @@ func TestStressEverything(t *testing.T) {
 
 	size := 10
 
-	persistenceLayer.EXPECT().StoreWorkerNodeInformation(gomock.Any(), gomock.Any()).DoAndReturn(func(ctx context.Context, workerNodeInfo *proto.WorkerNodeInformation) error {
+	persistenceLayer.EXPECT().StoreWorkerNodeInformation(gomock.Any(), gomock.Any()).DoAndReturn(func(ctx context.Context, workerNodeInfo *proto.NodeInfo) error {
 		return nil
 	}).Times(size)
 
@@ -985,7 +985,7 @@ func TestStressRegisterDeregisterNodes(t *testing.T) {
 
 	size := 100
 
-	persistenceLayer.EXPECT().StoreWorkerNodeInformation(gomock.Any(), gomock.Any()).DoAndReturn(func(_ context.Context, _ *proto.WorkerNodeInformation) error {
+	persistenceLayer.EXPECT().StoreWorkerNodeInformation(gomock.Any(), gomock.Any()).DoAndReturn(func(_ context.Context, _ *proto.NodeInfo) error {
 		return nil
 	}).AnyTimes()
 
@@ -1153,7 +1153,7 @@ func TestEndpointsWithDeregistration(t *testing.T) {
 		return nil
 	}).Times(size)
 
-	persistenceLayer.EXPECT().StoreWorkerNodeInformation(gomock.Any(), gomock.Any()).DoAndReturn(func(ctx context.Context, workerNodeInfo *proto.WorkerNodeInformation) error {
+	persistenceLayer.EXPECT().StoreWorkerNodeInformation(gomock.Any(), gomock.Any()).DoAndReturn(func(ctx context.Context, workerNodeInfo *proto.NodeInfo) error {
 		return nil
 	}).Times(1)
 
@@ -1183,25 +1183,25 @@ func TestEndpointsWithDeregistration(t *testing.T) {
 		autoscalingConfig.ScalingUpperBound = 1
 		//autoscalingConfig.ScalingLowerBound = 1
 
-		status, err = controlPlane.registerService(context.Background(), &proto.ServiceInfo{
+		s, err := controlPlane.registerService(context.Background(), &proto.ServiceInfo{
 			Name:              "mock" + fmt.Sprint(i),
 			Image:             "",
 			PortForwarding:    nil,
 			AutoscalingConfig: autoscalingConfig,
 		})
 
-		assert.True(t, status.Success, "status should be successful")
+		assert.True(t, s.Success, "status should be successful")
 		assert.NoError(t, err, "error should not be nil")
 	}
 
 	for i := 0; i < size; i++ {
-		status, err = controlPlane.setInvocationsMetrics(context.Background(), &proto.AutoscalingMetric{
+		s, err := controlPlane.setInvocationsMetrics(context.Background(), &proto.AutoscalingMetric{
 			ServiceName:      "mock" + fmt.Sprint(i),
 			DataplaneName:    "",
 			InflightRequests: 1,
 		})
 
-		assert.True(t, status.Success)
+		assert.True(t, s.Success)
 		assert.NoError(t, err)
 	}
 
