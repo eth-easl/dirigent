@@ -14,7 +14,6 @@ firecracker:
   Kernel: "configs/firecracker/vmlinux-4.14.bin"
   FileSystem: "configs/firecracker/rootfs.ext4"
   InternalIPPrefix: "100"
-  ExposedIPPrefix: "192.254"
   VMDebugMode: false
   UseSnapshots: true
   NetworkPoolSize: 4

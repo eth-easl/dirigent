@@ -3,6 +3,7 @@ package managers
 import (
 	"cluster_manager/pkg/atomic_map"
 	"cluster_manager/proto"
+	"fmt"
 )
 
 type SandboxManager struct {
@@ -18,7 +19,6 @@ type Metadata struct {
 
 	RuntimeMetadata RuntimeMetadata
 
-	HostPort  int
 	IP        string
 	GuestPort int
 	NetNs     string
@@ -56,10 +56,9 @@ func (m *SandboxManager) ListEndpoints() (*proto.EndpointsList, error) {
 	for i := 0; i < len(keys); i++ {
 		list.Endpoint = append(list.Endpoint, &proto.Endpoint{
 			SandboxID:   keys[i],
-			URL:         values[i].IP,
+			URL:         fmt.Sprintf("%s:%d", values[i].IP, values[i].GuestPort),
 			NodeName:    m.nodeName,
 			ServiceName: values[i].ServiceName,
-			HostPort:    int32(values[i].HostPort),
 		})
 	}
 

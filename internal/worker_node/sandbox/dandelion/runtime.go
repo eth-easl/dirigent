@@ -27,24 +27,26 @@ type registeredServices struct {
 }
 
 type Runtime struct {
-	cpApi               proto.CpiInterfaceClient
-	SandboxManager      *managers.SandboxManager
+	cpApi          proto.CpiInterfaceClient
+	ip             string
+	SandboxManager *managers.SandboxManager
+
 	registeredFunctions *registeredServices
 	registeredTasks     *registeredServices
-	dandelionConfig     *config.DandelionConfig
-	httpClient          *http.Client
+
+	dandelionConfig *config.DandelionConfig
+	httpClient      *http.Client
 }
 
-func NewDandelionRuntime(cpApi proto.CpiInterfaceClient, sandboxManager *managers.SandboxManager, dandelionConfig *config.DandelionConfig) *Runtime {
+func NewDandelionRuntime(ip string, cpApi proto.CpiInterfaceClient, sandboxManager *managers.SandboxManager, dandelionConfig *config.DandelionConfig) *Runtime {
 	return &Runtime{
 		cpApi:          cpApi,
+		ip:             ip,
 		SandboxManager: sandboxManager,
-		registeredFunctions: &registeredServices{
-			data: make(map[string]bool),
-		},
-		registeredTasks: &registeredServices{
-			data: make(map[string]bool),
-		},
+
+		registeredFunctions: &registeredServices{data: make(map[string]bool)},
+		registeredTasks:     &registeredServices{data: make(map[string]bool)},
+
 		dandelionConfig: dandelionConfig,
 		httpClient: &http.Client{
 			Timeout: 2500 * time.Millisecond,
@@ -210,7 +212,7 @@ func (dr *Runtime) CreateSandbox(_ context.Context, in *proto.ServiceInfo) (*pro
 
 	if !ok {
 		// load function binary
-		binaryData, err := os.ReadFile(in.Image)
+		binaryData, err := os.ReadFile(dr.dandelionConfig.BinaryPath)
 		logrus.Infof("Using binary file %s (len: %d)", in.Image, len(binaryData))
 		if err != nil {
 			logrus.Errorf("Error reading binary file - %v", err)
@@ -256,11 +258,7 @@ func (dr *Runtime) CreateSandbox(_ context.Context, in *proto.ServiceInfo) (*pro
 	return &proto.SandboxCreationStatus{
 		Success: true,
 		ID:      uuid.New().String(),
-		PortMappings: &proto.PortMapping{
-			HostPort:  int32(dr.dandelionConfig.DaemonPort),
-			GuestPort: in.PortForwarding.GuestPort,
-			Protocol:  in.PortForwarding.Protocol,
-		},
+		URL:     fmt.Sprintf("%s:%d", dr.ip, dr.dandelionConfig.DaemonPort),
 		LatencyBreakdown: &proto.SandboxCreationBreakdown{
 			Total:         durationpb.New(sandboxCreationDuration),
 			SandboxCreate: durationpb.New(sandboxCreationDuration),
@@ -308,9 +306,7 @@ func (dr *Runtime) CreateTaskSandbox(_ context.Context, task *proto.WorkflowTask
 	return &proto.SandboxCreationStatus{
 		Success: true,
 		ID:      uuid.New().String(),
-		PortMappings: &proto.PortMapping{
-			HostPort: int32(dr.dandelionConfig.DaemonPort),
-		},
+		URL:     fmt.Sprintf("%s:%d", dr.ip, dr.dandelionConfig.DaemonPort),
 		LatencyBreakdown: &proto.SandboxCreationBreakdown{
 			Total:         durationpb.New(sandboxCreationDuration),
 			SandboxCreate: durationpb.New(sandboxCreationDuration),

@@ -55,3 +55,9 @@ func TestIPAddressGeneration(t *testing.T) {
 
 	barrier.Wait()
 }
+
+func TestCIDRToPrefix(t *testing.T) {
+	if CIDRToPrefix("10.11.0.0/16") != "10.11" {
+		t.Error("Expected 10.11")
+	}
+}

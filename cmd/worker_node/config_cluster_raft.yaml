@@ -10,12 +10,10 @@ containerd:
   cniConfigPath: "/cluster_manager/configs/cni.conf"
   prefetchImage: false
 
-
 firecracker:
   Kernel: "/cluster_manager/configs/firecracker/vmlinux-4.14.bin"
   FileSystem: "/cluster_manager/configs/firecracker/rootfs.ext4"
   InternalIPPrefix: "100"
-  ExposedIPPrefix: "192.254"
   VMDebugMode: false
   UseSnapshots: true
   NetworkPoolSize: 256

@@ -14,10 +14,14 @@ import (
 
 type Runtime struct {
 	sandbox.RuntimeInterface
+
+	ip string
 }
 
-func NewFakeSnapshotRuntime() *Runtime {
-	return &Runtime{}
+func NewFakeSnapshotRuntime(ip string) *Runtime {
+	return &Runtime{
+		ip: ip,
+	}
 }
 
 func (fsr *Runtime) ConfigureNetwork(string) {}
@@ -27,13 +31,9 @@ func (fsr *Runtime) CreateSandbox(_ context.Context, in *proto.ServiceInfo) (*pr
 	logrus.Debugf("Fake sandbox created successfully.")
 
 	return &proto.SandboxCreationStatus{
-		Success: true,
-		ID:      fmt.Sprintf("dummy-sandbox-%d", rand.Int()),
-		PortMappings: &proto.PortMapping{
-			HostPort:  80,
-			GuestPort: 80,
-			Protocol:  proto.L4Protocol_TCP,
-		},
+		Success:          true,
+		ID:               fmt.Sprintf("dummy-sandbox-%d", rand.Int()),
+		URL:              fmt.Sprintf("%s:%d", fsr.ip, 80),
 		LatencyBreakdown: &proto.SandboxCreationBreakdown{},
 	}, nil
 }

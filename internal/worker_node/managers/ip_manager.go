@@ -79,3 +79,13 @@ func extractThirdField(counterValue uint32) uint32 {
 func extractFourthField(counterValue uint32) uint32 {
 	return counterValue % 256
 }
+
+func CIDRToPrefix(cidr string) string {
+	var s1, s2, s3, s4, s5 int
+	cnt, err := fmt.Sscanf(cidr, "%d.%d.%d.%d/%d", &s1, &s2, &s3, &s4, &s5)
+	if err != nil || cnt != 5 {
+		logrus.Fatalf("Invalid CIDR received from the control plane. Terminating... - %v", err)
+	}
+
+	return fmt.Sprintf("%d.%d", s1, s2)
+}

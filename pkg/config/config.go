@@ -71,7 +71,6 @@ type FirecrackerConfig struct {
 	Kernel           string `mapstructure:"Kernel"`
 	FileSystem       string `mapstructure:"FileSystem"`
 	InternalIPPrefix string `mapstructure:"InternalIPPrefix"`
-	ExposedIPPrefix  string `mapstructure:"ExposedIPPrefix"`
 	VMDebugMode      bool   `mapstructure:"VMDebugMode"`
 	UseSnapshots     bool   `mapstructure:"UseSnapshots"`
 	NetworkPoolSize  int    `mapstructure:"NetworkPoolSize"`

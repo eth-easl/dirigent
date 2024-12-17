@@ -6,7 +6,6 @@ import (
 	config2 "cluster_manager/pkg/config"
 	"cluster_manager/proto"
 	"context"
-	"fmt"
 	"sync"
 	"time"
 
@@ -184,9 +183,8 @@ func (c *ControlPlane) reconstructEndpointsState(ctx context.Context) error {
 
 			controlPlaneEndpoint := &core.Endpoint{
 				SandboxID: endpoint.SandboxID,
-				URL:       fmt.Sprintf("%s:%d", node.GetIP(), endpoint.HostPort),
+				URL:       endpoint.GetURL(),
 				Node:      node,
-				HostPort:  endpoint.HostPort,
 			}
 
 			c.SIStorage.RLock()

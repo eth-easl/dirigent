@@ -111,7 +111,6 @@ message Endpoint {
   string URL = 2;
   string NodeName = 3;
   string ServiceName = 4;
-  int32 HostPort = 5;
 }
 
 message ImageInfo {

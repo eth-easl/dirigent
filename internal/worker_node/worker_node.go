@@ -65,7 +65,7 @@ func NewWorkerNode(cpApi proto.CpiInterfaceClient, config config.WorkerNodeConfi
 	}
 
 	var runtimeInterface sandbox.RuntimeInterface
-	postRegistrationCallback := sandbox.EmptyPostRegistrationCallback
+	var postRegistrationCallback sandbox.PostRegistrationCallback
 
 	switch config.CRIType {
 	case "containerd":
@@ -78,32 +78,34 @@ func NewWorkerNode(cpApi proto.CpiInterfaceClient, config config.WorkerNodeConfi
 		), sandbox.ContainerdPostRegistrationCallback
 	case "firecracker":
 		logrus.Infof("Using firecracker runtime.")
-		runtimeInterface = firecracker.NewFirecrackerRuntime(
+		runtimeInterface, postRegistrationCallback = firecracker.NewFirecrackerRuntime(
 			cpApi,
 			sandboxManager,
-			config.Firecracker,
-		)
+			&config.Firecracker,
+		), sandbox.FirecrackerPostRegistrationCallback
 	case "dandelion":
 		logrus.Infof("Using dandelion runtime.")
-		runtimeInterface = dandelion.NewDandelionRuntime(
+		runtimeInterface, postRegistrationCallback = dandelion.NewDandelionRuntime(
+			config.WorkerNodeIP,
 			cpApi,
 			sandboxManager,
 			&config.Dandelion,
-		)
+		), sandbox.EmptyPostRegistrationCallback
 	case "fcctr":
 		logrus.Infof("Using firecracker-containerd runtime.")
-		runtimeInterface = fcctr.NewRuntime(
+		runtimeInterface, postRegistrationCallback = fcctr.NewRuntime(
 			cpApi,
 			sandboxManager,
-			config.Firecracker,
+			&config.Firecracker,
 			config.Verbosity,
-		)
+		), sandbox.FirecrackerContainerdPostRegistrationCallback
 	case "scalability_test":
 		logrus.Infof("Using scalability test runtime.")
 
 		nodeName = fmt.Sprintf("%s-%d", nodeName, rand.Int())
 		sandboxManager = managers.NewSandboxManager(nodeName)
-		runtimeInterface = fake_snapshot.NewFakeSnapshotRuntime()
+		runtimeInterface = fake_snapshot.NewFakeSnapshotRuntime(config.WorkerNodeIP)
+		postRegistrationCallback = sandbox.EmptyPostRegistrationCallback
 	default:
 		logrus.Fatal("Unsupported sandbox type.")
 		return nil, postRegistrationCallback

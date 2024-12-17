@@ -45,11 +45,7 @@ func (e *emptyWorker) CreateSandbox(ctx context.Context, info *proto.ServiceInfo
 	return &proto.SandboxCreationStatus{
 		Success: true,
 		ID:      uuid.New().String(),
-		PortMappings: &proto.PortMapping{
-			HostPort:  0,
-			GuestPort: 0,
-			Protocol:  0,
-		},
+		URL:     "",
 		LatencyBreakdown: &proto.SandboxCreationBreakdown{
 			Total:                &durationpb.Duration{},
 			ImageFetch:           &durationpb.Duration{},
@@ -72,11 +68,7 @@ func (e *emptyWorker) CreateTaskSandbox(_ context.Context, _ *proto.WorkflowTask
 	return &proto.SandboxCreationStatus{
 		Success: true,
 		ID:      uuid.New().String(),
-		PortMappings: &proto.PortMapping{
-			HostPort:  0,
-			GuestPort: 0,
-			Protocol:  0,
-		},
+		URL:     "",
 		LatencyBreakdown: &proto.SandboxCreationBreakdown{
 			Total:                &durationpb.Duration{},
 			ImageFetch:           &durationpb.Duration{},

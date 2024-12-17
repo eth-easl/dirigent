@@ -794,10 +794,7 @@ func (c *ControlPlane) precreateSnapshots(info *proto.ServiceInfo) {
 			if err != nil {
 				logrus.Warnf("Failed to fetch image size for %s on node %s while precreating snapshots: %s", ss.ServiceState.FunctionInfo[0].Image, node.GetName(), err.Error())
 			}
-			msg, err := node.DeleteSandbox(context.Background(), &proto.SandboxID{
-				ID:       sandboxInfo.ID,
-				HostPort: sandboxInfo.PortMappings.HostPort,
-			})
+			msg, err := node.DeleteSandbox(context.Background(), &proto.SandboxID{ID: sandboxInfo.ID})
 			if err != nil || !msg.Success {
 				logrus.Warnf("Failed to delete an image prewarming sandbox for function %s on node %s.", info.Name, node.GetName())
 			}

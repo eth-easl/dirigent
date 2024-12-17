@@ -185,7 +185,6 @@ func (cr *Runtime) CreateSandbox(grpcCtx context.Context, in *proto.ServiceInfo)
 			Container: container,
 		},
 
-		HostPort:  AssignRandomPort(),
 		IP:        ip,
 		GuestPort: int(in.PortForwarding.GuestPort),
 		NetNs:     netNs,
@@ -199,35 +198,27 @@ func (cr *Runtime) CreateSandbox(grpcCtx context.Context, in *proto.ServiceInfo)
 
 	logrus.Debug("Sandbox creation took ", time.Since(start).Microseconds(), " μs (", container.ID(), ")")
 
-	startIptables := time.Now()
-
-	managers.AddRules(cr.IPT, metadata.HostPort, metadata.IP, metadata.GuestPort)
-
-	durationIptables := time.Since(startIptables)
-
-	logrus.Debug("IP tables configuration (add rule(s)) took ", durationIptables.Microseconds(), " μs")
-
-	in.PortForwarding.HostPort = int32(metadata.HostPort)
-
 	go WatchExitChannel(cr.cpApi, metadata, func(metadata *managers.Metadata) string {
 		return metadata.RuntimeMetadata.(Metadata).Container.ID()
 	})
 
+	url := fmt.Sprintf("%s:%d", metadata.IP, metadata.GuestPort)
+
 	// blocking call
-	timeToPass, passed := managers.SendReadinessProbe(fmt.Sprintf(managers.ProbeURLFormat, metadata.HostPort))
+	timeToPass, passed := managers.SendReadinessProbe(url)
 
 	if passed {
 		return &proto.SandboxCreationStatus{
-			Success:      true,
-			ID:           container.ID(),
-			PortMappings: in.PortForwarding,
+			Success: true,
+			ID:      container.ID(),
+			URL:     url,
 			LatencyBreakdown: &proto.SandboxCreationBreakdown{
 				Total:               durationpb.New(time.Since(start)),
 				ImageFetch:          durationpb.New(durationFetch),
 				SandboxCreate:       durationpb.New(durationContainerCreation),
 				NetworkSetup:        durationpb.New(durationCNI),
 				SandboxStart:        durationpb.New(durationContainerStart),
-				Iptables:            durationpb.New(durationIptables),
+				Iptables:            durationpb.New(0),
 				ReadinessProbing:    durationpb.New(timeToPass),
 				ConfigureMonitoring: durationpb.New(configureMonitoringDuration),
 			},
@@ -241,6 +232,7 @@ func (cr *Runtime) CreateSandbox(grpcCtx context.Context, in *proto.ServiceInfo)
 
 func (cr *Runtime) DeleteSandbox(grpcCtx context.Context, in *proto.SandboxID) (*proto.ActionStatus, error) {
 	logrus.Debug("RemoveKey sandbox with ID = '", in.ID, "'")
+	start := time.Now()
 
 	ctx := namespaces.WithNamespace(grpcCtx, containerdNamespace)
 	metadata := cr.SandboxManager.DeleteSandbox(in.ID)
@@ -250,13 +242,6 @@ func (cr *Runtime) DeleteSandbox(grpcCtx context.Context, in *proto.SandboxID) (
 		return &proto.ActionStatus{Success: false}, nil
 	}
 
-	start := time.Now()
-
-	managers.DeleteRules(cr.IPT, metadata.HostPort, metadata.IP, metadata.GuestPort)
-	UnassignPort(metadata.HostPort)
-	logrus.Debug("IP tables configuration (remove rule(s)) took ", time.Since(start).Microseconds(), " μs")
-
-	start = time.Now()
 	err := DeleteContainer(ctx, cr.CNIClient, metadata)
 
 	if err != nil {
@@ -299,12 +284,14 @@ func (cr *Runtime) GetImages(grpcCtx context.Context) ([]*proto.ImageInfo, error
 	if err != nil {
 		return []*proto.ImageInfo{}, err
 	}
+
 	imageList := make([]*proto.ImageInfo, 0)
 	for _, image := range images {
 		size, err := image.Size(ctx)
 		if err != nil {
 			return imageList, err
 		}
+
 		imageList = append(imageList, &proto.ImageInfo{
 			URL:  image.Name(),
 			Size: uint64(size),

@@ -43,28 +43,31 @@ type Runtime struct {
 	snapshotManager *firecracker.SnapshotManager
 	ipt             *iptables.IPTables
 
-	useSnapshots bool
-	verbosity    string
-	vmDebugMode  bool
+	config    *config.FirecrackerConfig
+	verbosity string
 }
 
-func NewRuntime(cpApi proto.CpiInterfaceClient, sandboxManager *managers.SandboxManager, config config.FirecrackerConfig, verbosity string) *Runtime {
+func NewRuntime(cpApi proto.CpiInterfaceClient, sandboxManager *managers.SandboxManager, config *config.FirecrackerConfig, verbosity string) *Runtime {
 	err := firecracker.DeleteUnusedNetworkDevices()
 	if err != nil {
 		logrus.WithError(err).Error("Failed to remove some or all network devices")
 	}
+
 	containerdClient, err := containerd.New(containerdSocket)
 	if err != nil {
 		logrus.WithError(err).Fatal("Failed to create containerd client")
 	}
+
 	fcctrClient, err := fcctr.New(ttrpcSocket)
 	if err != nil {
 		logrus.WithError(err).Fatal("Failed to create containerd client")
 	}
+
 	ipt, err := managers.NewIptablesUtil()
 	if err != nil {
 		logrus.WithError(err).Fatal("Failed to start iptables utility")
 	}
+
 	return &Runtime{
 		cpApi:       cpApi,
 		idGenerator: managers.NewThreadSafeRandomGenerator(),
@@ -73,15 +76,19 @@ func NewRuntime(cpApi proto.CpiInterfaceClient, sandboxManager *managers.Sandbox
 		fcctrClient:      fcctrClient,
 
 		imageManager:    ctrmanagers.NewContainerdImageManager(),
-		networkManager:  firecracker.NewNetworkPoolManager(config.InternalIPPrefix, config.ExposedIPPrefix, config.NetworkPoolSize),
 		sandboxManager:  sandboxManager,
 		snapshotManager: firecracker.NewFirecrackerSnapshotManager(),
 		ipt:             ipt,
 
-		useSnapshots: config.UseSnapshots,
-		verbosity:    verbosity,
-		vmDebugMode:  config.VMDebugMode,
+		config:    config,
+		verbosity: verbosity,
 	}
+}
+
+func (r *Runtime) ConfigureNetwork(cidr string) {
+	logrus.Infof("CIDR %s dynamically allocated by the control plane", cidr)
+
+	r.networkManager = firecracker.NewNetworkPoolManager(r.config.InternalIPPrefix, managers.CIDRToPrefix(cidr), r.config.NetworkPoolSize)
 }
 
 func (r *Runtime) CreateSandbox(grpcCtx context.Context, serviceInfo *proto.ServiceInfo) (_ *proto.SandboxCreationStatus, retErr error) {
@@ -98,7 +105,7 @@ func (r *Runtime) CreateSandbox(grpcCtx context.Context, serviceInfo *proto.Serv
 
 	// Check if snapshot has been created
 	var snapshot *firecracker.SnapshotMetadata
-	if r.useSnapshots {
+	if r.config.UseSnapshots {
 		var durationFindSnapshot time.Duration
 		snapshot, durationFindSnapshot = FindSnapshot(r.snapshotManager, serviceInfo.Image)
 		latencyBreakdown.FindSnapshot = durationpb.New(durationFindSnapshot)
@@ -138,7 +145,7 @@ func (r *Runtime) CreateSandbox(grpcCtx context.Context, serviceInfo *proto.Serv
 	scs.NetworkConfiguration = networkConfig
 
 	// VM creation
-	durationVMCreate, err := CreateVM(ctx, r.fcctrClient, scs, snapshot, r.vmDebugMode)
+	durationVMCreate, err := CreateVM(ctx, r.fcctrClient, scs, snapshot, r.config.VMDebugMode)
 	latencyBreakdown.SandboxCreate = durationpb.New(durationVMCreate)
 	if err != nil {
 		logrus.WithError(err).Warn("Failed to create a Firecracker VM")
@@ -215,12 +222,10 @@ func (r *Runtime) CreateSandbox(grpcCtx context.Context, serviceInfo *proto.Serv
 	logrus.Debugf("Sandbox creation took %d μs (%s)", time.Since(start).Microseconds(), scs.SandboxID)
 	logrus.Debugf("Network namespace of %s is %s", scs.SandboxID, metadata.NetNs)
 
-	// iptables setup
-	durationIptables := SetupIptables(r.ipt, metadata)
-	latencyBreakdown.Iptables = durationpb.New(durationIptables)
+	url := fmt.Sprintf("%s:%d", scs.NetworkConfiguration.ExposedIP, metadata.GuestPort)
 
 	// Readiness probing
-	durationProbing, passed := managers.SendReadinessProbe(fmt.Sprintf("localhost:%d", metadata.HostPort))
+	durationProbing, passed := managers.SendReadinessProbe(url)
 	latencyBreakdown.ReadinessProbing = durationpb.New(durationProbing)
 	if !passed {
 		latencyBreakdown.Total = durationpb.New(time.Since(start))
@@ -231,7 +236,7 @@ func (r *Runtime) CreateSandbox(grpcCtx context.Context, serviceInfo *proto.Serv
 		}, errors.New("readiness probe failed")
 	}
 
-	if snapshot == nil && r.useSnapshots {
+	if snapshot == nil && r.config.UseSnapshots {
 		// Snapshot creation
 		durationSnapshotCreation, err := CreateSnapshot(ctx, r.containerdClient, r.fcctrClient, r.snapshotManager, scs)
 		latencyBreakdown.SnapshotCreation = durationpb.New(durationSnapshotCreation)
@@ -244,7 +249,7 @@ func (r *Runtime) CreateSandbox(grpcCtx context.Context, serviceInfo *proto.Serv
 	return &proto.SandboxCreationStatus{
 		Success:          true,
 		ID:               scs.SandboxID,
-		PortMappings:     serviceInfo.PortForwarding,
+		URL:              url,
 		LatencyBreakdown: latencyBreakdown,
 	}, nil
 }
@@ -261,11 +266,6 @@ func (r *Runtime) DeleteSandbox(grpcCtx context.Context, in *proto.SandboxID) (*
 	sandboxMetadata := metadata.RuntimeMetadata.(SandboxControlStructure)
 	ctx := namespaces.WithNamespace(grpcCtx, namespaceName)
 
-	// delete networking rules
-	managers.DeleteRules(r.ipt, metadata.HostPort, metadata.IP, metadata.GuestPort)
-	ctrmanagers.UnassignPort(metadata.HostPort)
-	logrus.Debugf("IP tables configuration (remove rule(s)) took %d μs", time.Since(start).Microseconds())
-
 	// destroy the VM
 	err := StopVM(ctx, r.fcctrClient, &sandboxMetadata)
 	if err != nil {
@@ -278,7 +278,7 @@ func (r *Runtime) DeleteSandbox(grpcCtx context.Context, in *proto.SandboxID) (*
 	return &proto.ActionStatus{Success: true}, nil
 }
 
-func (cr *Runtime) CreateTaskSandbox(_ context.Context, _ *proto.WorkflowTaskInfo) (*proto.SandboxCreationStatus, error) {
+func (r *Runtime) CreateTaskSandbox(_ context.Context, _ *proto.WorkflowTaskInfo) (*proto.SandboxCreationStatus, error) {
 	// not supported
 	return &proto.SandboxCreationStatus{
 		Success:          false,
@@ -287,14 +287,16 @@ func (cr *Runtime) CreateTaskSandbox(_ context.Context, _ *proto.WorkflowTaskInf
 	}, nil
 }
 
-func (cr *Runtime) PrepullImage(grpcCtx context.Context, imageInfo *proto.ImageInfo) (*proto.ActionStatus, error) {
+func (r *Runtime) PrepullImage(grpcCtx context.Context, imageInfo *proto.ImageInfo) (*proto.ActionStatus, error) {
 	logrus.Debugf("PrepullImage with image = '%s'", imageInfo.URL)
 
 	ctx := namespaces.WithNamespace(grpcCtx, namespaceName)
-	_, err, _ := cr.imageManager.GetImage(ctx, cr.containerdClient, imageInfo.URL)
+
+	_, err, _ := r.imageManager.GetImage(ctx, r.containerdClient, imageInfo.URL)
 	if err != nil {
 		return &proto.ActionStatus{Success: false}, err
 	}
+
 	return &proto.ActionStatus{Success: true}, nil
 }
 
@@ -302,23 +304,27 @@ func (r *Runtime) ListEndpoints(grpcCtx context.Context, _ *emptypb.Empty) (*pro
 	return r.sandboxManager.ListEndpoints()
 }
 
-func (cr *Runtime) GetImages(grpcCtx context.Context) ([]*proto.ImageInfo, error) {
+func (r *Runtime) GetImages(grpcCtx context.Context) ([]*proto.ImageInfo, error) {
 	ctx := namespaces.WithNamespace(grpcCtx, namespaceName)
-	images, err := cr.containerdClient.ListImages(ctx)
+
+	images, err := r.containerdClient.ListImages(ctx)
 	if err != nil {
 		return []*proto.ImageInfo{}, err
 	}
+
 	imageList := make([]*proto.ImageInfo, 0)
 	for _, image := range images {
 		size, err := image.Size(ctx)
 		if err != nil {
 			return imageList, err
 		}
+
 		imageList = append(imageList, &proto.ImageInfo{
 			URL:  image.Name(),
 			Size: uint64(size),
 		})
 	}
+
 	return imageList, nil
 }
 

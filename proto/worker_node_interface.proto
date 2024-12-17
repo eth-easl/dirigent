@@ -9,13 +9,12 @@ import "google/protobuf/duration.proto";
 
 message SandboxID {
   string ID = 1;
-  int32 HostPort = 2;
 }
 
 message SandboxCreationStatus {
   bool Success = 1;
   string ID = 2;
-  PortMapping PortMappings = 3;
+  string URL = 3;
   SandboxCreationBreakdown LatencyBreakdown = 5;
 }
 

@@ -25,12 +25,8 @@ type Runtime struct {
 
 	cpApi       proto.CpiInterfaceClient
 	idGenerator *managers.ThreadSafeRandomGenerator
+	config      *config.FirecrackerConfig
 
-	VMDebugMode  bool
-	UseSnapshots bool
-
-	KernelPath     string
-	FileSystemPath string
 	NetworkManager *NetworkPoolManager
 
 	SandboxManager  *managers.SandboxManager
@@ -39,13 +35,13 @@ type Runtime struct {
 	IPT             *iptables.IPTables
 }
 
-type FirecrackerMetadata struct {
+type Metadata struct {
 	managers.RuntimeMetadata
 
 	VMCS *VMControlStructure
 }
 
-func NewFirecrackerRuntime(cpApi proto.CpiInterfaceClient, sandboxManager *managers.SandboxManager, config config.FirecrackerConfig) *Runtime {
+func NewFirecrackerRuntime(cpApi proto.CpiInterfaceClient, sandboxManager *managers.SandboxManager, config *config.FirecrackerConfig) *Runtime {
 	DeleteAllSnapshots()
 	err := DeleteUnusedNetworkDevices()
 	if err != nil {
@@ -61,12 +57,7 @@ func NewFirecrackerRuntime(cpApi proto.CpiInterfaceClient, sandboxManager *manag
 		cpApi:       cpApi,
 		idGenerator: managers.NewThreadSafeRandomGenerator(),
 
-		VMDebugMode:  config.VMDebugMode,
-		UseSnapshots: config.UseSnapshots,
-
-		KernelPath:     config.Kernel,
-		FileSystemPath: config.FileSystem,
-		NetworkManager: NewNetworkPoolManager(config.InternalIPPrefix, config.ExposedIPPrefix, config.NetworkPoolSize),
+		config: config,
 
 		SandboxManager:  sandboxManager,
 		ProcessMonitor:  managers.NewProcessMonitor(),
@@ -75,14 +66,18 @@ func NewFirecrackerRuntime(cpApi proto.CpiInterfaceClient, sandboxManager *manag
 	}
 }
 
-func (fcr *Runtime) ConfigureNetwork(string) {}
+func (fcr *Runtime) ConfigureNetwork(cidr string) {
+	logrus.Infof("CIDR %s dynamically allocated by the control plane", cidr)
+
+	fcr.NetworkManager = NewNetworkPoolManager(fcr.config.InternalIPPrefix, managers.CIDRToPrefix(cidr), fcr.config.NetworkPoolSize)
+}
 
 func (fcr *Runtime) createVMCS() *VMControlStructure {
 	return &VMControlStructure{
 		Context: context.Background(),
 
-		KernelPath:     fcr.KernelPath,
-		FileSystemPath: fcr.FileSystemPath,
+		KernelPath:     fcr.config.Kernel,
+		FileSystemPath: fcr.config.FileSystem,
 
 		SandboxID: fmt.Sprintf("firecracker-%d", fcr.idGenerator.Int()),
 	}
@@ -92,12 +87,11 @@ func createMetadata(in *proto.ServiceInfo, vmcs *VMControlStructure) *managers.M
 	return &managers.Metadata{
 		ServiceName: in.Name,
 
-		RuntimeMetadata: FirecrackerMetadata{
+		RuntimeMetadata: Metadata{
 			VMCS: vmcs,
 		},
 
 		IP:        vmcs.NetworkConfiguration.ExposedIP,
-		HostPort:  containerd.AssignRandomPort(),
 		GuestPort: int(in.PortForwarding.GuestPort),
 
 		ExitStatusChannel: make(chan uint32),
@@ -116,7 +110,7 @@ func (fcr *Runtime) CreateSandbox(ctx context.Context, in *proto.ServiceInfo) (*
 	}
 	findSnapshotDuration := time.Since(startFindSnapshot)
 
-	err, netCreateDuration, vmCreateDuration, vmStartDuration := StartFirecrackerVM(fcr.NetworkManager, vmcs, fcr.VMDebugMode, snapshot)
+	err, netCreateDuration, vmCreateDuration, vmStartDuration := StartFirecrackerVM(fcr.NetworkManager, vmcs, fcr.config.VMDebugMode, snapshot)
 	if err != nil {
 		// resource deallocation already done in StartFirecrackerVM
 		return &proto.SandboxCreationStatus{Success: false}, err
@@ -129,7 +123,6 @@ func (fcr *Runtime) CreateSandbox(ctx context.Context, in *proto.ServiceInfo) (*
 	vmPID, err := vmcs.VM.PID()
 	if err != nil {
 		fcr.NetworkManager.GiveUpNetwork(vmcs.NetworkConfiguration)
-		containerd.UnassignPort(metadata.HostPort)
 
 		logrus.Debugf("Failed to get PID of the virtual machine - %v", err)
 		return &proto.SandboxCreationStatus{Success: false}, err
@@ -139,25 +132,20 @@ func (fcr *Runtime) CreateSandbox(ctx context.Context, in *proto.ServiceInfo) (*
 	fcr.ProcessMonitor.AddChannel(uint32(vmPID), metadata.ExitStatusChannel)
 	configureMonitoringDuration := time.Since(startConfigureMonitoring)
 
-	// port forwarding
-	iptablesStart := time.Now()
-	managers.AddRules(fcr.IPT, metadata.HostPort, metadata.IP, metadata.GuestPort)
-	iptablesDuration := time.Since(iptablesStart)
-
 	go containerd.WatchExitChannel(fcr.cpApi, metadata, func(metadata *managers.Metadata) string {
-		return metadata.RuntimeMetadata.(FirecrackerMetadata).VMCS.SandboxID
+		return metadata.RuntimeMetadata.(Metadata).VMCS.SandboxID
 	})
-
-	in.PortForwarding.HostPort = int32(metadata.HostPort)
 
 	logrus.Debug("Worker node part: ", time.Since(start).Milliseconds(), " ms")
 
+	url := fmt.Sprintf("%s:%d", vmcs.NetworkConfiguration.ExposedIP, metadata.GuestPort)
+
 	// blocking call
-	timeToPass, passed := managers.SendReadinessProbe(fmt.Sprintf(managers.ProbeURLFormat, metadata.HostPort))
+	timeToPass, passed := managers.SendReadinessProbe(url)
 
 	// create a snapshot for the service if it does not exist
 	startSnapshotCreation := time.Now()
-	if passed && fcr.UseSnapshots && !fcr.SnapshotManager.Exists(in.Image) {
+	if passed && fcr.config.UseSnapshots && !fcr.SnapshotManager.Exists(in.Image) {
 		ok, paths := CreateVMSnapshot(ctx, vmcs)
 
 		if !ok {
@@ -178,16 +166,16 @@ func (fcr *Runtime) CreateSandbox(ctx context.Context, in *proto.ServiceInfo) (*
 
 	if passed {
 		return &proto.SandboxCreationStatus{
-			Success:      true,
-			ID:           vmcs.SandboxID,
-			PortMappings: in.PortForwarding,
+			Success: true,
+			ID:      vmcs.SandboxID,
+			URL:     url,
 			LatencyBreakdown: &proto.SandboxCreationBreakdown{
 				Total:               durationpb.New(time.Since(start)),
 				SandboxCreate:       durationpb.New(vmCreateDuration),
 				NetworkSetup:        durationpb.New(netCreateDuration),
 				SandboxStart:        durationpb.New(vmStartDuration),
 				ReadinessProbing:    durationpb.New(timeToPass),
-				Iptables:            durationpb.New(iptablesDuration),
+				Iptables:            durationpb.New(0),
 				SnapshotCreation:    durationpb.New(snapshotCreationDuration),
 				ConfigureMonitoring: durationpb.New(configureMonitoringDuration),
 				FindSnapshot:        durationpb.New(findSnapshotDuration),
@@ -244,12 +232,7 @@ func (fcr *Runtime) DeleteSandbox(_ context.Context, in *proto.SandboxID) (*prot
 
 	start := time.Now()
 
-	sandboxMetadata := metadata.RuntimeMetadata.(FirecrackerMetadata)
-
-	// delete networking rules
-	managers.DeleteRules(fcr.IPT, metadata.HostPort, metadata.IP, metadata.GuestPort)
-	containerd.UnassignPort(metadata.HostPort)
-	logrus.Debug("IP tables configuration (remove rule(s)) took ", time.Since(start).Microseconds(), " μs")
+	sandboxMetadata := metadata.RuntimeMetadata.(Metadata)
 
 	// destroy the VM
 	err := StopFirecrackerVM(sandboxMetadata.VMCS)

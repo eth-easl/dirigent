@@ -19,7 +19,6 @@ type Endpoint struct {
 	SandboxID       string
 	URL             string
 	Node            WorkerNodeInterface
-	HostPort        int32
 	CreationHistory tracing.ColdStartLogEntry
 }
 

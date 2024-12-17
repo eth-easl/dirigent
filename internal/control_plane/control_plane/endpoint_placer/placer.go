@@ -181,7 +181,7 @@ func (ep *EndpointPlacer) ExcludeEndpoints(toExclude map[*core.Endpoint]struct{}
 	ep.ServiceState.Endpoints = result
 }
 
-// TODO: Refactor two following function - design can be improved
+// PrepareEndpointInfo TODO: Refactor two following function - design can be improved
 func (ep *EndpointPlacer) PrepareEndpointInfo(endpoints []*core.Endpoint) []*proto.EndpointInfo {
 	var res []*proto.EndpointInfo
 
@@ -285,9 +285,8 @@ func (ep *EndpointPlacer) doUpscaling(toCreateCount int, loopStarted time.Time) 
 
 			newEndpoint := &core.Endpoint{
 				SandboxID: resp.ID,
-				URL:       fmt.Sprintf("%s:%d", node.GetIP(), resp.PortMappings.HostPort),
+				URL:       fmt.Sprintf(resp.URL),
 				Node:      node,
-				HostPort:  resp.PortMappings.HostPort,
 				CreationHistory: tracing.ColdStartLogEntry{
 					ServiceName:      ep.ServiceState.ServiceName,
 					ContainerID:      resp.ID,
@@ -392,10 +391,7 @@ func (ep *EndpointPlacer) deleteSandbox(key *core.Endpoint) {
 	ctx, cancel := context.WithTimeout(context.Background(), utils.WorkerNodeTrafficTimeout)
 	defer cancel()
 
-	_, err := key.Node.DeleteSandbox(ctx, &proto.SandboxID{
-		ID:       key.SandboxID,
-		HostPort: key.HostPort,
-	})
+	_, err := key.Node.DeleteSandbox(ctx, &proto.SandboxID{ID: key.SandboxID})
 	if err != nil {
 		logrus.Warnf("Failed to delete a sandbox with ID %s on worker node %s. (error : %v)", key.SandboxID, key.Node.GetName(), err)
 	}

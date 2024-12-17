@@ -17,7 +17,6 @@ import (
 	"github.com/containerd/containerd/mount"
 	"github.com/containerd/containerd/oci"
 	"github.com/containerd/containerd/snapshots"
-	"github.com/coreos/go-iptables/iptables"
 	fcctr "github.com/firecracker-microvm/firecracker-containerd/firecracker-control/client"
 	ctrproto "github.com/firecracker-microvm/firecracker-containerd/proto"
 	"github.com/firecracker-microvm/firecracker-containerd/runtime/firecrackeroci"
@@ -145,28 +144,18 @@ func ConfigureMonitoring(sandboxManager *managers.SandboxManager, cpApi proto.Cp
 		RuntimeMetadata: *scs,
 
 		IP:        scs.NetworkConfiguration.ExposedIP,
-		HostPort:  ctrmanagers.AssignRandomPort(),
 		GuestPort: int(serviceInfo.PortForwarding.GuestPort),
 		NetNs:     GetNetNs(scs),
 
 		ExitStatusChannel: make(chan uint32),
 	}
 	sandboxManager.AddSandbox(scs.SandboxID, metadata)
-	serviceInfo.PortForwarding.HostPort = int32(metadata.HostPort)
 
 	go ctrmanagers.WatchExitChannel(cpApi, metadata, func(metadata *managers.Metadata) string {
 		return metadata.RuntimeMetadata.(SandboxControlStructure).SandboxID
 	})
 
 	return metadata, time.Since(start)
-}
-
-func SetupIptables(ipt *iptables.IPTables, metadata *managers.Metadata) time.Duration {
-	startIptables := time.Now()
-	managers.AddRules(ipt, metadata.HostPort, metadata.IP, metadata.GuestPort)
-	durationIptables := time.Since(startIptables)
-	logrus.Debugf("IP tables configuration (add rule(s)) took %d μs", durationIptables.Microseconds())
-	return durationIptables
 }
 
 func CreateSnapshot(ctx context.Context, ctrClient *containerd.Client, fcctrClient *fcctr.Client, snapshotManager *firecracker.SnapshotManager, scs *SandboxControlStructure) (time.Duration, error) {
