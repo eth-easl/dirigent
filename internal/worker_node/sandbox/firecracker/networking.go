@@ -64,7 +64,7 @@ func NewNetworkPoolManager(internalPrefix, externalPrefix string, networkPoolSiz
 		MaxNetworkPoolSize: networkPoolSize,
 	}
 
-	pool.populate()
+	go pool.populate()
 
 	return pool
 }

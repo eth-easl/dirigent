@@ -29,13 +29,12 @@ func startStopSandbox(ctx context.Context, r sandbox.RuntimeInterface, serviceIn
 		return nil, err
 	}
 	_, err = r.DeleteSandbox(ctx, &proto.SandboxID{
-		ID:       createStatus.ID,
-		HostPort: serviceInfo.PortForwarding.HostPort,
+		ID: createStatus.ID,
 	})
 	return createStatus.LatencyBreakdown, err
 }
 
-func createRuntime(runtime string, useSnapshots bool) sandbox.RuntimeInterface {
+func createRuntime(runtime string, useSnapshots bool) (sandbox.RuntimeInterface, sandbox.PostRegistrationCallback) {
 	sandboxManager := managers.NewSandboxManager("test")
 	switch runtime {
 	case "containerd":
@@ -43,27 +42,25 @@ func createRuntime(runtime string, useSnapshots bool) sandbox.RuntimeInterface {
 			CRIPath:       "/run/containerd/containerd.sock",
 			CNIConfigPath: "configs/cni.conf",
 			PrefetchImage: false,
-		}, sandboxManager, false)
+		}, sandboxManager, false), sandbox.ContainerdPostRegistrationCallback
 	case "firecracker":
-		return firecracker.NewFirecrackerRuntime(nil, sandboxManager, config.FirecrackerConfig{
+		return firecracker.NewFirecrackerRuntime(nil, sandboxManager, &config.FirecrackerConfig{
 			Kernel:           "configs/firecracker/vmlinux-4.14.bin",
 			FileSystem:       "configs/firecracker/rootfs.ext4",
 			VMDebugMode:      false,
 			InternalIPPrefix: "100",
-			ExposedIPPrefix:  "192.254",
 			NetworkPoolSize:  8,
 			UseSnapshots:     useSnapshots,
-		})
+		}), sandbox.FirecrackerPostRegistrationCallback
 	case "fcctr":
-		return fcctr.NewRuntime(nil, sandboxManager, config.FirecrackerConfig{
+		return fcctr.NewRuntime(nil, sandboxManager, &config.FirecrackerConfig{
 			InternalIPPrefix: "100",
-			ExposedIPPrefix:  "192.254",
 			NetworkPoolSize:  8,
 			UseSnapshots:     useSnapshots,
-		}, "info")
+		}, "info"), sandbox.FirecrackerContainerdPostRegistrationCallback
 	default:
 		logrus.Fatalf("Unknown runtime: %s", runtime)
-		return nil
+		return nil, sandbox.EmptyPostRegistrationCallback
 	}
 }
 
@@ -102,7 +99,8 @@ func main() {
 		},
 	}
 
-	r := createRuntime(*runtime, *snapshots)
+	cidr := "192.254.0.0/16"
+	r, callback := createRuntime(*runtime, *snapshots)
 	if *snapshots {
 		// Prepare the snapshot
 		_, err := startStopSandbox(ctx, r, serviceInfo)
@@ -110,6 +108,7 @@ func main() {
 			logrus.WithError(err).Fatal("Failed to start/stop sandbox")
 		}
 	}
+	callback(r, cidr)
 
 	results := make([]*proto.SandboxCreationBreakdown, *repeat)
 	for i := 0; i < *repeat; i++ {

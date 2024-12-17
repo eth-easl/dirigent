@@ -5,8 +5,8 @@ registrationServerReplicas: ""
 verbosity: "trace"
 traceOutputFolder: "data"
 placementPolicy: "random"
-persistence: false
-reconstruct: false
+persistence: true
+reconstruct: true
 autoscaler: "default"
 autoscalingPeriod: "2s"
 defaultWFPartitionMethod: "fullPartition"

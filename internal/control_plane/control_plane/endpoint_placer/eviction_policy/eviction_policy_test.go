@@ -23,7 +23,6 @@ func TestEvictionPolicy(t *testing.T) {
 		SandboxID:       "",
 		URL:             "",
 		Node:            nil,
-		HostPort:        0,
 		CreationHistory: tracing.ColdStartLogEntry{},
 	})
 
@@ -31,7 +30,6 @@ func TestEvictionPolicy(t *testing.T) {
 		SandboxID:       "",
 		URL:             "",
 		Node:            nil,
-		HostPort:        0,
 		CreationHistory: tracing.ColdStartLogEntry{},
 	})
 
@@ -39,7 +37,6 @@ func TestEvictionPolicy(t *testing.T) {
 		SandboxID:       "",
 		URL:             "",
 		Node:            nil,
-		HostPort:        0,
 		CreationHistory: tracing.ColdStartLogEntry{},
 	})
 

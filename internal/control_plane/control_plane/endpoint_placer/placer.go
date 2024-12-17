@@ -12,7 +12,6 @@ import (
 	"cluster_manager/pkg/utils"
 	"cluster_manager/proto"
 	"context"
-	"fmt"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -285,7 +284,7 @@ func (ep *EndpointPlacer) doUpscaling(toCreateCount int, loopStarted time.Time) 
 
 			newEndpoint := &core.Endpoint{
 				SandboxID: resp.ID,
-				URL:       fmt.Sprintf(resp.URL),
+				URL:       resp.URL,
 				Node:      node,
 				CreationHistory: tracing.ColdStartLogEntry{
 					ServiceName:      ep.ServiceState.ServiceName,

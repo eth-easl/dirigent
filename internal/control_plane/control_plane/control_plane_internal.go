@@ -338,7 +338,7 @@ func (c *ControlPlane) nodeHeartbeat(_ context.Context, in *proto.NodeHeartbeatM
 	//defer c.NIStorage.Unlock()
 
 	if present := c.NIStorage.Present(in.NodeID); !present {
-		logrus.Debug("Received a heartbeat for non-registered node")
+		logrus.Debugf("Received a heartbeat for non-registered node - %s", in.NodeID)
 		return &proto.ActionStatus{Success: false}, nil
 	}
 

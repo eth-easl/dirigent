@@ -213,7 +213,7 @@ func (dr *Runtime) CreateSandbox(_ context.Context, in *proto.ServiceInfo) (*pro
 	if !ok {
 		// load function binary
 		binaryData, err := os.ReadFile(dr.dandelionConfig.BinaryPath)
-		logrus.Infof("Using binary file %s (len: %d)", in.Image, len(binaryData))
+		logrus.Infof("Using binary file %s (len: %d)", dr.dandelionConfig.BinaryPath, len(binaryData))
 		if err != nil {
 			logrus.Errorf("Error reading binary file - %v", err)
 			return getFailureStatus(), nil

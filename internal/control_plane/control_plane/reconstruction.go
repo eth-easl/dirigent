@@ -6,6 +6,7 @@ import (
 	config2 "cluster_manager/pkg/config"
 	"cluster_manager/proto"
 	"context"
+	"strconv"
 	"sync"
 	"time"
 
@@ -96,7 +97,7 @@ func (c *ControlPlane) reconstructWorkersState(ctx context.Context) error {
 		wn := c.workerNodeCreator(core.WorkerNodeConfiguration{
 			Name:   worker.NodeID,
 			IP:     worker.IP,
-			Port:   string(worker.Port),
+			Port:   strconv.Itoa(int(worker.Port)),
 			Cpu:    worker.Cpu,
 			Memory: worker.Memory,
 			CIDR:   worker.CIDR,
