@@ -238,7 +238,7 @@ func (c *ControlPlane) registerNode(ctx context.Context, in *proto.NodeInfo) (*p
 		}
 	}
 
-	cidr, err := c.ipam.ReserveCIDR()
+	cidr, err := c.ipam.GetUnallocatedCIDR()
 	if err != nil {
 		logrus.Errorf("Failed to obtain a CIDR range for node %s.", in.NodeID)
 		return &proto.NodeRegistrationStatus{Success: false}, errors.New("failed to obtain a CIDR range for a node")

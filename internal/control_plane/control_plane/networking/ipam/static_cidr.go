@@ -10,7 +10,9 @@ func NewStaticCIDRManager(cidr string) *StaticCIDRManager {
 	}
 }
 
-func (s *StaticCIDRManager) ReserveCIDR() (string, error) {
+func (s *StaticCIDRManager) ReserveCIDRs([]string) {}
+
+func (s *StaticCIDRManager) GetUnallocatedCIDR() (string, error) {
 	return s.cidr, nil
 }
 

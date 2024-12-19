@@ -7,7 +7,7 @@ func TestStaticCIDR(t *testing.T) {
 
 	m := NewStaticCIDRManager(cidr)
 
-	got, err := m.ReserveCIDR()
+	got, err := m.GetUnallocatedCIDR()
 	if err != nil {
 		t.Error("Unexpected error from static CIDR manager")
 	} else if got != cidr {

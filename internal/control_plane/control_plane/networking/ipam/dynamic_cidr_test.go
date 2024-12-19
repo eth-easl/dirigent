@@ -11,7 +11,7 @@ func TestIPAMTakeAndReturn(t *testing.T) {
 
 	// take 8 CIDRs
 	for i := 0; i < 8; i++ {
-		cidr, err := m.ReserveCIDR()
+		cidr, err := m.GetUnallocatedCIDR()
 		if err != nil {
 			t.Error(err)
 		}
@@ -33,7 +33,7 @@ func TestIPAMTakeAndReturn(t *testing.T) {
 	}
 
 	for i := 0; i < 16; i++ {
-		cidr, err := m.ReserveCIDR()
+		cidr, err := m.GetUnallocatedCIDR()
 		if err != nil {
 			t.Error(err)
 		}
@@ -53,7 +53,7 @@ func TestPoolExhaustion(t *testing.T) {
 		go func() {
 			defer wg.Done()
 
-			_, err := m.ReserveCIDR()
+			_, err := m.GetUnallocatedCIDR()
 			if err != nil {
 				t.Error(err)
 			}
@@ -62,8 +62,89 @@ func TestPoolExhaustion(t *testing.T) {
 
 	wg.Wait()
 
-	_, err := m.ReserveCIDR()
+	_, err := m.GetUnallocatedCIDR()
 	if err == nil {
 		t.Error("Error should have happened")
+	}
+}
+
+func TestCIDRToCounter(t *testing.T) {
+	if cidrToCounter("11.0.0.0/16") != 0 ||
+		cidrToCounter("12.0.0.0/16") != 256 ||
+		cidrToCounter("12.12.0.0/16") != 268 ||
+		cidrToCounter("99.255.0.0/16") != 22783 {
+		t.Error("Unexpected value.")
+	}
+}
+
+func TestCIDRReconstruction(t *testing.T) {
+	tests := []struct {
+		testName       string
+		input          []string
+		expectedOutput []string
+	}{
+		{
+			testName:       "ipam_reconstruction_blank",
+			input:          []string{},
+			expectedOutput: []string{},
+		},
+		{
+			testName:       "ipam_reconstruction_sequential",
+			input:          []string{"11.0.0.0/16", "11.1.0.0/16", "11.2.0.0/16"},
+			expectedOutput: []string{},
+		},
+		{
+			testName: "ipam_reconstruction_non_sequential",
+			input:    []string{"11.0.0.0/16", "11.6.0.0/16", "11.7.0.0/16"},
+			expectedOutput: []string{
+				"11.1.0.0/16",
+				"11.2.0.0/16",
+				"11.3.0.0/16",
+				"11.4.0.0/16",
+				"11.5.0.0/16",
+			},
+		},
+		{
+			testName: "ipam_reconstruction_non_sequential_15",
+			input:    []string{"11.15.0.0/16"},
+			expectedOutput: []string{
+				"11.0.0.0/16",
+				"11.1.0.0/16",
+				"11.2.0.0/16",
+				"11.3.0.0/16",
+				"11.4.0.0/16",
+				"11.5.0.0/16",
+				"11.6.0.0/16",
+				"11.7.0.0/16",
+				"11.8.0.0/16",
+				"11.9.0.0/16",
+				"11.10.0.0/16",
+				"11.11.0.0/16",
+				"11.12.0.0/16",
+				"11.13.0.0/16",
+				"11.14.0.0/16",
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.testName, func(t *testing.T) {
+			m := NewDynamicCIDRManager()
+			m.ReserveCIDRs(tt.input)
+
+			m.disableFurtherPopulation()
+
+			if len(tt.expectedOutput) != m.poolLength() {
+				t.Error("Unexpected length of CIDR pool.")
+			}
+
+			for i := 0; i < len(tt.expectedOutput); i++ {
+				cidr, _ := m.GetUnallocatedCIDR()
+
+				if tt.expectedOutput[i] != cidr {
+					t.Errorf("Unexpected CIDR value - got: %s - expected: %s", cidr, tt.expectedOutput[i])
+				}
+			}
+		})
 	}
 }

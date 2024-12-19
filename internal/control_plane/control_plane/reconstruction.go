@@ -93,6 +93,7 @@ func (c *ControlPlane) reconstructWorkersState(ctx context.Context) error {
 		return err
 	}
 
+	var CIDRs []string
 	for _, worker := range workers {
 		wn := c.workerNodeCreator(core.WorkerNodeConfiguration{
 			Name:   worker.NodeID,
@@ -102,6 +103,7 @@ func (c *ControlPlane) reconstructWorkersState(ctx context.Context) error {
 			Memory: worker.Memory,
 			CIDR:   worker.CIDR,
 		})
+		CIDRs = append(CIDRs, worker.CIDR)
 
 		go func() {
 			conn := wn.ConnectToWorker()
@@ -113,6 +115,8 @@ func (c *ControlPlane) reconstructWorkersState(ctx context.Context) error {
 			}
 		}()
 	}
+
+	c.ipam.ReserveCIDRs(CIDRs)
 
 	logrus.Infof("Reconstructed information for %d workers", len(workers))
 	return nil
