@@ -101,6 +101,7 @@ func main() {
 
 	cidr := "192.254.0.0/16"
 	r, callback := createRuntime(*runtime, *snapshots)
+	callback(r, cidr)
 	if *snapshots {
 		// Prepare the snapshot
 		_, err := startStopSandbox(ctx, r, serviceInfo)
@@ -108,7 +109,6 @@ func main() {
 			logrus.WithError(err).Fatal("Failed to start/stop sandbox")
 		}
 	}
-	callback(r, cidr)
 
 	results := make([]*proto.SandboxCreationBreakdown, *repeat)
 	for i := 0; i < *repeat; i++ {
