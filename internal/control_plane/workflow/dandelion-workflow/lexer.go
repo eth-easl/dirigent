@@ -48,18 +48,25 @@ func is_letter(c rune) bool {
 }
 
 type Lexer struct {
-	in   *bufio.Reader
-	curr rune
+	in      *bufio.Reader
+	curr    rune
+	lineIdx int
+	colIdx  int
 }
 
 func NewLexer(r *bufio.Reader) *Lexer {
-	return &Lexer{in: r}
+	return &Lexer{in: r, lineIdx: 0, colIdx: -1}
 }
 
 func (l *Lexer) read() rune {
 	c, _, err := l.in.ReadRune()
 	if err != nil {
 		return eof
+	}
+	l.colIdx++
+	if c == '\n' {
+		l.lineIdx++
+		l.colIdx = 0
 	}
 	return c
 }
@@ -216,7 +223,7 @@ func (l *Lexer) SafeScanIgnoreSpace() (Token, string, error) {
 
 	switch t {
 	case ILLEGAL:
-		return ILLEGAL, s, fmt.Errorf("lexer found illegal token: %s", s)
+		return ILLEGAL, s, fmt.Errorf("lexer found illegal token '%s' at line=%d, col=%d", s, l.lineIdx, l.colIdx)
 	case EOF:
 		return EOF, s, fmt.Errorf("unexpectedly reached end of file")
 	default:
@@ -231,7 +238,7 @@ func (l *Lexer) ExpectIgnoreSpace(expected Token, expectedDesc string) (Token, s
 	case expected:
 		return t, s, nil
 	case ILLEGAL:
-		return ILLEGAL, s, fmt.Errorf("lexer found illegal token: %s", s)
+		return ILLEGAL, s, fmt.Errorf("lexer found illegal token '%s' at line=%d, col=%d", s, l.lineIdx, l.colIdx)
 	case EOF:
 		return EOF, s, fmt.Errorf("expected %s but reached end of file", expectedDesc)
 	default:

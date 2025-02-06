@@ -77,9 +77,10 @@ type FirecrackerConfig struct {
 }
 
 type DandelionConfig struct {
-	DaemonPort int    `mapstructure:"daemonPort"`
-	BinaryPath string `mapstructure:"binaryPath"`
-	EngineType string `mapstructure:"engineType"`
+	DaemonPort             int    `mapstructure:"daemonPort"`
+	BinaryPath             string `mapstructure:"binaryPath"`
+	EngineType             string `mapstructure:"engineType"`
+	LogFunctionStdioOutset bool   `mapstructure:"logFunctionStdioOutset"`
 }
 
 type RedisConf struct {

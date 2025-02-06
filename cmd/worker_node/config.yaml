@@ -24,3 +24,4 @@ dandelion:
   engineType: "Process"
   #binaryPath: "configs/dandelion/sysld_wasm_x86_64_matmul"
   #engineType: "RWasm"
+  logFunctionStdioOutset: false

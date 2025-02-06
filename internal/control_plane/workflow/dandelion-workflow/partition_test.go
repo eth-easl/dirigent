@@ -562,3 +562,56 @@ func TestParallelPartitionMultiInput(t *testing.T) {
 		}
 	}
 }
+
+func TestDebug(t *testing.T) {
+	input := `
+		(:function csv_reader (options inData) -> (outSchema outBatches))
+		(:function csv_writer (options inSchema inBatches) -> (outData))
+	
+		(:composition test (in_data reader_options) -> (out_data) (
+		  (csv_reader ((options <- reader_options) (inData <- in_data)) => ((schema := outSchema) (batches := outBatches)))
+		  (csv_writer ((options <- reader_options) (inSchema <- schema) (inBatches <- batches)) => ((out_data := outData)))
+		))`
+	inData := []string{"inCSV", "ropt"}
+	expectedTaskOutput := []string{"task(inCSV,ropt)"}
+	expectedOutput := []string{"csv_writer(ropt,csv_reader(ropt,inCSV)[0],csv_reader(ropt,inCSV)[1])"}
+
+	// load and partition workflow
+	wf, err := inputToWorkflow(input, NoPartition)
+	if err != nil {
+		t.Fatalf(err.Error())
+	}
+
+	// check partitioned tasks
+	trTasks := newTestRunner(true)
+	taskOutData, err := trTasks.run(wf, inData)
+	if err != nil {
+		t.Errorf("%v", err)
+		return
+	}
+	for idx, expected := range expectedTaskOutput {
+		if taskOutData[idx] != expected {
+			t.Errorf(
+				"Got unexpected output: %v (expected: %v)",
+				taskOutData[idx], expected,
+			)
+		}
+	}
+
+	// check that overall execution remains the same
+	trGeneral := newTestRunner(false)
+	wfOutData, err := trGeneral.run(wf, inData)
+	if err != nil {
+		t.Errorf("%v", err)
+		return
+	}
+	for idx, expected := range expectedOutput {
+		if wfOutData[idx] != expected {
+			t.Errorf(
+				"Got unexpected output: %v (expected: %v)",
+				wfOutData[idx], expected,
+			)
+		}
+	}
+
+}

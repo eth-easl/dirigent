@@ -80,6 +80,7 @@ func InvocationBody(funcName string, data []*Data) ([]byte, error) {
 				return nil, fmt.Errorf("dandelion invocation body expects DandelionData objects")
 			}
 			bodySets[i] = *s
+			logrus.Tracef("input set %d -> size=%d\n", i, len(s.Items[0].Data))
 		}
 	}
 
@@ -141,8 +142,18 @@ func DeserializeResponseToData(respData []byte) ([]*Data, error) {
 		return nil, fmt.Errorf("error deserializing response body - %v", err)
 	}
 
-	outData := make([]*Data, len(respBody.Sets))
-	for i, set := range respBody.Sets {
+	// expect stdio as last set if it is part of the output by dandelion
+	respSets := respBody.Sets
+	lastSet := respBody.Sets[len(respBody.Sets)-1]
+	if lastSet.Identifier == "stdio" {
+		for _, itm := range lastSet.Items {
+			logrus.Debugf("stdio output (%s):\n%s\n", itm.Identifier, itm.Data)
+		}
+		respSets = respSets[:len(respSets)-1]
+	}
+
+	outData := make([]*Data, len(respSets))
+	for i, set := range respSets {
 		outData[i] = NewDandelionData(set)
 	}
 

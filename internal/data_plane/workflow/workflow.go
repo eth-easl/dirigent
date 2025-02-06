@@ -26,8 +26,8 @@ type Task struct {
 	FunctionInSharding []Sharding // sharding for each function input
 
 	ConsumerTasks      []*Task // tasks consuming output of this task
-	ConsumerDataSrcIdx []int32 // argument idx in consumer
-	ConsumerDataDstIdx []int32 // return idx of this task
+	ConsumerDataSrcIdx []int32 // output idx to be consumed
+	ConsumerDataDstIdx []int32 // argument idx in consumer (where to put the data)
 }
 
 type Workflow struct {
@@ -37,8 +37,8 @@ type Workflow struct {
 	NumOut uint32
 
 	InitialTasks      []*Task // tasks consuming workflow input
-	InitialDataSrcIdx []int32 // argument idx in consumer
-	InitialDataDstIdx []int32 // workflow input idx
+	InitialDataSrcIdx []int32 // workflow input idx to be consumed
+	InitialDataDstIdx []int32 // argument idx in consumer (where to put the data)
 
 	OutTasks      []*Task // source tasks for workflow output
 	OutDataSrcIdx []int32 // return idx of source task

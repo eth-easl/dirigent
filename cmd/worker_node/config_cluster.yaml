@@ -22,3 +22,4 @@ dandelion:
   daemonPort: 8080
   binaryPath: "/cluster_manager/configs/dandelion/sysld_wasm_x86_64_busy_loop"
   engineType: "Process"
+  logFunctionStdioOutset: false

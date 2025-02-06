@@ -309,7 +309,7 @@ func noPartition(c *Composition, wf *workflow.Workflow) []*workflow.Task {
 
 	// update workflow -> set initial task
 	for i := 0; i < len(c.Consumers); i++ {
-		if !slices.Contains(wf.InitialDataDstIdx, int32(c.ConsumerArgIdx[i])) {
+		if !slices.Contains(wf.InitialDataSrcIdx, int32(c.ConsumerOutIdx[i])) {
 			wf.InitialTasks = append(wf.InitialTasks, task)
 			wf.InitialDataSrcIdx = append(wf.InitialDataSrcIdx, int32(c.ConsumerOutIdx[i]))
 			wf.InitialDataDstIdx = append(wf.InitialDataDstIdx, int32(c.ConsumerOutIdx[i])) // dstIdx = outIdx

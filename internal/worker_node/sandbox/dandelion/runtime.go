@@ -49,9 +49,9 @@ func NewDandelionRuntime(ip string, cpApi proto.CpiInterfaceClient, sandboxManag
 
 		dandelionConfig: dandelionConfig,
 		httpClient: &http.Client{
-			Timeout: 2500 * time.Millisecond,
+			Timeout: 30 * time.Second, // bigger binaries can take a while to register
 			Transport: &http.Transport{
-				IdleConnTimeout:     1 * time.Second,
+				IdleConnTimeout:     10 * time.Second,
 				MaxIdleConns:        5,
 				MaxIdleConnsPerHost: 5,
 			},
@@ -212,21 +212,24 @@ func (dr *Runtime) CreateSandbox(_ context.Context, in *proto.ServiceInfo) (*pro
 
 	if !ok {
 		// load function binary
-		binaryData, err := os.ReadFile(dr.dandelionConfig.BinaryPath)
-		logrus.Infof("Using binary file %s (len: %d)", dr.dandelionConfig.BinaryPath, len(binaryData))
+		binaryData, err := os.ReadFile(in.Image)
 		if err != nil {
 			logrus.Errorf("Error reading binary file - %v", err)
 			return getFailureStatus(), nil
 		}
+		logrus.Infof("Registering binary file %s (len: %d)", in.Image, len(binaryData))
 
 		// create registration request body
 		inputSets := bson.A{}
 		for i := uint32(0); i < in.NumArgs; i++ { // names do not matter so far
 			inputSets = append(inputSets, bson.A{fmt.Sprintf("input%d", i), nil})
 		}
-		outputSets := bson.A{} // add "stdio" for debugging purpose
+		outputSets := bson.A{}
 		for i := uint32(0); i < in.NumArgs; i++ {
 			outputSets = append(outputSets, fmt.Sprintf("output%d", i))
+		}
+		if dr.dandelionConfig.LogFunctionStdioOutset { // add "stdio" to get the stdio output from dandelion
+			outputSets = append(outputSets, "stdio")
 		}
 		registerRequest := bson.D{
 			{Key: "name", Value: in.Name},
@@ -279,6 +282,16 @@ func (dr *Runtime) CreateTaskSandbox(_ context.Context, task *proto.WorkflowTask
 	dr.registeredTasks.RUnlock()
 
 	if !ok {
+		// check that all composition functions are already registered
+		dr.registeredTasks.RLock()
+		for _, funcName := range task.Functions {
+			if _, isRegistered := dr.registeredFunctions.data[funcName]; !isRegistered {
+				logrus.Errorf("Could not register composition '%s' as function '%s' is not yet registered in runtime", task.Name, funcName)
+				return getFailureStatus(), nil
+			}
+		}
+		dr.registeredTasks.RUnlock()
+
 		// export composition as dandelion composition description and create registration request body
 		dandelionComposition := exportFunctionComposition(task)
 		registerRequest := bson.D{

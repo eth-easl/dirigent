@@ -506,6 +506,7 @@ func (c *ControlPlane) registerWorkflowTask(ctx context.Context, taskInfo *proto
 		NIStorage:               c.NIStorage,
 		DataPlaneConnections:    c.DataPlaneConnections,
 		DandelionNodes:          synchronization.NewControlPlaneSyncStructure[string, bool](),
+		ImageStorage:            c.imageStorage,
 	})
 
 	go c.SIStorage.GetNoCheck(taskInfo.Name).ScalingControllerLoop()
