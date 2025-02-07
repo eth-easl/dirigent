@@ -80,7 +80,13 @@ func InvocationBody(funcName string, data []*Data) ([]byte, error) {
 				return nil, fmt.Errorf("dandelion invocation body expects DandelionData objects")
 			}
 			bodySets[i] = *s
-			logrus.Tracef("input set %d -> size=%d\n", i, len(s.Items[0].Data))
+			if len(s.Items) > 0 {
+				for itmIdx, itm := range s.Items {
+					logrus.Tracef("input set %d, item, %d -> size=%d", i, itmIdx, len(itm.Data))
+				}
+			} else {
+				logrus.Tracef("input set %d -> empty", i)
+			}
 		}
 	}
 
@@ -140,6 +146,10 @@ func DeserializeResponseToData(respData []byte) ([]*Data, error) {
 	err := bson.Unmarshal(respData, &respBody)
 	if err != nil {
 		return nil, fmt.Errorf("error deserializing response body - %v", err)
+	}
+
+	if len(respBody.Sets) == 0 {
+		return []*Data{}, nil
 	}
 
 	// expect stdio as last set if it is part of the output by dandelion

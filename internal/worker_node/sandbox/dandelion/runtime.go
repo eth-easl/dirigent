@@ -211,13 +211,17 @@ func (dr *Runtime) CreateSandbox(_ context.Context, in *proto.ServiceInfo) (*pro
 	dr.registeredFunctions.RUnlock()
 
 	if !ok {
-		// load function binary
-		binaryData, err := os.ReadFile(in.Image)
+		// check if binary exists
+		binaryInfo, err := os.Stat(in.Image)
 		if err != nil {
-			logrus.Errorf("Error reading binary file - %v", err)
+			logrus.Errorf("Error validating binary file - %v", err)
 			return getFailureStatus(), nil
 		}
-		logrus.Infof("Registering binary file %s (len: %d)", in.Image, len(binaryData))
+		if binaryInfo.IsDir() {
+			logrus.Errorf("Error validating binary file - file is a directory")
+			return getFailureStatus(), nil
+		}
+		logrus.Infof("Registering binary file %s (size=%d)", in.Image, binaryInfo.Size())
 
 		// create registration request body
 		inputSets := bson.A{}
@@ -235,7 +239,8 @@ func (dr *Runtime) CreateSandbox(_ context.Context, in *proto.ServiceInfo) (*pro
 			{Key: "name", Value: in.Name},
 			{Key: "context_size", Value: 0x8020000},
 			{Key: "engine_type", Value: dr.dandelionConfig.EngineType},
-			{Key: "binary", Value: bytesToInts(binaryData)},
+			{Key: "local_path", Value: in.Image},
+			{Key: "binary", Value: bytesToInts([]byte{0})},
 			{Key: "input_sets", Value: inputSets},
 			{Key: "output_sets", Value: outputSets},
 		}
