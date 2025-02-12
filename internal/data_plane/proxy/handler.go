@@ -25,6 +25,11 @@ import (
 	"golang.org/x/net/http2/h2c"
 )
 
+const (
+	oneMebibyte    = 1024 * 1024
+	maxPayloadSize = 128 * oneMebibyte
+)
+
 type proxyContext struct {
 	cache               *common.Deployments
 	cpInterface         proto.CpiInterfaceClient
@@ -52,8 +57,11 @@ func startProxy(handler http.HandlerFunc, context proxyContext, host string, por
 	logrus.Info("Creating a proxy server at ", proxyRxAddress)
 
 	server := &http.Server{
-		Addr:    proxyRxAddress,
-		Handler: h2c.NewHandler(mux, &http2.Server{}),
+		Addr: proxyRxAddress,
+		Handler: h2c.NewHandler(mux, &http2.Server{
+			MaxUploadBufferPerConnection: maxPayloadSize,
+			MaxUploadBufferPerStream:     maxPayloadSize,
+		}),
 	}
 
 	err := server.ListenAndServe()
