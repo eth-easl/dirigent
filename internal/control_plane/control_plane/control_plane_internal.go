@@ -250,6 +250,7 @@ func (c *ControlPlane) registerNode(ctx context.Context, in *proto.NodeInfo) (*p
 		Port:   in.Port,
 		Cpu:    in.Cpu,
 		Memory: in.Memory,
+		GPUs:   in.GPUs,
 		CIDR:   cidr,
 	})
 	if err != nil {
@@ -264,6 +265,7 @@ func (c *ControlPlane) registerNode(ctx context.Context, in *proto.NodeInfo) (*p
 		Port:   strconv.Itoa(int(in.Port)),
 		Cpu:    in.Cpu,
 		Memory: in.Memory,
+		Gpu:    in.GPUs,
 		CIDR:   cidr,
 	})
 

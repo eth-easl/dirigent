@@ -10,6 +10,7 @@ type WorkerNodeConfiguration struct {
 	Port   string
 	Cpu    uint64
 	Memory uint64
+	Gpu    uint64
 	CIDR   string
 }
 

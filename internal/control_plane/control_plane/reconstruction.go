@@ -101,6 +101,7 @@ func (c *ControlPlane) reconstructWorkersState(ctx context.Context) error {
 			Port:   strconv.Itoa(int(worker.Port)),
 			Cpu:    worker.Cpu,
 			Memory: worker.Memory,
+			Gpu:    worker.GPUs,
 			CIDR:   worker.CIDR,
 		})
 		CIDRs = append(CIDRs, worker.CIDR)

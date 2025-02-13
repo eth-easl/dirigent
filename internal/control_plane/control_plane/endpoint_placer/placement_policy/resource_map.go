@@ -5,6 +5,7 @@ import "github.com/sirupsen/logrus"
 const (
 	RM_CPU_KEY    = "cpu"
 	RM_MEMORY_KEY = "memory"
+	RM_GPU_KEY    = "gpu"
 )
 
 type ResourceMap struct {
@@ -20,6 +21,10 @@ func (r *ResourceMap) GetMemory() uint64 {
 	return r.GetByKey(RM_MEMORY_KEY)
 }
 
+func (r *ResourceMap) GetGpu() uint64 {
+	return r.GetByKey(RM_GPU_KEY)
+}
+
 func (r *ResourceMap) GetImage() string {
 	return r.image
 }
@@ -30,6 +35,10 @@ func (r *ResourceMap) SetCpu(v uint64) {
 
 func (r *ResourceMap) SetMemory(v uint64) {
 	r.resources[RM_MEMORY_KEY] = v
+}
+
+func (r *ResourceMap) SetGpu(v uint64) {
+	r.resources[RM_GPU_KEY] = v
 }
 
 func (r *ResourceMap) SetImage(image string) {
@@ -67,7 +76,7 @@ func (r *ResourceMap) SumAllResourceTypes() uint64 {
 }
 
 // CreateResourceMap CPU in milliCPUs.
-func CreateResourceMap(cpu, memory uint64, image string) *ResourceMap {
+func CreateResourceMap(cpu, memory, gpu uint64, image string) *ResourceMap {
 	r := &ResourceMap{
 		resources: make(map[string]uint64),
 		image:     image,
@@ -75,6 +84,7 @@ func CreateResourceMap(cpu, memory uint64, image string) *ResourceMap {
 
 	r.SetCpu(cpu)
 	r.SetMemory(memory)
+	r.SetGpu(gpu)
 
 	return r
 }
@@ -89,6 +99,7 @@ func SumResources(a, b *ResourceMap) *ResourceMap {
 	return CreateResourceMap(
 		a.GetCpu()+b.GetCpu(),
 		a.GetMemory()+b.GetMemory(),
+		a.GetGpu()+b.GetGpu(),
 		a.GetImage(),
 	)
 }
@@ -97,6 +108,7 @@ func SubtractResources(a, b *ResourceMap) *ResourceMap {
 	return CreateResourceMap(
 		a.GetCpu()-b.GetCpu(),
 		a.GetMemory()-b.GetMemory(),
+		a.GetGpu()-b.GetGpu(),
 		a.GetImage(),
 	)
 }

@@ -448,6 +448,20 @@ func (mr *MockWorkerNodeInterfaceMockRecorder) GetEndpointMap() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetEndpointMap", reflect.TypeOf((*MockWorkerNodeInterface)(nil).GetEndpointMap))
 }
 
+// GetGpuAvailable mocks base method.
+func (m *MockWorkerNodeInterface) GetGpuAvailable() uint64 {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetGpuAvailable")
+	ret0, _ := ret[0].(uint64)
+	return ret0
+}
+
+// GetGpuAvailable indicates an expected call of GetGpuAvailable.
+func (mr *MockWorkerNodeInterfaceMockRecorder) GetGpuAvailable() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetGpuAvailable", reflect.TypeOf((*MockWorkerNodeInterface)(nil).GetGpuAvailable))
+}
+
 // GetIP mocks base method.
 func (m *MockWorkerNodeInterface) GetIP() string {
 	m.ctrl.T.Helper()

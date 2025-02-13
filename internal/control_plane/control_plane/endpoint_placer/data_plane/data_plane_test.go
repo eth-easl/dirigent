@@ -16,6 +16,7 @@ func TestDataPlaneCreation(t *testing.T) {
 		Port:   "100",
 		Cpu:    10000,
 		Memory: 10,
+		Gpu:    0,
 	}
 
 	wn := workers.NewWorkerNode(conf)

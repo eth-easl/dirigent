@@ -133,6 +133,10 @@ func (e *emptyWorker) GetMemoryUsed() uint64 {
 	return 0
 }
 
+func (e *emptyWorker) GetGpuAvailable() uint64 {
+	return 0
+}
+
 func (e *emptyWorker) GetIP() string {
 	return ""
 }

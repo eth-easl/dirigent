@@ -4,9 +4,10 @@ import (
 	"cluster_manager/pkg/synchronization"
 	"cluster_manager/proto"
 	"context"
-	"github.com/sirupsen/logrus"
 	"strconv"
 	"time"
+
+	"github.com/sirupsen/logrus"
 
 	"google.golang.org/grpc"
 	"google.golang.org/protobuf/types/known/emptypb"
@@ -49,6 +50,7 @@ type WorkerNodeInterface interface {
 	GetCpuUsed() uint64
 	GetMemoryAvailable() uint64
 	GetMemoryUsed() uint64
+	GetGpuAvailable() uint64
 	GetIP() string
 	GetPort() string
 	GetCIDR() string
@@ -79,6 +81,7 @@ func WNIToNodeInfo(wni WorkerNodeInterface) *proto.NodeInfo {
 		Port:   int32(port),
 		Cpu:    wni.GetCpuAvailable(),
 		Memory: wni.GetMemoryAvailable(),
+		GPUs:   wni.GetGpuAvailable(),
 		CIDR:   wni.GetCIDR(),
 	}
 }

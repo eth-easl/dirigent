@@ -26,6 +26,8 @@ type WorkerNode struct {
 	// In MiB
 	MemoryUsed      uint64
 	MemoryAvailable uint64
+	// Number of GPUs attached to the node
+	GpuAvailable uint64
 
 	LastHeartbeat time.Time
 	wnConnection  proto.WorkerNodeInterfaceClient
@@ -51,6 +53,7 @@ func NewWorkerNode(workerNodeConfiguration core.WorkerNodeConfiguration) core.Wo
 		Port:            workerNodeConfiguration.Port,
 		CpuAvailable:    workerNodeConfiguration.Cpu,
 		MemoryAvailable: workerNodeConfiguration.Memory,
+		GpuAvailable:    workerNodeConfiguration.Gpu,
 		LastHeartbeat:   time.Now(),
 		endpointMap:     synchronization.NewControlPlaneSyncStructure[*core.Endpoint, string](),
 		imageSet:        synchronization.NewControlPlaneSyncStructure[string, struct{}](),
@@ -64,6 +67,7 @@ func (w *WorkerNode) GetWorkerNodeConfiguration() core.WorkerNodeConfiguration {
 		Port:   w.Port,
 		Cpu:    w.CpuAvailable,
 		Memory: w.MemoryAvailable,
+		Gpu:    w.GpuAvailable,
 		CIDR:   w.CIDR,
 	}
 }
@@ -156,6 +160,10 @@ func (w *WorkerNode) GetMemoryAvailable() uint64 {
 
 func (w *WorkerNode) GetMemoryUsed() uint64 {
 	return w.MemoryUsed
+}
+
+func (w *WorkerNode) GetGpuAvailable() uint64 {
+	return w.GpuAvailable
 }
 
 func (w *WorkerNode) GetEndpointMap() synchronization.SyncStructure[*core.Endpoint, string] {

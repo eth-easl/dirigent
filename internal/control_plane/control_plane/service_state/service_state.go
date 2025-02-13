@@ -89,6 +89,7 @@ func (ss *ServiceState) GetRequestedCpu() uint64 {
 	}
 	return maxCpu
 }
+
 func (ss *ServiceState) GetRequestedMemory() uint64 {
 	if ss.TaskInfo == nil {
 		return ss.FunctionInfo[0].RequestedMemory
@@ -103,6 +104,22 @@ func (ss *ServiceState) GetRequestedMemory() uint64 {
 	}
 	return maxMemory
 }
+
+func (ss *ServiceState) GetRequestedGpu() uint64 {
+	if ss.TaskInfo == nil {
+		return ss.FunctionInfo[0].RequestedGpu
+	}
+
+	// for task take the maximum over all task functions
+	maxGpu := uint64(0)
+	for _, fInfo := range ss.FunctionInfo {
+		if fInfo.RequestedGpu > maxGpu {
+			maxGpu = fInfo.RequestedGpu
+		}
+	}
+	return maxGpu
+}
+
 func (ss *ServiceState) GetAutoscalingConfig() *proto.AutoscalingConfiguration {
 	if ss.TaskInfo == nil {
 		return ss.FunctionInfo[0].AutoscalingConfig

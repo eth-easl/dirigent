@@ -213,7 +213,7 @@ func TestPlacementOnXKNodes(t *testing.T) {
 				defer wg.Done()
 
 				start := time.Now()
-				policy.Place(storage, images, CreateResourceMap(1, 1, ""), nil)
+				policy.Place(storage, images, CreateResourceMap(1, 1, 1, ""), nil)
 				dt := time.Since(start).Milliseconds()
 
 				mutex.Lock()

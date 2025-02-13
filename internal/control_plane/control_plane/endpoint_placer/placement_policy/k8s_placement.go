@@ -19,7 +19,7 @@ const (
 func NewKubernetesPolicy() *KubernetesPolicy {
 	return &KubernetesPolicy{
 		// TODO: Make it dynamic in the future
-		resourceMap: CreateResourceMap(1, 1, ""),
+		resourceMap: CreateResourceMap(1, 1, 1, ""),
 	}
 }
 
@@ -104,6 +104,9 @@ func ScoreBalancedAllocation(installed ResourceMap, requested ResourceMap, _ ima
 
 	for _, key := range installed.ResourceKeys() {
 		req, av := requested.GetByKey(key), installed.GetByKey(key)
+		if req == 0 || av == 0 {
+			continue
+		}
 
 		fraction := float64(req) / float64(av)
 		if fraction > 1 {
@@ -179,8 +182,9 @@ func filterMachines(storage synchronization.SyncStructure[string, core.WorkerNod
 	for key, value := range storage.GetMap() {
 		isMemoryBigEnough := value.GetMemoryAvailable() >= resourceMap.GetMemory()
 		isCpuBigEnough := value.GetCpuAvailable() >= resourceMap.GetCpu()
+		hasEnoughGPUs := value.GetGpuAvailable() >= resourceMap.GetGpu()
 
-		if !isMemoryBigEnough || !isCpuBigEnough || !value.GetSchedulability() {
+		if !isMemoryBigEnough || !isCpuBigEnough || !hasEnoughGPUs || !value.GetSchedulability() {
 			continue
 		}
 
@@ -196,11 +200,11 @@ func filterMachines(storage synchronization.SyncStructure[string, core.WorkerNod
 }
 
 func getInstalledResources(machine core.WorkerNodeInterface) *ResourceMap {
-	return CreateResourceMap(machine.GetCpuAvailable(), machine.GetMemoryAvailable(), "")
+	return CreateResourceMap(machine.GetCpuAvailable(), machine.GetMemoryAvailable(), machine.GetGpuAvailable(), "")
 }
 
 func getRequestedResources(machine core.WorkerNodeInterface, request *ResourceMap) *ResourceMap {
-	currentUsage := CreateResourceMap(machine.GetCpuUsed(), machine.GetCpuAvailable(), request.GetImage())
+	currentUsage := CreateResourceMap(machine.GetCpuUsed(), machine.GetCpuAvailable(), 0, request.GetImage())
 	return SumResources(currentUsage, request)
 }
 
