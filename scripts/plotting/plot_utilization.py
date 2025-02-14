@@ -96,14 +96,14 @@ def plot_experiment(experiment_name, input_folder, column):
     ax2.step(worker_df['minute'], worker_df[column], label=experiment_name, where='post')
 
 
-for column in [' CPUUtilization', ' memoryUtilization ']:
+for column in ['CPUUtilization', 'MEMUtilization']:
     fig, (ax1, ax2) = plt.subplots(2, 1, sharex=True, figsize=(8, 6))
 
     plot_experiment("Knative", input_folder_knative, column=column)
     plot_experiment("Dirigent", input_folder_dirigent, column=column)
 
     ax1.set_title("Master Nodes")
-    if column == ' CPUUtilization':
+    if column == 'CPUUtilization':
         ax1.set_ylabel("CPU Utilization [%]")
     else:
         ax1.set_ylabel("Memory Utilization [%]")
@@ -114,7 +114,7 @@ for column in [' CPUUtilization', ' memoryUtilization ']:
 
     ax2.set_title("Worker Nodes")
 
-    if column == ' CPUUtilization':
+    if column == 'CPUUtilization':
         ax2.set_ylabel("CPU Utilization [%]")
     else:
         ax2.set_ylabel("Memory Utilization [%]")
