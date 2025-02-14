@@ -5,7 +5,7 @@ import time
 def write_utilization_to_csv():
     with open("utilization.csv", "w") as file:
         # Write the CSV header
-        file.write("Timestamp, CPUUtilization, memoryUtilization \n")
+        file.write("Timestamp,CPUUtilization,MEMUtilization\n")
 
     while True:
         # Get the current Unix timestamp
@@ -19,7 +19,7 @@ def write_utilization_to_csv():
 
         # Append the utilization data to the CSV file
         with open("utilization.csv", "a") as file:
-            file.write(f"{timestamp}, {cpu_percent}, {memory_percent}\n")
+            file.write(f"{timestamp},{cpu_percent},{memory_percent}\n")
 
         time.sleep(1)  # Sleep for 1 second
 
