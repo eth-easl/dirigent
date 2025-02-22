@@ -12,8 +12,8 @@
     at <a href="https://ethz.ch/"><strong>ETH Zürich</strong></a>
   </p>
 
-[![GitHub Workflow Status](https://github.com/eth-easl/modyn/actions/workflows/workflow.yaml/badge.svg)](https://github.com/eth-easl/modyn/actions/workflows/workflow.yaml)
-[![License](https://img.shields.io/github/license/eth-easl/modyn)](https://img.shields.io/github/license/eth-easl/modyn)
+[![GitHub Workflow Status](https://github.com/eth-easl/dirigent/actions/workflows/workflow.yaml/badge.svg)](https://github.com/eth-easl/modyn/actions/workflows/workflow.yaml)
+[![License](https://img.shields.io/github/license/eth-easl/dirigent)](https://img.shields.io/github/license/eth-easl/dirigent)
 
 ---
   <p>Dirigent is a lightweight cluster manager for FaaS that aims to solve performance issues of existing FaaS platforms. It is a clean-slate system architecture for FaaS orchestration based on three key principles. First, Dirigent optimizes internal cluster manager abstractions to simplify state management. Second, it eliminates persistent state updates on the critical path of function invocations, leveraging the fact that FaaS abstracts sandboxes from users to relax exact state reconstruction guarantees. Finally, Dirigent runs monolithic control and data planes to minimize internal communication overheads and maximize throughput. The architecture of Dirigent is shown on the picture below. Our performance study reveals that compared to current state-of-the-art platforms Dirigent reduces 99th percentile per-function scheduling latency for a production workload by 2.79x compared to AWS Lambda and can spin up 2500 sandboxes per second at low latency, which is 1250x more than with Knative.
