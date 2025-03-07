@@ -174,6 +174,8 @@ func (d *Dataplane) GetProxyServer(async bool) (proxy.Proxy, error) {
 			d.deployments,
 			cpApi,
 			path.Join(d.config.TraceOutputFolder, "proxy_trace.csv"),
+			path.Join(d.config.TraceOutputFolder, "task_trace.csv"),
+			path.Join(d.config.TraceOutputFolder, "workflow_trace.csv"),
 			loadBalancingPolicy,
 		), nil
 	} else {
@@ -182,6 +184,8 @@ func (d *Dataplane) GetProxyServer(async bool) (proxy.Proxy, error) {
 			d.deployments,
 			cpApi,
 			path.Join(d.config.TraceOutputFolder, "proxy_trace.csv"),
+			path.Join(d.config.TraceOutputFolder, "task_trace.csv"),
+			path.Join(d.config.TraceOutputFolder, "workflow_trace.csv"),
 			loadBalancingPolicy,
 		), nil
 	}

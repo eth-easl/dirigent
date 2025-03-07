@@ -5,6 +5,7 @@ import (
 	"cluster_manager/pkg/config"
 	"context"
 	"github.com/sirupsen/logrus"
+	"time"
 )
 
 type SchedulerType int
@@ -26,10 +27,16 @@ func SchedulerTypeFromString(s string) SchedulerType {
 	}
 }
 
+type SchedulingSummary struct {
+	Startup    time.Duration
+	Scheduling time.Duration
+	Execution  time.Duration
+}
+
 type ScheduleTaskFunc func(*workflow.TaskOrchestrator, *workflow.SchedulerTask, context.Context) error
 
 type Scheduler interface {
-	Schedule(ScheduleTaskFunc, []*workflow.Data, *config.DataPlaneConfig, context.Context) error
+	Schedule(ScheduleTaskFunc, []*workflow.Data, *config.DataPlaneConfig, context.Context) (*SchedulingSummary, error)
 	CollectOutput() ([]*workflow.Data, error)
 }
 

@@ -35,7 +35,9 @@ type proxyContext struct {
 	cpInterface         proto.CpiInterfaceClient
 	loadBalancingPolicy load_balancing.LoadBalancingPolicy
 
-	tracing *tracing.TracingService[tracing.ProxyLogEntry]
+	tracing       *tracing.TracingService[tracing.ProxyLogEntry]
+	wfTracing     *tracing.TracingService[tracing.WorkflowLogEntry]
+	wfTaskTracing *tracing.TracingService[tracing.TaskLogEntry]
 
 	incomingRequestChannel chan string
 	doneRequestChannel     chan metrics_collection.DurationInvocation
@@ -153,6 +155,7 @@ func handleFunction(proxy *httputil.ReverseProxy, writer http.ResponseWriter, re
 
 func scheduleWorkflowFunction(httpClient *http.Client, proxyCtx *proxyContext) scheduler.ScheduleTaskFunc {
 	return func(orchestrator *workflow.TaskOrchestrator, schedulerTask *workflow.SchedulerTask, ctx context.Context) error {
+		startTime := time.Now()
 		task := schedulerTask.GetTask()
 		var serviceName string
 		if len(task.Functions) > 1 {
@@ -162,21 +165,25 @@ func scheduleWorkflowFunction(httpClient *http.Client, proxyCtx *proxyContext) s
 		}
 
 		// metadata fetching
-		metadata, _ := proxyCtx.cache.GetServiceMetadata(serviceName)
+		metadata, durationGetMetadata := proxyCtx.cache.GetServiceMetadata(serviceName)
 		if metadata == nil {
 			return fmt.Errorf("no deployment found for function '%s'", serviceName)
 		}
 
 		// cold/warm start
-		coldStartChannel, _ := metadata.TryWarmStart(proxyCtx.cpInterface)
+		coldStartChannel, durationColdStart := metadata.TryWarmStart(proxyCtx.cpInterface)
+		addDeploymentDuration := time.Duration(0)
 		defer metadata.GetStatistics().DecrementInflight()
 		go contextTerminationHandler(ctx, coldStartChannel)
 		if coldStartChannel != nil {
 			logrus.Debug("Enqueued invocation for ", serviceName)
 
 			// wait until a cold start is resolved
+			coldStartWaitTime := time.Now()
 			waitOutcome := <-coldStartChannel
 			metadata.GetStatistics().DecrementQueueDepth()
+			durationColdStart = time.Since(coldStartWaitTime) - waitOutcome.AddEndpointDuration
+			addDeploymentDuration = waitOutcome.AddEndpointDuration
 
 			// TODO: Resend the request in the channel & execute until it works
 			if waitOutcome.Outcome == common.CanceledColdStart {
@@ -195,7 +202,7 @@ func scheduleWorkflowFunction(httpClient *http.Client, proxyCtx *proxyContext) s
 		}
 
 		// load balancing and routing
-		endpoint, _, _ := load_balancing.DoLoadBalancing(funcReq, metadata, proxyCtx.loadBalancingPolicy)
+		endpoint, durationLB, durationCC := load_balancing.DoLoadBalancing(funcReq, metadata, proxyCtx.loadBalancingPolicy)
 		if endpoint == nil {
 			return fmt.Errorf("cold start passed, but no sandbox available for '%s'", serviceName)
 		}
@@ -203,6 +210,7 @@ func scheduleWorkflowFunction(httpClient *http.Client, proxyCtx *proxyContext) s
 		defer giveBackCCCapacity(endpoint)
 
 		// execute the request
+		proxyStartTime := time.Now()
 		resp, err := httpClient.Do(funcReq)
 		if err != nil {
 			return fmt.Errorf("HTTP client call for '%s' failed (%v)", serviceName, err)
@@ -222,7 +230,7 @@ func scheduleWorkflowFunction(httpClient *http.Client, proxyCtx *proxyContext) s
 		}
 
 		// collect data and update the task orchestrator
-		outData, err := workflow.DeserializeResponseToData(respBody)
+		outData, timestamps, err := workflow.DeserializeResponseToData(respBody)
 		if err != nil {
 			return err
 		}
@@ -231,18 +239,37 @@ func scheduleWorkflowFunction(httpClient *http.Client, proxyCtx *proxyContext) s
 			return err
 		}
 
+		// log timings
+		logEntry := tracing.TaskLogEntry{
+			TaskName:     serviceName,
+			ContainerUrl: endpoint.URL,
+
+			StartTime:     startTime,
+			Total:         time.Since(startTime),
+			GetMetadata:   durationGetMetadata,
+			AddDeployment: addDeploymentDuration,
+			StartWorker:   durationColdStart,
+			LoadBalancing: durationLB,
+			CCThrottling:  durationCC,
+			Execution:     time.Since(proxyStartTime),
+
+			DandelionTraces: timestamps,
+		}
+		proxyCtx.wfTaskTracing.InputChannel <- logEntry
+
 		metadata.GetStatistics().IncrementSuccessfulInvocations()
 
 		return nil
 	}
 }
 
-func handleWorkflow(writer http.ResponseWriter, request *http.Request, wf *workflow.Workflow, proxyCtx *proxyContext, dpConfig *config.DataPlaneConfig) *requests.BufferedResponse {
+func handleWorkflow(writer http.ResponseWriter, request *http.Request, wf *workflow.Workflow, proxyCtx *proxyContext, dpConfig *config.DataPlaneConfig) (*tracing.WorkflowLogEntry, *requests.BufferedResponse) {
 	// parse request
+	preparationStart := time.Now()
 	err := request.ParseForm()
 	if err != nil {
-		logrus.Errorf("Error parsing request form: %v", err)
-		return &requests.BufferedResponse{
+		logrus.Warnf("Error parsing request form: %v", err)
+		return nil, &requests.BufferedResponse{
 			StatusCode: http.StatusBadRequest,
 			Body:       "Failed to parse workflow request.",
 		}
@@ -255,8 +282,8 @@ func handleWorkflow(writer http.ResponseWriter, request *http.Request, wf *workf
 	if len(reqSchedulerType) > 0 {
 		schedulerType = scheduler.SchedulerTypeFromString(reqSchedulerType)
 		if schedulerType == scheduler.Invalid {
-			logrus.Errorf("Invalid scheduler type '%s' in request.", reqSchedulerType)
-			return &requests.BufferedResponse{
+			logrus.Warnf("Invalid scheduler type '%s' in request.", reqSchedulerType)
+			return nil, &requests.BufferedResponse{
 				StatusCode: http.StatusBadRequest,
 				Body:       fmt.Sprintf("Invalid scheduler type '%s'.", reqSchedulerType),
 			}
@@ -265,7 +292,7 @@ func handleWorkflow(writer http.ResponseWriter, request *http.Request, wf *workf
 		schedulerType = scheduler.SchedulerTypeFromString(dpConfig.WorkflowDefaultScheduler)
 		if schedulerType == scheduler.Invalid {
 			logrus.Errorf("Invalid default scheduler type '%s'.", dpConfig.WorkflowDefaultScheduler)
-			return &requests.BufferedResponse{
+			return nil, &requests.BufferedResponse{
 				StatusCode: http.StatusInternalServerError,
 				Body:       "Invalid default scheduler type.",
 			}
@@ -275,30 +302,42 @@ func handleWorkflow(writer http.ResponseWriter, request *http.Request, wf *workf
 	// prepare workflow input
 	inData, err := workflow.DeserializeRequestToData([]byte(input))
 	if err != nil {
-		logrus.Errorf("Invalid workflow request (failed to deserialize input data): %v.", err)
-		return &requests.BufferedResponse{
+		logrus.Warnf("Invalid workflow request (failed to deserialize input data): %v.", err)
+		return nil, &requests.BufferedResponse{
 			StatusCode: http.StatusBadRequest,
 			Body:       fmt.Sprintf("Invalid workflow request (failed to deserialize input data): %v.", err),
 		}
 	}
+	if uint32(len(inData)) != wf.NumIn {
+		logrus.Warnf("Invalid workflow request: expected %d inputs, got %d.", wf.NumIn, len(inData))
+		return nil, &requests.BufferedResponse{
+			StatusCode: http.StatusBadRequest,
+			Body:       fmt.Sprintf("Invalid workflow request: expected %d inputs, got %d.", wf.NumIn, len(inData)),
+		}
+	}
+	preparationDuration := time.Since(preparationStart)
 
 	// schedule workflow
+	executionStart := time.Now()
+	var schedulingSummary *scheduler.SchedulingSummary
 	httpClient := &http.Client{Timeout: 10 * time.Second}
 	wfScheduler := scheduler.NewScheduler(wf, schedulerType)
-	err = wfScheduler.Schedule(scheduleWorkflowFunction(httpClient, proxyCtx), inData, dpConfig, request.Context())
+	schedulingSummary, err = wfScheduler.Schedule(scheduleWorkflowFunction(httpClient, proxyCtx), inData, dpConfig, request.Context())
 	if err != nil {
 		logrus.Errorf("Failed while executing workflow %s: %v", wf.Name, err)
-		return &requests.BufferedResponse{
+		return nil, &requests.BufferedResponse{
 			StatusCode: http.StatusInternalServerError,
 			Body:       "Failed to execute workflow.",
 		}
 	}
+	executionDuration := time.Since(executionStart)
 
 	// collect workflow output
+	finalizeStart := time.Now()
 	outData, err := wfScheduler.CollectOutput()
 	if err != nil {
 		logrus.Errorf("Failed to collect output of workflow %s: %v", wf.Name, err)
-		return &requests.BufferedResponse{
+		return nil, &requests.BufferedResponse{
 			StatusCode: http.StatusInternalServerError,
 			Body:       "Failed to collect workflow output.",
 		}
@@ -308,7 +347,7 @@ func handleWorkflow(writer http.ResponseWriter, request *http.Request, wf *workf
 	outBody, err := workflow.GetResponseBody(outData)
 	if err != nil {
 		logrus.Errorf("Failed create response body for workflow %s: %v", wf.Name, err)
-		return &requests.BufferedResponse{
+		return nil, &requests.BufferedResponse{
 			StatusCode: http.StatusInternalServerError,
 			Body:       "Failed create response body.",
 		}
@@ -319,10 +358,17 @@ func handleWorkflow(writer http.ResponseWriter, request *http.Request, wf *workf
 	if err != nil {
 		logrus.Errorf("Failed write response body for workflow %s: %v", wf.Name, err)
 	}
-	return &requests.BufferedResponse{
-		StatusCode: http.StatusOK,
-		Body:       string(outBody),
-	}
+	return &tracing.WorkflowLogEntry{
+			ServiceName:         wf.Name,
+			Preparation:         preparationDuration,
+			Execution:           executionDuration,
+			Finalize:            time.Since(finalizeStart),
+			SchedulerStartup:    schedulingSummary.Startup,
+			SchedulerScheduling: schedulingSummary.Scheduling,
+		}, &requests.BufferedResponse{
+			StatusCode: http.StatusOK,
+			Body:       string(outBody),
+		}
 }
 
 func proxyHandler(proxy *httputil.ReverseProxy, writer http.ResponseWriter, request *http.Request, requestMetadata requestMetadata, proxyContext proxyContext, dpConfig *config.DataPlaneConfig) *requests.BufferedResponse {
@@ -371,8 +417,21 @@ func proxyHandler(proxy *httputil.ReverseProxy, writer http.ResponseWriter, requ
 			proxyContext.tracing.InputChannel <- *logEntry
 		}
 	case service_metadata.Workflow:
+		// handle workflow invocation
 		logrus.Tracef("Invocation for workflow '%s' has been received.", serviceName)
-		resp = handleWorkflow(writer, request, deployment.GetWorkflow(), &proxyContext, dpConfig)
+		var logEntry *tracing.WorkflowLogEntry
+		logEntry, resp = handleWorkflow(writer, request, deployment.GetWorkflow(), &proxyContext, dpConfig)
+
+		// extend log entry and send it to the tracing service
+		if resp.StatusCode == http.StatusOK {
+			logEntry.GetMetadata = durationGetDeployment
+			logEntry.StartTime = requestMetadata.start
+			logEntry.Total = time.Since(requestMetadata.start)
+			logEntry.Serialization = requestMetadata.serialization
+			logEntry.PersistenceLayer = requestMetadata.persistenceLayer
+
+			proxyContext.wfTracing.InputChannel <- *logEntry
+		}
 	default:
 		resp = &requests.BufferedResponse{
 			StatusCode: http.StatusInternalServerError,

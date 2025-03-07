@@ -14,6 +14,8 @@ import (
 const (
 	coldStartLogHeader = "time,service_name,container_id,event,success,image_fetch,sandbox_create,sandbox_start,network_setup,iptables,readiness_probe,data_plane_propagation,snapshot_creation,configure_monitoring,find_snapshot,db,other_worker_node\n"
 	proxyLogHeader     = "time,service_name,container_id,start_time,get_metadata,add_deployment,cold_start,load_balancing,cc_throttling,proxying,serialization,persistence_layer,other\n"
+	taskLogHeader      = "time,task_name,container_url,start_time,total,get_metadata,add_deployment,start_worker,load_balancing,cc_throttling,execution,other,dandelion_traces\n"
+	workflowLogHeader  = "time,service_name,start_time,total,get_metadata,preparation,execution,finalize,other,scheduler_startup,scheduler_scheduling,scheduler_executing,persistence_layer,serialization\n"
 )
 
 type ColdStartLogEntry struct {
@@ -39,6 +41,41 @@ type ProxyLogEntry struct {
 	CCThrottling  time.Duration
 	Proxying      time.Duration
 
+	PersistenceLayer time.Duration
+	Serialization    time.Duration
+}
+
+type TaskLogEntry struct {
+	TaskName     string // name of the task that is invoked
+	ContainerUrl string // url of the worker chosen to run the task
+
+	StartTime     time.Time     // timestamp when the invocation is received
+	Total         time.Duration // end-to-end time spent working the task invocation
+	GetMetadata   time.Duration // time spent fetching the service metadata
+	AddDeployment time.Duration // time spent to register the task on the worker
+	StartWorker   time.Duration // time spent to find a worker to execute the task
+	LoadBalancing time.Duration // time spent load balancing
+	CCThrottling  time.Duration // time spent concurrency throttling
+	Execution     time.Duration // time from when the request is sent to the worker until a response is received
+
+	DandelionTraces string // traces returned from the dandelion worker
+}
+
+type WorkflowLogEntry struct {
+	ServiceName string // name of the service (workflow) that is invoked
+
+	StartTime   time.Time     // timestamp when the invocation is received
+	Total       time.Duration // end-to-end time spent working the workflow request
+	GetMetadata time.Duration // time spent fetching the service metadata
+	Preparation time.Duration // duration from starting to parse the request until execution starts
+	Execution   time.Duration // end-to-end time executing the workflow
+	Finalize    time.Duration // duration from the end of the execution until the response is ready to be returned
+
+	SchedulerStartup    time.Duration // time spent setting up the scheduler
+	SchedulerScheduling time.Duration // time spent deciding which task(s) to run next
+	SchedulerExecuting  time.Duration // time spent in the scheduleTask function
+
+	// async handler traces
 	PersistenceLayer time.Duration
 	Serialization    time.Duration
 }
@@ -102,6 +139,23 @@ func NewProxyTracingService(outputFile string) *TracingService[ProxyLogEntry] {
 	}
 }
 
+func NewTaskTracingService(outputFile string) *TracingService[TaskLogEntry] {
+	return &TracingService[TaskLogEntry]{
+		OutputFile:    outputFile,
+		InputChannel:  make(chan TaskLogEntry, 10000),
+		Header:        taskLogHeader,
+		WriteFunction: taskWriteFunction,
+	}
+}
+
+func NewWorkflowTracingService(outputFile string) *TracingService[WorkflowLogEntry] {
+	return &TracingService[WorkflowLogEntry]{
+		OutputFile:    outputFile,
+		InputChannel:  make(chan WorkflowLogEntry, 10000),
+		Header:        workflowLogHeader,
+		WriteFunction: workflowWriteFunction,
+	}
+}
 func CreateFileIfNotExist(path string) *os.File {
 	directory := filepath.Dir(path)
 	if _, err := os.Stat(directory); os.IsNotExist(err) {
@@ -172,6 +226,51 @@ func proxyWriteFunction(f *os.File, msg ProxyLogEntry) {
 		msg.Serialization.Microseconds(),
 		msg.PersistenceLayer.Microseconds(),
 		other.Microseconds(),
+	)); err != nil {
+		logrus.Errorf("Failed to write to file : %s", err.Error())
+	}
+}
+
+func taskWriteFunction(f *os.File, msg TaskLogEntry) {
+	other := msg.Total - (msg.GetMetadata + msg.AddDeployment + msg.StartWorker + msg.LoadBalancing + msg.CCThrottling + msg.Execution)
+
+	if _, err := f.WriteString(fmt.Sprintf("%d,%s,%s,%d,%d,%d,%d,%d,%d,%d,%d,%d,\"%s\"\n",
+		time.Now().UnixNano(),
+		msg.TaskName,
+		msg.ContainerUrl,
+		msg.StartTime.UnixNano(),
+		msg.Total.Microseconds(),
+		msg.GetMetadata.Microseconds(),
+		msg.AddDeployment.Microseconds(),
+		msg.StartWorker.Microseconds(),
+		msg.LoadBalancing.Microseconds(),
+		msg.CCThrottling.Microseconds(),
+		msg.Execution.Microseconds(),
+		other.Microseconds(),
+		msg.DandelionTraces,
+	)); err != nil {
+		logrus.Errorf("Failed to write to file : %s", err.Error())
+	}
+}
+
+func workflowWriteFunction(f *os.File, msg WorkflowLogEntry) {
+	other := msg.Total - (msg.GetMetadata + msg.Preparation + msg.Execution + msg.Finalize)
+
+	if _, err := f.WriteString(fmt.Sprintf("%d,%s,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d\n",
+		time.Now().UnixNano(),
+		msg.ServiceName,
+		msg.StartTime.UnixNano(),
+		msg.Total.Microseconds(),
+		msg.GetMetadata.Microseconds(),
+		msg.Preparation.Microseconds(),
+		msg.Execution.Microseconds(),
+		msg.Finalize.Microseconds(),
+		other.Microseconds(),
+		msg.SchedulerStartup.Microseconds(),
+		msg.SchedulerScheduling.Microseconds(),
+		msg.SchedulerExecuting.Microseconds(),
+		msg.PersistenceLayer.Microseconds(),
+		msg.Serialization.Microseconds(),
 	)); err != nil {
 		logrus.Errorf("Failed to write to file : %s", err.Error())
 	}

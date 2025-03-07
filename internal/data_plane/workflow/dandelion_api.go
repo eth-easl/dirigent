@@ -65,7 +65,8 @@ type RequestBody struct {
 	Sets []InputSet `bson:"sets"`
 }
 type ResponseBody struct {
-	Sets []InputSet `bson:"sets"`
+	Sets       []InputSet `bson:"sets"`
+	Timestamps string     `bson:"timestamps"`
 }
 
 func InvocationBody(funcName string, data []*Data) ([]byte, error) {
@@ -83,6 +84,9 @@ func InvocationBody(funcName string, data []*Data) ([]byte, error) {
 			if len(s.Items) > 0 {
 				for itmIdx, itm := range s.Items {
 					logrus.Tracef("input set %d, item, %d -> size=%d", i, itmIdx, len(itm.Data))
+					if len(itm.Data) < 120 { // only print data content of small sets to not overfill the log
+						logrus.Tracef("  -> data: %s", string(itm.Data))
+					}
 				}
 			} else {
 				logrus.Tracef("input set %d -> empty", i)
@@ -112,7 +116,7 @@ func GetResponseBody(outData []*Data) ([]byte, error) {
 		}
 		outSets[i] = *set
 	}
-	request := ResponseBody{outSets}
+	request := ResponseBody{outSets, ""}
 
 	reqBody, err := bson.Marshal(request)
 	if err != nil {
@@ -141,15 +145,17 @@ func DeserializeRequestToData(reqData []byte) ([]*Data, error) {
 	return outData, nil
 }
 
-func DeserializeResponseToData(respData []byte) ([]*Data, error) {
+func DeserializeResponseToData(respData []byte) ([]*Data, string, error) {
 	var respBody ResponseBody
 	err := bson.Unmarshal(respData, &respBody)
 	if err != nil {
-		return nil, fmt.Errorf("error deserializing response body - %v", err)
+		return nil, "", fmt.Errorf("error deserializing response body - %v", err)
 	}
 
+	timestamps := respBody.Timestamps
+
 	if len(respBody.Sets) == 0 {
-		return []*Data{}, nil
+		return []*Data{}, timestamps, nil
 	}
 
 	// expect stdio as last set if it is part of the output by dandelion
@@ -157,7 +163,15 @@ func DeserializeResponseToData(respData []byte) ([]*Data, error) {
 	lastSet := respBody.Sets[len(respBody.Sets)-1]
 	if lastSet.Identifier == "stdio" {
 		for _, itm := range lastSet.Items {
-			logrus.Debugf("stdio output (%s):\n%s\n", itm.Identifier, itm.Data)
+			if itm.Identifier == "stderr" && len(itm.Data) > 0 {
+				logrus.Warnf("Invocation returned error (stderr):\n%s", itm.Data)
+			} else {
+				msg := " empty"
+				if len(itm.Data) > 0 {
+					msg = "\n" + string(itm.Data)
+				}
+				logrus.Debugf("Invocation returned output (%s):%s", itm.Identifier, msg)
+			}
 		}
 		respSets = respSets[:len(respSets)-1]
 	}
@@ -167,5 +181,5 @@ func DeserializeResponseToData(respData []byte) ([]*Data, error) {
 		outData[i] = NewDandelionData(set)
 	}
 
-	return outData, nil
+	return outData, timestamps, nil
 }

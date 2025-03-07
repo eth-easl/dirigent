@@ -8,7 +8,9 @@ import (
 
 type Proxy interface {
 	StartProxyServer()
-	StartTracingService()
+	StartProxyTracingService()
+	StartTaskTracingService()
+	StartWorkflowTracingService()
 
 	GetCpApiServer() proto.CpiInterfaceClient
 	SetCpApiServer(client proto.CpiInterfaceClient)

@@ -81,6 +81,8 @@ type DandelionConfig struct {
 	BinaryPath             string `mapstructure:"binaryPath"`
 	EngineType             string `mapstructure:"engineType"`
 	LogFunctionStdioOutset bool   `mapstructure:"logFunctionStdioOutset"`
+	// TODO: experimental until dandelion supports passing the data between invocations
+	AddOperatorLoadAndStore bool `mapstructure:"addOperatorLoadAndStore"`
 }
 
 type RedisConf struct {

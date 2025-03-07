@@ -42,7 +42,9 @@ func main() {
 		logrus.Fatalf("Failed to start proxy server (error : %s)", err.Error())
 	}
 
-	go proxyServer.StartTracingService()
+	go proxyServer.StartProxyTracingService()
+	go proxyServer.StartTaskTracingService()
+	go proxyServer.StartWorkflowTracingService()
 	go proxyServer.StartProxyServer()
 
 	go dataPlane.SetupHeartbeatLoop(proxyServer)

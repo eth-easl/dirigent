@@ -43,7 +43,7 @@ func (ps *AsyncProxyingService) SetCpApiServer(client proto.CpiInterfaceClient) 
 	ps.Context.cpInterface = client
 }
 
-func NewAsyncProxyingService(cfg config.DataPlaneConfig, cache *service_metadata.Deployments, cp proto.CpiInterfaceClient, outputFile string, loadBalancingPolicy load_balancing.LoadBalancingPolicy) *AsyncProxyingService {
+func NewAsyncProxyingService(cfg config.DataPlaneConfig, cache *service_metadata.Deployments, cp proto.CpiInterfaceClient, funcTraceFile string, wfTaskTraceFile string, wfTraceFile string, loadBalancingPolicy load_balancing.LoadBalancingPolicy) *AsyncProxyingService {
 	var persistenceLayer rp.RequestPersistence
 	var err error
 
@@ -67,7 +67,9 @@ func NewAsyncProxyingService(cfg config.DataPlaneConfig, cache *service_metadata
 				cpInterface:         cp,
 				loadBalancingPolicy: loadBalancingPolicy,
 
-				tracing: tracing.NewProxyTracingService(outputFile),
+				tracing:       tracing.NewProxyTracingService(funcTraceFile),
+				wfTaskTracing: tracing.NewTaskTracingService(wfTaskTraceFile),
+				wfTracing:     tracing.NewWorkflowTracingService(wfTraceFile),
 
 				incomingRequestChannel: incomingRequestChannel,
 				doneRequestChannel:     doneRequestChannel,
@@ -125,8 +127,16 @@ func (ps *AsyncProxyingService) StartProxyServer() {
 	ps.submitBufferedRequests()
 }
 
-func (ps *AsyncProxyingService) StartTracingService() {
+func (ps *AsyncProxyingService) StartProxyTracingService() {
 	ps.Context.tracing.StartTracingService()
+}
+
+func (ps *AsyncProxyingService) StartTaskTracingService() {
+	ps.Context.wfTaskTracing.StartTracingService()
+}
+
+func (ps *AsyncProxyingService) StartWorkflowTracingService() {
+	ps.Context.wfTracing.StartTracingService()
 }
 
 func (ps *AsyncProxyingService) createAsyncInvocationHandler() http.HandlerFunc {

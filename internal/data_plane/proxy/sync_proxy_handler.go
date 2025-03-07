@@ -18,7 +18,7 @@ type SyncProxyingService struct {
 	ProxyingService
 }
 
-func NewProxyingService(cfg config.DataPlaneConfig, cache *service_metadata.Deployments, cp proto.CpiInterfaceClient, outputFile string, loadBalancingPolicy load_balancing.LoadBalancingPolicy) *SyncProxyingService {
+func NewProxyingService(cfg config.DataPlaneConfig, cache *service_metadata.Deployments, cp proto.CpiInterfaceClient, funcTracingFile string, wfTaskTracingFile string, wfTracingFile string, loadBalancingPolicy load_balancing.LoadBalancingPolicy) *SyncProxyingService {
 	incomingRequestChannel, doneRequestChannel := metrics_collection.NewMetricsCollector(cfg.ControlPlaneNotifyIntervalInMinutes, cp)
 
 	return &SyncProxyingService{
@@ -30,7 +30,9 @@ func NewProxyingService(cfg config.DataPlaneConfig, cache *service_metadata.Depl
 				cpInterface:         cp,
 				loadBalancingPolicy: loadBalancingPolicy,
 
-				tracing:                tracing.NewProxyTracingService(outputFile),
+				tracing:                tracing.NewProxyTracingService(funcTracingFile),
+				wfTaskTracing:          tracing.NewTaskTracingService(wfTaskTracingFile),
+				wfTracing:              tracing.NewWorkflowTracingService(wfTracingFile),
 				incomingRequestChannel: incomingRequestChannel,
 				doneRequestChannel:     doneRequestChannel,
 			},
@@ -52,8 +54,16 @@ func (sps *SyncProxyingService) StartProxyServer() {
 	startProxy(sps.createInvocationHandler(), sps.Context, sps.Host, sps.Port)
 }
 
-func (sps *SyncProxyingService) StartTracingService() {
+func (sps *SyncProxyingService) StartProxyTracingService() {
 	sps.Context.tracing.StartTracingService()
+}
+
+func (sps *SyncProxyingService) StartTaskTracingService() {
+	sps.Context.wfTaskTracing.StartTracingService()
+}
+
+func (sps *SyncProxyingService) StartWorkflowTracingService() {
+	sps.Context.wfTracing.StartTracingService()
 }
 
 func (sps *SyncProxyingService) createInvocationHandler() http.HandlerFunc {

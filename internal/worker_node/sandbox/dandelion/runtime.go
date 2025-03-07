@@ -107,11 +107,11 @@ func (dr *Runtime) registerService(path string, reqBson *bson.D) error {
 func shardingStr(s uint32) string {
 	switch s {
 	case 1:
-		return ":keyed "
+		return "keyed"
 	case 2:
-		return ":each "
+		return "each"
 	default:
-		return "" // empty is equal to :all
+		return "all"
 	}
 }
 func exportFunctionComposition(task *proto.WorkflowTaskInfo) string {
@@ -133,17 +133,17 @@ func exportFunctionComposition(task *proto.WorkflowTaskInfo) string {
 			for i := int32(0); i < task.FunctionInNum[fIdx]; i++ {
 				declIn += fmt.Sprintf("in%d", i)
 				if i != task.FunctionInNum[fIdx]-1 {
-					declIn += " "
+					declIn += ", "
 				}
 			}
 			declOut := ""
 			for i := int32(0); i < task.FunctionOutNum[fIdx]; i++ {
 				declOut += fmt.Sprintf("out%d", i)
 				if i != task.FunctionOutNum[fIdx]-1 {
-					declOut += " "
+					declOut += ", "
 				}
 			}
-			funDecls += fmt.Sprintf("(:function %s (%s) -> (%s))", f, declIn, declOut)
+			funDecls += fmt.Sprintf("function %s (%s) => (%s);", f, declIn, declOut)
 			funDeclared = append(funDeclared, f)
 		}
 
@@ -156,22 +156,22 @@ func exportFunctionComposition(task *proto.WorkflowTaskInfo) string {
 			dfIdx += 2
 			shIdx++
 			if srcFIdx == -1 {
-				applIn += fmt.Sprintf("(%sin%d <- cIn%d)", srcSharding, inIdx, srcFDataIdx)
+				applIn += fmt.Sprintf("in%d = %s cIn%d", inIdx, srcSharding, srcFDataIdx)
 			} else {
-				applIn += fmt.Sprintf("(%sin%d <- f%dd%d)", srcSharding, inIdx, srcFIdx, srcFDataIdx)
+				applIn += fmt.Sprintf("in%d = %s f%dd%d", inIdx, srcSharding, srcFIdx, srcFDataIdx)
 			}
 			if inIdx != task.FunctionInNum[fIdx]-1 {
-				applIn += " "
+				applIn += ", "
 			}
 		}
 		applOut := ""
 		for outIdx := int32(0); outIdx < task.FunctionOutNum[fIdx]; outIdx++ {
-			applOut += fmt.Sprintf("(f%dd%d := out%d)", fIdx, outIdx, outIdx)
+			applOut += fmt.Sprintf("f%dd%d = out%d", fIdx, outIdx, outIdx)
 			if outIdx != task.FunctionOutNum[fIdx]-1 {
-				applOut += " "
+				applOut += ", "
 			}
 		}
-		funAppls += fmt.Sprintf("(%s (%s) => (%s))", f, applIn, applOut)
+		funAppls += fmt.Sprintf("%s (%s) => (%s);", f, applIn, applOut)
 
 		if fIdx != len(task.Functions)-1 {
 			funAppls += " "
@@ -183,7 +183,7 @@ func exportFunctionComposition(task *proto.WorkflowTaskInfo) string {
 	for inIdx := uint32(0); inIdx < task.NumIn; inIdx++ {
 		compIn += fmt.Sprintf("cIn%d", inIdx)
 		if inIdx != task.NumIn-1 {
-			compIn += " "
+			compIn += ", "
 		}
 	}
 
@@ -195,14 +195,179 @@ func exportFunctionComposition(task *proto.WorkflowTaskInfo) string {
 		dfIdx += 2
 		compOut += fmt.Sprintf("f%dd%d", srcFIdx, srcFDataIdx)
 		if outIdx != task.NumOut-1 {
-			compOut += " "
+			compOut += ", "
 		}
 	}
 
-	return fmt.Sprintf("%s(:composition %s (%s) -> (%s) (%s))", funDecls, task.Name, compIn, compOut, funAppls)
+	return fmt.Sprintf("%s composition %s (%s) => (%s) {%s}", funDecls, task.Name, compIn, compOut, funAppls)
 }
 
-func (dr *Runtime) CreateSandbox(_ context.Context, in *proto.ServiceInfo) (*proto.SandboxCreationStatus, error) {
+// NOTE: may be removed again once dandelion supports passing the data between invocations
+func addOperatorReadStore(operator string, withStdio bool) (string, string) {
+	stdioOpDecl := ""
+	stdioOpCall := ""
+	stdioCompDef := ""
+	if withStdio {
+		stdioOpDecl = ", stdio"
+		stdioOpCall = ", stdioOut = stdio"
+		stdioCompDef = ", stdioOut"
+	}
+
+	var outComposition string
+	switch operator {
+	case "csv_reader":
+		outComposition = fmt.Sprintf(
+			`function csv_reader_op(options, inData) => (outSchema, outBatches%s);
+			 function fetch_requests(url) => (getRequest);
+			 function store_requests_schema(inUrl, data) => (putRequest, outUrl);
+			 function store_requests_batches(inUrl, data) => (putRequest, outUrl);
+			 function HTTP(request) => (response);
+
+			 composition csv_reader (opOptions, inDataUrl) => (outSchemaUrl, outBatchesUrl%s) {
+				 fetch_requests(url = all inDataUrl) => (inDataReq = getRequest);
+				 HTTP(request = all inDataReq) => (fetchedData = response);
+				 
+				 csv_reader_op (options = all opOptions, inData = all fetchedData)
+				   => (outSchema = outSchema, outBatches = outBatches%s);
+	
+				 store_requests_schema(inUrl = all inDataUrl, data = all outSchema) 
+				   => (outSchemaReq = putRequest, outSchemaUrl = outUrl);
+				 HTTP(request = all outSchemaReq) => (_0 = response);
+				 store_requests_batches(inUrl = all inDataUrl, data = all outBatches) 
+				   => (outBatchesReq = putRequest, outBatchesUrl = outUrl);
+				 HTTP(request = all outBatchesReq) => (_1 = response);
+			 }`, stdioOpDecl, stdioCompDef, stdioOpCall)
+	case "csv_writer":
+		outComposition = fmt.Sprintf(
+			`function csv_writer_op(options, inSchema, inBatches) => (outData%s);
+			 function fetch_requests(url) => (getRequest);
+			 function store_requests_data(inUrl, data) => (putRequest, outUrl);
+			 function HTTP(request) => (response);
+
+			 composition csv_writer (opOptions, inSchemaUrl, inBatchesUrl) => (outDataUrl%s) {
+				 fetch_requests(url = all inSchemaUrl) => (inSchemaReq = getRequest);
+				 HTTP(request = all inSchemaReq) => (fetchedSchema = response);
+				 fetch_requests(url = all inBatchesUrl) => (inBatchesReq = getRequest);
+				 HTTP(request = all inBatchesReq) => (fetchedBatches = response);
+
+				 csv_writer_op(options = all opOptions, inSchema = all fetchedSchema, inBatches = all fetchedBatches) 
+				   => (outData = outData%s);
+
+				 store_requests_data(inUrl = all inBatchesUrl, data = all outData) 
+				   => (outDataReq = putRequest, outDataUrl = outUrl);
+				 HTTP(request = all outDataReq) => (_0 = response);
+			 }`, stdioOpDecl, stdioCompDef, stdioOpCall)
+	case "hash_join":
+		outComposition = fmt.Sprintf(
+			`function hash_join_op(options, inSchema, inBatches, inSchema2, inBatches2) => (outSchema, outBatches%s);
+			 function fetch_requests(url) => (getRequest);
+			 function store_requests_schema(inUrl, data) => (putRequest, outUrl);
+			 function store_requests_batches(inUrl, data) => (putRequest, outUrl);
+			 function HTTP(request) => (response);
+
+			 composition hash_join (opOptions, inSchemaUrl, inBatchesUrl, inSchemaUrl2, inBatchesUrl2) => (outSchemaUrl, outBatchesUrl%s) {
+				 fetch_requests(url = all inSchemaUrl) => (inSchemaReq = getRequest);
+				 HTTP(request = all inSchemaReq) => (fetchedSchema = response);
+				 fetch_requests(url = all inBatchesUrl) => (inBatchesReq = getRequest);
+				 HTTP(request = all inBatchesReq) => (fetchedBatches = response);
+				 fetch_requests(url = all inSchemaUrl2) => (inSchemaReq2 = getRequest);
+				 HTTP(request = all inSchemaReq2) => (fetchedSchema2 = response);
+				 fetch_requests(url = all inBatchesUrl2) => (inBatchesReq2 = getRequest);
+				 HTTP(request = all inBatchesReq2) => (fetchedBatches2 = response);
+
+				 hash_join_op(options = all opOptions, inSchema = all fetchedSchema, inBatches = all fetchedBatches, inSchema2 = all fetchedSchema2, inBatches2 = all fetchedBatches2) 
+				   => (outSchema = outSchema, outBatches = outBatches%s);
+
+				 store_requests_schema(inUrl = all inBatchesUrl, data = all outSchema) 
+				   => (outSchemaReq = putRequest, outSchemaUrl = outUrl);
+				 HTTP(request = all outSchemaReq) => (_0 = response);
+				 store_requests_batches(inUrl = all inBatchesUrl, data = all outBatches) 
+				   => (outBatchesReq = putRequest, outBatchesUrl = outUrl);
+				 HTTP(request = all outBatchesReq) => (_1 = response);
+			 }`, stdioOpDecl, stdioCompDef, stdioOpCall)
+	default:
+		outComposition = fmt.Sprintf(
+			`function %s_op(options, inSchema, inBatches) => (outSchema, outBatches%s);
+			 function fetch_requests(url) => (getRequest);
+			 function store_requests_schema(inUrl, data) => (putRequest, outUrl);
+			 function store_requests_batches(inUrl, data) => (putRequest, outUrl);
+			 function HTTP(request) => (response);
+
+			 composition %s (opOptions, inSchemaUrl, inBatchesUrl) => (outSchemaUrl, outBatchesUrl%s) {
+				 fetch_requests(url = all inSchemaUrl) => (inSchemaReq = getRequest);
+				 HTTP(request = all inSchemaReq) => (fetchedSchema = response);
+				 fetch_requests(url = all inBatchesUrl) => (inBatchesReq = getRequest);
+				 HTTP(request = all inBatchesReq) => (fetchedBatches = response);
+
+				 %s_op(options = all opOptions, inSchema = all fetchedSchema, inBatches = all fetchedBatches) 
+				   => (outSchema = outSchema, outBatches = outBatches%s);
+
+				 store_requests_schema(inUrl = all inBatchesUrl, data = all outSchema) 
+				   => (outSchemaReq = putRequest, outSchemaUrl = outUrl);
+				 HTTP(request = all outSchemaReq) => (_0 = response);
+				 store_requests_batches(inUrl = all inBatchesUrl, data = all outBatches) 
+				   => (outBatchesReq = putRequest, outBatchesUrl = outUrl);
+				 HTTP(request = all outBatchesReq) => (_1 = response);
+			 }`, operator, stdioOpDecl, operator, stdioCompDef, operator, stdioOpCall)
+	}
+
+	// return new name for the operator function + operator composition
+	return fmt.Sprintf("%s_op", operator), outComposition
+}
+
+// NOTE: may be removed again once dandelion supports passing the data between invocations
+func (dr *Runtime) registerHelpers(ctx context.Context) (*proto.SandboxCreationStatus, error) {
+	dr.registeredFunctions.RLock()
+	_, ok := dr.registeredFunctions.data["fetch_requests"]
+	dr.registeredFunctions.RUnlock()
+	if ok {
+		return nil, nil
+	}
+
+	status, err := dr.CreateSandbox(ctx, &proto.ServiceInfo{
+		Name:    "fetch_requests",
+		Image:   "/users/tstocker/operators/ops_export/fetch_requests",
+		NumArgs: 1,
+		NumRets: 1,
+	})
+	if err != nil {
+		return status, err
+	}
+
+	status, err = dr.CreateSandbox(ctx, &proto.ServiceInfo{
+		Name:    "store_requests_schema",
+		Image:   "/users/tstocker/operators/ops_export/store_requests_schema",
+		NumArgs: 2,
+		NumRets: 2,
+	})
+	if err != nil {
+		return status, err
+	}
+
+	status, err = dr.CreateSandbox(ctx, &proto.ServiceInfo{
+		Name:    "store_requests_batches",
+		Image:   "/users/tstocker/operators/ops_export/store_requests_batches",
+		NumArgs: 2,
+		NumRets: 2,
+	})
+	if err != nil {
+		return status, err
+	}
+
+	status, err = dr.CreateSandbox(ctx, &proto.ServiceInfo{
+		Name:    "store_requests_data",
+		Image:   "/users/tstocker/operators/ops_export/store_requests_data",
+		NumArgs: 2,
+		NumRets: 2,
+	})
+	if err != nil {
+		return status, err
+	}
+
+	return status, nil
+}
+
+func (dr *Runtime) CreateSandbox(ctx context.Context, in *proto.ServiceInfo) (*proto.SandboxCreationStatus, error) {
 	start := time.Now()
 	logrus.Debug("Create sandbox for service = '", in.Name, "'")
 
@@ -223,20 +388,32 @@ func (dr *Runtime) CreateSandbox(_ context.Context, in *proto.ServiceInfo) (*pro
 		}
 		logrus.Infof("Registering binary file %s (size=%d)", in.Image, binaryInfo.Size())
 
+		// NOTE: section may be removed again once dandelion supports passing the data between invocations
+		fName := in.Name
+		var opComposition string
+		operators := []string{"aggregate", "csv_reader", "csv_writer", "fetch", "filter", "hash_join", "splitter"}
+		if dr.dandelionConfig.AddOperatorLoadAndStore && slices.Contains(operators, fName) {
+			s, e := dr.registerHelpers(ctx)
+			if e != nil {
+				return s, e
+			}
+			fName, opComposition = addOperatorReadStore(in.Name, dr.dandelionConfig.LogFunctionStdioOutset)
+		}
+
 		// create registration request body
 		inputSets := bson.A{}
 		for i := uint32(0); i < in.NumArgs; i++ { // names do not matter so far
 			inputSets = append(inputSets, bson.A{fmt.Sprintf("input%d", i), nil})
 		}
 		outputSets := bson.A{}
-		for i := uint32(0); i < in.NumArgs; i++ {
+		for i := uint32(0); i < in.NumRets; i++ {
 			outputSets = append(outputSets, fmt.Sprintf("output%d", i))
 		}
 		if dr.dandelionConfig.LogFunctionStdioOutset { // add "stdio" to get the stdio output from dandelion
 			outputSets = append(outputSets, "stdio")
 		}
 		registerRequest := bson.D{
-			{Key: "name", Value: in.Name},
+			{Key: "name", Value: fName},
 			{Key: "context_size", Value: 0x8020000},
 			{Key: "engine_type", Value: dr.dandelionConfig.EngineType},
 			{Key: "local_path", Value: in.Image},
@@ -248,16 +425,31 @@ func (dr *Runtime) CreateSandbox(_ context.Context, in *proto.ServiceInfo) (*pro
 		// send registration request to dandelion
 		err = dr.registerService("/register/function", &registerRequest)
 		if err != nil {
-			logrus.Errorf("Failed to register function '%s' - %v", in.Name, err)
+			logrus.Errorf("Failed to register function '%s' - %v", fName, err)
 			return getFailureStatus(), nil
 		}
-		logrus.Debugf("Successfully registered function '%s'", in.Name)
+		logrus.Debugf("Successfully registered function '%s'", fName)
 
 		// Although someone may have registered function in the meantime, this is still fine
 		// as a function can be registered with Dandelion only once
 		dr.registeredFunctions.Lock()
 		dr.registeredFunctions.data[in.Name] = true
 		dr.registeredFunctions.Unlock()
+
+		// NOTE: section may be removed again once dandelion supports passing the data between invocations
+		if dr.dandelionConfig.AddOperatorLoadAndStore && slices.Contains(operators, fName) {
+			compRegistrationRequest := bson.D{
+				{Key: "composition", Value: opComposition},
+			}
+
+			// send registration request
+			err := dr.registerService("/register/composition", &compRegistrationRequest)
+			if err != nil {
+				logrus.Errorf("Failed to register composition '%s' - %v", in.Name, err)
+				return getFailureStatus(), nil
+			}
+			logrus.Debugf("Created composition for task '%s", in.Name)
+		}
 	}
 
 	logrus.Debug("Sandbox creation took ", time.Since(start).Microseconds(), " μs")

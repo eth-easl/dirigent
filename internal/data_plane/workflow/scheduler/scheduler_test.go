@@ -275,7 +275,7 @@ func TestSimple(t *testing.T) {
 		for _, sType := range testedSchedulers {
 			scheduler := NewScheduler(wf, sType)
 			mockDPConfig := &config.DataPlaneConfig{WorkflowPreferredWorkerParallelism: 1}
-			err = scheduler.Schedule(dummyScheduleFunc(), inData, mockDPConfig, context.Background())
+			_, err = scheduler.Schedule(dummyScheduleFunc(), inData, mockDPConfig, context.Background())
 			if err != nil {
 				t.Fatalf("Got error while scheduling workflow (testIdx: %d, schedulerType: %d): %v", testIdx, sType, err)
 			}
@@ -366,7 +366,7 @@ func TestDataParallelism(t *testing.T) {
 		for _, sType := range testedSchedulers {
 			scheduler := NewScheduler(wf, sType)
 			mockDPConfig := &config.DataPlaneConfig{WorkflowPreferredWorkerParallelism: 1}
-			err = scheduler.Schedule(dummyScheduleFunc(), inData, mockDPConfig, context.Background())
+			_, err = scheduler.Schedule(dummyScheduleFunc(), inData, mockDPConfig, context.Background())
 			if err != nil {
 				t.Fatalf("Got error while scheduling workflow (testIdx: %d, schedulerType: %d): %v", testIdx, sType, err)
 			}

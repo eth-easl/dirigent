@@ -27,22 +27,22 @@ func TestExportFunctionComposition(t *testing.T) {
 
 	export := exportFunctionComposition(&testTask)
 
-	expected := "(:function a (in0) -> (out0 out1))" +
-		"(:function b (in0) -> (out0))" +
-		"(:function c (in0 in1) -> (out0 out1))" +
-		"(:function d (in0 in1) -> (out0))" +
-		"(:function e (in0 in1 in2) -> (out0))" +
-		"(:function f () -> (out0 out1 out2 out3))" +
-		"(:function g (in0 in1) -> ())" +
-		"(:composition Test (cIn0 cIn1) -> (f2d0 f4d0 f5d1) (" +
-		"(a ((in0 <- cIn0)) => ((f0d0 := out0) (f0d1 := out1))) " +
-		"(b ((in0 <- f0d0)) => ((f1d0 := out0))) " +
-		"(c ((in0 <- f1d0) (in1 <- f3d0)) => ((f2d0 := out0) (f2d1 := out1))) " +
-		"(d ((in0 <- f0d1) (in1 <- cIn1)) => ((f3d0 := out0))) " +
-		"(e ((in0 <- f2d1) (in1 <- f3d0) (in2 <- f5d0)) => ((f4d0 := out0))) " +
-		"(f () => ((f5d0 := out0) (f5d1 := out1) (f5d2 := out2) (f5d3 := out3))) " +
-		"(g ((in0 <- f5d3) (in1 <- f5d2)) => ())" +
-		"))"
+	expected := "function a (in0) => (out0, out1);" +
+		"function b (in0) => (out0);" +
+		"function c (in0, in1) => (out0, out1);" +
+		"function d (in0, in1) => (out0);" +
+		"function e (in0, in1, in2) => (out0);" +
+		"function f () => (out0, out1, out2, out3);" +
+		"function g (in0, in1) => (); " +
+		"composition Test (cIn0, cIn1) => (f2d0, f4d0, f5d1) {" +
+		"a (in0 = all cIn0) => (f0d0 = out0, f0d1 = out1); " +
+		"b (in0 = all f0d0) => (f1d0 = out0); " +
+		"c (in0 = all f1d0, in1 = all f3d0) => (f2d0 = out0, f2d1 = out1); " +
+		"d (in0 = all f0d1, in1 = all cIn1) => (f3d0 = out0); " +
+		"e (in0 = all f2d1, in1 = all f3d0, in2 = all f5d0) => (f4d0 = out0); " +
+		"f () => (f5d0 = out0, f5d1 = out1, f5d2 = out2, f5d3 = out3); " +
+		"g (in0 = all f5d3, in1 = all f5d2) => ();" +
+		"}"
 
 	if export != expected {
 		t.Errorf("Export does not match the expectation: \nexport:   %s\nexpected: %s", export, expected)
@@ -68,15 +68,15 @@ func TestExportFunctionCompositionMultiUse(t *testing.T) {
 
 	export := exportFunctionComposition(&testTask)
 
-	expected := "(:function a (in0 in1) -> (out0))" +
-		"(:function b (in0) -> (out0))" +
-		"(:function c (in0) -> ())" +
-		"(:composition Test (cIn0 cIn1) -> () (" +
-		"(a ((in0 <- cIn0) (in1 <- cIn1)) => ((f0d0 := out0))) " +
-		"(b ((in0 <- f0d0)) => ((f1d0 := out0))) " +
-		"(b ((in0 <- f1d0)) => ((f2d0 := out0))) " +
-		"(c ((in0 <- f2d0)) => ())" +
-		"))"
+	expected := "function a (in0, in1) => (out0);" +
+		"function b (in0) => (out0);" +
+		"function c (in0) => (); " +
+		"composition Test (cIn0, cIn1) => () {" +
+		"a (in0 = all cIn0, in1 = all cIn1) => (f0d0 = out0); " +
+		"b (in0 = all f0d0) => (f1d0 = out0); " +
+		"b (in0 = all f1d0) => (f2d0 = out0); " +
+		"c (in0 = all f2d0) => ();" +
+		"}"
 
 	if export != expected {
 		t.Errorf("Export does not match the expectation: \nexport:   %s\nexpected: %s", export, expected)
@@ -108,15 +108,15 @@ func TestExportFunctionCompositionSharding(t *testing.T) {
 
 	export := exportFunctionComposition(&testTask)
 
-	expected := "(:function a (in0 in1) -> (out0))" +
-		"(:function b (in0) -> (out0))" +
-		"(:function c (in0) -> (out0))" +
-		"(:composition Test (cIn0 cIn1) -> (f3d0) (" +
-		"(a ((in0 <- cIn0) (in1 <- cIn1)) => ((f0d0 := out0))) " +
-		"(a ((:keyed in0 <- f0d0) (in1 <- cIn1)) => ((f1d0 := out0))) " +
-		"(b ((:each in0 <- f1d0)) => ((f2d0 := out0))) " +
-		"(c ((in0 <- f2d0)) => ((f3d0 := out0)))" +
-		"))"
+	expected := "function a (in0, in1) => (out0);" +
+		"function b (in0) => (out0);" +
+		"function c (in0) => (out0); " +
+		"composition Test (cIn0, cIn1) => (f3d0) {" +
+		"a (in0 = all cIn0, in1 = all cIn1) => (f0d0 = out0); " +
+		"a (in0 = keyed f0d0, in1 = all cIn1) => (f1d0 = out0); " +
+		"b (in0 = each f1d0) => (f2d0 = out0); " +
+		"c (in0 = all f2d0) => (f3d0 = out0);" +
+		"}"
 
 	if export != expected {
 		t.Errorf("Export does not match the expectation: \nexport:   %s\nexpected: %s", export, expected)
