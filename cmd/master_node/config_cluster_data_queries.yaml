@@ -1,0 +1,30 @@
+port: "9090"
+replicas: ""
+registrationServer: "10.0.1.2:9091"
+registrationServerReplicas: ""
+verbosity: "trace"
+traceOutputFolder: "data"
+placementPolicy: "random"
+persistence: false
+reconstruct: true
+autoscaler: "default"
+autoscalingPeriod: "2s"
+defaultWFPartitionMethod: "fullPartition"
+imageStorage: "default"
+cidr: "dynamic"
+
+# to use HAProxy load balancer put 10.0.1.254:8079, otherwise leave blank
+loadBalancerAddress: "10.0.1.254:8079"
+
+removeWorkerNode: false
+removeDataplane: false
+
+precreateSnapshots: false
+
+redis:
+  address: "10.0.1.2:6379"
+  addressFromDockerNetwork: "10.0.1.2:6379"
+  replicas: ""
+  password: ""
+  db: 0
+  fullPersistence: true

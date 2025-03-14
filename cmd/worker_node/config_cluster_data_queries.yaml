@@ -1,0 +1,12 @@
+workerNodeIp: "dynamic"
+controlPlaneAddress: "10.0.1.2:9090"
+port: "10010"
+verbosity: "trace"
+criType: "dandelion"
+cpuConstraints: false
+
+dandelion:
+  daemonPort: 8080
+  engineType: "Process"
+  logFunctionStdioOutset: false
+  addOperatorLoadAndStore: true

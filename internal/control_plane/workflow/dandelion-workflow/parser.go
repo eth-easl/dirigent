@@ -20,7 +20,7 @@ func NewParser(in *bufio.Reader) *Parser {
 }
 
 func (p *Parser) parseStringList() ([]string, error) {
-	_, _, err := p.l.ExpectIgnoreSpace(BOPEN, "bracket opening list of strings")
+	_, _, err := p.l.ExpectIgnoreSpace(POPEN, "bracket opening list of strings")
 	if err != nil {
 		return nil, err
 	}
@@ -31,13 +31,25 @@ func (p *Parser) parseStringList() ([]string, error) {
 		if err != nil {
 			return nil, err
 		}
-		if t == BCLOSE {
+		if t == PCLOSE {
 			break
 		}
-		if t == IDENT {
-			list = append(list, s)
+		if len(list) == 0 {
+			if t == IDENT {
+				list = append(list, s)
+			} else {
+				return nil, fmt.Errorf("expected identifier or closing bracket, got %s at %s", s, p.l.PositionStr())
+			}
 		} else {
-			return nil, fmt.Errorf("expected identifier or closing bracket, got %s", s)
+			if t == COMMA {
+				_, s, err := p.l.ExpectIgnoreSpace(IDENT, "identifier after comma")
+				if err != nil {
+					return nil, err
+				}
+				list = append(list, s)
+			} else {
+				return nil, fmt.Errorf("expected comma separated identifier or closing bracket, got %s at %s", s, p.l.PositionStr())
+			}
 		}
 	}
 
@@ -45,10 +57,10 @@ func (p *Parser) parseStringList() ([]string, error) {
 }
 
 func (p *Parser) parseFunctionDecl() (*FunctionDecl, error) {
-	// NOTE: expects the ( and :function tokens to be consumed already
+	// NOTE: expects the 'function' keyword to be consumed already
 
-	// function Name
-	_, name, err := p.l.ExpectIgnoreSpace(IDENT, "function Name identifier")
+	// function name
+	_, name, err := p.l.ExpectIgnoreSpace(IDENT, "function name identifier")
 	if err != nil {
 		return nil, err
 	}
@@ -60,7 +72,7 @@ func (p *Parser) parseFunctionDecl() (*FunctionDecl, error) {
 	}
 
 	// function returns
-	_, _, err = p.l.ExpectIgnoreSpace(TOTHIN, "->")
+	_, _, err = p.l.ExpectIgnoreSpace(TO, "=>")
 	if err != nil {
 		return nil, err
 	}
@@ -69,35 +81,28 @@ func (p *Parser) parseFunctionDecl() (*FunctionDecl, error) {
 		return nil, err
 	}
 
+	// closing semicolon
+	_, _, err = p.l.ExpectIgnoreSpace(SEMICOLON, "semicolon closing function declaration")
+	if err != nil {
+		return nil, err
+	}
+
 	return &FunctionDecl{name, params, returns}, nil
 }
 
 func (p *Parser) parseInputDescriptor() (InputDescriptor, error) {
-	// NOTE: expects the ( token to be consumed already
-
-	// loop condition (:until_empty, :until_empty_item, none)
-	var loopCond LoopCond
-	t, s, err := p.l.SafeScanIgnoreSpace()
+	// input name
+	t, name, err := p.l.ExpectIgnoreSpace(IDENT, "input name")
 	if err != nil {
 		return InputDescriptor{}, err
 	}
-	switch t {
-	case UNTIL_EMPTY:
-		loopCond = LoopCondUntilEmpty
-	case UNTIL_EMPTY_ITEM:
-		loopCond = LoopCondUntilItemEmpty
-	default:
-		loopCond = LoopCondNone
-	}
 
-	// sharding (:all, :keyed, :each, none)
+	// sharding (all, keyed, each, any none)
+	_, _, err = p.l.ExpectIgnoreSpace(EQUALS, "=")
 	var sharding workflow.Sharding
-	shardingProvided := true
-	if loopCond != LoopCondNone {
-		t, s, err = p.l.SafeScanIgnoreSpace()
-		if err != nil {
-			return InputDescriptor{}, err
-		}
+	t, s, err := p.l.SafeScanIgnoreSpace()
+	if err != nil {
+		return InputDescriptor{}, err
 	}
 	switch t {
 	case ALL:
@@ -106,295 +111,148 @@ func (p *Parser) parseInputDescriptor() (InputDescriptor, error) {
 		sharding = workflow.ShardingKeyed
 	case EACH:
 		sharding = workflow.ShardingEach
-	default: // use :all when none is provided
-		sharding = workflow.ShardingAll
-		shardingProvided = false
+	case ANY:
+		sharding = workflow.ShardingAny
+	default:
+		return InputDescriptor{}, fmt.Errorf("expected sharding, got %s at %s", s, p.l.PositionStr())
 	}
 
-	// input descriptor Name
-	if shardingProvided {
-		t, s, err = p.l.SafeScanIgnoreSpace()
-		if err != nil {
-			return InputDescriptor{}, err
-		}
-	}
-	if t != IDENT {
-		return InputDescriptor{}, fmt.Errorf("expected input descriptor identifier, got %s", s)
-	}
-	name := s
-
-	// input descriptor identifier
-	_, _, err = p.l.ExpectIgnoreSpace(FROM, "<-")
-	if err != nil {
-		return InputDescriptor{}, err
-	}
-	_, ident, err := p.l.ExpectIgnoreSpace(IDENT, "input descriptor identifier")
+	// input source identifier
+	_, ident, err := p.l.ExpectIgnoreSpace(IDENT, "input source identifier")
 	if err != nil {
 		return InputDescriptor{}, err
 	}
 
-	// closing bracket
-	_, _, err = p.l.ExpectIgnoreSpace(BCLOSE, "bracket closing input descriptor")
-	if err != nil {
-		return InputDescriptor{}, err
-	}
-
-	return InputDescriptor{name: name, src: ident, sharding: sharding, loopCond: loopCond}, nil
+	return InputDescriptor{name: name, src: ident, sharding: sharding}, nil
 }
 
 func (p *Parser) parseOutputDescriptor() (OutputDescriptor, error) {
-	// NOTE: expects the ( token to be consumed already
-
-	// optional :feedback keyword
-	feedback := false
-	t, s, err := p.l.SafeScanIgnoreSpace()
-	if err != nil {
-		return OutputDescriptor{}, err
-	}
-	if t == FEEDBACK {
-		feedback = true
-		t, s, err = p.l.SafeScanIgnoreSpace()
-		if err != nil {
-			return OutputDescriptor{}, err
-		}
-	}
-
-	// output descriptor identifier
-	if t != IDENT {
-		return OutputDescriptor{}, fmt.Errorf("expected output descriptor identifier, got %s", s)
-	}
-	ident := s
-
-	// output descriptor Name
-	_, _, err = p.l.ExpectIgnoreSpace(GETS, ":=")
-	if err != nil {
-		return OutputDescriptor{}, err
-	}
-	_, name, err := p.l.ExpectIgnoreSpace(IDENT, "output descriptor identifier")
+	// destination identifier
+	_, dest, err := p.l.ExpectIgnoreSpace(IDENT, "output destination identifier")
 	if err != nil {
 		return OutputDescriptor{}, err
 	}
 
-	// closing bracket
-	_, _, err = p.l.ExpectIgnoreSpace(BCLOSE, "bracket closing input descriptor")
+	// output name
+	_, _, err = p.l.ExpectIgnoreSpace(EQUALS, "=")
+	if err != nil {
+		return OutputDescriptor{}, err
+	}
+	_, name, err := p.l.ExpectIgnoreSpace(IDENT, "output name")
 	if err != nil {
 		return OutputDescriptor{}, err
 	}
 
-	return OutputDescriptor{dest: ident, name: name, feedback: feedback}, nil
+	return OutputDescriptor{dest: dest, name: name}, nil
 }
 
 func (p *Parser) parseFunctionApplication() (*Statement, error) {
-	// NOTE: expects the ( token to be consumed and if the following IDENT token has also been consumed
-	//		 already it is expected to be buffered
 	fa := Statement{kind: FunctionAppl}
 
 	// function application Name
-	if p.strBuf == "" { // -> empty buffer -> consume token
-		_, s, err := p.l.ExpectIgnoreSpace(IDENT, "function application identifier")
-		if err != nil {
-			return nil, err
-		}
-		fa.Name = s
-	} else { // -> use buffered token
-		if p.tokenBuf != IDENT {
-			return nil, fmt.Errorf("invalid token buffer")
-		}
-		fa.Name = p.strBuf
-		p.strBuf = ""
+	_, s, err := p.l.ExpectIgnoreSpace(IDENT, "function application identifier")
+	if err != nil {
+		return nil, err
 	}
+	fa.Name = s
 
 	// input descriptors
-	_, _, err := p.l.ExpectIgnoreSpace(BOPEN, "bracket opening input descriptors of function application")
+	_, _, err = p.l.ExpectIgnoreSpace(POPEN, "bracket opening input descriptors of function application")
 	if err != nil {
 		return nil, err
 	}
 	for {
-		t, s, err := p.l.SafeScanIgnoreSpace()
+		t, s, err := p.l.SafePeekIgnoreSpace()
 		if err != nil {
 			return nil, err
 		}
 
-		if t == BOPEN {
-			inDesc, err := p.parseInputDescriptor()
-			if err != nil {
-				return nil, err
-			}
-			fa.Args = append(fa.Args, inDesc)
-		} else if t == BCLOSE {
+		if t == PCLOSE {
+			p.l.ConsumePeek()
 			break
-		} else {
-			return nil, fmt.Errorf("expected bracket, got %s", s)
+		} else if len(fa.Args) > 0 {
+			if t != COMMA {
+				return nil, fmt.Errorf("expected next comma separated input descriptor or closing bracket, got %s at %s", s, p.l.PositionStr())
+			}
+			p.l.ConsumePeek()
+		} else if t != IDENT {
+			return nil, fmt.Errorf("expected input descriptor or closing bracket, got %s at %s", s, p.l.PositionStr())
 		}
+
+		inDesc, err := p.parseInputDescriptor()
+		if err != nil {
+			return nil, err
+		}
+		fa.Args = append(fa.Args, inDesc)
 	}
 
 	// output descriptors
-	_, _, err = p.l.ExpectIgnoreSpace(TOFAT, "=>")
+	_, _, err = p.l.ExpectIgnoreSpace(TO, "=>")
 	if err != nil {
 		return nil, err
 	}
-	_, _, err = p.l.ExpectIgnoreSpace(BOPEN, "bracket opening output descriptors of function application")
+	_, _, err = p.l.ExpectIgnoreSpace(POPEN, "bracket opening output descriptors of function application")
 	if err != nil {
 		return nil, err
 	}
 	for {
-		t, s, err := p.l.SafeScanIgnoreSpace()
+		t, s, err := p.l.SafePeekIgnoreSpace()
 		if err != nil {
 			return nil, err
 		}
 
-		if t == BOPEN {
-			outDesc, err := p.parseOutputDescriptor()
-			if err != nil {
-				return nil, err
-			}
-			fa.Rets = append(fa.Rets, outDesc)
-		} else if t == BCLOSE {
+		if t == PCLOSE {
+			p.l.ConsumePeek()
 			break
-		} else {
-			return nil, fmt.Errorf("expected bracket, got %s", s)
+		} else if len(fa.Rets) > 0 {
+			if t != COMMA {
+				return nil, fmt.Errorf("expected next comma separated output descriptor or closing bracket, got %s at %s", s, p.l.PositionStr())
+			}
+			p.l.ConsumePeek()
+		} else if t != IDENT {
+			return nil, fmt.Errorf("expected output descriptor or closing bracket, got %s at %s", s, p.l.PositionStr())
 		}
+
+		outDesc, err := p.parseOutputDescriptor()
+		if err != nil {
+			return nil, err
+		}
+		fa.Rets = append(fa.Rets, outDesc)
 	}
 
-	// closing bracket
-	_, _, err = p.l.ExpectIgnoreSpace(BCLOSE, "bracket closing function application")
+	// closing semicolon
+	_, _, err = p.l.ExpectIgnoreSpace(SEMICOLON, "semicolon closing function application")
+	if err != nil {
+		return nil, err
+	}
 
 	return &fa, nil
 }
 
-func (p *Parser) parseLoop() (*Statement, error) {
-	// NOTE: expects the ( and :loop tokens to be consumed already
-	l := Statement{kind: LoopStmt}
-
-	// loop input descriptors
-	_, _, err := p.l.ExpectIgnoreSpace(BOPEN, "bracket opening input descriptors of loop")
-	if err != nil {
-		return nil, err
-	}
-	for {
-		t, s, err := p.l.SafeScanIgnoreSpace()
-		if err != nil {
-			return nil, err
-		}
-
-		if t == BOPEN {
-			inDesc, err := p.parseInputDescriptor()
-			if err != nil {
-				return nil, err
-			}
-			l.Args = append(l.Args, inDesc)
-		} else if t == BCLOSE {
-			break
-		} else {
-			return nil, fmt.Errorf("expected bracket, got %s", s)
-		}
-	}
-
-	// loop function applications
-	_, _, err = p.l.ExpectIgnoreSpace(TOFAT, "=>")
-	if err != nil {
-		return nil, err
-	}
-	_, _, err = p.l.ExpectIgnoreSpace(BOPEN, "bracket opening function applications of loop")
-	if err != nil {
-		return nil, err
-	}
-	for {
-		t, s, err := p.l.SafeScanIgnoreSpace()
-		if err != nil {
-			return nil, err
-		}
-
-		if t == BOPEN {
-			funcApp, err := p.parseFunctionApplication()
-			if err != nil {
-				return nil, err
-			}
-			l.statements = append(l.statements, funcApp)
-		} else if t == BCLOSE {
-			break
-		} else {
-			return nil, fmt.Errorf("expected bracket, got %s", s)
-		}
-	}
-
-	// loop output descriptors
-	_, _, err = p.l.ExpectIgnoreSpace(TOFAT, "=>")
-	if err != nil {
-		return nil, err
-	}
-	_, _, err = p.l.ExpectIgnoreSpace(BOPEN, "bracket opening output descriptors of loop")
-	if err != nil {
-		return nil, err
-	}
-	for {
-		t, s, err := p.l.SafeScanIgnoreSpace()
-		if err != nil {
-			return nil, err
-		}
-
-		if t == BOPEN {
-			outDesc, err := p.parseOutputDescriptor()
-			if err != nil {
-				return nil, err
-			}
-			l.Rets = append(l.Rets, outDesc)
-		} else if t == BCLOSE {
-			break
-		} else {
-			return nil, fmt.Errorf("expected bracket, got %s", s)
-		}
-	}
-
-	// closing bracket
-	_, _, err = p.l.ExpectIgnoreSpace(BCLOSE, "bracket closing loop")
-	if err != nil {
-		return nil, err
-	}
-
-	return &l, nil
-}
-
 func (p *Parser) parseCompositionStatements() ([]*Statement, error) {
-	_, _, err := p.l.ExpectIgnoreSpace(BOPEN, "bracket opening list of composition Statements")
+	_, _, err := p.l.ExpectIgnoreSpace(BOPEN, "brace opening list of composition Statements")
 	if err != nil {
 		return nil, err
 	}
 
 	var statements []*Statement
 	for {
-		t, s, err := p.l.SafeScanIgnoreSpace()
+		t, s, err := p.l.SafePeekIgnoreSpace()
 		if err != nil {
 			return nil, err
 		}
 
-		if t == BOPEN {
-			t, s, err = p.l.SafeScanIgnoreSpace()
+		if t == BCLOSE {
+			p.l.ConsumePeek()
+			break
+		} else if t == IDENT {
+			funcApp, err := p.parseFunctionApplication()
 			if err != nil {
 				return nil, err
 			}
-
-			if t == IDENT { // -> function application
-				p.tokenBuf = IDENT
-				p.strBuf = s
-				funcApp, err := p.parseFunctionApplication()
-				if err != nil {
-					return nil, err
-				}
-				statements = append(statements, funcApp)
-			} else if t == LOOP { // -> loop statement
-				loop, err := p.parseLoop()
-				if err != nil {
-					return nil, err
-				}
-				statements = append(statements, loop)
-			} else {
-				return nil, fmt.Errorf("expected function application or loop, got %s", s)
-			}
-		} else if t == BCLOSE {
-			break
+			statements = append(statements, funcApp)
 		} else {
-			return nil, fmt.Errorf("expected bracket, got %s", s)
+			return nil, fmt.Errorf("expected function or closing brace, got %s at %s", s, p.l.PositionStr())
 		}
 	}
 
@@ -402,9 +260,9 @@ func (p *Parser) parseCompositionStatements() ([]*Statement, error) {
 }
 
 func (p *Parser) parseComposition() (*Composition, error) {
-	// NOTE: expects the ( and :composition tokens to be consumed already
+	// NOTE: expects the 'composition' keyword to be consumed already
 
-	// composition Name
+	// composition name
 	_, name, err := p.l.ExpectIgnoreSpace(IDENT, "composition Name identifier")
 	if err != nil {
 		return nil, err
@@ -417,7 +275,7 @@ func (p *Parser) parseComposition() (*Composition, error) {
 	}
 
 	// composition returns
-	_, _, err = p.l.ExpectIgnoreSpace(TOTHIN, "->")
+	_, _, err = p.l.ExpectIgnoreSpace(TO, "=>")
 	if err != nil {
 		return nil, err
 	}
@@ -445,41 +303,24 @@ func (p *Parser) Parse() (*DandelionWorkflow, error) {
 
 	logrus.Tracef("Parsing workflow")
 	for {
-		// expect ( or EOF
 		t, s := p.l.ScanIgnoreSpace()
-		if t == EOF {
-			break
-		} else if t != BOPEN {
-			return nil, fmt.Errorf("expected bracket denoting start of function declaration or composition, got %s", s)
-		}
-
-		// parse function declaration or composition
-		t, s, err := p.l.SafeScanIgnoreSpace()
-		if err != nil {
-			return nil, err
-		}
-		if t == FUNC {
+		switch t {
+		case EOF:
+			return &w, nil
+		case FUNC:
 			function, err := p.parseFunctionDecl()
 			if err != nil {
 				return nil, err
 			}
 			w.FunctionDecls = append(w.FunctionDecls, function)
-		} else if t == COMP {
+		case COMP:
 			composition, err := p.parseComposition()
 			if err != nil {
 				return nil, err
 			}
 			w.Compositions = append(w.Compositions, composition)
-		} else {
-			return nil, fmt.Errorf("expected :function or :composition, got %s", s)
-		}
-
-		// expect )
-		_, _, err = p.l.ExpectIgnoreSpace(BCLOSE, "closing bracket denoting end of function declaration or composition")
-		if err != nil {
-			return nil, err
+		default:
+			return nil, fmt.Errorf("expected 'function' or 'composition' keyword, got %s at %s", s, p.l.PositionStr())
 		}
 	}
-
-	return &w, nil
 }

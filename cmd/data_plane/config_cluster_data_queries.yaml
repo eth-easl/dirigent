@@ -1,0 +1,24 @@
+dataPlaneIp: "dynamic"
+controlPlaneAddress: "10.0.1.2:9090"
+portProxy: "8080"
+portProxyRead: "8082"
+portGRPC: "8081"
+verbosity: "trace"
+traceOutputFolder: "data"
+loadBalancingPolicy: "knative"
+workflowDefaultScheduler: "concurrentFifo"
+workflowPreferredWorkerParallelism: 4
+async:
+  enabled: false
+  persistRequests: false
+  numberRetries: 3
+  requestBufferSize: 1000
+
+redis:
+  address: "10.0.1.2:6379"
+  replicas: ""
+  password: ""
+  db: 0
+  fullPersistence: false
+
+controlPlaneNotifyIntervalMinutes: 15

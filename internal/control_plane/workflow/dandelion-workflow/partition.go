@@ -170,6 +170,7 @@ func consumerBased(c *Composition, wf *workflow.Workflow) []*workflow.Task {
 				currTaskStmts = nil
 			}
 			currTaskStmts = append(currTaskStmts, stmt)
+			currTaskDataParallel = stmt.isDataParallel()
 		}
 
 		if !stmt.hasOneConsumer() {
@@ -179,6 +180,7 @@ func consumerBased(c *Composition, wf *workflow.Workflow) []*workflow.Task {
 			currTaskStmts = nil
 		}
 
+		prevStackSize := stackSize
 		for _, ret := range stmt.Rets {
 			for retDestIdx, retDest := range ret.DestStmt {
 				retDest.parentProcessed[ret.DestStmtInIdx[retDestIdx]] = true
@@ -187,6 +189,12 @@ func consumerBased(c *Composition, wf *workflow.Workflow) []*workflow.Task {
 					stackSize++
 				}
 			}
+		}
+		if prevStackSize == stackSize && len(currTaskStmts) > 0 {
+			task := createTaskFromStatements(currTaskStmts, wf)
+			task.Name = fmt.Sprintf("%s_%d", wf.Name, len(tasks))
+			tasks = append(tasks, task)
+			currTaskStmts = nil
 		}
 	}
 
@@ -198,7 +206,7 @@ func consumerBased(c *Composition, wf *workflow.Workflow) []*workflow.Task {
 
 	wf.TotalTasks = uint32(len(tasks))
 
-	return nil
+	return tasks
 }
 
 func fullPartition(c *Composition, wf *workflow.Workflow) []*workflow.Task {

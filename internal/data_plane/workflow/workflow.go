@@ -11,6 +11,7 @@ const (
 	ShardingAll Sharding = iota
 	ShardingKeyed
 	ShardingEach
+	ShardingAny
 )
 
 type Task struct {

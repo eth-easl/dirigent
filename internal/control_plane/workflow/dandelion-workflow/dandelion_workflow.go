@@ -14,12 +14,6 @@ var commonDandelionFunctions = [...]FunctionDecl{
 
 type Sharding int
 
-const (
-	ShardingAll Sharding = iota
-	ShardingKeyed
-	ShardingEach
-)
-
 type LoopCond int
 
 const (
@@ -129,13 +123,17 @@ func (s *Statement) hasOneParentAndSameParallelization(targetParallel bool) bool
 	var parent *Statement
 	parentSet := false
 	for _, arg := range s.Args {
+		// special case: workflow input without data parallelism -> no need to split
+		if arg.SrcStmt == nil && arg.sharding == workflow.ShardingAll {
+			continue
+		}
 		// check data parallelism
 		if targetParallel {
-			if arg.sharding != workflow.ShardingEach {
+			if arg.sharding != workflow.ShardingEach && arg.sharding != workflow.ShardingAny {
 				return false
 			}
 		} else {
-			if arg.sharding != workflow.ShardingAll {
+			if arg.sharding != workflow.ShardingAll && arg.sharding != workflow.ShardingAny {
 				return false
 			}
 		}
@@ -151,12 +149,17 @@ func (s *Statement) hasOneParentAndSameParallelization(targetParallel bool) bool
 	return true
 }
 func (s *Statement) isDataParallel() bool {
+	allAny := len(s.Args) > 0
 	for _, arg := range s.Args {
 		if arg.sharding != workflow.ShardingAll {
+			if arg.sharding == workflow.ShardingAny {
+				continue
+			}
 			return true
 		}
+		allAny = false
 	}
-	return false
+	return allAny // return true if all shardings are ANY otherwise false
 }
 
 func (s *Statement) checkFunctionDecl(fd *FunctionDecl) bool {

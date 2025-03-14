@@ -9,37 +9,37 @@ import (
 
 func TestDeclarationMismatch(t *testing.T) {
 	wrongFunctionParam := `
-		(:function FunA (A) -> (B))
+		function FunA (A) => (B);
     
-		(:composition Test (InputA) -> (OutputC) (
-			(FunA ((A <- InputA)) => ((OutputC := C))) ; <- should be B not C
-		))
+		composition Test (InputA) => (OutputC) {
+			FunA (A = all InputA) => (OutputC = C); # <- should be B not C
+		}
 	`
 	wrongParamNumber := `
-		(:function FunA (A) -> (B))
+		function FunA (A) => (B);
     
-		(:composition Test (InputA) -> (OutputB) (
-			(FunA () => ((OutputB := B))) ; <- FunA should have an argument
-		))
+		composition Test (InputA) => (OutputB) {
+			FunA () => (OutputB = B); # <- FunA should have an argument
+		}
 	`
 	wrongRetNumber := `
-		(:function FunA (A) -> (B))
+		function FunA (A) => (B);
     
-		(:composition Test (InputA) -> (OutputB OutputC) (
-			(FunA ((A <- InputA)) => ((OutputB := B) (OutputC := C))) ; <- Too many returns
-		))
+		composition Test (InputA) => (OutputB, OutputC) {
+			FunA (A = all InputA) => (OutputB = B, OutputC = C); # <- Too many returns
+		}
 	`
 	missingDeclaration := `
-		(:composition Test (InputA) -> (OutputB) (
-			(FunA ((A <- InputA)) => ((OutputB := B))) ; <- Missing declaration
-		))
+		composition Test (InputA) => (OutputB) {
+			FunA (A = all InputA) => (OutputB = B); # <- Missing declaration
+		}
 	`
 	redeclarationCommonFunction := `
-		(:function HTTP (request) -> (response body)) ; <- should not declare common dandelion function
+		function HTTP (request) => (response, body); # <- should not declare common dandelion function
 
-		(:composition Test (Req) -> (Resp Body) (
-			(HTTP ((request <- Req)) => ((Resp := response) (Body := body)))
-		))
+		composition Test (Req) => (Resp, Body) {
+			HTTP (request = each Req) => (Resp = response, Body = body);
+		}
 	`
 
 	tests := []string{wrongFunctionParam, wrongParamNumber, wrongRetNumber, missingDeclaration, redeclarationCommonFunction}
@@ -64,36 +64,36 @@ func TestDeclarationMismatch(t *testing.T) {
 
 func TestIOMismatch(t *testing.T) {
 	missingCompositionInput := `
-		(:function FunA (A) -> (B))
+		function FunA (A) => (B);
     
-		(:composition Test () -> (OutputB) ( ; <- missing InputA
-			(FunA ((A <- InputA)) => ((OutputB := B)))
-		))
+		composition Test () => (OutputB) { # <- missing InputA
+			FunA (A = all InputA) => (OutputB = B);
+		}
 	`
 	missingCompositionOutput := `
-		(:function FunA (A) -> ())
+		function FunA (A) => ();
     
-		(:composition Test (InputA) -> (OutputB) ( ; <- no function output results in OutputB
-			(FunA ((A <- InputA)) => ())
-		))
+		composition Test (InputA) => (OutputB) { # <- no function output results in OutputB
+			FunA (A = all InputA) => ();
+		}
 	`
 	missingIntermediate := `
-		(:function FunA (A) -> ())
-		(:function FunB (B) -> (C))
+		function FunA (A) => ();
+		function FunB (B) => (C);
     
-		(:composition Test (InputA) -> (OutputC) (
-			(FunA ((A <- InputA)) => ())
-			(FunB ((B <- InterB)) => ((OutputC := C))) ; <- InterB is not defined
-		))
+		composition Test (InputA) => (OutputC) {
+			FunA (A = all InputA) => ();
+			FunB (B = all InterB) => (OutputC = C); # <- InterB is not defined
+		}
 	`
 	outputDuplicate := `
-		(:function FunA (A) -> (C))
-		(:function FunB (B) -> (C))
+		function FunA (A) => (C);
+		function FunB (B) => (C);
     
-		(:composition Test (InputA InputB) -> (OutputC) (
-			(FunA ((A <- InputA)) => ((OutputC := C)))
-			(FunB ((B <- InterB)) => ((OutputC := C))) ; <- OutputC is defined twice
-		))
+		composition Test (InputA, InputB) => (OutputC) {
+			FunA (A = all InputA) => (OutputC = C);
+			FunB (B = all InterB) => (OutputC = C); # <- OutputC is defined twice
+		}
 	`
 
 	tests := []string{missingCompositionInput, missingCompositionOutput, missingIntermediate, outputDuplicate}
@@ -119,26 +119,26 @@ func TestIOMismatch(t *testing.T) {
 
 func TestCircularDependencies(t *testing.T) {
 	loopExample1 := `
-		(:function FunA (A D) -> (B))
-		(:function FunB (B) -> (C))
-		(:function FunC (C) -> (D E))
+		function FunA (A, D) => (B);
+		function FunB (B) => (C);
+		function FunC (C) => (D, E);
     
-		(:composition Test (InputA) -> (OutputE) (
-			(FunA ((A <- InputA) (D <- InterD)) => ((InterB := B)))
-			(FunB ((B <- InterB)) => ((InterC := C)))
-			(FunC ((C <- InterC)) => ((InterD := D) (OutputE := E)))
-		))
+		composition Test (InputA) => (OutputE) {
+			FunA (A = all InputA, D = all InterD) => (InterB = B);
+			FunB (B = all InterB) => (InterC = C);
+			FunC (C = all InterC) => (InterD = D, OutputE = E);
+		}
 	`
 	loopExample2 := `
-		(:function FunA (A B) -> (C))
-		(:function FunB (A C) -> (B))
-		(:function FunC (B C) -> (D))
+		function FunA (A, B) => (C);
+		function FunB (A, C) => (B);
+		function FunC (B, C) => (D);
     
-		(:composition Test (InputA) -> (OutputD) (
-			(FunA ((A <- InputA) (B <- InterB)) => ((InterC := C)))
-			(FunB ((B <- InterB) (C <- InterC)) => ((InterB := B)))
-			(FunC ((B <- InterB) (C <- InterC)) => ((OutputD := D)))
-		))
+		composition Test (InputA) => (OutputD) {
+			FunA (A = all InputA, B = all InterB) => (InterC = C);
+			FunB (A = all InterB, C = all InterC) => (InterB = B);
+			FunC (B = all InterB, C = all InterC) => (OutputD = D);
+		}
 	`
 
 	tests := []string{loopExample1, loopExample2}
@@ -163,15 +163,15 @@ func TestCircularDependencies(t *testing.T) {
 
 func TestDataMapping(t *testing.T) {
 	input := `
-		(:function FunA (A B) -> (C D))
-		(:function FunB (C D) -> (E F))
-		(:function FunC (B D F G) -> (H))
+		function FunA (A, B) => (C, D);
+		function FunB (C, D) => (E, F);
+		function FunC (B, D, F, G) => (H);
     
-		(:composition Test (InputA InputB InputG) -> (OutputE OutputH) (
-			(FunA ((A <- InputA) (B <- InputB)) => ((InterC := C) (InterD := D)))
-			(FunB ((C <- InterC) (D <- InterD)) => ((OutputE := E) (InterF := F)))
-			(FunC ((B <- InputB) (D <- InterD) (F <- InterF) (G <- InputG)) => ((OutputH := H)))
-		))
+		composition Test (InputA, InputB, InputG) => (OutputE, OutputH) {
+			FunA (A = all InputA, B = all InputB) => (InterC = C, InterD = D);
+			FunB (C = all InterC, D = all InterD) => (OutputE = E, InterF = F);
+			FunC (B = all InputB, D = all InterD, F = all InterF, G = all InputG) => (OutputH = H);
+		}
 	`
 
 	parser := NewParser(bufio.NewReader(strings.NewReader(input)))
@@ -284,10 +284,10 @@ func TestDataMapping(t *testing.T) {
 
 func TestCommonDandelionFunctions(t *testing.T) {
 	httpFunc := `
-		; do not need to declare function
-		(:composition Test (Req) -> (Resp Body) (
-			(HTTP ((request <- Req)) => ((Resp := response) (Body := body)))
-		))
+		# do not need to declare function
+		composition Test (Req) => (Resp, Body) {
+			HTTP (request = all Req) => (Resp = response, Body = body);
+		}
 	`
 
 	tests := []string{httpFunc}

@@ -8,7 +8,7 @@ import (
 
 func TestFunctionDeclaration(t *testing.T) {
 	testInput := `
-		(:function FunctionName (Param1 Param2) -> (Ret1 Ret2))
+		function FunctionName (Param1, Param2) => (Ret1, Ret2);
 	`
 
 	parser := NewParser(bufio.NewReader(strings.NewReader(testInput)))
@@ -50,58 +50,10 @@ func TestFunctionDeclaration(t *testing.T) {
 
 func TestFunctionApplication(t *testing.T) {
 	testInput := `
-		(:function F (A B) -> (C))
-		(:composition C (InA InB) -> (OutA) (
-			(F (
-				(:all A <- InA)
-				(:all B <- InB)
-			) => (
-				(OutA := C)
-			))
-		))
-	`
-
-	parser := NewParser(bufio.NewReader(strings.NewReader(testInput)))
-	output, err := parser.Parse()
-
-	if err != nil {
-		t.Errorf("Got error while parsing input: %v", err)
-		return
-	}
-
-	if output == nil {
-		t.Errorf("Got nil output")
-		return
-	}
-	if len(output.FunctionDecls) != 1 {
-		t.Errorf("Got != 1 function declarations")
-		return
-	}
-	if len(output.Compositions) != 1 {
-		t.Errorf("Got != 1 Compositions")
-		return
-	}
-
-}
-
-func TestLoop(t *testing.T) {
-	testInput := `
-		(:function F (A) -> (B C))
-		(:composition C (In) -> (Out) (
-			(:loop (
-				(:until_empty Cond <- In)
-			) => (
-				(F (
-					(A <- Cond)
-				) => (
-					(CondAfter := B)
-					(OutAfter := C)
-				))
-			) => (
-				(:feedback Cond := CondAfter)
-				(Out := OutAfter)
-			))
-		))
+		function F (A, B) => (C);
+		composition C (InA, InB) => (OutA) {
+			F (A = all InA, B = all InB) => (OutA = C);
+		}
 	`
 
 	parser := NewParser(bufio.NewReader(strings.NewReader(testInput)))
@@ -129,8 +81,8 @@ func TestLoop(t *testing.T) {
 
 func TestComment(t *testing.T) {
 	testInput := `
-		(:function F (A) -> (B C)) ; some comment that should be ignored
-		(:function G (A B C) -> (D)) ; some other comment at end of file
+		function F (A) => (B, C); # some comment that should be ignored
+		function G (A, B, C) => (D); # some other comment at end of file
 	`
 
 	parser := NewParser(bufio.NewReader(strings.NewReader(testInput)))
@@ -157,48 +109,14 @@ func TestComment(t *testing.T) {
 
 func TestDandelionExample1(t *testing.T) {
 	testInput := `
-		(:function CompileFiles (Source) -> (Out))
-		(:function LinkObjects (ObjectFile Library) -> (Binary))
+		function CompileFiles (Source) => (Out);
+		function LinkObjects (ObjectFile, Library) => (Binary);
 		
-		(:composition CompileMulti (SourceFiles Libraries) -> (Binaries) (
-			(CompileFiles (
-				(:keyed Source <- SourceFile)
-			) => (
-				(ObjectFiles := Out)
-			))
-		
-			(LinkObjects (
-				(:all Objects <- ObjectFiles)
-				(Libraries <- Libraries)
-			) => (
-				(Binaries := Binary)
-			))
-		))
-		
-		(:function CompileOneFile (SourcesBefore) -> (SourcesAfter Out))
-		
-		(:composition CompileFixpoint (SourceFiles Libraries) -> (Binary) (
-			(:loop (
-				(:until_empty Sources <- SourceFiles) ; until_empty (until the collection is empty), until_empty_item (until the collection's only item has length zero)
-			) => (
-				(CompileOneFile (
-					(SourcesBefore <- Sources) ; no sharding modifier: run a single function instance with all the collection's inputs
-				) => (
-					(SourcesAfter := SourcesAfter)
-					(Out := Out)
-				))
-			) => (
-				(:feedback Sources := SourcesAfter) ; replaces Sources at each iteration
-				(ObjectFiles := Out)
-			))
-			
-			(LinkObjects (
-				(Objects <- ObjectFiles)
-				(Libraries <- Libraries) ; no sharding modifier: broadcast libraries to all funciton calls
-			) => (
-				(Binary := Binary)
-			))
-		)) ; test comment
+		composition CompileMulti (SourceFiles, Libraries) => (Binaries) {
+			CompileFiles (Source = keyed SourceFile) => (ObjectFiles = Out);
+			LinkObjects (Objects = all ObjectFiles, Libraries = all Libraries) => (Binaries = Binary);
+		}
+		# end of file comment
 	`
 
 	parser := NewParser(bufio.NewReader(strings.NewReader(testInput)))
@@ -212,13 +130,13 @@ func TestDandelionExample1(t *testing.T) {
 
 func TestDandelionExample2(t *testing.T) {
 	testInput := `
-		(:function MakePNGGrayscaleS3 (S3GetResponse) -> (S3PutRequest))
+		function MakePNGGrayscaleS3 (S3GetResponse) => (S3PutRequest);
 		
-		(:composition MakePNGGrayscale (S3GetRequest) -> () (
-			(DandelionHTTPGet ( (:keyed Request <- S3GetRequest) ) => ( (ToProcess := Response) ))
-			(MakePNGGrayscale ( (:keyed S3GetResponse <- ToProcess) ) => ( (S3PutRequest := S3PutRequest) ))
-			(DandelionHTTPPut ( (:keyed Request <- S3PutRequest) ) => ( ))
-		))
+		composition MakePNGGrayscale (S3GetRequest) => () {
+			DandelionHTTPGet (Request = keyed S3GetRequest) => (ToProcess = Response);
+			MakePNGGrayscale (S3GetResponse = keyed ToProcess) => (S3PutRequest = S3PutRequest);
+			DandelionHTTPPut (Request = keyed S3PutRequest) => ();
+		}
 	`
 
 	parser := NewParser(bufio.NewReader(strings.NewReader(testInput)))
@@ -232,32 +150,15 @@ func TestDandelionExample2(t *testing.T) {
 
 func TestDandelionExample3(t *testing.T) {
 	testInput := `
-		(:function FunA (A B) -> (C))
-		(:function FunB (A B C) -> (D))
-		(:function FunC (D) -> (E))
+		function FunA (A, B) => (C);
+		function FunB (A, B, C) => (D);
+		function FunC (D) => (E);
 		
-		(:composition Test (InputA InputB) -> (OutputE) (
-			(FunA (
-				(:keyed A <- InputA)
-				(:keyed B <- InputB)
-			) => (
-				(InterC := C)
-			))
-		
-			(FunB (
-				(:keyed A <- InputA)
-				(:keyed B <- InputB)
-				(:keyed C <- InterC)
-			) => (
-				(InterD := D)
-			))
-			
-			(FunC (
-				(:all D <- InterD)
-			) => (
-				(OutputE := E)
-			))
-		))
+		composition Test (InputA, InputB) => (OutputE) {
+			FunA (A = keyed InputA, B = keyed InputB) => (InterC = C);
+			FunB (A = keyed InputA, B = keyed InputB, C = keyed InterC) => (InterD = D);
+			FunC (D = all InterD) => (OutputE = E);			
+		}
 	`
 
 	parser := NewParser(bufio.NewReader(strings.NewReader(testInput)))

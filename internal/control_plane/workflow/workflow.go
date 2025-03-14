@@ -8,6 +8,7 @@ const (
 	ShardingAll Sharding = iota
 	ShardingKeyed
 	ShardingEach
+	ShardingAny // dirigent only: all in dandelion composition but may be fused into parallel task
 )
 
 type Task struct {

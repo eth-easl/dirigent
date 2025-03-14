@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"cluster_manager/internal/control_plane/workflow"
 	"fmt"
+	"slices"
 	"strings"
 	"testing"
 )
@@ -222,7 +223,7 @@ func TestFunctionRunner(t *testing.T) {
 	// D(A(a)[1],b)
 	// E(C(B(A(a)[0]),D(A(a)[1],b))[1],D(A(a)[1],b),F()[0])
 	// F()[0], F()[1], F()[2], F()[3]
-	// G(F()[3],F()[2]) -> does not exist (no output)
+	// G(F()[3],F()[2]) => does not exist (no output)
 	expectedOut := []string{
 		"C(B(A(a)[0]),D(A(a)[1],b))[0]",
 		"E(C(B(A(a)[0]),D(A(a)[1],b))[1],D(A(a)[1],b),F()[0])",
@@ -243,34 +244,34 @@ func TestFunctionRunner(t *testing.T) {
 func TestPartition(t *testing.T) {
 	inputs := []string{
 		`
-		(:function FunA (A) -> (B))
-		(:composition c1 (InputA) -> (OutputB) (
-			(FunA ((A <- InputA)) => ((OutputB := B)))
-		))
+		function FunA (A) => (B);
+		composition c1 (InputA) => (OutputB) {
+			FunA (A = all InputA) => (OutputB = B);
+		}
 		`,
 		`
-		(:function FunA (A B) -> (C D))
-		(:function FunB (C D) -> (E F))
-		(:function FunC (B D F G) -> (H))
+		function FunA (A, B) => (C, D);
+		function FunB (C, D) => (E, F);
+		function FunC (B, D, F, G) => (H);
     
-		(:composition c2 (InputA InputB InputG) -> (OutputE OutputH) (
-			(FunA ((A <- InputA) (B <- InputB)) => ((InterC := C) (InterD := D)))
-			(FunB ((C <- InterC) (D <- InterD)) => ((OutputE := E) (InterF := F)))
-			(FunC ((B <- InputB) (D <- InterD) (F <- InterF) (G <- InputG)) => ((OutputH := H)))
-		))
+		composition c2 (InputA, InputB, InputG) => (OutputE, OutputH) {
+			FunA (A = all InputA, B = all InputB) => (InterC = C, InterD = D);
+			FunB (C = all InterC, D = all InterD) => (OutputE = E, InterF = F);
+			FunC (B = all InputB, D = all InterD, F = all InterF, G = all InputG) => (OutputH = H);
+		}
 		`,
 		`
-		(:function FunA (A) -> (B C))
-		(:function FunB (B C) -> (D E))
-		(:function FunC (D) -> (F))
-		(:function FunD (E) -> (G))
+		function FunA (A) => (B, C);
+		function FunB (B, C) => (D, E);
+		function FunC (D) => (F);
+		function FunD (E) => (G);
 
-		(:composition c3 (InputA) -> (OutputF OutputG) (
-			(FunA ((A <- InputA)) => ((InterB := B) (InterC := C)))
-			(FunB ((B <- InterB) (C <- InterC)) => ((InterD := D) (InterE := E)))
-			(FunC ((D <- InterD)) => ((OutputF := F)))
-			(FunD ((E <- InterE)) => ((OutputG := G)))
-		))
+		composition c3 (InputA) => (OutputF, OutputG) {
+			FunA (A = all InputA) => (InterB = B, InterC = C);
+			FunB (B = all InterB, C = all InterC) => (InterD = D, InterE = E);
+			FunC (D = all InterD) => (OutputF = F);
+			FunD (E = all InterE) => (OutputG = G);
+		}
 		`,
 	}
 	inData := [][]string{
@@ -369,17 +370,17 @@ func TestPartition(t *testing.T) {
 }
 
 func TestParallelPartitionSingleInput(t *testing.T) {
-	keywords := []string{":all", ":keyed", ":each"}
+	keywords := []string{"all", "keyed", "each"}
 	inputs := make([]string, 0, len(keywords)*len(keywords))
 	for _, keyword1 := range keywords {
 		for _, keyword2 := range keywords {
 			input := fmt.Sprintf(
 				`
-				(:function FunA (A) -> (B))
-				(:composition c1 (In) -> (Out) (
-					(FunA ((%s A <- In)) => ((Inter := B)))
-					(FunA ((%s A <- Inter)) => ((Out := B)))
-				))`,
+				function FunA (A) => (B);
+				composition c1 (In) => (Out) {
+					FunA (A = %s In) => (Inter = B);
+					FunA (A = %s Inter) => (Out = B);
+				}`,
 				keyword1, keyword2,
 			)
 			inputs = append(inputs, input)
@@ -457,7 +458,7 @@ func TestParallelPartitionSingleInput(t *testing.T) {
 }
 
 func TestParallelPartitionMultiInput(t *testing.T) {
-	keywords := []string{":all", ":keyed", ":each"}
+	keywords := []string{"all", "keyed", "each"}
 	inputs := make([]string, 0, len(keywords)*len(keywords)*len(keywords)*len(keywords))
 	for _, f1in1Keyword := range keywords {
 		for _, f1in2Keyword := range keywords {
@@ -465,11 +466,11 @@ func TestParallelPartitionMultiInput(t *testing.T) {
 				for _, f2in2Keyword := range keywords {
 					input := fmt.Sprintf(
 						`
-						(:function FunA (A B) -> (C D))
-						(:composition c1 (InA InB) -> (OutC OutD) (
-							(FunA ((%s A <- InA) (%s B <- InB)) => ((InterA := C) (InterB := D)))
-							(FunA ((%s A <- InterA) (%s B <- InterB)) => ((OutC := C) (OutD := D)))
-						))`,
+						function FunA (A, B) => (C, D);
+						composition c1 (InA, InB) => (OutC, OutD) {
+							FunA (A = %s InA, B = %s InB) => (InterA = C, InterB = D);
+							FunA (A = %s InterA, B = %s InterB) => (OutC = C, OutD = D);
+						}`,
 						f1in1Keyword, f1in2Keyword, f2in1Keyword, f2in2Keyword,
 					)
 					inputs = append(inputs, input)
@@ -563,15 +564,90 @@ func TestParallelPartitionMultiInput(t *testing.T) {
 	}
 }
 
+func TestDataQueryWorkflow(t *testing.T) {
+	input := `
+		function csv_reader (option, data) => (outSchema, outBatches);
+		function csv_writer (option, inSchema, inBatches) => (data);
+		function filter (option, inSchema, inBatches) => (outSchema, outBatches);
+		function hash_join (option, inSchema, inBatches, inSchema2, inBatches2) => (outSchema, outBatches);
+		function project (option, inSchema, inBatches) => (outSchema, outBatches);
+		function group_by (option, inSchema, inBatches) => (outSchema, outBatches);
+		function order_by (option, inSchema, inBatches) => (outSchema, outBatches);
+		composition q1 (ropt0, fopt0, ropt1, fopt1, hopt2, popt2, oopt2, gopt2, wopt2, data0, data1) => (out) {
+			csv_reader (option = all ropt0, data = each data0) => (rs0 = outSchema, rb0 = outBatches);
+			filter (option = all fopt0, inSchema = any rs0, inBatches = each rb0) => (fs0 = outSchema, fb0 = outBatches);
+
+			csv_reader (option = all ropt1, data = each data1) => (rs1 = outSchema, rb1 = outBatches);
+			filter (option = all fopt1, inSchema = any rs1, inBatches = each rb1) => (fs1 = outSchema, fb1 = outBatches);
+
+			hash_join (option = all hopt2, inSchema = any fs0, inBatches = all fb0, inSchema2 = any fs1, inBatches2 = all fb1) => (hs2 = outSchema, hb2 = outBatches);
+			project (option = all popt2, inSchema = any hs2, inBatches = each hb2) => (ps2 = outSchema, pb2 = outBatches);
+			group_by (option = all gopt2, inSchema = any ps2, inBatches = all pb2) => (gs2 = outSchema, gb2 = outBatches);
+			order_by (option = all oopt2, inSchema = any gs2, inBatches = all gb2) => (os2 = outSchema, ob2 = outBatches);
+			csv_writer (option = all wopt2, inSchema = any os2, inBatches = all ob2) => (out = data);
+		}
+		`
+	expectedTasks := [][]string{
+		{"csv_reader", "filter"},
+		{"csv_reader", "filter"},
+		{"hash_join"},
+		{"project"},
+		{"group_by", "order_by", "csv_writer"},
+	}
+
+	// load and partition workflow
+	wf, err := inputToWorkflow(input, ConsumerBased)
+	if err != nil {
+		t.Fatalf(err.Error())
+	}
+
+	// check tasks
+	if wf.TotalTasks != uint32(5) {
+		t.Errorf("Expected 5 tasks, got %d", wf.TotalTasks)
+	}
+	tasksFound := make([]bool, len(expectedTasks))
+	var tasksChecked []*workflow.Task
+	queue := wf.InitialTasks
+	for len(queue) > 0 {
+		currentTask := queue[0]
+		queue = queue[1:]
+
+		if slices.Contains(tasksChecked, currentTask) {
+			continue
+		}
+		tasksChecked = append(tasksChecked, currentTask)
+
+		taskFound := false
+		for expectedIdx, expectedTask := range expectedTasks {
+			if tasksFound[expectedIdx] {
+				continue
+			}
+			if slices.Equal(currentTask.Functions, expectedTask) {
+				tasksFound[expectedIdx] = true
+				taskFound = true
+				break
+			}
+		}
+		if !taskFound {
+			t.Errorf("Task not found in expected tasks: %v", currentTask)
+		}
+
+		queue = append(queue, currentTask.ConsumerTasks...)
+	}
+	if len(tasksChecked) != len(expectedTasks) {
+		t.Errorf("Expected %d tasks, got %d", len(expectedTasks), len(tasksChecked))
+	}
+}
+
 func TestDebug(t *testing.T) {
 	input := `
-		(:function csv_reader (options inData) -> (outSchema outBatches))
-		(:function csv_writer (options inSchema inBatches) -> (outData))
+		function csv_reader (options, inData) => (outSchema, outBatches);
+		function csv_writer (options, inSchema, inBatches) => (outData);
 	
-		(:composition test (in_data reader_options) -> (out_data) (
-		  (csv_reader ((options <- reader_options) (inData <- in_data)) => ((schema := outSchema) (batches := outBatches)))
-		  (csv_writer ((options <- reader_options) (inSchema <- schema) (inBatches <- batches)) => ((out_data := outData)))
-		))`
+		composition test (in_data, reader_options) => (out_data) {
+		  csv_reader (options = all reader_options, inData = each in_data) => (schema = outSchema, batches = outBatches);
+		  csv_writer (options = all reader_options, inSchema = any schema, inBatches = each batches) => (out_data = outData);
+		}`
 	inData := []string{"inCSV", "ropt"}
 	expectedTaskOutput := []string{"task(inCSV,ropt)"}
 	expectedOutput := []string{"csv_writer(ropt,csv_reader(ropt,inCSV)[0],csv_reader(ropt,inCSV)[1])"}

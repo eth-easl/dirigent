@@ -170,73 +170,73 @@ func cpToDpWorkflow(cpWf *cp_workflow.Workflow, cpWfTasks []*cp_workflow.Task) *
 
 func TestSimple(t *testing.T) {
 	wfDescription := []string{
-		`; simple chain
-			(:function FunA (A) -> (B))
-			(:function FunB (B) -> (C))
-			(:function FunC (C) -> (D))
+		`# simple chain
+			function FunA (A) => (B);
+			function FunB (B) => (C);
+			function FunC (C) => (D);
 		
-			(:composition Test (InputA) -> (OutputD) (
-				(FunA ((A <- InputA)) => ((InterB := B)))
-				(FunB ((B <- InterB)) => ((InterC := C)))
-				(FunC ((C <- InterC)) => ((OutputD := D)))
-			))
+			composition Test (InputA) => (OutputD) {
+				FunA (A = all InputA) => (InterB = B);
+				FunB (B = all InterB) => (InterC = C);
+				FunC (C = all InterC) => (OutputD = D);
+			}
 		`,
-		`; simple split
-			(:function FunA (A) -> (B))
-			(:function FunB (B) -> (C))
-			(:function FunC (B) -> (D))
-			(:function FunD (C D) -> (E))
+		`# simple split
+			function FunA (A) => (B);
+			function FunB (B) => (C);
+			function FunC (B) => (D);
+			function FunD (C, D) => (E);
 		
-			(:composition y (InputA) -> (OutputE) (
-				(FunA ((A <- InputA)) => ((InterB := B)))
-				(FunB ((B <- InterB)) => ((InterC := C)))
-				(FunC ((B <- InterB)) => ((InterD := D)))
-				(FunD ((C <- InterC) (D <- InterD)) => ((OutputE := E)))
-			))
+			composition y (InputA) => (OutputE) {
+				FunA (A = all InputA) => (InterB = B);
+				FunB (B = all InterB) => (InterC = C);
+				FunC (B = all InterB) => (InterD = D);
+				FunD (C = all InterC, D = all InterD) => (OutputE = E);
+			}
 		`,
-		`; larger example
-			(:function FunA (A) -> (B))
-			(:function FunB (B) -> (C))
+		`# larger example
+			function FunA (A) => (B);
+			function FunB (B) => (C);
 	
-			(:function FunC (C) -> (D))
-			(:function FunD (D) -> (E))
-			(:function FunE (E) -> (F))
+			function FunC (C) => (D);
+			function FunD (D) => (E);
+			function FunE (E) => (F);
 	
-			(:function FunF (C) -> (G))
-			(:function FunG (G) -> (H))
-			(:function FunH (G) -> (I))
-			(:function FunI (H I) -> (J))
+			function FunF (C) => (G);
+			function FunG (G) => (H);
+			function FunH (G) => (I);
+			function FunI (H, I) => (J);
 	
-			(:function FunJ (F J) -> (K))
-			(:function FunK (K) -> (L))
-			(:function FunL (L) -> (M))
+			function FunJ (F, J) => (K);
+			function FunK (K) => (L);
+			function FunL (L) => (M);
 		
-			(:composition y (InputA) -> (OutputM) (
-				(FunA ((A <- InputA)) => ((InterB := B)))
-				(FunB ((B <- InterB)) => ((InterC := C)))
+			composition y (InputA) => (OutputM) {
+				FunA (A = all InputA) => (InterB = B);
+				FunB (B = all InterB) => (InterC = C);
 	
-				(FunC ((C <- InterC)) => ((InterD := D)))
-				(FunD ((D <- InterD)) => ((InterE := E)))
-				(FunE ((E <- InterE)) => ((InterF := F)))
+				FunC (C = all InterC) => (InterD = D);
+				FunD (D = all InterD) => (InterE = E);
+				FunE (E = all InterE) => (InterF = F);
 	
-				(FunF ((C <- InterC)) => ((InterG := G)))
-				(FunG ((G <- InterG)) => ((InterH := H)))
-				(FunH ((G <- InterG)) => ((InterI := I)))
-				(FunI ((H <- InterH) (I <- InterI)) => ((InterJ := J)))
+				FunF (C = all InterC) => (InterG = G);
+				FunG (G = all InterG) => (InterH = H);
+				FunH (G = all InterG) => (InterI = I);
+				FunI (H = all InterH, I = all InterI) => (InterJ = J);
 	
-				(FunJ ((F <- InterF) (J <- InterJ)) => ((InterK := K)))
-				(FunK ((K <- InterK)) => ((InterL := L)))
-				(FunL ((L <- InterL)) => ((OutputM := M)))
-			))
+				FunJ (F = all InterF, J = all InterJ) => (InterK = K);
+				FunK (K = all InterK) => (InterL = L);
+				FunL (L = all InterL) => (OutputM = M);
+			}
 		`,
-		`; simple data handling
-			(:function FunA (A) -> (C D))
-			(:function FunB (C B) -> (E))
+		`# simple data handling
+			function FunA (A) => (C, D);
+			function FunB (C, B) => (E);
 		
-			(:composition y (InputA InputB) -> (OutputD OutputE) (
-				(FunA ((A <- InputA)) => ((InterC := C) (OutputD := D)))
-				(FunB ((C <- InterC) (B <- InputB)) => ((OutputE := E)))
-			))
+			composition y (InputA, InputB) => (OutputD, OutputE) {
+				FunA (A = all InputA) => (InterC = C, OutputD = D);
+				FunB (C = all InterC, B = all InputB) => (OutputE = E);
+			}
 		`,
 	}
 	wfInput := [][]string{
@@ -316,21 +316,21 @@ func TestSimple(t *testing.T) {
 
 func TestDataParallelism(t *testing.T) {
 	wfDescription := []string{
-		`; simple fan-out with :each
-			(:function FunA (A) -> (B))
+		`# simple fan-out with :each
+			function FunA (A) => (B);
 		
-			(:composition Test (In) -> (Out) (
-				(FunA ((:each A <- In)) => ((Inter := B)))
-				(FunA ((:all A <- Inter)) => ((Out := B)))
-			))
+			composition Test (In) => (Out) {
+				FunA (A = each In) => (Inter = B);
+				FunA (A = all Inter) => (Out = B);
+			}
 		`,
-		`; simple fan-out with :keyed
-			(:function FunA (A) -> (B))
+		`# simple fan-out with :keyed
+			function FunA (A) => (B);
 		
-			(:composition Test (In) -> (Out) (
-				(FunA ((:keyed A <- In)) => ((Inter := B)))
-				(FunA ((:all A <- Inter)) => ((Out := B)))
-			))
+			composition Test (In) => (Out) {
+				FunA (A = keyed In) => (Inter = B);
+				FunA (A = all Inter) => (Out = B);
+			}
 		`,
 	}
 	wfInput := [][][]string{

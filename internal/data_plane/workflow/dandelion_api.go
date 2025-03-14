@@ -27,7 +27,7 @@ func EmptyInputSet() InputSet {
 
 func (s *InputSet) GetDataParallelism(sharding Sharding) [][]int {
 	switch sharding {
-	case ShardingAll:
+	case ShardingAll, ShardingAny:
 		return [][]int{}
 	case ShardingKeyed: // item keys: [0, 1, 0, 2] -> [[0,2],[1],[3]]
 		keyMap := make(map[int64][]int)

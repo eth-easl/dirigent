@@ -21,6 +21,8 @@ import (
 	"slices"
 )
 
+var dandelionOperators = []string{"aggregate", "csv_reader", "csv_writer", "fetch", "filter", "hash_join", "project", "order", "splitter"}
+
 type registeredServices struct {
 	data map[string]bool
 	sync.RWMutex
@@ -114,9 +116,18 @@ func shardingStr(s uint32) string {
 		return "all"
 	}
 }
-func exportFunctionComposition(task *proto.WorkflowTaskInfo) string {
+
+// NOTE: exportFunctionComposition has the following assumptions when using AddOperatorLoadAndStore:
+//  1. we assume the first and last functions in the task are dandelion operators
+//  2. we assume only the last function is composition output
+func (dr *Runtime) exportFunctionComposition(task *proto.WorkflowTaskInfo) string {
 	if task == nil || len(task.Functions) == 0 {
 		return ""
+	}
+
+	addLoadAndStore := false
+	if dr.dandelionConfig.AddOperatorLoadAndStore && slices.Contains(dandelionOperators, task.Functions[0]) {
+		addLoadAndStore = true
 	}
 
 	// function declarations and function applications
@@ -126,6 +137,37 @@ func exportFunctionComposition(task *proto.WorkflowTaskInfo) string {
 	dfIdx := 0
 	shIdx := 0
 	for fIdx, f := range task.Functions {
+
+		// operator load
+		if addLoadAndStore {
+			// operators are stored as a fetch/store composition with the actual function having a '_op' suffix attached
+			if slices.Contains(dandelionOperators, f) {
+				f = fmt.Sprintf("%s_op", f)
+			}
+
+			// add loading part at the start
+			if fIdx == 0 {
+				funDecls += "function fetch_requests(url) => (getRequest);"
+				funDecls += "function HTTP(request) => (response);"
+				if f == "csv_reader_op" { // -> reader: 2nd input -> data
+					srcDataIdx := task.FunctionDataFlow[3]
+					task.FunctionDataFlow[2] = -2
+					funAppls += fmt.Sprintf("fetch_requests(url = each cIn%d) => (inDataReq = getRequest); ", srcDataIdx)
+					funAppls += fmt.Sprintf("HTTP(request = each inDataReq) => (fetched%d = response); ", srcDataIdx)
+				} else { // -> any other data operator: 2nd input -> schema, 3rd input -> batches (+ 4th and 5th for hash_join)
+					numDataInput := 2
+					if f == "hash_join_op" {
+						numDataInput = 4
+					}
+					for i := 1; i <= numDataInput; i++ { // -> start at 1 since index 0 is operator option set
+						task.FunctionDataFlow[i*2] = -2
+						srcIdx := task.FunctionDataFlow[i*2+1]
+						funAppls += fmt.Sprintf("fetch_requests(url = each cIn%d) => (inReq%d = getRequest); ", srcIdx, srcIdx)
+						funAppls += fmt.Sprintf("HTTP(request = each inReq%d) => (fetched%d = response); ", srcIdx, srcIdx)
+					}
+				}
+			}
+		}
 
 		// function declaration
 		if !slices.Contains(funDeclared, f) {
@@ -157,6 +199,8 @@ func exportFunctionComposition(task *proto.WorkflowTaskInfo) string {
 			shIdx++
 			if srcFIdx == -1 {
 				applIn += fmt.Sprintf("in%d = %s cIn%d", inIdx, srcSharding, srcFDataIdx)
+			} else if srcFIdx == -2 { // operator load
+				applIn += fmt.Sprintf("in%d = %s fetched%d", inIdx, srcSharding, srcFDataIdx)
 			} else {
 				applIn += fmt.Sprintf("in%d = %s f%dd%d", inIdx, srcSharding, srcFIdx, srcFDataIdx)
 			}
@@ -176,6 +220,27 @@ func exportFunctionComposition(task *proto.WorkflowTaskInfo) string {
 		if fIdx != len(task.Functions)-1 {
 			funAppls += " "
 		}
+
+		// operator store
+		if addLoadAndStore && fIdx == len(task.Functions)-1 {
+			inUrlSet := fmt.Sprintf("cIn%d", task.FunctionDataFlow[5])
+			if task.Functions[0] == "csv_reader" {
+				inUrlSet = fmt.Sprintf("cIn%d", task.FunctionDataFlow[3])
+			}
+
+			if f == "csv_writer_op" {
+				funDecls += "function store_requests_data(inUrl, data) => (putRequest, outUrl);"
+				funAppls += fmt.Sprintf(" store_requests_data(inUrl = all %s, data = each f%dd0) => (outDataReq = putRequest, outDataUrl = outUrl); ", inUrlSet, fIdx)
+				funAppls += "HTTP(request = each outDataReq) => (_0 = response);"
+			} else {
+				funDecls += "function store_requests_schema(inUrl, data) => (putRequest, outUrl);"
+				funDecls += "function store_requests_batches(inUrl, data) => (putRequest, outUrl);"
+				funAppls += fmt.Sprintf(" store_requests_schema(inUrl = all %s, data = each f%dd0) => (outSchemaReq = putRequest, outSchemaUrl = outUrl); ", inUrlSet, fIdx)
+				funAppls += "HTTP(request = each outSchemaReq) => (_0 = response); "
+				funAppls += fmt.Sprintf("store_requests_batches(inUrl = all %s, data = each f%dd1) => (outBatchesReq = putRequest, outBatchesUrl = outUrl); ", inUrlSet, fIdx)
+				funAppls += "HTTP(request = each outBatchesReq) => (_1 = response);"
+			}
+		}
 	}
 
 	// composition input
@@ -189,20 +254,27 @@ func exportFunctionComposition(task *proto.WorkflowTaskInfo) string {
 
 	// composition output
 	compOut := ""
-	for outIdx := uint32(0); outIdx < task.NumOut; outIdx++ {
-		srcFIdx := task.FunctionDataFlow[dfIdx]
-		srcFDataIdx := task.FunctionDataFlow[dfIdx+1]
-		dfIdx += 2
-		compOut += fmt.Sprintf("f%dd%d", srcFIdx, srcFDataIdx)
-		if outIdx != task.NumOut-1 {
-			compOut += ", "
+	if addLoadAndStore {
+		if task.Functions[len(task.Functions)-1] == "csv_writer" {
+			compOut = "outDataUrl"
+		} else {
+			compOut = "outSchemaUrl, outBatchesUrl"
+		}
+	} else {
+		for outIdx := uint32(0); outIdx < task.NumOut; outIdx++ {
+			srcFIdx := task.FunctionDataFlow[dfIdx]
+			srcFDataIdx := task.FunctionDataFlow[dfIdx+1]
+			dfIdx += 2
+			compOut += fmt.Sprintf("f%dd%d", srcFIdx, srcFDataIdx)
+			if outIdx != task.NumOut-1 {
+				compOut += ", "
+			}
 		}
 	}
 
 	return fmt.Sprintf("%s composition %s (%s) => (%s) {%s}", funDecls, task.Name, compIn, compOut, funAppls)
 }
 
-// NOTE: may be removed again once dandelion supports passing the data between invocations
 func addOperatorReadStore(operator string, withStdio bool) (string, string) {
 	stdioOpDecl := ""
 	stdioOpCall := ""
@@ -315,7 +387,6 @@ func addOperatorReadStore(operator string, withStdio bool) (string, string) {
 	return fmt.Sprintf("%s_op", operator), outComposition
 }
 
-// NOTE: may be removed again once dandelion supports passing the data between invocations
 func (dr *Runtime) registerHelpers(ctx context.Context) (*proto.SandboxCreationStatus, error) {
 	dr.registeredFunctions.RLock()
 	_, ok := dr.registeredFunctions.data["fetch_requests"]
@@ -388,11 +459,10 @@ func (dr *Runtime) CreateSandbox(ctx context.Context, in *proto.ServiceInfo) (*p
 		}
 		logrus.Infof("Registering binary file %s (size=%d)", in.Image, binaryInfo.Size())
 
-		// NOTE: section may be removed again once dandelion supports passing the data between invocations
+		// operator load/store
 		fName := in.Name
 		var opComposition string
-		operators := []string{"aggregate", "csv_reader", "csv_writer", "fetch", "filter", "hash_join", "splitter"}
-		if dr.dandelionConfig.AddOperatorLoadAndStore && slices.Contains(operators, fName) {
+		if dr.dandelionConfig.AddOperatorLoadAndStore && slices.Contains(dandelionOperators, fName) {
 			s, e := dr.registerHelpers(ctx)
 			if e != nil {
 				return s, e
@@ -436,8 +506,8 @@ func (dr *Runtime) CreateSandbox(ctx context.Context, in *proto.ServiceInfo) (*p
 		dr.registeredFunctions.data[in.Name] = true
 		dr.registeredFunctions.Unlock()
 
-		// NOTE: section may be removed again once dandelion supports passing the data between invocations
-		if dr.dandelionConfig.AddOperatorLoadAndStore && slices.Contains(operators, fName) {
+		// operator load/store
+		if dr.dandelionConfig.AddOperatorLoadAndStore && slices.Contains(dandelionOperators, in.Name) {
 			compRegistrationRequest := bson.D{
 				{Key: "composition", Value: opComposition},
 			}
@@ -470,7 +540,7 @@ func (dr *Runtime) DeleteSandbox(_ context.Context, _ *proto.SandboxID) (*proto.
 	return &proto.ActionStatus{Success: true}, nil
 }
 
-func (dr *Runtime) CreateTaskSandbox(_ context.Context, task *proto.WorkflowTaskInfo) (*proto.SandboxCreationStatus, error) {
+func (dr *Runtime) CreateTaskSandbox(ctx context.Context, task *proto.WorkflowTaskInfo) (*proto.SandboxCreationStatus, error) {
 	start := time.Now()
 	logrus.Debug("Create sandbox for task '", task.Name, "'")
 
@@ -489,8 +559,23 @@ func (dr *Runtime) CreateTaskSandbox(_ context.Context, task *proto.WorkflowTask
 		}
 		dr.registeredTasks.RUnlock()
 
+		// operator load/store
+		if dr.dandelionConfig.AddOperatorLoadAndStore {
+			firstIsOperator := slices.Contains(dandelionOperators, task.Functions[0])
+			lastIsOperator := slices.Contains(dandelionOperators, task.Functions[len(task.Functions)-1])
+			if firstIsOperator && lastIsOperator {
+				s, e := dr.registerHelpers(ctx)
+				if e != nil {
+					return s, e
+				}
+			} else if firstIsOperator || lastIsOperator {
+				logrus.Errorf("Cannot mix operators and non-operators in first and last function of composition.")
+				return getFailureStatus(), nil
+			}
+		}
+
 		// export composition as dandelion composition description and create registration request body
-		dandelionComposition := exportFunctionComposition(task)
+		dandelionComposition := dr.exportFunctionComposition(task)
 		registerRequest := bson.D{
 			{Key: "composition", Value: dandelionComposition},
 		}

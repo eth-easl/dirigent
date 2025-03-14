@@ -67,7 +67,7 @@ func (d *Data) GetDataParallelism(s Sharding) [][]int {
 	switch d.dType {
 	case BytesData:
 		switch s {
-		case ShardingAll:
+		case ShardingAll, ShardingAny:
 			return [][]int{}
 		case ShardingKeyed:
 			keyMap := make(map[rune][]int)

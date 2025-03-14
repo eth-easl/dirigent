@@ -18,23 +18,22 @@ const (
 	IDENT
 
 	// keywords
-	FUNC             // :function
-	COMP             // :composition
-	ALL              // :all
-	KEYED            // :keyed
-	EACH             // :each
-	LOOP             // :loop
-	UNTIL_EMPTY      // :until_empty
-	UNTIL_EMPTY_ITEM // :until_empty_item
-	FEEDBACK         // :feedback
+	FUNC  // function
+	COMP  // composition
+	ALL   // all
+	KEYED // keyed
+	EACH  // each
+	ANY   // any
 
 	// symbols
-	BOPEN  // (
-	BCLOSE // )
-	FROM   // <-
-	TOTHIN // ->
-	TOFAT  // =>
-	GETS   // :=
+	POPEN     // (
+	PCLOSE    // )
+	BOPEN     // {
+	BCLOSE    // }
+	TO        // =>
+	EQUALS    // =
+	COMMA     // ,
+	SEMICOLON // ;
 )
 
 var eof = rune(0)
@@ -52,10 +51,17 @@ type Lexer struct {
 	curr    rune
 	lineIdx int
 	colIdx  int
+
+	nextToken Token
+	nextBuf   string
 }
 
 func NewLexer(r *bufio.Reader) *Lexer {
 	return &Lexer{in: r, lineIdx: 0, colIdx: -1}
+}
+
+func (l *Lexer) PositionStr() string {
+	return fmt.Sprintf("line=%d, col=%d", l.lineIdx, l.colIdx)
 }
 
 func (l *Lexer) read() rune {
@@ -109,10 +115,19 @@ func (l *Lexer) scanIdent() (Token, string) {
 }
 
 func (l *Lexer) Scan() (Token, string) {
+	// if next token has been read already using Peek()
+	if l.nextToken != ILLEGAL {
+		t := l.nextToken
+		b := l.nextBuf
+		l.nextToken = ILLEGAL
+		l.nextBuf = ""
+		return t, b
+	}
+
 	c := l.read()
 
 	// comments
-	for c == ';' {
+	for c == '#' {
 		c = l.read()
 		for c != '\n' {
 			if c == eof {
@@ -123,83 +138,63 @@ func (l *Lexer) Scan() (Token, string) {
 		c = l.read()
 	}
 
-	// whitespaces or identifiers
+	// whitespace
 	if is_space(c) {
 		l.curr = c
 		return l.scanSpace()
 	}
+
+	// identifiers or keywords
 	if is_letter(c) {
 		l.curr = c
-		return l.scanIdent()
-	}
-
-	// keywords (or ":=")
-	if c == ':' {
-		c = l.read()
-
-		// special case ":="
-		if c == '=' {
-			return GETS, ":="
-		}
-
-		// scan keyword
-		l.curr = c
 		_, str := l.scanIdent()
-
 		switch str {
 		case "function":
-			return FUNC, fmt.Sprintf(":%s", str)
+			return FUNC, str
 		case "composition":
-			return COMP, fmt.Sprintf(":%s", str)
+			return COMP, str
 		case "all":
-			return ALL, fmt.Sprintf(":%s", str)
+			return ALL, str
 		case "keyed":
-			return KEYED, fmt.Sprintf(":%s", str)
+			return KEYED, str
 		case "each":
-			return EACH, fmt.Sprintf(":%s", str)
-		case "loop":
-			return LOOP, fmt.Sprintf(":%s", str)
-		case "until_empty":
-			return UNTIL_EMPTY, fmt.Sprintf(":%s", str)
-		case "until_empty_item":
-			return UNTIL_EMPTY_ITEM, fmt.Sprintf(":%s", str)
-		case "feedback":
-			return FEEDBACK, fmt.Sprintf(":%s", str)
+			return EACH, str
+		case "any":
+			return ANY, str
 		default:
-			return ILLEGAL, fmt.Sprintf(":%s", str)
+			return IDENT, str
 		}
 	}
 
 	// symbols
 	if c == '(' {
-		return BOPEN, "("
+		return POPEN, "("
 	}
 	if c == ')' {
-		return BCLOSE, ")"
+		return PCLOSE, ")"
 	}
-	if c == '-' {
-		c = l.read()
-		if c == '>' {
-			return TOTHIN, "->"
-		} else {
-			return ILLEGAL, fmt.Sprintf("-%c", c)
-		}
+	if c == '{' {
+		return BOPEN, "{"
+	}
+	if c == '}' {
+		return BCLOSE, "}"
 	}
 	if c == '=' {
 		c = l.read()
-		if c == '>' {
-			return TOFAT, "->"
+		if is_space(c) {
+			l.unread()
+			return EQUALS, "="
+		} else if c == '>' {
+			return TO, "=>"
 		} else {
-			return ILLEGAL, fmt.Sprintf("-%c", c)
+			return ILLEGAL, fmt.Sprintf("=%c", c)
 		}
 	}
-	if c == '<' {
-		c = l.read()
-		if c == '-' {
-			return FROM, "<-"
-		} else {
-			return ILLEGAL, fmt.Sprintf("<%c", c)
-		}
+	if c == ',' {
+		return COMMA, ","
+	}
+	if c == ';' {
+		return SEMICOLON, ";"
 	}
 
 	if c == eof {
@@ -238,10 +233,44 @@ func (l *Lexer) ExpectIgnoreSpace(expected Token, expectedDesc string) (Token, s
 	case expected:
 		return t, s, nil
 	case ILLEGAL:
-		return ILLEGAL, s, fmt.Errorf("lexer found illegal token '%s' at line=%d, col=%d", s, l.lineIdx, l.colIdx)
+		return ILLEGAL, s, fmt.Errorf("lexer found illegal token '%s' at %s", s, l.PositionStr())
 	case EOF:
 		return EOF, s, fmt.Errorf("expected %s but reached end of file", expectedDesc)
 	default:
-		return t, s, fmt.Errorf("expected %s but got %s", expectedDesc, s)
+		return t, s, fmt.Errorf("expected %s but got %s at %s", expectedDesc, s, l.PositionStr())
+	}
+}
+
+func (l *Lexer) Peek() (Token, string) {
+	if l.nextToken != ILLEGAL {
+		return ILLEGAL, l.nextBuf
+	}
+	l.nextToken, l.nextBuf = l.Scan()
+	return l.nextToken, l.nextBuf
+}
+
+func (l *Lexer) ConsumePeek() {
+	l.nextToken = ILLEGAL
+	l.nextBuf = ""
+}
+
+func (l *Lexer) PeekIgnoreSpace() (Token, string) {
+	for {
+		t, s := l.Peek()
+		if t != SPACE {
+			return t, s
+		}
+		l.ConsumePeek()
+	}
+}
+
+func (l *Lexer) SafePeekIgnoreSpace() (Token, string, error) {
+	t, s := l.PeekIgnoreSpace()
+
+	switch t {
+	case ILLEGAL:
+		return ILLEGAL, s, fmt.Errorf("lexer found illegal token '%s' at %s", s, l.PositionStr())
+	default:
+		return t, s, nil
 	}
 }
