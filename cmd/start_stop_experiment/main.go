@@ -2,6 +2,7 @@ package main
 
 import (
 	"cluster_manager/internal/worker_node/managers"
+	"cluster_manager/internal/worker_node/managers/gpu"
 	"cluster_manager/internal/worker_node/sandbox"
 	"cluster_manager/internal/worker_node/sandbox/containerd"
 	"cluster_manager/internal/worker_node/sandbox/fcctr"
@@ -36,7 +37,7 @@ func startStopSandbox(ctx context.Context, r sandbox.RuntimeInterface, serviceIn
 
 func createRuntime(runtime string, useSnapshots bool) (sandbox.RuntimeInterface, sandbox.PostRegistrationCallback) {
 	sandboxManager := managers.NewSandboxManager("test")
-	gpuManager := managers.NewGPUManager()
+	gpuManager := gpu.GetGPUManager()
 	switch runtime {
 	case "containerd":
 		return containerd.NewContainerdRuntime(nil, config.ContainerdConfig{

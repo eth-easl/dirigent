@@ -2,6 +2,7 @@ package worker_node
 
 import (
 	"cluster_manager/internal/worker_node/managers"
+	"cluster_manager/internal/worker_node/managers/gpu"
 	"cluster_manager/internal/worker_node/sandbox"
 	"cluster_manager/internal/worker_node/sandbox/containerd"
 	"cluster_manager/internal/worker_node/sandbox/dandelion"
@@ -40,7 +41,7 @@ type WorkerNode struct {
 	SandboxManager *managers.SandboxManager
 	ProcessMonitor *managers.ProcessMonitor
 	RouteManager   *connectivity.RouteManager
-	gpuManager     *managers.GPUManager
+	gpuManager     gpu.Manager
 
 	Name string
 	CIDR string
@@ -59,7 +60,7 @@ func NewWorkerNode(cpApi proto.CpiInterfaceClient, config config.WorkerNodeConfi
 	// If CRIType is not "scalability_test", then allow only one daemon per physical node
 	nodeName := hostName
 	sandboxManager := managers.NewSandboxManager(nodeName)
-	gpuManager := managers.NewGPUManager()
+	gpuManager := gpu.GetGPUManager()
 
 	if !utils.IsRoot() {
 		logrus.Fatal("Cannot create a worker daemon without sudo.")

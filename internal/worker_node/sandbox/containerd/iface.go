@@ -2,6 +2,7 @@ package containerd
 
 import (
 	"cluster_manager/internal/worker_node/managers"
+	"cluster_manager/internal/worker_node/managers/gpu"
 	"cluster_manager/proto"
 	"context"
 	"encoding/json"
@@ -67,7 +68,7 @@ func generateContainerName() string {
 	return fmt.Sprintf("workload-%d", rand.Int())
 }
 
-func CreateContainer(ctx context.Context, client *containerd.Client, image containerd.Image, configuration *proto.ServiceInfo, gpuManager *managers.GPUManager, CPUConstraints bool) (containerd.Container, error, time.Duration) {
+func CreateContainer(ctx context.Context, client *containerd.Client, image containerd.Image, configuration *proto.ServiceInfo, gpuManager gpu.Manager, CPUConstraints bool) (containerd.Container, error, time.Duration) {
 	start := time.Now()
 
 	options := []oci.SpecOpts{oci.WithImageConfig(image), oci.WithEnv(composeEnvironmentSetting(configuration.SandboxConfiguration))}

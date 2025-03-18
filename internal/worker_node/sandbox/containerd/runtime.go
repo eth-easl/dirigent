@@ -2,6 +2,7 @@ package containerd
 
 import (
 	"cluster_manager/internal/worker_node/managers"
+	"cluster_manager/internal/worker_node/managers/gpu"
 	"cluster_manager/internal/worker_node/sandbox"
 	"cluster_manager/pkg/config"
 	"cluster_manager/proto"
@@ -41,7 +42,7 @@ type Runtime struct {
 	ImageManager   *ImageManager
 	SandboxManager *managers.SandboxManager
 	ProcessMonitor *managers.ProcessMonitor
-	gpuManager     *managers.GPUManager
+	gpuManager     gpu.Manager
 	CPUConstraints bool
 }
 
@@ -52,7 +53,7 @@ type Metadata struct {
 	Container containerd.Container
 }
 
-func NewContainerdRuntime(cpApi proto.CpiInterfaceClient, config config.ContainerdConfig, sandboxManager *managers.SandboxManager, gpuManager *managers.GPUManager, CPUConstraints bool) *Runtime {
+func NewContainerdRuntime(cpApi proto.CpiInterfaceClient, config config.ContainerdConfig, sandboxManager *managers.SandboxManager, gpuManager gpu.Manager, CPUConstraints bool) *Runtime {
 	containerdClient := GetContainerdClient(config.CRIPath)
 
 	imageManager := NewContainerdImageManager()
