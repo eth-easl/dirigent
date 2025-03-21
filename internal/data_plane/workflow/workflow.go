@@ -31,6 +31,15 @@ type Task struct {
 	ConsumerDataDstIdx []int32 // argument idx in consumer (where to put the data)
 }
 
+func (t *Task) IsParallel() bool {
+	for _, s := range t.InputSharding {
+		if s != ShardingAll && s != ShardingAny {
+			return true
+		}
+	}
+	return false
+}
+
 type Workflow struct {
 	Name   string
 	Tasks  []*Task

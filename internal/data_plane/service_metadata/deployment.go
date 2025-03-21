@@ -72,11 +72,13 @@ func (d *Deployments) AddWorkflowDeployment(name string, dataplaneID string, wf 
 
 	// TODO: make container concurrency configurable
 	for _, task := range wf.Tasks {
-		if len(task.Functions) > 1 {
-			d.data[task.Name] = &Deployment{
-				dType:    Task,
-				metadata: NewFunctionMetadata(task.Name, dataplaneID, 1),
-			}
+		// no need to register separate task for single function without parallelism
+		if len(task.Functions) == 1 && !task.IsParallel() {
+			continue
+		}
+		d.data[task.Name] = &Deployment{
+			dType:    Task,
+			metadata: NewFunctionMetadata(task.Name, dataplaneID, 1),
 		}
 	}
 

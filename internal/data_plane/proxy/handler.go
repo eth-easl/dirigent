@@ -158,10 +158,11 @@ func scheduleWorkflowFunction(httpClient *http.Client, proxyCtx *proxyContext) s
 		startTime := time.Now()
 		task := schedulerTask.GetTask()
 		var serviceName string
-		if len(task.Functions) > 1 {
-			serviceName = task.Name
-		} else {
+		// no need to register separate task for single function without parallelism
+		if len(task.Functions) == 1 && !task.IsParallel() {
 			serviceName = task.Functions[0]
+		} else {
+			serviceName = task.Name
 		}
 
 		// metadata fetching

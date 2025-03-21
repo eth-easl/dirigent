@@ -21,7 +21,10 @@ import (
 	"slices"
 )
 
-var dandelionOperators = []string{"aggregate", "csv_reader", "csv_writer", "fetch", "filter", "hash_join", "project", "order", "splitter"}
+var dandelionOperators = []string{
+	"aggregate", "csv_reader", "csv_writer", "fetch", "filter", "hash_join", "project", "order", "splitter",
+	"fused_csv_reader", "fused_csv_writer",
+}
 
 type registeredServices struct {
 	data map[string]bool
@@ -149,7 +152,7 @@ func (dr *Runtime) exportFunctionComposition(task *proto.WorkflowTaskInfo) strin
 			if fIdx == 0 {
 				funDecls += "function fetch_requests(url) => (getRequest);"
 				funDecls += "function HTTP(request) => (response);"
-				if f == "csv_reader_op" { // -> reader: 2nd input -> data
+				if f == "csv_reader_op" || f == "fused_csv_reader_op" { // -> reader: 2nd input -> data
 					srcDataIdx := task.FunctionDataFlow[3]
 					task.FunctionDataFlow[2] = -2
 					funAppls += fmt.Sprintf("fetch_requests(url = each cIn%d) => (inDataReq = getRequest); ", srcDataIdx)
@@ -224,20 +227,18 @@ func (dr *Runtime) exportFunctionComposition(task *proto.WorkflowTaskInfo) strin
 		// operator store
 		if addLoadAndStore && fIdx == len(task.Functions)-1 {
 			inUrlSet := fmt.Sprintf("cIn%d", task.FunctionDataFlow[5])
-			if task.Functions[0] == "csv_reader" {
+			if task.Functions[0] == "csv_reader" || task.Functions[0] == "fused_csv_reader" {
 				inUrlSet = fmt.Sprintf("cIn%d", task.FunctionDataFlow[3])
 			}
 
-			if f == "csv_writer_op" {
-				funDecls += "function store_requests_data(inUrl, data) => (putRequest, outUrl);"
-				funAppls += fmt.Sprintf(" store_requests_data(inUrl = all %s, data = each f%dd0) => (outDataReq = putRequest, outDataUrl = outUrl); ", inUrlSet, fIdx)
+			funDecls += "function store_requests(inUrl, data) => (putRequest, outUrl);"
+			if f == "csv_writer_op" || f == "fused_csv_writer_op" {
+				funAppls += fmt.Sprintf(" store_requests(inUrl = all %s, data = each f%dd0) => (outDataReq = putRequest, outDataUrl = outUrl); ", inUrlSet, fIdx)
 				funAppls += "HTTP(request = each outDataReq) => (_0 = response);"
 			} else {
-				funDecls += "function store_requests_schema(inUrl, data) => (putRequest, outUrl);"
-				funDecls += "function store_requests_batches(inUrl, data) => (putRequest, outUrl);"
-				funAppls += fmt.Sprintf(" store_requests_schema(inUrl = all %s, data = each f%dd0) => (outSchemaReq = putRequest, outSchemaUrl = outUrl); ", inUrlSet, fIdx)
+				funAppls += fmt.Sprintf(" store_requests(inUrl = all %s, data = each f%dd0) => (outSchemaReq = putRequest, outSchemaUrl = outUrl); ", inUrlSet, fIdx)
 				funAppls += "HTTP(request = each outSchemaReq) => (_0 = response); "
-				funAppls += fmt.Sprintf("store_requests_batches(inUrl = all %s, data = each f%dd1) => (outBatchesReq = putRequest, outBatchesUrl = outUrl); ", inUrlSet, fIdx)
+				funAppls += fmt.Sprintf("store_requests(inUrl = all %s, data = each f%dd1) => (outBatchesReq = putRequest, outBatchesUrl = outUrl); ", inUrlSet, fIdx)
 				funAppls += "HTTP(request = each outBatchesReq) => (_1 = response);"
 			}
 		}
@@ -255,7 +256,7 @@ func (dr *Runtime) exportFunctionComposition(task *proto.WorkflowTaskInfo) strin
 	// composition output
 	compOut := ""
 	if addLoadAndStore {
-		if task.Functions[len(task.Functions)-1] == "csv_writer" {
+		if task.Functions[len(task.Functions)-1] == "csv_writer" || task.Functions[len(task.Functions)-1] == "fused_csv_writer" {
 			compOut = "outDataUrl"
 		} else {
 			compOut = "outSchemaUrl, outBatchesUrl"
@@ -287,54 +288,52 @@ func addOperatorReadStore(operator string, withStdio bool) (string, string) {
 
 	var outComposition string
 	switch operator {
-	case "csv_reader":
+	case "csv_reader", "fused_csv_reader":
 		outComposition = fmt.Sprintf(
-			`function csv_reader_op(options, inData) => (outSchema, outBatches%s);
+			`function %s_op(options, inData) => (outSchema, outBatches%s);
 			 function fetch_requests(url) => (getRequest);
-			 function store_requests_schema(inUrl, data) => (putRequest, outUrl);
-			 function store_requests_batches(inUrl, data) => (putRequest, outUrl);
+			 function store_requests(inUrl, data) => (putRequest, outUrl);
 			 function HTTP(request) => (response);
 
-			 composition csv_reader (opOptions, inDataUrl) => (outSchemaUrl, outBatchesUrl%s) {
+			 composition %s (opOptions, inDataUrl) => (outSchemaUrl, outBatchesUrl%s) {
 				 fetch_requests(url = all inDataUrl) => (inDataReq = getRequest);
 				 HTTP(request = all inDataReq) => (fetchedData = response);
 				 
-				 csv_reader_op (options = all opOptions, inData = all fetchedData)
+				 %s_op (options = all opOptions, inData = all fetchedData)
 				   => (outSchema = outSchema, outBatches = outBatches%s);
 	
-				 store_requests_schema(inUrl = all inDataUrl, data = all outSchema) 
+				 store_requests(inUrl = all inDataUrl, data = all outSchema) 
 				   => (outSchemaReq = putRequest, outSchemaUrl = outUrl);
 				 HTTP(request = all outSchemaReq) => (_0 = response);
-				 store_requests_batches(inUrl = all inDataUrl, data = all outBatches) 
+				 store_requests(inUrl = all inDataUrl, data = all outBatches) 
 				   => (outBatchesReq = putRequest, outBatchesUrl = outUrl);
 				 HTTP(request = all outBatchesReq) => (_1 = response);
-			 }`, stdioOpDecl, stdioCompDef, stdioOpCall)
-	case "csv_writer":
+			 }`, operator, stdioOpDecl, operator, stdioCompDef, operator, stdioOpCall)
+	case "csv_writer", "fused_csv_writer":
 		outComposition = fmt.Sprintf(
-			`function csv_writer_op(options, inSchema, inBatches) => (outData%s);
+			`function %s_op(options, inSchema, inBatches) => (outData%s);
 			 function fetch_requests(url) => (getRequest);
-			 function store_requests_data(inUrl, data) => (putRequest, outUrl);
+			 function store_requests(inUrl, data) => (putRequest, outUrl);
 			 function HTTP(request) => (response);
 
-			 composition csv_writer (opOptions, inSchemaUrl, inBatchesUrl) => (outDataUrl%s) {
+			 composition %s (opOptions, inSchemaUrl, inBatchesUrl) => (outDataUrl%s) {
 				 fetch_requests(url = all inSchemaUrl) => (inSchemaReq = getRequest);
 				 HTTP(request = all inSchemaReq) => (fetchedSchema = response);
 				 fetch_requests(url = all inBatchesUrl) => (inBatchesReq = getRequest);
 				 HTTP(request = all inBatchesReq) => (fetchedBatches = response);
 
-				 csv_writer_op(options = all opOptions, inSchema = all fetchedSchema, inBatches = all fetchedBatches) 
+				 %s_op(options = all opOptions, inSchema = all fetchedSchema, inBatches = all fetchedBatches) 
 				   => (outData = outData%s);
 
-				 store_requests_data(inUrl = all inBatchesUrl, data = all outData) 
+				 store_requests(inUrl = all inBatchesUrl, data = all outData) 
 				   => (outDataReq = putRequest, outDataUrl = outUrl);
 				 HTTP(request = all outDataReq) => (_0 = response);
-			 }`, stdioOpDecl, stdioCompDef, stdioOpCall)
+			 }`, operator, stdioOpDecl, operator, stdioCompDef, operator, stdioOpCall)
 	case "hash_join":
 		outComposition = fmt.Sprintf(
 			`function hash_join_op(options, inSchema, inBatches, inSchema2, inBatches2) => (outSchema, outBatches%s);
 			 function fetch_requests(url) => (getRequest);
-			 function store_requests_schema(inUrl, data) => (putRequest, outUrl);
-			 function store_requests_batches(inUrl, data) => (putRequest, outUrl);
+			 function store_requests(inUrl, data) => (putRequest, outUrl);
 			 function HTTP(request) => (response);
 
 			 composition hash_join (opOptions, inSchemaUrl, inBatchesUrl, inSchemaUrl2, inBatchesUrl2) => (outSchemaUrl, outBatchesUrl%s) {
@@ -350,10 +349,10 @@ func addOperatorReadStore(operator string, withStdio bool) (string, string) {
 				 hash_join_op(options = all opOptions, inSchema = all fetchedSchema, inBatches = all fetchedBatches, inSchema2 = all fetchedSchema2, inBatches2 = all fetchedBatches2) 
 				   => (outSchema = outSchema, outBatches = outBatches%s);
 
-				 store_requests_schema(inUrl = all inBatchesUrl, data = all outSchema) 
+				 store_requests(inUrl = all inBatchesUrl, data = all outSchema) 
 				   => (outSchemaReq = putRequest, outSchemaUrl = outUrl);
 				 HTTP(request = all outSchemaReq) => (_0 = response);
-				 store_requests_batches(inUrl = all inBatchesUrl, data = all outBatches) 
+				 store_requests(inUrl = all inBatchesUrl, data = all outBatches) 
 				   => (outBatchesReq = putRequest, outBatchesUrl = outUrl);
 				 HTTP(request = all outBatchesReq) => (_1 = response);
 			 }`, stdioOpDecl, stdioCompDef, stdioOpCall)
@@ -361,8 +360,7 @@ func addOperatorReadStore(operator string, withStdio bool) (string, string) {
 		outComposition = fmt.Sprintf(
 			`function %s_op(options, inSchema, inBatches) => (outSchema, outBatches%s);
 			 function fetch_requests(url) => (getRequest);
-			 function store_requests_schema(inUrl, data) => (putRequest, outUrl);
-			 function store_requests_batches(inUrl, data) => (putRequest, outUrl);
+			 function store_requests(inUrl, data) => (putRequest, outUrl);
 			 function HTTP(request) => (response);
 
 			 composition %s (opOptions, inSchemaUrl, inBatchesUrl) => (outSchemaUrl, outBatchesUrl%s) {
@@ -374,10 +372,10 @@ func addOperatorReadStore(operator string, withStdio bool) (string, string) {
 				 %s_op(options = all opOptions, inSchema = all fetchedSchema, inBatches = all fetchedBatches) 
 				   => (outSchema = outSchema, outBatches = outBatches%s);
 
-				 store_requests_schema(inUrl = all inBatchesUrl, data = all outSchema) 
+				 store_requests(inUrl = all inBatchesUrl, data = all outSchema) 
 				   => (outSchemaReq = putRequest, outSchemaUrl = outUrl);
 				 HTTP(request = all outSchemaReq) => (_0 = response);
-				 store_requests_batches(inUrl = all inBatchesUrl, data = all outBatches) 
+				 store_requests(inUrl = all inBatchesUrl, data = all outBatches) 
 				   => (outBatchesReq = putRequest, outBatchesUrl = outUrl);
 				 HTTP(request = all outBatchesReq) => (_1 = response);
 			 }`, operator, stdioOpDecl, operator, stdioCompDef, operator, stdioOpCall)
@@ -387,7 +385,7 @@ func addOperatorReadStore(operator string, withStdio bool) (string, string) {
 	return fmt.Sprintf("%s_op", operator), outComposition
 }
 
-func (dr *Runtime) registerHelpers(ctx context.Context) (*proto.SandboxCreationStatus, error) {
+func (dr *Runtime) registerRequestBuilders(ctx context.Context) (*proto.SandboxCreationStatus, error) {
 	dr.registeredFunctions.RLock()
 	_, ok := dr.registeredFunctions.data["fetch_requests"]
 	dr.registeredFunctions.RUnlock()
@@ -406,28 +404,8 @@ func (dr *Runtime) registerHelpers(ctx context.Context) (*proto.SandboxCreationS
 	}
 
 	status, err = dr.CreateSandbox(ctx, &proto.ServiceInfo{
-		Name:    "store_requests_schema",
-		Image:   "/users/tstocker/operators/ops_export/store_requests_schema",
-		NumArgs: 2,
-		NumRets: 2,
-	})
-	if err != nil {
-		return status, err
-	}
-
-	status, err = dr.CreateSandbox(ctx, &proto.ServiceInfo{
-		Name:    "store_requests_batches",
-		Image:   "/users/tstocker/operators/ops_export/store_requests_batches",
-		NumArgs: 2,
-		NumRets: 2,
-	})
-	if err != nil {
-		return status, err
-	}
-
-	status, err = dr.CreateSandbox(ctx, &proto.ServiceInfo{
-		Name:    "store_requests_data",
-		Image:   "/users/tstocker/operators/ops_export/store_requests_data",
+		Name:    "store_requests",
+		Image:   "/users/tstocker/operators/ops_export/store_requests",
 		NumArgs: 2,
 		NumRets: 2,
 	})
@@ -463,7 +441,7 @@ func (dr *Runtime) CreateSandbox(ctx context.Context, in *proto.ServiceInfo) (*p
 		fName := in.Name
 		var opComposition string
 		if dr.dandelionConfig.AddOperatorLoadAndStore && slices.Contains(dandelionOperators, fName) {
-			s, e := dr.registerHelpers(ctx)
+			s, e := dr.registerRequestBuilders(ctx)
 			if e != nil {
 				return s, e
 			}
@@ -564,7 +542,7 @@ func (dr *Runtime) CreateTaskSandbox(ctx context.Context, task *proto.WorkflowTa
 			firstIsOperator := slices.Contains(dandelionOperators, task.Functions[0])
 			lastIsOperator := slices.Contains(dandelionOperators, task.Functions[len(task.Functions)-1])
 			if firstIsOperator && lastIsOperator {
-				s, e := dr.registerHelpers(ctx)
+				s, e := dr.registerRequestBuilders(ctx)
 				if e != nil {
 					return s, e
 				}

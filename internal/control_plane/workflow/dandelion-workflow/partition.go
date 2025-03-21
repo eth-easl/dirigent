@@ -216,11 +216,23 @@ func fullPartition(c *Composition, wf *workflow.Workflow) []*workflow.Task {
 	stmtToTask := make(map[*Statement]*workflow.Task)
 	for stmtIdx, stmt := range c.Statements {
 		task := &workflow.Task{
-			Name:          fmt.Sprintf("%s_%s%d", wf.Name, stmt.Name, stmtIdx),
-			Functions:     []string{stmt.Name},
-			NumIn:         uint32(len(stmt.Args)),
-			NumOut:        uint32(len(stmt.Rets)),
-			InputSharding: shardingFromInDescList(stmt.Args),
+			Name:               fmt.Sprintf("%s_%s%d", wf.Name, stmt.Name, stmtIdx),
+			Functions:          []string{stmt.Name},
+			NumIn:              uint32(len(stmt.Args)),
+			NumOut:             uint32(len(stmt.Rets)),
+			InputSharding:      shardingFromInDescList(stmt.Args),
+			FunctionInNum:      []int32{int32(len(stmt.Args))},
+			FunctionOutNum:     []int32{int32(len(stmt.Rets))},
+			FunctionInSharding: shardingFromInDescList(stmt.Args),
+			FunctionDataFlow:   make([]int32, 2*(len(stmt.Args)+len(stmt.Rets))),
+		}
+		for i := 0; i < len(stmt.Args); i++ {
+			task.FunctionDataFlow[i*2] = -1
+			task.FunctionDataFlow[i*2+1] = int32(i)
+		}
+		for i := 0; i < len(stmt.Rets); i++ {
+			task.FunctionDataFlow[(i+len(stmt.Args))*2] = 0
+			task.FunctionDataFlow[(i+len(stmt.Args))*2+1] = int32(i)
 		}
 		stmtToTask[stmt] = task
 		tasks = append(tasks, task)

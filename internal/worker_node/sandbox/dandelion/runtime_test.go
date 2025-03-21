@@ -164,16 +164,15 @@ func TestExportFunctionCompositionLoadStore1(t *testing.T) {
 		"function HTTP(request) => (response);" +
 		"function csv_reader_op (in0, in1) => (out0, out1);" +
 		"function filter_op (in0, in1, in2) => (out0, out1);" +
-		"function store_requests_schema(inUrl, data) => (putRequest, outUrl);" +
-		"function store_requests_batches(inUrl, data) => (putRequest, outUrl); " +
+		"function store_requests(inUrl, data) => (putRequest, outUrl); " +
 		"composition Test (cIn0, cIn1, cIn2) => (outSchemaUrl, outBatchesUrl) {" +
 		"fetch_requests(url = each cIn2) => (inDataReq = getRequest); " +
 		"HTTP(request = each inDataReq) => (fetched2 = response); " +
 		"csv_reader_op (in0 = all cIn0, in1 = each fetched2) => (f0d0 = out0, f0d1 = out1); " +
 		"filter_op (in0 = all cIn1, in1 = all f0d0, in2 = each f0d1) => (f1d0 = out0, f1d1 = out1); " +
-		"store_requests_schema(inUrl = all cIn2, data = each f1d0) => (outSchemaReq = putRequest, outSchemaUrl = outUrl); " +
+		"store_requests(inUrl = all cIn2, data = each f1d0) => (outSchemaReq = putRequest, outSchemaUrl = outUrl); " +
 		"HTTP(request = each outSchemaReq) => (_0 = response); " +
-		"store_requests_batches(inUrl = all cIn2, data = each f1d1) => (outBatchesReq = putRequest, outBatchesUrl = outUrl); " +
+		"store_requests(inUrl = all cIn2, data = each f1d1) => (outBatchesReq = putRequest, outBatchesUrl = outUrl); " +
 		"HTTP(request = each outBatchesReq) => (_1 = response);" +
 		"}"
 	if exportWithLoadAndStore != expectedWithLoadAndStore {
@@ -224,7 +223,7 @@ func TestExportFunctionCompositionLoadStore2(t *testing.T) {
 		"function hash_join_op (in0, in1, in2, in3, in4) => (out0, out1);" +
 		"function project_op (in0, in1, in2) => (out0, out1);" +
 		"function csv_writer_op (in0, in1, in2) => (out0);" +
-		"function store_requests_data(inUrl, data) => (putRequest, outUrl); " +
+		"function store_requests(inUrl, data) => (putRequest, outUrl); " +
 		"composition Test (cIn0, cIn1, cIn2, cIn3, cIn4, cIn5, cIn6) => (outDataUrl) {" +
 		"fetch_requests(url = each cIn3) => (inReq3 = getRequest); " +
 		"HTTP(request = each inReq3) => (fetched3 = response); " +
@@ -237,7 +236,7 @@ func TestExportFunctionCompositionLoadStore2(t *testing.T) {
 		"hash_join_op (in0 = all cIn0, in1 = all fetched3, in2 = all fetched4, in3 = all fetched5, in4 = all fetched6) => (f0d0 = out0, f0d1 = out1); " +
 		"project_op (in0 = all cIn1, in1 = all f0d0, in2 = each f0d1) => (f1d0 = out0, f1d1 = out1); " +
 		"csv_writer_op (in0 = all cIn2, in1 = all f1d0, in2 = each f1d1) => (f2d0 = out0); " +
-		"store_requests_data(inUrl = all cIn4, data = each f2d0) => (outDataReq = putRequest, outDataUrl = outUrl); " +
+		"store_requests(inUrl = all cIn4, data = each f2d0) => (outDataReq = putRequest, outDataUrl = outUrl); " +
 		"HTTP(request = each outDataReq) => (_0 = response);" +
 		"}"
 	if exportWithLoadAndStore != expectedWithLoadAndStore {

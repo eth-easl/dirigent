@@ -18,9 +18,9 @@ type Task struct {
 	InputSharding []Sharding
 
 	Functions          []string   // functions belonging to this task
-	FunctionInNum      []int32    // # args per function (if > 1 function)
-	FunctionOutNum     []int32    // # returns per function (if > 1 function)
-	FunctionDataFlow   []int32    // (src func idx, arg idx) for each function input + task outputs describing internal dataflow (if > 1 function)
+	FunctionInNum      []int32    // # args per function
+	FunctionOutNum     []int32    // # returns per function
+	FunctionDataFlow   []int32    // (src func idx, arg idx) for each function input + task outputs describing internal dataflow
 	FunctionInSharding []Sharding // sharding for each function input
 
 	ConsumerTasks      []*Task // tasks consuming output of this task
