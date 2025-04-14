@@ -67,11 +67,11 @@ func StartFirecrackerVM(networkManager *NetworkPoolManager, vmcs *VMControlStruc
 
 	makeFirecrackerConfig(vmcs, vmDebugMode)
 	newMachineOpts := []firecracker.Opt{firecracker.WithProcessRunner(getVMCommandBuild(vmcs))}
-	if vmDebugMode {
-		logger := logrus.New()
-		logger.SetLevel(logrus.GetLevel())
-		newMachineOpts = append(newMachineOpts, firecracker.WithLogger(logrus.NewEntry(logger)))
-	}
+
+	logger := logrus.New()
+	logger.SetLevel(logrus.GetLevel())
+	logger.SetFormatter(&logrus.TextFormatter{TimestampFormat: time.StampMilli, FullTimestamp: true})
+	newMachineOpts = append(newMachineOpts, firecracker.WithLogger(logrus.NewEntry(logger)))
 
 	// TODO: pass environment variables (sandbox configuration) to Firecracker VM somehow
 

@@ -48,10 +48,13 @@ func NewNetworkPoolManager(internalPrefix, externalPrefix string, networkPoolSiz
 	internalIPManager := managers.NewIPManager(internalPrefix)
 	externalIPManager := managers.NewIPManager(externalPrefix)
 
-	// NetworkPoolSize should be divisible by 16
-	networkPoolSize -= networkPoolSize % 16
-	if networkPoolSize < 16 {
-		networkPoolSize = 16
+	// if 0 then pooling is disabled
+	if networkPoolSize > 0 {
+		// NetworkPoolSize should be divisible by 16
+		networkPoolSize -= networkPoolSize % 16
+		if networkPoolSize < 16 {
+			networkPoolSize = 16
+		}
 	}
 
 	pool := &NetworkPoolManager{

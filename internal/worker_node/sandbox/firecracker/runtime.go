@@ -99,6 +99,7 @@ func createMetadata(in *proto.ServiceInfo, vmcs *VMControlStructure) *managers.M
 }
 
 func (fcr *Runtime) CreateSandbox(ctx context.Context, in *proto.ServiceInfo) (*proto.SandboxCreationStatus, error) {
+	logrus.Infof("Create Firecracker VM for %s received", in.Name)
 	start := time.Now()
 
 	vmcs := fcr.createVMCS()
@@ -262,7 +263,7 @@ func (fcr *Runtime) ListEndpoints(_ context.Context, _ *emptypb.Empty) (*proto.E
 	return fcr.SandboxManager.ListEndpoints()
 }
 
-func (fcr *Runtime) PrepullImage(grpcCtx context.Context, imageInfo *proto.ImageInfo) (*proto.ActionStatus, error) {
+func (fcr *Runtime) PrepullImage(_ context.Context, _ *proto.ImageInfo) (*proto.ActionStatus, error) {
 	// TODO: Implement Firecracker image fetching.
 	return &proto.ActionStatus{
 		Success: false,
@@ -270,7 +271,7 @@ func (fcr *Runtime) PrepullImage(grpcCtx context.Context, imageInfo *proto.Image
 	}, nil
 }
 
-func (fcr *Runtime) GetImages(grpcCtx context.Context) ([]*proto.ImageInfo, error) {
+func (fcr *Runtime) GetImages(_ context.Context) ([]*proto.ImageInfo, error) {
 	// TODO: Implement Firecracker image fetching.
 	return []*proto.ImageInfo{}, errors.New("image pulling in Firecracker not implemented yet")
 }

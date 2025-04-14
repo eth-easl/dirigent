@@ -60,7 +60,7 @@ func makeFirecrackerConfig(vmcs *VMControlStructure, vmDebugMode bool) {
 		KernelImagePath: vmcs.KernelPath,
 		KernelArgs:      kernelArgs,
 		LogPath:         fmt.Sprintf(pathToLog, vmcs.SandboxID),
-		LogLevel:        "Info",
+		LogLevel:        "Debug",
 		Drives: []models.Drive{{
 			DriveID:      firecracker.String("1"),
 			PathOnHost:   firecracker.String(vmcs.FileSystemPath),

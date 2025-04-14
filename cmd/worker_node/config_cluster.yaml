@@ -15,8 +15,8 @@ firecracker:
   FileSystem: "/cluster_manager/configs/firecracker/rootfs.ext4"
   InternalIPPrefix: "100"
   VMDebugMode: false
-  UseSnapshots: true
-  NetworkPoolSize: 128
+  UseSnapshots: false
+  NetworkPoolSize: 0
 
 dandelion:
   daemonPort: 8080
