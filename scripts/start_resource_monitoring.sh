@@ -4,7 +4,8 @@ function startMonitoring() {
     ssh $1 "tmux kill-session -t resource_monitoring"
     ssh $1 "tmux new-session -d -s resource_monitoring"
     ssh $1 "sudo apt-get install -y python3-pip && pip3 install psutil"
-    ssh $1 "tmux send-keys -t resource_monitoring 'python3 ~/cluster_manager/cmd/monitoring/monitoring.py' ENTER"
+    scp /home/lcvetkovic/projects/cluster_manager/cmd/monitoring/monitoring.py $1:~/monitoring_total.py
+    ssh $1 "tmux send-keys -t resource_monitoring 'python3 ~/monitoring_total.py' ENTER"
 }
 
 for ip in "$@"

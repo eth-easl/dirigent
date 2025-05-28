@@ -14,6 +14,7 @@ const (
 	debugKernelArgs   = "panic=1 pci=off nomodule reboot=k tsc=reliable quiet i8042.noaux ipv6.disable=1 console=ttyS0 random.trust_cpu=on"
 	ipKernelArg       = " ip=%s::%s:255.255.255.252::eth0:off"
 	pathToLog         = "/tmp/%s.log"
+	pathToMetrics     = "/tmp/%s.metrics"
 
 	tenKilobytes = 10 * 1_1024
 )
@@ -73,6 +74,7 @@ func makeFirecrackerConfig(vmcs *VMControlStructure, vmDebugMode bool) {
 			VcpuCount:  firecracker.Int64(2),
 			Smt:        firecracker.Bool(false),
 		},
+		//MetricsPath: fmt.Sprintf(pathToMetrics, vmcs.SandboxID),
 		NetworkInterfaces: []firecracker.NetworkInterface{{
 			StaticConfiguration: &firecracker.StaticNetworkConfiguration{
 				HostDevName: vmcs.NetworkConfiguration.TapDeviceName,
