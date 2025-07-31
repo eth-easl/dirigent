@@ -2,7 +2,7 @@ workerNodeIp: "127.0.0.1"
 controlPlaneAddress: "127.0.0.1:9090"
 port: "10010"
 verbosity: "trace"
-criType: "containerd"
+criType: "dandelion"
 cpuConstaint: false
 
 containerd:
@@ -20,7 +20,7 @@ firecracker:
   NetworkPoolSize: 4
 
 dandelion:
-  daemonPort: 8082
+  daemonPort: 8083
   binaryPath: "configs/dandelion/sysld_wasm_x86_64_busy_loop"
   engineType: "Process"
   #binaryPath: "configs/dandelion/sysld_wasm_x86_64_matmul"
