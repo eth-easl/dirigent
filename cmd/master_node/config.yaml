@@ -11,7 +11,7 @@ autoscaler: "default"
 autoscalingPeriod: "2s"
 defaultWFPartitionMethod: "fullPartition"
 imageStorage: "default"
-cidr: "100.22.0.0/16"
+cidr: "101.22.0.0/16"
 
 # to use HAProxy load balancer put 127.0.0.1:8079, otherwise leave blank
 loadBalancerAddress: "127.0.0.1:8079"

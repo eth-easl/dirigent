@@ -2,7 +2,7 @@ workerNodeIp: "dynamic"
 controlPlaneAddress: "10.0.1.2:9090"
 port: "10010"
 verbosity: "trace"
-criType: "containerd"
+criType: "firecracker"
 cpuConstraints: false
 
 containerd:
@@ -12,7 +12,7 @@ containerd:
 
 firecracker:
   Kernel: "/cluster_manager/configs/firecracker/vmlinux-4.14.bin"
-  FileSystem: "/cluster_manager/configs/firecracker/rootfs.ext4"
+  FileSystem: "/cluster_manager/configs/firecracker/rootfs_cpp.ext4"
   InternalIPPrefix: "100"
   VMDebugMode: false
   UseSnapshots: true
