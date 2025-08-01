@@ -32,10 +32,10 @@ function CloneDirigent() {
 
         # Clone the current remote tracking branch of Dirigent if there is one,
         # or default branch if there is not.
-        current_branch=$(git rev-parse --abbrev-ref HEAD)
-        default_branch=$(git symbolic-ref refs/remotes/origin/HEAD | sed 's@^refs/remotes/origin/@@')
-        remote_branch=$(git rev-parse --abbrev-ref --symbolic-full-name @{u} >/dev/null 2>&1 && echo "$current_branch" || echo "$default_branch")
-        RemoteExec $1 "git clone --branch=$remote_branch git@github.com:eth-easl/dirigent.git ~/cluster_manager"
+        #current_branch=$(git rev-parse --abbrev-ref HEAD)
+        #default_branch=$(git symbolic-ref refs/remotes/origin/HEAD | sed 's@^refs/remotes/origin/@@')
+        #remote_branch=$(git rev-parse --abbrev-ref --symbolic-full-name @{u} >/dev/null 2>&1 && echo "$current_branch" || echo "$default_branch")
+        RemoteExec $1 "git clone --branch=dandelion_sosp25_dandelion git@github.com:eth-easl/dirigent.git ~/cluster_manager"
     fi
 }
 
@@ -45,10 +45,10 @@ function CloneDandelion() {
         # Clone the current remote tracking branch of Dandelion if there is one,
         # or default branch if there is not.
         pushd ~/projects/dandelion
-        current_branch=$(git rev-parse --abbrev-ref HEAD)
-        default_branch=$(git symbolic-ref refs/remotes/origin/HEAD | sed 's@^refs/remotes/origin/@@')
-        remote_branch=$(git rev-parse --abbrev-ref --symbolic-full-name @{u} >/dev/null 2>&1 && echo "$current_branch" || echo "$default_branch")
-        RemoteExec $1 "git clone --branch=$remote_branch git@github.com:eth-easl/dandelion.git ~/dandelion"
+        #current_branch=$(git rev-parse --abbrev-ref HEAD)
+        #default_branch=$(git symbolic-ref refs/remotes/origin/HEAD | sed 's@^refs/remotes/origin/@@')
+        #remote_branch=$(git rev-parse --abbrev-ref --symbolic-full-name @{u} >/dev/null 2>&1 && echo "$current_branch" || echo "$default_branch")
+        RemoteExec $1 "git clone --branch=debug/hybrid_connection_upgrade_absolute git@github.com:eth-easl/dandelion.git ~/dandelion"
         popd
     fi
 }
