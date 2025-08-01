@@ -58,8 +58,13 @@ sudo mv release-${latest}-$(uname -m) /usr/local/bin/firecracker
 sudo mv /usr/local/bin/firecracker/firecracker-${latest}-${ARCH} /usr/local/bin/firecracker/firecracker
 echo "export PATH=$PATH:/usr/local/bin/firecracker" | sudo tee -a /etc/profile
 
-sudo apt install cargo snapd -y
-sudo snap install yq
+# Install Rust
+wget https://static.rust-lang.org/rustup.sh
+chmod +x rustup.sh
+./rustup.sh -y
+
+#sudo apt install snapd -y
+#sudo snap install yq
 
 # Copy systemd services
 sudo cp -a ~/cluster_manager/scripts/systemd/* /etc/systemd/system/
@@ -74,7 +79,5 @@ if [ "$NODE_PURPOSE" = "CONTROL_PLANE" ]; then
     SetupLoadBalancer
 fi
 
-if [ "$NODE_PURPOSE" = "INVITRO"]; then
-    RemoteExec $1 '[ ! -d ~/invitro ] && git clone https://github.com/vhive-serverless/invitro.git'
-    rsync -av invitro_traces/* $INVITRO:invitro/invitro_traces
-fi
+RemoteExec $1 '[ ! -d ~/invitro ] && git clone https://github.com/vhive-serverless/invitro.git'
+#rsync -av invitro_traces/* $INVITRO:invitro/invitro_traces
