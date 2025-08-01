@@ -95,6 +95,8 @@ then
     ~/vHive/scripts/setup_firecracker_containerd.sh
 elif [ "$RUNTIME" = "dandelion" ]
 then
+    sudo apt update && sudo apt install -y libssl-dev pkg-config libudev-dev
+
     # Install Cargo for Dandelion setup
     wget https://static.rust-lang.org/rustup.sh
     chmod +x rustup.sh
