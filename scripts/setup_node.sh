@@ -29,8 +29,8 @@ sudo apt-get install -y python3-pip && pip3 install psutil
 if [ -x "$(command -v go)" ]; then
     echo "Go has already been installed"
 else
-    wget --continue --quiet https://go.dev/dl/go1.23.4.linux-amd64.tar.gz
-    sudo tar -C /usr/local -xzf go1.23.4.linux-amd64.tar.gz
+    wget --continue --quiet https://go.dev/dl/go1.24.5.linux-amd64.tar.gz
+    sudo tar -C /usr/local -xzf go1.24.5.linux-amd64.tar.gz
     export PATH=$PATH:/usr/local/go/bin
     sudo sh -c  "echo 'export PATH=\$PATH:/usr/local/go/bin' >> /etc/profile"
 fi
@@ -129,6 +129,4 @@ if [ "$NODE_PURPOSE" = "CONTROL_PLANE" ]; then
     SetupLoadBalancer
 fi
 
-if [ "$NODE_PURPOSE" = "INVITRO" ]; then
-    [ ! -d ~/invitro ] && git clone https://github.com/vhive-serverless/invitro.git ~/invitro
-fi
+git clone --branch dandelion_sosp25_firecracker https://github.com/vhive-serverless/invitro.git
