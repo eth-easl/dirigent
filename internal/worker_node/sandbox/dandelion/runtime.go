@@ -426,7 +426,7 @@ func (dr *Runtime) CreateSandbox(ctx context.Context, in *proto.ServiceInfo) (*p
 
 	if !ok {
 		// check if binary exists
-		binaryInfo, err := os.Stat(in.Image)
+		/*binaryInfo, err := os.Stat(in.Image)
 		if err != nil {
 			logrus.Errorf("Error validating binary file - %v", err)
 			return getFailureStatus(), nil
@@ -435,7 +435,7 @@ func (dr *Runtime) CreateSandbox(ctx context.Context, in *proto.ServiceInfo) (*p
 			logrus.Errorf("Error validating binary file - file is a directory")
 			return getFailureStatus(), nil
 		}
-		logrus.Infof("Registering binary file %s (size=%d)", in.Image, binaryInfo.Size())
+		logrus.Infof("Registering binary file %s (size=%d)", in.Image, binaryInfo.Size())*/
 
 		// operator load/store
 		fName := in.Name
@@ -460,14 +460,21 @@ func (dr *Runtime) CreateSandbox(ctx context.Context, in *proto.ServiceInfo) (*p
 		if dr.dandelionConfig.LogFunctionStdioOutset { // add "stdio" to get the stdio output from dandelion
 			outputSets = append(outputSets, "stdio")
 		}
+
+		binaryData, err := os.ReadFile(dr.dandelionConfig.BinaryPath)
+		if err != nil {
+			logrus.Errorf("Error reading binary file - %v", err)
+			return getFailureStatus(), nil
+		}
+
 		registerRequest := bson.D{
 			{Key: "name", Value: fName},
 			{Key: "context_size", Value: 0x8020000},
 			{Key: "engine_type", Value: dr.dandelionConfig.EngineType},
-			{Key: "local_path", Value: in.Image},
-			{Key: "binary", Value: bytesToInts([]byte{0})},
-			{Key: "input_sets", Value: inputSets},
-			{Key: "output_sets", Value: outputSets},
+			//{Key: "local_path", Value: in.Image},
+			{Key: "binary", Value: bytesToInts(binaryData)},
+			{Key: "input_sets", Value: bson.A{bson.A{"input", nil}}},
+			{Key: "output_sets", Value: []string{"output"}}, // add "stdio" for debugging purpose
 		}
 
 		// send registration request to dandelion
