@@ -3,6 +3,9 @@
 readonly DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" > /dev/null 2>&1 && pwd)"
 source "$DIR/setup.cfg"
 
+# Disable SMT
+echo off | sudo tee /sys/devices/system/cpu/smt/control
+
 function SetupLoadBalancer() {
     sudo apt-get -y install keepalived haproxy >> /dev/null
 
