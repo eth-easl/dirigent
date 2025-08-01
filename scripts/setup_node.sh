@@ -79,5 +79,5 @@ if [ "$NODE_PURPOSE" = "CONTROL_PLANE" ]; then
     SetupLoadBalancer
 fi
 
-RemoteExec $1 '[ ! -d ~/invitro ] && git clone https://github.com/vhive-serverless/invitro.git'
+git clone --branch dandelion_sosp25_firecracker https://github.com/vhive-serverless/invitro.git
 #rsync -av invitro_traces/* $INVITRO:invitro/invitro_traces
