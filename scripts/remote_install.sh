@@ -35,7 +35,7 @@ function CloneDirigent() {
         #current_branch=$(git rev-parse --abbrev-ref HEAD)
         #default_branch=$(git symbolic-ref refs/remotes/origin/HEAD | sed 's@^refs/remotes/origin/@@')
         #remote_branch=$(git rev-parse --abbrev-ref --symbolic-full-name @{u} >/dev/null 2>&1 && echo "$current_branch" || echo "$default_branch")
-        RemoteExec $1 "git clone --branch=dandelion_sosp25_dandelion git@github.com:eth-easl/dirigent.git ~/cluster_manager"
+        RemoteExec $1 "git clone --branch=dandelion_sosp25_dandelion https://github.com/eth-easl/dirigent.git ~/cluster_manager"
     fi
 }
 
@@ -48,7 +48,7 @@ function CloneDandelion() {
         #current_branch=$(git rev-parse --abbrev-ref HEAD)
         #default_branch=$(git symbolic-ref refs/remotes/origin/HEAD | sed 's@^refs/remotes/origin/@@')
         #remote_branch=$(git rev-parse --abbrev-ref --symbolic-full-name @{u} >/dev/null 2>&1 && echo "$current_branch" || echo "$default_branch")
-        RemoteExec $1 "git clone --branch=debug/hybrid_connection_upgrade_absolute git@github.com:eth-easl/dandelion.git ~/dandelion"
+        RemoteExec $1 "git clone --branch=debug/hybrid_connection_upgrade_absolute https://github.com/eth-easl/dandelion.git ~/dandelion"
         popd
     fi
 }

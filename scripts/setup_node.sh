@@ -2,6 +2,9 @@
 
 readonly DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" > /dev/null 2>&1 && pwd)"
 
+# Disable SMT
+echo off | sudo tee /sys/devices/system/cpu/smt/control
+
 function SetupLoadBalancer() {
     sudo apt-get update >> /dev/null
     sudo apt-get -y install keepalived haproxy >> /dev/null
@@ -62,6 +65,8 @@ echo "export PATH=$PATH:/usr/local/bin/firecracker" | sudo tee -a /etc/profile
 wget https://static.rust-lang.org/rustup.sh
 chmod +x rustup.sh
 ./rustup.sh -y
+
+sudo apt update && sudo apt install -y libssl-dev pkg-config libudev-dev
 
 #sudo apt install snapd -y
 #sudo snap install yq
