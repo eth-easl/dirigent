@@ -81,10 +81,10 @@ function SetupWorkerNodes() {
         RemoteExec $1 "cd ~/cluster_manager; git pull; git lfs pull"
 
         COMPILER_TAGS=""
-        if sudo lshw -C display | grep -q NVIDIA
-        then
-            COMPILER_TAGS="-tags nvidia_gpu"
-        fi
+        #if sudo lshw -C display | grep -q NVIDIA
+        #then
+        #    COMPILER_TAGS="-tags nvidia_gpu"
+        #fi
 
         # Compile worker node daemon
         RemoteExec $1 "sudo mkdir -p /cluster_manager/cmd/worker_node"

@@ -1,8 +1,6 @@
 package managers
 
 import (
-	"context"
-	"crypto/tls"
 	"fmt"
 	"io"
 	"net"
@@ -11,7 +9,6 @@ import (
 	"time"
 
 	"github.com/sirupsen/logrus"
-	"golang.org/x/net/http2"
 )
 
 const ProbeURLFormat = "localhost:%d"
@@ -28,12 +25,13 @@ func createProbingDialer(network, addr string) (net.Conn, error) {
 
 var httpProbingClient = http.Client{
 	Timeout: 25 * time.Millisecond,
-	Transport: &http2.Transport{
-		DialTLSContext: func(ctx context.Context, network, addr string, cfg *tls.Config) (net.Conn, error) {
-			return net.Dial(network, addr)
-		},
-		AllowHTTP:       true,
-		IdleConnTimeout: 1 * time.Second,
+	Transport: &http.Transport{
+		DialContext: (&net.Dialer{
+			Timeout: 5 * time.Second,
+		}).DialContext,
+		IdleConnTimeout:     5 * time.Second,
+		MaxIdleConns:        100,
+		MaxIdleConnsPerHost: 10,
 	},
 }
 

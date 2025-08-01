@@ -93,7 +93,9 @@ then
 elif [ "$RUNTIME" = "dandelion" ]
 then
     # Install Cargo for Dandelion setup
-    sudo apt install cargo -y
+    wget https://static.rust-lang.org/rustup.sh
+    chmod +x rustup.sh
+    ./rustup.sh -y
 fi
 
 # Install GPU drivers
